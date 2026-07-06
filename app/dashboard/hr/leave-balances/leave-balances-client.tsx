@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,6 +23,7 @@ import {
 import { AdjustBalanceDialog } from '@/components/hr/leave-balances/AdjustBalanceDialog';
 
 export default function LeaveBalancesClient() {
+  const t = useTranslations('hr.leaveBalances');
   const currentYear = Number(dubaiDayKey().slice(0, 4));
   const [year, setYear] = useState(currentYear);
   const { data: employees = [], isLoading } = useLeaveBalancesAdmin(year);
@@ -58,10 +60,10 @@ export default function LeaveBalancesClient() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <CalendarDays className="h-6 w-6 text-orange-500" aria-hidden />
-            أرصدة الإجازات
+            {t('title')}
           </h1>
           <p className="text-sm text-muted-foreground">
-            عرض وتعديل أرصدة إجازات الموظفين حسب السنة
+            {t('subtitle')}
           </p>
         </div>
         <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
@@ -81,15 +83,15 @@ export default function LeaveBalancesClient() {
         <Card className="overflow-hidden">
           <EmptyState
             icon={CalendarDays}
-            title="لا يوجد موظفون"
-            description="لا توجد بيانات أرصدة إجازات لهذه السنة بعد"
+            title={t('empty.title')}
+            description={t('empty.description')}
           />
         </Card>
       ) : (
         <Card className="overflow-hidden">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
-              أرصدة {year} ({employees.length} موظف)
+              {t('cardTitle', { year, count: employees.length })}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
@@ -97,7 +99,7 @@ export default function LeaveBalancesClient() {
               <thead>
                 <tr className="border-b bg-muted/30 dark:bg-muted/20">
                   <th scope="col" className="text-start p-3 font-medium">
-                    الموظف
+                    {t('columns.employee')}
                   </th>
                   {leaveTypeColumns.map((c) => (
                     <th key={c.id} scope="col" className="text-start p-3 font-medium">
@@ -105,7 +107,7 @@ export default function LeaveBalancesClient() {
                     </th>
                   ))}
                   <th scope="col" className="text-start p-3 font-medium">
-                    إجراء
+                    {t('columns.action')}
                   </th>
                 </tr>
               </thead>
@@ -126,7 +128,7 @@ export default function LeaveBalancesClient() {
                             {b.remaining} / {b.total_days + b.carried_over}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            مستخدم: {b.used_days}
+                            {t('usedLabel', { count: b.used_days })}
                           </span>
                         </div>
                       </td>
@@ -139,7 +141,7 @@ export default function LeaveBalancesClient() {
                         className="gap-1"
                       >
                         <Pencil className="h-3.5 w-3.5" />
-                        تعديل
+                        {t('editButton')}
                       </Button>
                     </td>
                   </tr>

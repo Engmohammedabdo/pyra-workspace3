@@ -161,6 +161,242 @@
           "reject": "رفض"
         }
       }
+    },
+    "leave": {
+      "list": {
+        "toasts": {
+          "submitSuccess": "تم تقديم طلب الإجازة",
+          "submitFailed": "فشل تقديم الطلب",
+          "reviewApproved": "تمت الموافقة",
+          "reviewRejected": "تم الرفض",
+          "reviewFailed": "فشل العملية",
+          "deleteSuccess": "تم إلغاء الطلب",
+          "deleteFailed": "فشل الإلغاء",
+          "cancelSuccess": "تم إلغاء الإجازة بنجاح",
+          "cancelFailed": "فشل الإلغاء"
+        },
+        "legacyBalanceLabels": {
+          "annual": "إجازة سنوية",
+          "sick": "إجازة مرضية",
+          "personal": "إجازة شخصية"
+        },
+        "legacyTypeOptions": {
+          "annual": "سنوية",
+          "sick": "مرضية",
+          "personal": "شخصية"
+        },
+        "title": "الإجازات",
+        "requestCount": "{count} طلب",
+        "requestButton": "طلب إجازة",
+        "createDialog": {
+          "title": "طلب إجازة جديد",
+          "typeLabel": "نوع الإجازة",
+          "startDateLabel": "من تاريخ",
+          "endDateLabel": "إلى تاريخ",
+          "checkingConflicts": "جاري التحقق من التعارضات...",
+          "conflictWarning": "تنبيه: أعضاء فريق في إجازة خلال نفس الفترة",
+          "reasonLabel": "السبب (اختياري)",
+          "reasonPlaceholder": "سبب الإجازة...",
+          "submitting": "جاري التقديم...",
+          "submit": "تقديم الطلب"
+        },
+        "balanceCard": {
+          "remainingOf": "{remaining} يوم متبقي من {total}",
+          "carriedOver": "+{days} مرحّل"
+        },
+        "empty": {
+          "title": "لا توجد طلبات إجازة",
+          "description": "يمكنك تقديم طلب إجازة جديد",
+          "actionLabel": "طلب إجازة"
+        },
+        "daysCount": "({count} يوم)",
+        "cancellationReason": "سبب الإلغاء: {reason}",
+        "submittedBy": "مقدم من: {username}",
+        "cancelButton": "إلغاء",
+        "approveButton": "موافقة",
+        "rejectButton": "رفض",
+        "cancelDialog": {
+          "title": "إلغاء طلب الإجازة",
+          "helperText": "يرجى كتابة سبب الإلغاء. إذا كانت الإجازة موافق عليها سيتم إرجاع الرصيد تلقائيًا.",
+          "reasonLabel": "سبب الإلغاء",
+          "reasonPlaceholder": "اكتب سبب إلغاء الإجازة...",
+          "back": "تراجع",
+          "confirming": "جاري الإلغاء...",
+          "confirm": "تأكيد الإلغاء"
+        }
+      },
+      "settings": {
+        "iconOptions": {
+          "CalendarOff": "تقويم",
+          "Sun": "شمس",
+          "Stethoscope": "طب",
+          "UserCircle": "شخصي",
+          "Baby": "أمومة",
+          "Heart": "قلب",
+          "Plane": "سفر",
+          "GraduationCap": "دراسة",
+          "Briefcase": "عمل"
+        },
+        "colorOptions": {
+          "orange": "برتقالي",
+          "blue": "أزرق",
+          "purple": "بنفسجي",
+          "green": "أخضر",
+          "red": "أحمر",
+          "yellow": "أصفر",
+          "pink": "وردي",
+          "cyan": "سماوي"
+        },
+        "toasts": {
+          "missingFields": "يرجى ملء جميع الحقول المطلوبة",
+          "updateSuccess": "تم تحديث نوع الإجازة",
+          "createSuccess": "تم إنشاء نوع الإجازة",
+          "saveFailed": "فشل الحفظ",
+          "deleteSuccess": "تم حذف نوع الإجازة",
+          "deleteFailed": "فشل الحذف",
+          "carryOverSuccess": "تم ترحيل الأرصدة: {created} جديد، {updated} محدث ({total} إجمالي)",
+          "carryOverFailed": "فشل الترحيل"
+        },
+        "title": "إعدادات الإجازات",
+        "subtitle": "إدارة أنواع الإجازات وترحيل الأرصدة",
+        "carryOverButton": "ترحيل الأرصدة",
+        "carryOverDialog": {
+          "title": "ترحيل أرصدة الإجازات",
+          "helperText": "سيتم ترحيل الأيام المتبقية من أنواع الإجازات التي تسمح بالترحيل (حسب الحد الأقصى المحدد لكل نوع).",
+          "fromYearLabel": "من سنة",
+          "toYearLabel": "إلى سنة",
+          "processing": "جاري الترحيل...",
+          "execute": "تنفيذ الترحيل",
+          "yearOrderError": "سنة الهدف يجب أن تكون بعد سنة المصدر"
+        },
+        "addTypeButton": "إضافة نوع",
+        "empty": {
+          "title": "لا توجد أنواع إجازات",
+          "description": "أضف أنواع الإجازات لبدء إدارة أرصدة الموظفين",
+          "actionLabel": "إضافة نوع إجازة"
+        },
+        "listTitle": "أنواع الإجازات ({count})",
+        "daysBadge": "{count} يوم",
+        "carryOverBadge": "ترحيل: {count} يوم",
+        "requiresAttachmentBadge": "يتطلب مرفق",
+        "paidBadge": "مدفوعة",
+        "unpaidBadge": "غير مدفوعة",
+        "typeDialog": {
+          "editTitle": "تعديل نوع الإجازة",
+          "createTitle": "إضافة نوع إجازة جديد",
+          "nameEnLabel": "الاسم (إنجليزي) *",
+          "nameEnPlaceholder": "Annual Leave",
+          "nameArLabel": "الاسم (عربي) *",
+          "nameArPlaceholder": "إجازة سنوية",
+          "iconLabel": "الأيقونة",
+          "colorLabel": "اللون",
+          "defaultDaysLabel": "الأيام الافتراضية *",
+          "maxCarryOverLabel": "حد الترحيل (أيام)",
+          "sortOrderLabel": "الترتيب",
+          "requiresAttachmentLabel": "يتطلب مرفق",
+          "isPaidLabel": "إجازة مدفوعة",
+          "saving": "جاري الحفظ...",
+          "update": "تحديث",
+          "create": "إنشاء"
+        },
+        "deleteDialog": {
+          "title": "تأكيد الحذف",
+          "confirmText": "هل أنت متأكد من حذف نوع الإجازة؟ سيتم إلغاء تفعيله ولن يظهر في النظام.",
+          "cancel": "إلغاء",
+          "delete": "حذف"
+        }
+      }
+    },
+    "leaveBalances": {
+      "pageTitle": "أرصدة الإجازات",
+      "title": "أرصدة الإجازات",
+      "subtitle": "عرض وتعديل أرصدة إجازات الموظفين حسب السنة",
+      "empty": {
+        "title": "لا يوجد موظفون",
+        "description": "لا توجد بيانات أرصدة إجازات لهذه السنة بعد"
+      },
+      "cardTitle": "أرصدة {year} ({count} موظف)",
+      "columns": {
+        "employee": "الموظف",
+        "action": "إجراء"
+      },
+      "usedLabel": "مستخدم: {count}",
+      "editButton": "تعديل",
+      "adjustDialog": {
+        "toasts": {
+          "saveSuccess": "تم تحديث أرصدة الإجازات",
+          "saveFailedPrefix": "فشل حفظ: "
+        },
+        "title": "تعديل أرصدة {name}",
+        "totalDaysLabel": "الرصيد الكلي",
+        "usedDaysLabel": "المستخدم",
+        "carriedOverLabel": "المرحّل",
+        "saving": "جاري الحفظ...",
+        "save": "حفظ"
+      }
+    },
+    "approvals": {
+      "toasts": {
+        "leaveApproved": "تمت الموافقة على الإجازة",
+        "leaveRejected": "تم رفض الإجازة",
+        "expenseApproved": "تمت الموافقة على المصروف",
+        "expenseRejected": "تم رفض المصروف",
+        "timesheetApproved": "تم اعتماد الفترة",
+        "timesheetRejected": "تم رفض الفترة",
+        "genericError": "حدث خطأ — حاول مرة أخرى"
+      },
+      "noReportsEmpty": {
+        "title": "مفيش موظفين تحت إدارتك",
+        "description": "لما يكون عندك موظفين تابعينلك، طلباتهم هتظهر هنا للموافقة"
+      },
+      "title": "الموافقات",
+      "pendingSummary": "عندك {count} طلب مستني موافقتك",
+      "noPendingNow": "مفيش طلبات مستنياك دلوقتي",
+      "allDoneEmpty": {
+        "title": "كل الطلبات اتراجعت 🎉",
+        "description": "لما حد من فريقك يبعت طلب، هيظهر هنا"
+      },
+      "tabs": {
+        "leave": "الإجازات",
+        "expense": "المصاريف",
+        "timesheet": "ساعات العمل"
+      },
+      "leave": {
+        "empty": "مفيش طلبات إجازات مستنياك",
+        "daysCount": "{count} يوم",
+        "remainingBalance": "الرصيد المتبقي: {count} يوم",
+        "dateRange": "من <s>{start}</s> إلى <e>{end}</e>",
+        "rejectLabel": "إجازة {name}",
+        "rejectButton": "رفض",
+        "approveButton": "موافقة"
+      },
+      "expense": {
+        "empty": "مفيش مصاريف مستنياك",
+        "expenseDate": "تاريخ المصروف: ",
+        "viewInvoice": "عرض الفاتورة",
+        "rejectLabel": "مصروف {amount}",
+        "rejectButton": "رفض",
+        "approveButton": "موافقة"
+      },
+      "timesheet": {
+        "empty": "مفيش جداول ساعات مستنياك",
+        "hoursCount": "{count} ساعة",
+        "periodRange": "الفترة: <s>{start}</s> → <e>{end}</e>",
+        "rejectLabel": "جدول {name}",
+        "rejectButton": "رفض",
+        "approveButton": "موافقة"
+      },
+      "rejectDialog": {
+        "title": "رفض {label}",
+        "description": "اكتب سبب الرفض عشان الموظف يفهم ليه ويصلحه",
+        "reasonPlaceholder": "السبب (اختياري)...",
+        "cancel": "إلغاء",
+        "confirm": "تأكيد الرفض"
+      },
+      "page": {
+        "metaTitle": "الموافقات | Pyra Workspace",
+        "metaDescription": "موافقات الإجازات والمصاريف وساعات العمل لفريقك"
+      }
     }
   }
 }

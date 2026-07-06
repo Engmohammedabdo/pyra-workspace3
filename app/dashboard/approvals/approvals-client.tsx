@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocale, useTranslations } from 'next-intl';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,16 +22,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { ClipboardCheck, Calendar, Receipt, Clock, Check, X, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
+import type { Locale } from '@/lib/i18n/config';
 import { cn } from '@/lib/utils/cn';
 import type { TeamApprovalsResponse } from '@/app/api/approvals/team/route';
-
-const LEAVE_TYPE_LABELS: Record<string, string> = {
-  annual: 'سنوية',
-  sick: 'مرضية',
-  personal: 'شخصية',
-  unpaid: 'بدون راتب',
-  emergency: 'طارئة',
-};
 
 interface RejectDialogState {
   open: boolean;
@@ -40,6 +34,8 @@ interface RejectDialogState {
 }
 
 export default function ApprovalsClient() {
+  const t = useTranslations('hr.approvals');
+  const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery<TeamApprovalsResponse>({
     queryKey: ['approvals-team'],
@@ -66,30 +62,30 @@ export default function ApprovalsClient() {
     mutationFn: ({ id, status, note }: { id: string; status: 'approved' | 'rejected'; note?: string }) =>
       mutateAPI(`/api/leave/${id}`, 'PATCH', { status, review_note: note }),
     onSuccess: (_d, vars) => {
-      toast.success(vars.status === 'approved' ? 'تمت الموافقة على الإجازة' : 'تم رفض الإجازة');
+      toast.success(vars.status === 'approved' ? t('toasts.leaveApproved') : t('toasts.leaveRejected'));
       invalidate();
     },
-    onError: () => toast.error('حدث خطأ — حاول مرة أخرى'),
+    onError: () => toast.error(t('toasts.genericError')),
   });
 
   const expenseMutation = useMutation({
     mutationFn: ({ id, action, note }: { id: string; action: 'approve' | 'reject'; note?: string }) =>
       mutateAPI(`/api/finance/expenses/${id}`, 'PATCH', { action, approval_notes: note }),
     onSuccess: (_d, vars) => {
-      toast.success(vars.action === 'approve' ? 'تمت الموافقة على المصروف' : 'تم رفض المصروف');
+      toast.success(vars.action === 'approve' ? t('toasts.expenseApproved') : t('toasts.expenseRejected'));
       invalidate();
     },
-    onError: () => toast.error('حدث خطأ — حاول مرة أخرى'),
+    onError: () => toast.error(t('toasts.genericError')),
   });
 
   const timesheetMutation = useMutation({
     mutationFn: ({ id, action, note }: { id: string; action: 'approve' | 'reject'; note?: string }) =>
       mutateAPI(`/api/dashboard/timesheet-periods/${id}`, 'PATCH', { action, rejection_note: note }),
     onSuccess: (_d, vars) => {
-      toast.success(vars.action === 'approve' ? 'تم اعتماد الفترة' : 'تم رفض الفترة');
+      toast.success(vars.action === 'approve' ? t('toasts.timesheetApproved') : t('toasts.timesheetRejected'));
       invalidate();
     },
-    onError: () => toast.error('حدث خطأ — حاول مرة أخرى'),
+    onError: () => toast.error(t('toasts.genericError')),
   });
 
   const openRejectDialog = (kind: RejectDialogState['kind'], id: string, label: string) => {
@@ -120,8 +116,8 @@ export default function ApprovalsClient() {
       <Card className="overflow-hidden">
         <EmptyState
           icon={ClipboardCheck}
-          title="مفيش موظفين تحت إدارتك"
-          description="لما يكون عندك موظفين تابعينلك، طلباتهم هتظهر هنا للموافقة"
+          title={t('noReportsEmpty.title')}
+          description={t('noReportsEmpty.description')}
         />
       </Card>
     );
@@ -137,12 +133,12 @@ export default function ApprovalsClient() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <ClipboardCheck className="h-6 w-6" />
-            الموافقات
+            {t('title')}
           </h1>
           <p className="text-muted-foreground">
             {total > 0
-              ? `عندك ${total} طلب مستني موافقتك`
-              : 'مفيش طلبات مستنياك دلوقتي'}
+              ? t('pendingSummary', { count: total })
+              : t('noPendingNow')}
           </p>
         </div>
       </div>
@@ -151,8 +147,8 @@ export default function ApprovalsClient() {
         <Card className="overflow-hidden">
           <EmptyState
             icon={Check}
-            title="كل الطلبات اتراجعت 🎉"
-            description="لما حد من فريقك يبعت طلب، هيظهر هنا"
+            title={t('allDoneEmpty.title')}
+            description={t('allDoneEmpty.description')}
           />
         </Card>
       ) : (
@@ -160,21 +156,21 @@ export default function ApprovalsClient() {
           <TabsList className="grid grid-cols-3 w-full max-w-lg">
             <TabsTrigger value="leave" className="gap-2">
               <Calendar className="h-4 w-4" />
-              الإجازات
+              {t('tabs.leave')}
               {data.leave.length > 0 && (
                 <Badge variant="secondary" className="text-[10px] px-1.5">{data.leave.length}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="expense" className="gap-2">
               <Receipt className="h-4 w-4" />
-              المصاريف
+              {t('tabs.expense')}
               {data.expense.length > 0 && (
                 <Badge variant="secondary" className="text-[10px] px-1.5">{data.expense.length}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="timesheet" className="gap-2">
               <Clock className="h-4 w-4" />
-              ساعات العمل
+              {t('tabs.timesheet')}
               {data.timesheet.length > 0 && (
                 <Badge variant="secondary" className="text-[10px] px-1.5">{data.timesheet.length}</Badge>
               )}
@@ -185,7 +181,7 @@ export default function ApprovalsClient() {
           <TabsContent value="leave" className="mt-6">
             {data.leave.length === 0 ? (
               <Card className="overflow-hidden">
-                <EmptyState icon={Calendar} title="مفيش طلبات إجازات مستنياك" />
+                <EmptyState icon={Calendar} title={t('leave.empty')} />
               </Card>
             ) : (
               <div className="space-y-3">
@@ -196,10 +192,10 @@ export default function ApprovalsClient() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold">{l.display_name}</p>
                           <Badge variant="outline" className="text-xs">
-                            {LEAVE_TYPE_LABELS[l.type] || l.type}
+                            {l.type_name}
                           </Badge>
                           <Badge variant="secondary" className="text-xs">
-                            {l.days_count} يوم
+                            {t('leave.daysCount', { count: l.days_count })}
                           </Badge>
                           {l.remaining_balance !== null && (
                             <Badge
@@ -211,13 +207,17 @@ export default function ApprovalsClient() {
                                   : 'border-amber-300 text-amber-700 bg-amber-500/10 dark:border-amber-700/60 dark:text-amber-400',
                               )}
                             >
-                              الرصيد المتبقي: {l.remaining_balance} يوم
+                              {t('leave.remainingBalance', { count: l.remaining_balance })}
                             </Badge>
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
-                          من <span dir="ltr">{formatDate(l.start_date)}</span> إلى{' '}
-                          <span dir="ltr">{formatDate(l.end_date)}</span>
+                          {t.rich('leave.dateRange', {
+                            start: formatDate(l.start_date, undefined, locale),
+                            end: formatDate(l.end_date, undefined, locale),
+                            s: (chunks) => <span dir="ltr">{chunks}</span>,
+                            e: (chunks) => <span dir="ltr">{chunks}</span>,
+                          })}
                         </p>
                         {l.reason && (
                           <p className="text-xs text-muted-foreground mt-2 italic">
@@ -230,11 +230,11 @@ export default function ApprovalsClient() {
                           variant="outline"
                           size="sm"
                           disabled={isPending}
-                          onClick={() => openRejectDialog('leave', l.id, `إجازة ${l.display_name}`)}
+                          onClick={() => openRejectDialog('leave', l.id, t('leave.rejectLabel', { name: l.display_name }))}
                           className="gap-1"
                         >
                           <X className="h-4 w-4" />
-                          رفض
+                          {t('leave.rejectButton')}
                         </Button>
                         <Button
                           size="sm"
@@ -243,7 +243,7 @@ export default function ApprovalsClient() {
                           className="gap-1 bg-emerald-600 hover:bg-emerald-700"
                         >
                           <Check className="h-4 w-4" />
-                          موافقة
+                          {t('leave.approveButton')}
                         </Button>
                       </div>
                     </div>
@@ -257,7 +257,7 @@ export default function ApprovalsClient() {
           <TabsContent value="expense" className="mt-6">
             {data.expense.length === 0 ? (
               <Card className="overflow-hidden">
-                <EmptyState icon={Receipt} title="مفيش مصاريف مستنياك" />
+                <EmptyState icon={Receipt} title={t('expense.empty')} />
               </Card>
             ) : (
               <div className="space-y-3">
@@ -282,7 +282,7 @@ export default function ApprovalsClient() {
                           <p className="text-sm text-muted-foreground mt-1 truncate">{e.description}</p>
                         )}
                         <p className="text-xs text-muted-foreground mt-1">
-                          تاريخ المصروف: <span dir="ltr">{formatDate(e.expense_date)}</span>
+                          {t('expense.expenseDate')}<span dir="ltr">{formatDate(e.expense_date, undefined, locale)}</span>
                         </p>
                         {e.receipt_url && (
                           <a
@@ -292,7 +292,7 @@ export default function ApprovalsClient() {
                             className="inline-flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 mt-1"
                           >
                             <ExternalLink className="h-3 w-3" />
-                            عرض الفاتورة
+                            {t('expense.viewInvoice')}
                           </a>
                         )}
                       </div>
@@ -302,12 +302,12 @@ export default function ApprovalsClient() {
                           size="sm"
                           disabled={isPending}
                           onClick={() =>
-                            openRejectDialog('expense', e.id, `مصروف ${formatCurrency(e.amount, e.currency)}`)
+                            openRejectDialog('expense', e.id, t('expense.rejectLabel', { amount: formatCurrency(e.amount, e.currency) }))
                           }
                           className="gap-1"
                         >
                           <X className="h-4 w-4" />
-                          رفض
+                          {t('expense.rejectButton')}
                         </Button>
                         <Button
                           size="sm"
@@ -316,7 +316,7 @@ export default function ApprovalsClient() {
                           className="gap-1 bg-emerald-600 hover:bg-emerald-700"
                         >
                           <Check className="h-4 w-4" />
-                          موافقة
+                          {t('expense.approveButton')}
                         </Button>
                       </div>
                     </div>
@@ -330,23 +330,27 @@ export default function ApprovalsClient() {
           <TabsContent value="timesheet" className="mt-6">
             {data.timesheet.length === 0 ? (
               <Card className="overflow-hidden">
-                <EmptyState icon={Clock} title="مفيش جداول ساعات مستنياك" />
+                <EmptyState icon={Clock} title={t('timesheet.empty')} />
               </Card>
             ) : (
               <div className="space-y-3">
-                {data.timesheet.map((t) => (
-                  <Card key={t.id} className="p-4">
+                {data.timesheet.map((ts) => (
+                  <Card key={ts.id} className="p-4">
                     <div className="flex items-start justify-between gap-4 flex-wrap">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold">{t.display_name}</p>
+                          <p className="font-semibold">{ts.display_name}</p>
                           <Badge variant="secondary" className="text-xs">
-                            {t.total_hours ?? 0} ساعة
+                            {t('timesheet.hoursCount', { count: ts.total_hours ?? 0 })}
                           </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
-                          الفترة: <span dir="ltr">{formatDate(t.period_start)}</span> →{' '}
-                          <span dir="ltr">{formatDate(t.period_end)}</span>
+                          {t.rich('timesheet.periodRange', {
+                            start: formatDate(ts.period_start, undefined, locale),
+                            end: formatDate(ts.period_end, undefined, locale),
+                            s: (chunks) => <span dir="ltr">{chunks}</span>,
+                            e: (chunks) => <span dir="ltr">{chunks}</span>,
+                          })}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -355,21 +359,21 @@ export default function ApprovalsClient() {
                           size="sm"
                           disabled={isPending}
                           onClick={() =>
-                            openRejectDialog('timesheet', t.id, `جدول ${t.display_name}`)
+                            openRejectDialog('timesheet', ts.id, t('timesheet.rejectLabel', { name: ts.display_name }))
                           }
                           className="gap-1"
                         >
                           <X className="h-4 w-4" />
-                          رفض
+                          {t('timesheet.rejectButton')}
                         </Button>
                         <Button
                           size="sm"
                           disabled={isPending}
-                          onClick={() => timesheetMutation.mutate({ id: t.id, action: 'approve' })}
+                          onClick={() => timesheetMutation.mutate({ id: ts.id, action: 'approve' })}
                           className="gap-1 bg-emerald-600 hover:bg-emerald-700"
                         >
                           <Check className="h-4 w-4" />
-                          موافقة
+                          {t('timesheet.approveButton')}
                         </Button>
                       </div>
                     </div>
@@ -385,16 +389,16 @@ export default function ApprovalsClient() {
       <Dialog open={rejectDialog.open} onOpenChange={(open) => setRejectDialog((s) => ({ ...s, open }))}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>رفض {rejectDialog.label}</DialogTitle>
+            <DialogTitle>{t('rejectDialog.title', { label: rejectDialog.label })}</DialogTitle>
             <DialogDescription>
-              اكتب سبب الرفض عشان الموظف يفهم ليه ويصلحه
+              {t('rejectDialog.description')}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Textarea
               value={rejectNote}
               onChange={(e) => setRejectNote(e.target.value)}
-              placeholder="السبب (اختياري)..."
+              placeholder={t('rejectDialog.reasonPlaceholder')}
               rows={4}
             />
           </div>
@@ -403,7 +407,7 @@ export default function ApprovalsClient() {
               variant="outline"
               onClick={() => setRejectDialog((s) => ({ ...s, open: false }))}
             >
-              إلغاء
+              {t('rejectDialog.cancel')}
             </Button>
             <Button
               onClick={submitReject}
@@ -411,7 +415,7 @@ export default function ApprovalsClient() {
               className={cn('gap-1.5', isPending && 'opacity-70')}
             >
               {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              تأكيد الرفض
+              {t('rejectDialog.confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>

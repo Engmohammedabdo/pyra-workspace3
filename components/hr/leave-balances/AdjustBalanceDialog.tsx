@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -32,6 +33,8 @@ export function AdjustBalanceDialog({
   employee,
   year,
 }: AdjustBalanceDialogProps) {
+  const t = useTranslations('hr.leaveBalances.adjustDialog');
+  const locale = useLocale();
   const [rows, setRows] = useState<RowState[]>([]);
   const adjustMut = useAdjustLeaveBalance();
 
@@ -69,10 +72,11 @@ export function AdjustBalanceDialog({
     );
     const failed = rows.filter((_, i) => results[i].status === 'rejected');
     if (failed.length === 0) {
-      toast.success('تم تحديث أرصدة الإجازات');
+      toast.success(t('toasts.saveSuccess'));
       onOpenChange(false);
     } else {
-      toast.error(`فشل حفظ: ${failed.map((r) => r.name_ar).join('، ')}`);
+      const separator = locale === 'ar' ? '، ' : ', ';
+      toast.error(`${t('toasts.saveFailedPrefix')}${failed.map((r) => r.name_ar).join(separator)}`);
     }
   };
 
@@ -80,7 +84,7 @@ export function AdjustBalanceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>تعديل أرصدة {employee?.display_name}</DialogTitle>
+          <DialogTitle>{t('title', { name: employee?.display_name ?? '' })}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 mt-2">
           {rows.map((r) => (
@@ -88,7 +92,7 @@ export function AdjustBalanceDialog({
               <p className="text-sm font-medium">{r.name_ar}</p>
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">الرصيد الكلي</label>
+                  <label className="text-xs text-muted-foreground">{t('totalDaysLabel')}</label>
                   <Input
                     type="number"
                     min={0}
@@ -100,7 +104,7 @@ export function AdjustBalanceDialog({
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">المستخدم</label>
+                  <label className="text-xs text-muted-foreground">{t('usedDaysLabel')}</label>
                   <Input
                     type="number"
                     min={0}
@@ -112,7 +116,7 @@ export function AdjustBalanceDialog({
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">المرحّل</label>
+                  <label className="text-xs text-muted-foreground">{t('carriedOverLabel')}</label>
                   <Input
                     type="number"
                     min={0}
@@ -134,10 +138,10 @@ export function AdjustBalanceDialog({
             {adjustMut.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 me-2 animate-spin" />
-                جاري الحفظ...
+                {t('saving')}
               </>
             ) : (
-              'حفظ'
+              t('save')
             )}
           </Button>
         </div>

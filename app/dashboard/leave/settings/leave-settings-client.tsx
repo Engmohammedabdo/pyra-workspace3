@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,28 +44,13 @@ import {
 } from 'lucide-react';
 import type { PyraLeaveType } from '@/types/database';
 
-const ICON_OPTIONS = [
-  { value: 'CalendarOff', label: 'تقويم' },
-  { value: 'Sun', label: 'شمس' },
-  { value: 'Stethoscope', label: 'طب' },
-  { value: 'UserCircle', label: 'شخصي' },
-  { value: 'Baby', label: 'أمومة' },
-  { value: 'Heart', label: 'قلب' },
-  { value: 'Plane', label: 'سفر' },
-  { value: 'GraduationCap', label: 'دراسة' },
-  { value: 'Briefcase', label: 'عمل' },
-];
+const ICON_OPTION_VALUES = [
+  'CalendarOff', 'Sun', 'Stethoscope', 'UserCircle', 'Baby', 'Heart', 'Plane', 'GraduationCap', 'Briefcase',
+] as const;
 
-const COLOR_OPTIONS = [
-  { value: 'orange', label: 'برتقالي' },
-  { value: 'blue', label: 'أزرق' },
-  { value: 'purple', label: 'بنفسجي' },
-  { value: 'green', label: 'أخضر' },
-  { value: 'red', label: 'أحمر' },
-  { value: 'yellow', label: 'أصفر' },
-  { value: 'pink', label: 'وردي' },
-  { value: 'cyan', label: 'سماوي' },
-];
+const COLOR_OPTION_VALUES = [
+  'orange', 'blue', 'purple', 'green', 'red', 'yellow', 'pink', 'cyan',
+] as const;
 
 // Static color mapping — Tailwind cannot resolve dynamic class names at build time
 const colorMap: Record<string, { bg: string; text: string; dot: string }> = {
@@ -117,6 +103,9 @@ const EMPTY_FORM: LeaveTypeForm = {
 };
 
 export default function LeaveSettingsClient() {
+  const t = useTranslations('hr.leave.settings');
+  const ICON_OPTIONS = ICON_OPTION_VALUES.map((value) => ({ value, label: t(`iconOptions.${value}`) }));
+  const COLOR_OPTIONS = COLOR_OPTION_VALUES.map((value) => ({ value, label: t(`colorOptions.${value}`) }));
   const [leaveTypes, setLeaveTypes] = useState<PyraLeaveType[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -174,7 +163,7 @@ export default function LeaveSettingsClient() {
 
   const handleSave = async () => {
     if (!form.name || !form.name_ar || form.default_days <= 0) {
-      toast.error('يرجى ملء جميع الحقول المطلوبة');
+      toast.error(t('toasts.missingFields'));
       return;
     }
 
@@ -187,13 +176,13 @@ export default function LeaveSettingsClient() {
 
       await mutateAPI(url, method, form);
 
-      toast.success(editingId ? 'تم تحديث نوع الإجازة' : 'تم إنشاء نوع الإجازة');
+      toast.success(editingId ? t('toasts.updateSuccess') : t('toasts.createSuccess'));
       setShowDialog(false);
       setEditingId(null);
       setForm(EMPTY_FORM);
       fetchLeaveTypes();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'فشل الحفظ';
+      const message = err instanceof Error ? err.message : t('toasts.saveFailed');
       toast.error(message);
     } finally {
       setSaving(false);
@@ -204,11 +193,11 @@ export default function LeaveSettingsClient() {
     if (!deleteId) return;
     try {
       await mutateAPI(`/api/dashboard/leave-types/${deleteId}`, 'DELETE');
-      toast.success('تم حذف نوع الإجازة');
+      toast.success(t('toasts.deleteSuccess'));
       setDeleteId(null);
       fetchLeaveTypes();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'فشل الحذف';
+      const message = err instanceof Error ? err.message : t('toasts.deleteFailed');
       toast.error(message);
     }
   };
@@ -219,11 +208,11 @@ export default function LeaveSettingsClient() {
       const data = await mutateAPI<{ created: number; updated: number; total_processed: number }>('/api/dashboard/leave/carry-over', 'POST', { from_year: carryFromYear, to_year: carryToYear });
       const result = (data as any).data ?? data;
       toast.success(
-        `تم ترحيل الأرصدة: ${result.created} جديد، ${result.updated} محدث (${result.total_processed} إجمالي)`
+        t('toasts.carryOverSuccess', { created: result.created, updated: result.updated, total: result.total_processed })
       );
       setShowCarryOver(false);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'فشل الترحيل';
+      const message = err instanceof Error ? err.message : t('toasts.carryOverFailed');
       toast.error(message);
     } finally {
       setCarryingOver(false);
@@ -251,9 +240,9 @@ export default function LeaveSettingsClient() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">إعدادات الإجازات</h1>
+          <h1 className="text-2xl font-bold">{t('title')}</h1>
           <p className="text-sm text-muted-foreground">
-            إدارة أنواع الإجازات وترحيل الأرصدة
+            {t('subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -262,21 +251,20 @@ export default function LeaveSettingsClient() {
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">
                 <ArrowLeftRight className="h-4 w-4 me-2" />
-                ترحيل الأرصدة
+                {t('carryOverButton')}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>ترحيل أرصدة الإجازات</DialogTitle>
+                <DialogTitle>{t('carryOverDialog.title')}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 mt-4">
                 <p className="text-sm text-muted-foreground">
-                  سيتم ترحيل الأيام المتبقية من أنواع الإجازات التي تسمح بالترحيل (حسب الحد الأقصى
-                  المحدد لكل نوع).
+                  {t('carryOverDialog.helperText')}
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">من سنة</label>
+                    <label className="text-sm font-medium">{t('carryOverDialog.fromYearLabel')}</label>
                     <Select
                       value={String(carryFromYear)}
                       onValueChange={(v) => setCarryFromYear(Number(v))}
@@ -294,7 +282,7 @@ export default function LeaveSettingsClient() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">إلى سنة</label>
+                    <label className="text-sm font-medium">{t('carryOverDialog.toYearLabel')}</label>
                     <Select
                       value={String(carryToYear)}
                       onValueChange={(v) => setCarryToYear(Number(v))}
@@ -320,15 +308,15 @@ export default function LeaveSettingsClient() {
                   {carryingOver ? (
                     <>
                       <Loader2 className="h-4 w-4 me-2 animate-spin" />
-                      جاري الترحيل...
+                      {t('carryOverDialog.processing')}
                     </>
                   ) : (
-                    'تنفيذ الترحيل'
+                    t('carryOverDialog.execute')
                   )}
                 </Button>
                 {carryToYear <= carryFromYear && (
                   <p className="text-xs text-destructive">
-                    سنة الهدف يجب أن تكون بعد سنة المصدر
+                    {t('carryOverDialog.yearOrderError')}
                   </p>
                 )}
               </div>
@@ -341,7 +329,7 @@ export default function LeaveSettingsClient() {
             className="bg-orange-500 hover:bg-orange-600 text-white"
           >
             <Plus className="h-4 w-4 me-2" />
-            إضافة نوع
+            {t('addTypeButton')}
           </Button>
         </div>
       </div>
@@ -350,15 +338,15 @@ export default function LeaveSettingsClient() {
       {leaveTypes.length === 0 ? (
         <EmptyState
           icon={Settings2}
-          title="لا توجد أنواع إجازات"
-          description="أضف أنواع الإجازات لبدء إدارة أرصدة الموظفين"
-          actionLabel="إضافة نوع إجازة"
+          title={t('empty.title')}
+          description={t('empty.description')}
+          actionLabel={t('empty.actionLabel')}
           onAction={openCreate}
         />
       ) : (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">أنواع الإجازات ({leaveTypes.length})</CardTitle>
+            <CardTitle className="text-base">{t('listTitle', { count: leaveTypes.length })}</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y">
@@ -382,16 +370,16 @@ export default function LeaveSettingsClient() {
                       </div>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <Badge variant="secondary" className="text-[10px]">
-                          {lt.default_days} يوم
+                          {t('daysBadge', { count: lt.default_days })}
                         </Badge>
                         {lt.max_carry_over > 0 && (
                           <Badge variant="outline" className="text-[10px]">
-                            ترحيل: {lt.max_carry_over} يوم
+                            {t('carryOverBadge', { count: lt.max_carry_over })}
                           </Badge>
                         )}
                         {lt.requires_attachment && (
                           <Badge variant="outline" className="text-[10px]">
-                            يتطلب مرفق
+                            {t('requiresAttachmentBadge')}
                           </Badge>
                         )}
                         <Badge
@@ -401,7 +389,7 @@ export default function LeaveSettingsClient() {
                               : 'bg-red-500/10 text-red-600 dark:text-red-400'
                           }`}
                         >
-                          {lt.is_paid ? 'مدفوعة' : 'غير مدفوعة'}
+                          {lt.is_paid ? t('paidBadge') : t('unpaidBadge')}
                         </Badge>
                       </div>
                     </div>
@@ -438,33 +426,33 @@ export default function LeaveSettingsClient() {
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingId ? 'تعديل نوع الإجازة' : 'إضافة نوع إجازة جديد'}
+              {editingId ? t('typeDialog.editTitle') : t('typeDialog.createTitle')}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">الاسم (إنجليزي) *</label>
+                <label className="text-sm font-medium">{t('typeDialog.nameEnLabel')}</label>
                 <Input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Annual Leave"
+                  placeholder={t('typeDialog.nameEnPlaceholder')}
                   dir="ltr"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">الاسم (عربي) *</label>
+                <label className="text-sm font-medium">{t('typeDialog.nameArLabel')}</label>
                 <Input
                   value={form.name_ar}
                   onChange={(e) => setForm({ ...form, name_ar: e.target.value })}
-                  placeholder="إجازة سنوية"
+                  placeholder={t('typeDialog.nameArPlaceholder')}
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">الأيقونة</label>
+                <label className="text-sm font-medium">{t('typeDialog.iconLabel')}</label>
                 <Select
                   value={form.icon}
                   onValueChange={(v) => setForm({ ...form, icon: v })}
@@ -482,7 +470,7 @@ export default function LeaveSettingsClient() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">اللون</label>
+                <label className="text-sm font-medium">{t('typeDialog.colorLabel')}</label>
                 <Select
                   value={form.color}
                   onValueChange={(v) => setForm({ ...form, color: v })}
@@ -506,7 +494,7 @@ export default function LeaveSettingsClient() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">الأيام الافتراضية *</label>
+                <label className="text-sm font-medium">{t('typeDialog.defaultDaysLabel')}</label>
                 <Input
                   type="number"
                   min={0}
@@ -518,7 +506,7 @@ export default function LeaveSettingsClient() {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">حد الترحيل (أيام)</label>
+                <label className="text-sm font-medium">{t('typeDialog.maxCarryOverLabel')}</label>
                 <Input
                   type="number"
                   min={0}
@@ -532,7 +520,7 @@ export default function LeaveSettingsClient() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">الترتيب</label>
+              <label className="text-sm font-medium">{t('typeDialog.sortOrderLabel')}</label>
               <Input
                 type="number"
                 min={0}
@@ -545,7 +533,7 @@ export default function LeaveSettingsClient() {
             </div>
 
             <div className="flex items-center justify-between py-2">
-              <label className="text-sm font-medium">يتطلب مرفق</label>
+              <label className="text-sm font-medium">{t('typeDialog.requiresAttachmentLabel')}</label>
               <Switch
                 checked={form.requires_attachment}
                 onCheckedChange={(v) => setForm({ ...form, requires_attachment: v })}
@@ -553,7 +541,7 @@ export default function LeaveSettingsClient() {
             </div>
 
             <div className="flex items-center justify-between py-2">
-              <label className="text-sm font-medium">إجازة مدفوعة</label>
+              <label className="text-sm font-medium">{t('typeDialog.isPaidLabel')}</label>
               <Switch
                 checked={form.is_paid}
                 onCheckedChange={(v) => setForm({ ...form, is_paid: v })}
@@ -568,12 +556,12 @@ export default function LeaveSettingsClient() {
               {saving ? (
                 <>
                   <Loader2 className="h-4 w-4 me-2 animate-spin" />
-                  جاري الحفظ...
+                  {t('typeDialog.saving')}
                 </>
               ) : editingId ? (
-                'تحديث'
+                t('typeDialog.update')
               ) : (
-                'إنشاء'
+                t('typeDialog.create')
               )}
             </Button>
           </div>
@@ -584,22 +572,22 @@ export default function LeaveSettingsClient() {
       <Dialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>تأكيد الحذف</DialogTitle>
+            <DialogTitle>{t('deleteDialog.title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <p className="text-sm text-muted-foreground">
-              هل أنت متأكد من حذف نوع الإجازة؟ سيتم إلغاء تفعيله ولن يظهر في النظام.
+              {t('deleteDialog.confirmText')}
             </p>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setDeleteId(null)}>
-                إلغاء
+                {t('deleteDialog.cancel')}
               </Button>
               <Button
                 variant="destructive"
                 onClick={handleDelete}
               >
                 <Trash2 className="h-4 w-4 me-2" />
-                حذف
+                {t('deleteDialog.delete')}
               </Button>
             </div>
           </div>

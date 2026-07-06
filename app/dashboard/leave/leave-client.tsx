@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,10 +17,10 @@ import {
   CalendarOff, Plus, CheckCircle, XCircle, Sun, Stethoscope, UserCircle, Trash2, Ban, AlertTriangle
 } from 'lucide-react';
 import type { AuthSession } from '@/lib/auth/guards';
-import { LEAVE_STATUS_LABELS } from '@/lib/constants/statuses';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import type { Locale } from '@/lib/i18n/config';
+import { formatDate } from '@/lib/utils/format';
 import { getStatusBadgeClass } from '@/lib/constants/badge-colors';
-const STATUS_LABELS: Record<string, string> = { ...LEAVE_STATUS_LABELS, cancelled: 'ملغية' };
-const TYPE_LABELS: Record<string, string> = { annual: 'سنوية', sick: 'مرضية', personal: 'شخصية' };
 const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = { annual: Sun, sick: Stethoscope, personal: UserCircle };
 
 interface LeaveRequest {
@@ -80,6 +81,10 @@ interface ConflictEntry {
 interface LeaveClientProps { session: AuthSession; }
 
 export default function LeaveClient({ session }: LeaveClientProps) {
+  const t = useTranslations('hr.leave.list');
+  const locale = useLocale() as Locale;
+  const statusLabelFor = useStatusLabels('leave');
+  const typeLabelFor = useStatusLabels('leaveType');
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [balanceResponse, setBalanceResponse] = useState<LeaveBalanceResponse | null>(null);
   const [dynamicBalances, setDynamicBalances] = useState<DynamicBalance[]>([]);
@@ -160,12 +165,12 @@ export default function LeaveClient({ session }: LeaveClientProps) {
     setSaving(true);
     try {
       await mutateAPI('/api/leave', 'POST', { type: formType, start_date: formStart, end_date: formEnd, reason: formReason });
-      toast.success('تم تقديم طلب الإجازة');
+      toast.success(t('toasts.submitSuccess'));
       setShowCreate(false);
       setFormStart(''); setFormEnd(''); setFormReason(''); setConflicts([]);
       fetchData();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'فشل تقديم الطلب';
+      const message = err instanceof Error ? err.message : t('toasts.submitFailed');
       toast.error(message);
     } finally { setSaving(false); }
   };
@@ -173,18 +178,18 @@ export default function LeaveClient({ session }: LeaveClientProps) {
   const reviewRequest = async (id: string, status: string) => {
     try {
       await mutateAPI(`/api/leave/${id}`, 'PATCH', { status });
-      toast.success(status === 'approved' ? 'تمت الموافقة' : 'تم الرفض');
+      toast.success(status === 'approved' ? t('toasts.reviewApproved') : t('toasts.reviewRejected'));
       fetchData();
-    } catch { toast.error('فشل العملية'); }
+    } catch { toast.error(t('toasts.reviewFailed')); }
   };
 
   // Legacy simple cancel for pending (delete) — still used by the trash icon
   const deletePendingRequest = async (id: string) => {
     try {
       await mutateAPI(`/api/leave/${id}`, 'PATCH', { status: 'cancelled' });
-      toast.success('تم إلغاء الطلب');
+      toast.success(t('toasts.deleteSuccess'));
       fetchData();
-    } catch { toast.error('فشل الإلغاء'); }
+    } catch { toast.error(t('toasts.deleteFailed')); }
   };
 
   // New cancel with reason (for approved + pending)
@@ -199,13 +204,13 @@ export default function LeaveClient({ session }: LeaveClientProps) {
     setCancelling(true);
     try {
       await mutateAPI(`/api/leave/${cancelTargetId}`, 'PATCH', { action: 'cancel', cancellation_reason: cancelReason.trim() });
-      toast.success('تم إلغاء الإجازة بنجاح');
+      toast.success(t('toasts.cancelSuccess'));
       setCancelDialogOpen(false);
       setCancelTargetId(null);
       setCancelReason('');
       fetchData();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'فشل الإلغاء';
+      const message = err instanceof Error ? err.message : t('toasts.cancelFailed');
       toast.error(message);
     } finally { setCancelling(false); }
   };
@@ -236,26 +241,26 @@ export default function LeaveClient({ session }: LeaveClientProps) {
         color: b.color || 'orange',
       }))
     : [
-        { type: 'annual', label: 'إجازة سنوية', icon: Sun, total: balanceResponse?.annual_total || 30, used: balanceResponse?.annual_used || 0, carried_over: 0, color: 'orange' },
-        { type: 'sick', label: 'إجازة مرضية', icon: Stethoscope, total: balanceResponse?.sick_total || 15, used: balanceResponse?.sick_used || 0, carried_over: 0, color: 'blue' },
-        { type: 'personal', label: 'إجازة شخصية', icon: UserCircle, total: balanceResponse?.personal_total || 5, used: balanceResponse?.personal_used || 0, carried_over: 0, color: 'purple' },
+        { type: 'annual', label: t('legacyBalanceLabels.annual'), icon: Sun, total: balanceResponse?.annual_total || 30, used: balanceResponse?.annual_used || 0, carried_over: 0, color: 'orange' },
+        { type: 'sick', label: t('legacyBalanceLabels.sick'), icon: Stethoscope, total: balanceResponse?.sick_total || 15, used: balanceResponse?.sick_used || 0, carried_over: 0, color: 'blue' },
+        { type: 'personal', label: t('legacyBalanceLabels.personal'), icon: UserCircle, total: balanceResponse?.personal_total || 5, used: balanceResponse?.personal_used || 0, carried_over: 0, color: 'purple' },
       ];
 
   // Build leave type options for the create dialog
   const leaveTypeOptions = isV2
     ? dynamicBalances.map((b) => ({ value: b.name, label: b.name_ar }))
     : [
-        { value: 'annual', label: 'سنوية' },
-        { value: 'sick', label: 'مرضية' },
-        { value: 'personal', label: 'شخصية' },
+        { value: 'annual', label: t('legacyTypeOptions.annual') },
+        { value: 'sick', label: t('legacyTypeOptions.sick') },
+        { value: 'personal', label: t('legacyTypeOptions.personal') },
       ];
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">الإجازات</h1>
-          <p className="text-sm text-muted-foreground">{requests.length} طلب</p>
+          <h1 className="text-2xl font-bold">{t('title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('requestCount', { count: requests.length })}</p>
         </div>
         <Dialog open={showCreate} onOpenChange={(open) => {
           setShowCreate(open);
@@ -264,16 +269,16 @@ export default function LeaveClient({ session }: LeaveClientProps) {
           <DialogTrigger asChild>
             <Button className="bg-orange-500 hover:bg-orange-600 text-white">
               <Plus className="h-4 w-4 me-2" />
-              طلب إجازة
+              {t('requestButton')}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>طلب إجازة جديد</DialogTitle>
+              <DialogTitle>{t('createDialog.title')}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">نوع الإجازة</label>
+                <label className="text-sm font-medium">{t('createDialog.typeLabel')}</label>
                 <select value={formType} onChange={(e) => setFormType(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
                   {leaveTypeOptions.map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -282,32 +287,32 @@ export default function LeaveClient({ session }: LeaveClientProps) {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">من تاريخ</label>
+                  <label className="text-sm font-medium">{t('createDialog.startDateLabel')}</label>
                   <Input type="date" value={formStart} onChange={(e) => setFormStart(e.target.value)} dir="ltr" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">إلى تاريخ</label>
+                  <label className="text-sm font-medium">{t('createDialog.endDateLabel')}</label>
                   <Input type="date" value={formEnd} onChange={(e) => setFormEnd(e.target.value)} dir="ltr" />
                 </div>
               </div>
 
               {/* Conflict Warning */}
               {loadingConflicts && formStart && formEnd && (
-                <div className="text-xs text-muted-foreground">جاري التحقق من التعارضات...</div>
+                <div className="text-xs text-muted-foreground">{t('createDialog.checkingConflicts')}</div>
               )}
               {conflicts.length > 0 && (
                 <div className="rounded-lg border border-yellow-400/50 bg-yellow-500/10 p-3 space-y-2">
                   <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
                     <AlertTriangle className="h-4 w-4 shrink-0" />
-                    <p className="text-sm font-medium">تنبيه: أعضاء فريق في إجازة خلال نفس الفترة</p>
+                    <p className="text-sm font-medium">{t('createDialog.conflictWarning')}</p>
                   </div>
                   <ul className="space-y-1 ps-6">
                     {conflicts.map((c, idx) => (
                       <li key={idx} className="text-xs text-yellow-700 dark:text-yellow-300">
                         <span className="font-medium">{c.display_name}</span>
-                        <span className="text-yellow-600/70 dark:text-yellow-400/70"> — {dynamicBalances.find((b) => b.name === c.leave_type)?.name_ar || TYPE_LABELS[c.leave_type] || c.leave_type}</span>
+                        <span className="text-yellow-600/70 dark:text-yellow-400/70"> — {dynamicBalances.find((b) => b.name === c.leave_type)?.name_ar || typeLabelFor(c.leave_type)}</span>
                         <span className="text-yellow-600/60 dark:text-yellow-400/60 ms-1" dir="ltr">
-                          ({c.start_date} &rarr; {c.end_date})
+                          ({formatDate(c.start_date, undefined, locale)} &rarr; {formatDate(c.end_date, undefined, locale)})
                         </span>
                       </li>
                     ))}
@@ -316,11 +321,11 @@ export default function LeaveClient({ session }: LeaveClientProps) {
               )}
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">السبب (اختياري)</label>
-                <Input value={formReason} onChange={(e) => setFormReason(e.target.value)} placeholder="سبب الإجازة..." />
+                <label className="text-sm font-medium">{t('createDialog.reasonLabel')}</label>
+                <Input value={formReason} onChange={(e) => setFormReason(e.target.value)} placeholder={t('createDialog.reasonPlaceholder')} />
               </div>
               <Button onClick={submitRequest} disabled={saving || !formStart || !formEnd} className="w-full bg-orange-500 hover:bg-orange-600 text-white">
-                {saving ? 'جاري التقديم...' : 'تقديم الطلب'}
+                {saving ? t('createDialog.submitting') : t('createDialog.submit')}
               </Button>
             </div>
           </DialogContent>
@@ -348,9 +353,9 @@ export default function LeaveClient({ session }: LeaveClientProps) {
                   </div>
                   <div>
                     <p className="text-sm font-medium">{b.label}</p>
-                    <p className="text-xs text-muted-foreground">{remaining} يوم متبقي من {b.total}</p>
+                    <p className="text-xs text-muted-foreground">{t('balanceCard.remainingOf', { remaining, total: b.total })}</p>
                     {b.carried_over > 0 && (
-                      <p className="text-[10px] text-orange-500">+{b.carried_over} مرحّل</p>
+                      <p className="text-[10px] text-orange-500">{t('balanceCard.carriedOver', { days: b.carried_over })}</p>
                     )}
                   </div>
                 </div>
@@ -371,7 +376,7 @@ export default function LeaveClient({ session }: LeaveClientProps) {
 
       {/* Requests List */}
       {requests.length === 0 ? (
-        <EmptyState icon={CalendarOff} title="لا توجد طلبات إجازة" description="يمكنك تقديم طلب إجازة جديد" actionLabel="طلب إجازة" onAction={() => setShowCreate(true)} />
+        <EmptyState icon={CalendarOff} title={t('empty.title')} description={t('empty.description')} actionLabel={t('empty.actionLabel')} onAction={() => setShowCreate(true)} />
       ) : (
         <Card>
           <CardContent className="p-0">
@@ -385,7 +390,7 @@ export default function LeaveClient({ session }: LeaveClientProps) {
 
                 // Resolve type label: dynamic first, then legacy fallback
                 const dynamicType = dynamicBalances.find((b) => b.name === req.type);
-                const typeLabel = dynamicType?.name_ar || TYPE_LABELS[req.type] || req.type;
+                const typeLabel = dynamicType?.name_ar || typeLabelFor(req.type);
 
                 return (
                   <div key={req.id} className={`flex items-center justify-between p-4 hover:bg-muted/50 transition-colors ${isCancelled ? 'opacity-60' : ''}`}>
@@ -399,24 +404,24 @@ export default function LeaveClient({ session }: LeaveClientProps) {
                             {typeLabel}
                           </p>
                           <span className={`text-xs text-muted-foreground ${isCancelled ? 'line-through' : ''}`}>
-                            ({req.days_count} يوم)
+                            {t('daysCount', { count: req.days_count })}
                           </span>
                         </div>
                         <p className={`text-xs text-muted-foreground ${isCancelled ? 'line-through' : ''}`} dir="ltr">
-                          {req.start_date} &rarr; {req.end_date}
+                          {formatDate(req.start_date, undefined, locale)} &rarr; {formatDate(req.end_date, undefined, locale)}
                         </p>
                         {req.reason && <p className="text-xs text-muted-foreground mt-0.5">{req.reason}</p>}
                         {isCancelled && req.cancellation_reason && (
-                          <p className="text-xs text-destructive/80 mt-0.5">سبب الإلغاء: {req.cancellation_reason}</p>
+                          <p className="text-xs text-destructive/80 mt-0.5">{t('cancellationReason', { reason: req.cancellation_reason })}</p>
                         )}
                         {canManage && req.username !== session.pyraUser.username && (
-                          <p className="text-[10px] text-muted-foreground mt-0.5">مقدم من: {req.username}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{t('submittedBy', { username: req.username })}</p>
                         )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge className={`text-[10px] ${getStatusBadgeClass(req.status)}`}>
-                        {STATUS_LABELS[req.status] || req.status}
+                        {statusLabelFor(req.status)}
                       </Badge>
                       {/* Legacy delete for pending only (quick delete, no reason needed) */}
                       {req.status === 'pending' && req.username === session.pyraUser.username && (
@@ -433,18 +438,18 @@ export default function LeaveClient({ session }: LeaveClientProps) {
                           onClick={() => openCancelDialog(req.id)}
                         >
                           <Ban className="h-3 w-3 me-1" />
-                          إلغاء
+                          {t('cancelButton')}
                         </Button>
                       )}
                       {canApprove && req.status === 'pending' && (
                         <>
                           <Button variant="ghost" size="sm" className="h-7 text-xs text-green-600 dark:text-green-400" onClick={() => reviewRequest(req.id, 'approved')}>
                             <CheckCircle className="h-3 w-3 me-1" />
-                            موافقة
+                            {t('approveButton')}
                           </Button>
                           <Button variant="ghost" size="sm" className="h-7 text-xs text-red-500" onClick={() => reviewRequest(req.id, 'rejected')}>
                             <XCircle className="h-3 w-3 me-1" />
-                            رفض
+                            {t('rejectButton')}
                           </Button>
                         </>
                       )}
@@ -464,32 +469,32 @@ export default function LeaveClient({ session }: LeaveClientProps) {
       }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>إلغاء طلب الإجازة</DialogTitle>
+            <DialogTitle>{t('cancelDialog.title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <p className="text-sm text-muted-foreground">
-              يرجى كتابة سبب الإلغاء. إذا كانت الإجازة موافق عليها سيتم إرجاع الرصيد تلقائيًا.
+              {t('cancelDialog.helperText')}
             </p>
             <div className="space-y-2">
-              <label className="text-sm font-medium">سبب الإلغاء <span className="text-red-500">*</span></label>
+              <label className="text-sm font-medium">{t('cancelDialog.reasonLabel')} <span className="text-red-500">*</span></label>
               <Textarea
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
-                placeholder="اكتب سبب إلغاء الإجازة..."
+                placeholder={t('cancelDialog.reasonPlaceholder')}
                 rows={3}
               />
             </div>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setCancelDialogOpen(false)} disabled={cancelling}>
-              تراجع
+              {t('cancelDialog.back')}
             </Button>
             <Button
               variant="destructive"
               onClick={submitCancellation}
               disabled={cancelling || !cancelReason.trim()}
             >
-              {cancelling ? 'جاري الإلغاء...' : 'تأكيد الإلغاء'}
+              {cancelling ? t('cancelDialog.confirming') : t('cancelDialog.confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>

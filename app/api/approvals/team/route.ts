@@ -18,6 +18,13 @@ export interface TeamApprovalsResponse {
     username: string;
     display_name: string;
     type: string;
+    /** Arabic display name of the leave type (pyra_leave_types.name_ar),
+     *  resolved server-side via the same leaveTypeByName lookup used for
+     *  balance resolution below. Falls back to `type` (the raw stored
+     *  value, e.g. 'Annual') when the type row can't be resolved — the
+     *  client further falls back through statuses.leaveType before
+     *  ever showing this raw value. */
+    type_name: string;
     start_date: string;
     end_date: string;
     days_count: number;
@@ -164,7 +171,7 @@ export async function GET() {
 
     const leaveTypeByName = new Map<
       string,
-      { id: string; is_paid: boolean; default_days: number }
+      { id: string; is_paid: boolean; default_days: number; name_ar: string }
     >();
     const balanceMap = new Map<
       string,
@@ -174,7 +181,7 @@ export async function GET() {
     if (leaveTypeNames.length > 0) {
       const { data: leaveTypesData } = await serviceClient
         .from('pyra_leave_types')
-        .select('id, name, is_paid, default_days')
+        .select('id, name, name_ar, is_paid, default_days')
         .in('name', leaveTypeNames);
 
       for (const t of leaveTypesData || []) {
@@ -182,6 +189,7 @@ export async function GET() {
           id: t.id,
           is_paid: t.is_paid,
           default_days: t.default_days,
+          name_ar: t.name_ar,
         });
       }
 
@@ -226,6 +234,7 @@ export async function GET() {
         username: l.username,
         display_name: userMap.get(l.username) || l.username,
         type: l.type,
+        type_name: leaveTypeByName.get(l.type)?.name_ar || l.type,
         start_date: l.start_date,
         end_date: l.end_date,
         days_count: l.days_count,

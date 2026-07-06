@@ -1,11 +1,15 @@
 import { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { requirePermission } from '@/lib/auth/guards';
 import ApprovalsClient from './approvals-client';
 
-export const metadata: Metadata = {
-  title: 'الموافقات | Pyra Workspace',
-  description: 'موافقات الإجازات والمصاريف وساعات العمل لفريقك',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('hr.approvals.page');
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  };
+}
 
 export default async function ApprovalsPage() {
   await requirePermission('leave.approve');

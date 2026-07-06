@@ -4,7 +4,7 @@
     "quote": { "draft": "مسودة", "pending_approval": "بانتظار الموافقة", "sent": "مرسل", "viewed": "تم العرض", "signed": "موقّع", "invoiced": "تم الفوترة", "rejected": "مرفوض", "expired": "منتهي", "cancelled": "ملغي" },
     "contract": { "draft": "مسودة", "active": "نشط", "in_progress": "قيد التنفيذ", "completed": "مكتمل", "cancelled": "ملغي" },
     "expense": { "pending": "بانتظار الموافقة", "approved": "معتمد", "rejected": "مرفوض", "draft": "مسودة" },
-    "leave": { "pending": "بانتظار الموافقة", "approved": "موافق عليه", "rejected": "مرفوض" },
+    "leave": { "pending": "بانتظار الموافقة", "approved": "موافق عليه", "rejected": "مرفوض", "cancelled": "ملغية" },
     "payroll": { "draft": "مسودة", "calculated": "محسوب", "approved": "معتمد", "paid": "مدفوع" },
     "po": { "draft": "مسودة", "sent": "مرسل", "acknowledged": "تم الاستلام", "received": "تم التوريد", "invoiced": "تم الفوترة", "cancelled": "ملغي" },
     "creditNote": { "draft": "مسودة", "issued": "صادر", "applied": "مطبّق", "cancelled": "ملغي" },

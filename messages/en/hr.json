@@ -161,6 +161,242 @@
           "reject": "Reject"
         }
       }
+    },
+    "leave": {
+      "list": {
+        "toasts": {
+          "submitSuccess": "Leave request submitted",
+          "submitFailed": "Failed to submit request",
+          "reviewApproved": "Approved",
+          "reviewRejected": "Rejected",
+          "reviewFailed": "Action failed",
+          "deleteSuccess": "Request cancelled",
+          "deleteFailed": "Failed to cancel",
+          "cancelSuccess": "Leave cancelled successfully",
+          "cancelFailed": "Failed to cancel"
+        },
+        "legacyBalanceLabels": {
+          "annual": "Annual Leave",
+          "sick": "Sick Leave",
+          "personal": "Personal Leave"
+        },
+        "legacyTypeOptions": {
+          "annual": "Annual",
+          "sick": "Sick",
+          "personal": "Personal"
+        },
+        "title": "Leave",
+        "requestCount": "{count} requests",
+        "requestButton": "Request Leave",
+        "createDialog": {
+          "title": "New Leave Request",
+          "typeLabel": "Leave Type",
+          "startDateLabel": "From Date",
+          "endDateLabel": "To Date",
+          "checkingConflicts": "Checking for conflicts...",
+          "conflictWarning": "Note: team members are on leave during this period",
+          "reasonLabel": "Reason (optional)",
+          "reasonPlaceholder": "Reason for leave...",
+          "submitting": "Submitting...",
+          "submit": "Submit Request"
+        },
+        "balanceCard": {
+          "remainingOf": "{remaining} days remaining of {total}",
+          "carriedOver": "+{days} carried over"
+        },
+        "empty": {
+          "title": "No Leave Requests",
+          "description": "You can submit a new leave request",
+          "actionLabel": "Request Leave"
+        },
+        "daysCount": "({count} days)",
+        "cancellationReason": "Cancellation reason: {reason}",
+        "submittedBy": "Submitted by: {username}",
+        "cancelButton": "Cancel",
+        "approveButton": "Approve",
+        "rejectButton": "Reject",
+        "cancelDialog": {
+          "title": "Cancel Leave Request",
+          "helperText": "Please write the cancellation reason. If the leave was approved, the balance will be returned automatically.",
+          "reasonLabel": "Cancellation Reason",
+          "reasonPlaceholder": "Write the cancellation reason...",
+          "back": "Back",
+          "confirming": "Cancelling...",
+          "confirm": "Confirm Cancellation"
+        }
+      },
+      "settings": {
+        "iconOptions": {
+          "CalendarOff": "Calendar",
+          "Sun": "Sun",
+          "Stethoscope": "Medical",
+          "UserCircle": "Personal",
+          "Baby": "Maternity",
+          "Heart": "Heart",
+          "Plane": "Travel",
+          "GraduationCap": "Study",
+          "Briefcase": "Work"
+        },
+        "colorOptions": {
+          "orange": "Orange",
+          "blue": "Blue",
+          "purple": "Purple",
+          "green": "Green",
+          "red": "Red",
+          "yellow": "Yellow",
+          "pink": "Pink",
+          "cyan": "Cyan"
+        },
+        "toasts": {
+          "missingFields": "Please fill in all required fields",
+          "updateSuccess": "Leave type updated",
+          "createSuccess": "Leave type created",
+          "saveFailed": "Save failed",
+          "deleteSuccess": "Leave type deleted",
+          "deleteFailed": "Delete failed",
+          "carryOverSuccess": "Balances carried over: {created} new, {updated} updated ({total} total)",
+          "carryOverFailed": "Carry-over failed"
+        },
+        "title": "Leave Settings",
+        "subtitle": "Manage leave types and balance carry-over",
+        "carryOverButton": "Carry Over Balances",
+        "carryOverDialog": {
+          "title": "Carry Over Leave Balances",
+          "helperText": "Remaining days will be carried over for leave types that allow it (per each type's max carry-over limit).",
+          "fromYearLabel": "From Year",
+          "toYearLabel": "To Year",
+          "processing": "Processing...",
+          "execute": "Run Carry-over",
+          "yearOrderError": "Target year must be after the source year"
+        },
+        "addTypeButton": "Add Type",
+        "empty": {
+          "title": "No Leave Types",
+          "description": "Add leave types to start managing employee balances",
+          "actionLabel": "Add Leave Type"
+        },
+        "listTitle": "Leave Types ({count})",
+        "daysBadge": "{count} days",
+        "carryOverBadge": "Carry-over: {count} days",
+        "requiresAttachmentBadge": "Requires Attachment",
+        "paidBadge": "Paid",
+        "unpaidBadge": "Unpaid",
+        "typeDialog": {
+          "editTitle": "Edit Leave Type",
+          "createTitle": "Add New Leave Type",
+          "nameEnLabel": "Name (English) *",
+          "nameEnPlaceholder": "Annual Leave",
+          "nameArLabel": "Name (Arabic) *",
+          "nameArPlaceholder": "إجازة سنوية",
+          "iconLabel": "Icon",
+          "colorLabel": "Color",
+          "defaultDaysLabel": "Default Days *",
+          "maxCarryOverLabel": "Carry-over Limit (days)",
+          "sortOrderLabel": "Sort Order",
+          "requiresAttachmentLabel": "Requires Attachment",
+          "isPaidLabel": "Paid Leave",
+          "saving": "Saving...",
+          "update": "Update",
+          "create": "Create"
+        },
+        "deleteDialog": {
+          "title": "Confirm Deletion",
+          "confirmText": "Are you sure you want to delete this leave type? It will be deactivated and no longer appear in the system.",
+          "cancel": "Cancel",
+          "delete": "Delete"
+        }
+      }
+    },
+    "leaveBalances": {
+      "pageTitle": "Leave Balances",
+      "title": "Leave Balances",
+      "subtitle": "View and adjust employee leave balances by year",
+      "empty": {
+        "title": "No Employees",
+        "description": "No leave balance data for this year yet"
+      },
+      "cardTitle": "{year} Balances ({count} employees)",
+      "columns": {
+        "employee": "Employee",
+        "action": "Action"
+      },
+      "usedLabel": "Used: {count}",
+      "editButton": "Edit",
+      "adjustDialog": {
+        "toasts": {
+          "saveSuccess": "Leave balances updated",
+          "saveFailedPrefix": "Failed to save: "
+        },
+        "title": "Adjust Balances — {name}",
+        "totalDaysLabel": "Total Balance",
+        "usedDaysLabel": "Used",
+        "carriedOverLabel": "Carried Over",
+        "saving": "Saving...",
+        "save": "Save"
+      }
+    },
+    "approvals": {
+      "toasts": {
+        "leaveApproved": "Leave approved",
+        "leaveRejected": "Leave rejected",
+        "expenseApproved": "Expense approved",
+        "expenseRejected": "Expense rejected",
+        "timesheetApproved": "Period approved",
+        "timesheetRejected": "Period rejected",
+        "genericError": "An error occurred — please try again"
+      },
+      "noReportsEmpty": {
+        "title": "You have no direct reports",
+        "description": "Once you have employees reporting to you, their requests will appear here for approval"
+      },
+      "title": "Approvals",
+      "pendingSummary": "You have {count} requests awaiting your approval",
+      "noPendingNow": "No requests awaiting you right now",
+      "allDoneEmpty": {
+        "title": "All requests handled 🎉",
+        "description": "When someone on your team sends a request, it will appear here"
+      },
+      "tabs": {
+        "leave": "Leave",
+        "expense": "Expenses",
+        "timesheet": "Timesheets"
+      },
+      "leave": {
+        "empty": "No leave requests awaiting you",
+        "daysCount": "{count} days",
+        "remainingBalance": "Remaining balance: {count} days",
+        "dateRange": "From <s>{start}</s> to <e>{end}</e>",
+        "rejectLabel": "{name}'s leave",
+        "rejectButton": "Reject",
+        "approveButton": "Approve"
+      },
+      "expense": {
+        "empty": "No expenses awaiting you",
+        "expenseDate": "Expense date: ",
+        "viewInvoice": "View Invoice",
+        "rejectLabel": "Expense of {amount}",
+        "rejectButton": "Reject",
+        "approveButton": "Approve"
+      },
+      "timesheet": {
+        "empty": "No timesheets awaiting you",
+        "hoursCount": "{count} hours",
+        "periodRange": "Period: <s>{start}</s> → <e>{end}</e>",
+        "rejectLabel": "{name}'s timesheet",
+        "rejectButton": "Reject",
+        "approveButton": "Approve"
+      },
+      "rejectDialog": {
+        "title": "Reject {label}",
+        "description": "Write the rejection reason so the employee understands what to fix",
+        "reasonPlaceholder": "Reason (optional)...",
+        "cancel": "Cancel",
+        "confirm": "Confirm Rejection"
+      },
+      "page": {
+        "metaTitle": "Approvals | Pyra Workspace",
+        "metaDescription": "Leave, expense, and timesheet approvals for your team"
+      }
     }
   }
 }

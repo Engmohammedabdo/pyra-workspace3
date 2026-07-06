@@ -4,7 +4,7 @@
     "quote": { "draft": "Draft", "pending_approval": "Pending Approval", "sent": "Sent", "viewed": "Viewed", "signed": "Signed", "invoiced": "Invoiced", "rejected": "Rejected", "expired": "Expired", "cancelled": "Cancelled" },
     "contract": { "draft": "Draft", "active": "Active", "in_progress": "In Progress", "completed": "Completed", "cancelled": "Cancelled" },
     "expense": { "pending": "Pending Approval", "approved": "Approved", "rejected": "Rejected", "draft": "Draft" },
-    "leave": { "pending": "Pending Approval", "approved": "Approved", "rejected": "Rejected" },
+    "leave": { "pending": "Pending Approval", "approved": "Approved", "rejected": "Rejected", "cancelled": "Cancelled" },
     "payroll": { "draft": "Draft", "calculated": "Calculated", "approved": "Approved", "paid": "Paid" },
     "po": { "draft": "Draft", "sent": "Sent", "acknowledged": "Acknowledged", "received": "Received", "invoiced": "Invoiced", "cancelled": "Cancelled" },
     "creditNote": { "draft": "Draft", "issued": "Issued", "applied": "Applied", "cancelled": "Cancelled" },
