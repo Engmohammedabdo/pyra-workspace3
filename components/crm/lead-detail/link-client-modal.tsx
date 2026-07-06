@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Check } from 'lucide-react';
 
 import {
@@ -31,7 +32,7 @@ export interface LinkClientModalProps {
   open: boolean;
   /** Called when dialog should close (cancel button, backdrop click, ESC, after successful submit). */
   onClose: () => void;
-  /** Called when user clicks "تأكيد الربط" with a selected client. Parent handles the mutation. */
+  /** Called when user clicks "Confirm link" with a selected client. Parent handles the mutation. */
   onConfirm: (clientId: string) => Promise<void> | void;
   /** Whether the parent's mutation is currently pending. Disables the confirm button. */
   confirming: boolean;
@@ -44,6 +45,8 @@ export default function LinkClientModal({
   onConfirm,
   confirming,
 }: LinkClientModalProps) {
+  const t = useTranslations('crm.modals.linkClient');
+  const tCommon = useTranslations('common.actions');
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Client | null>(null);
   // Debounce 350ms — matches the pattern from app/dashboard/clients/clients-client.tsx:121
@@ -82,9 +85,9 @@ export default function LinkClientModal({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
         <DialogHeader className="p-4 sm:p-6 pb-2">
-          <DialogTitle>ربط بعميل موجود</DialogTitle>
+          <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>
-            اختر العميل الموجود لربط هذا الـ Lead به. سيظل الـ Lead في مرحلته الحالية — هذا ليس تحويل.
+            {t('description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -94,10 +97,10 @@ export default function LinkClientModal({
           className="border-t border-b rounded-none"
         >
           <CommandInput
-            placeholder="ابحث بالاسم أو الهاتف..."
+            placeholder={t('searchPlaceholder')}
             value={query}
             onValueChange={setQuery}
-            aria-label="بحث عن عميل"
+            aria-label={t('searchAria')}
           />
           <CommandList className="max-h-72 overflow-y-auto">
             {isLoading ? (
@@ -107,7 +110,7 @@ export default function LinkClientModal({
                 <Skeleton className="h-14 rounded-md" />
               </div>
             ) : clients.length === 0 ? (
-              <CommandEmpty>لا توجد نتائج — جرب البحث باسم أو رقم آخر</CommandEmpty>
+              <CommandEmpty>{t('noResults')}</CommandEmpty>
             ) : (
               <div className="p-1">
                 {clients.map((client) => {
@@ -164,15 +167,15 @@ export default function LinkClientModal({
             onClick={onClose}
             disabled={confirming}
           >
-            إلغاء
+            {tCommon('cancel')}
           </Button>
           <Button
             type="button"
             onClick={handleConfirm}
             disabled={!canConfirm}
-            aria-label="تأكيد الربط بالعميل المختار"
+            aria-label={t('confirmAria')}
           >
-            {confirming ? 'جارٍ الربط...' : 'تأكيد الربط'}
+            {confirming ? t('confirming') : t('confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>

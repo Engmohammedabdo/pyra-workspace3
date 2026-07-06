@@ -7,6 +7,7 @@
  * / events). Unknown values fall back to a neutral globe.
  */
 
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils/cn';
 import {
   MessageCircle,
@@ -22,17 +23,19 @@ import {
 
 type IconType = React.ComponentType<{ className?: string }>;
 
-const SOURCE_MAP: Record<string, { icon: IconType; label: string; tone: string }> = {
-  whatsapp:        { icon: MessageCircle, label: 'WhatsApp',        tone: 'text-emerald-600 dark:text-emerald-400' },
-  whatsapp_direct: { icon: MessageCircle, label: 'WhatsApp مباشر',   tone: 'text-emerald-600 dark:text-emerald-400' },
-  instagram_dm:    { icon: Instagram,     label: 'Instagram DM',    tone: 'text-pink-600 dark:text-pink-400' },
-  social:          { icon: Instagram,     label: 'سوشيال ميديا',     tone: 'text-pink-600 dark:text-pink-400' },
-  website:         { icon: Globe,         label: 'الموقع',          tone: 'text-sky-600 dark:text-sky-400' },
-  referral:        { icon: Users2,        label: 'إحالة',           tone: 'text-amber-600 dark:text-amber-400' },
-  manual:          { icon: Hand,          label: 'إضافة يدوية',      tone: 'text-muted-foreground' },
-  ad:              { icon: Megaphone,     label: 'إعلان',           tone: 'text-orange-600 dark:text-orange-400' },
-  events:          { icon: CalendarDays,  label: 'فعالية',          tone: 'text-indigo-600 dark:text-indigo-400' },
-  cold_outreach:   { icon: PhoneOutgoing, label: 'تواصل بارد',      tone: 'text-stone-600 dark:text-stone-400' },
+// Icons + tones only — labels resolved in-component via t() from
+// `crm.lead.sources.*` (Phase 3.4 restructure, module maps can't call hooks).
+const SOURCE_MAP: Record<string, { icon: IconType; tone: string }> = {
+  whatsapp:        { icon: MessageCircle, tone: 'text-emerald-600 dark:text-emerald-400' },
+  whatsapp_direct: { icon: MessageCircle, tone: 'text-emerald-600 dark:text-emerald-400' },
+  instagram_dm:    { icon: Instagram,     tone: 'text-pink-600 dark:text-pink-400' },
+  social:          { icon: Instagram,     tone: 'text-pink-600 dark:text-pink-400' },
+  website:         { icon: Globe,         tone: 'text-sky-600 dark:text-sky-400' },
+  referral:        { icon: Users2,        tone: 'text-amber-600 dark:text-amber-400' },
+  manual:          { icon: Hand,          tone: 'text-muted-foreground' },
+  ad:              { icon: Megaphone,     tone: 'text-orange-600 dark:text-orange-400' },
+  events:          { icon: CalendarDays,  tone: 'text-indigo-600 dark:text-indigo-400' },
+  cold_outreach:   { icon: PhoneOutgoing, tone: 'text-stone-600 dark:text-stone-400' },
 };
 
 export interface LeadSourceIconProps {
@@ -42,13 +45,15 @@ export interface LeadSourceIconProps {
 }
 
 export function LeadSourceIcon({ source, showLabel, className }: LeadSourceIconProps) {
+  const t = useTranslations('crm.lead.sources');
   const key = (source ?? '').toLowerCase();
-  const entry = SOURCE_MAP[key] ?? { icon: HelpCircle, label: source ?? 'غير معروف', tone: 'text-muted-foreground' };
+  const entry = SOURCE_MAP[key] ?? { icon: HelpCircle, tone: 'text-muted-foreground' };
+  const label = t.has(key as Parameters<typeof t>[0]) ? t(key as Parameters<typeof t>[0]) : (source ?? t('unknown'));
   const Icon = entry.icon;
   return (
-    <span className={cn('inline-flex items-center gap-1 text-xs', entry.tone, className)} title={entry.label}>
+    <span className={cn('inline-flex items-center gap-1 text-xs', entry.tone, className)} title={label}>
       <Icon className="size-3.5" />
-      {showLabel && <span>{entry.label}</span>}
+      {showLabel && <span>{label}</span>}
     </span>
   );
 }

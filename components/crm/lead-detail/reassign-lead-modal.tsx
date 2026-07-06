@@ -24,6 +24,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Check, UserCog } from 'lucide-react';
 import {
   Dialog,
@@ -59,6 +60,8 @@ export default function ReassignLeadModal({
   onConfirm,
   confirming,
 }: ReassignLeadModalProps) {
+  const t = useTranslations('crm.modals.reassignLead');
+  const tCommon = useTranslations('common.actions');
   const [selected, setSelected] = useState<string | null>(null);
 
   // Reset selection whenever the modal re-opens so a stale pick doesn't linger.
@@ -78,7 +81,7 @@ export default function ReassignLeadModal({
   const currentName =
     all.find((u) => u.username === currentAssignee)?.display_name ??
     currentAssignee ??
-    '—';
+    t('currentFallback');
 
   const handleOpenChange = (next: boolean) => {
     if (!next) {
@@ -96,11 +99,12 @@ export default function ReassignLeadModal({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>تغيير المسؤول عن الـ Lead</DialogTitle>
+          <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>
-            المسؤول الحالي:{' '}
-            <span className="font-medium text-foreground">{currentName}</span>.
-            اختر الموظف الجديد — سيُسجَّل التغيير في سجل النشاط ويصل إشعار للموظف الجديد.
+            {t.rich('description', {
+              currentName,
+              name: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+            })}
           </DialogDescription>
         </DialogHeader>
 
@@ -114,12 +118,12 @@ export default function ReassignLeadModal({
           ) : options.length === 0 ? (
             <EmptyState
               icon={UserCog}
-              title="لا يوجد موظفون متاحون"
-              description="لا يوجد مستخدمون نشطون يمكن إسناد الـ Lead إليهم."
+              title={t('emptyTitle')}
+              description={t('emptyDescription')}
               className="py-8"
             />
           ) : (
-            <ul className="space-y-1" role="listbox" aria-label="اختر المسؤول الجديد">
+            <ul className="space-y-1" role="listbox" aria-label={t('listAria')}>
               {options.map((u) => {
                 const isSel = selected === u.username;
                 return (
@@ -153,15 +157,15 @@ export default function ReassignLeadModal({
 
         <DialogFooter className="gap-2 sm:gap-0">
           <Button type="button" variant="ghost" onClick={onClose} disabled={confirming}>
-            إلغاء
+            {tCommon('cancel')}
           </Button>
           <Button
             type="button"
             onClick={handleConfirm}
             disabled={!selected || confirming}
-            aria-label="تأكيد تغيير المسؤول"
+            aria-label={t('confirmAria')}
           >
-            {confirming ? 'جارٍ التغيير...' : 'تأكيد التغيير'}
+            {confirming ? t('confirming') : t('confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -20,6 +20,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -56,22 +57,9 @@ import {
 const VALID_TABS = ['overview', 'activity', 'tasks', 'deals', 'files', 'notes'] as const;
 type TabKey = (typeof VALID_TABS)[number];
 
-const TAB_DEFS: Array<{ key: TabKey; label: string; icon: React.ComponentType<{ className?: string }> }> = [
-  { key: 'overview', label: 'نظرة عامة', icon: LayoutDashboard },
-  { key: 'activity', label: 'النشاط',     icon: Activity },
-  // Phase 15.1 Commit 3 — lead tasks tab (slots between activity and deals
-  // per Q3-1 lock: activity feeds into tasks = next steps for the agent).
-  { key: 'tasks',    label: 'مهام',        icon: ClipboardList },
-  { key: 'deals',    label: 'الصفقات',    icon: FileSignature },
-  // Phase 15.2 Commit 1 — repurposed: this was the "files" placeholder
-  // promised in v1.1, now the canonical attachments surface. The tab KEY
-  // stays `files` for URL/router stability (old `?tab=files` bookmarks
-  // still land here). Label + icon updated to match the new semantics.
-  { key: 'files',    label: 'مرفقات',      icon: Paperclip },
-  { key: 'notes',    label: 'الملاحظات',  icon: StickyNote },
-];
-
 export function LeadDetailClient({ leadId }: { leadId: string }) {
+  const t = useTranslations('crm.lead');
+  const tCommon = useTranslations('common.actions');
   const router = useRouter();
   const sp = useSearchParams();
   const tabParam = sp.get('tab');
@@ -113,27 +101,27 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
   const handleLinkClient = async (clientId: string) => {
     try {
       await linkClientMutation.mutateAsync({ leadId, clientId });
-      toast.success('تم الربط بنجاح');
+      toast.success(t('toasts.linkSuccess'));
       setLinkClientOpen(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'فشل الربط');
+      toast.error(err instanceof Error ? err.message : t('toasts.linkError'));
     }
   };
 
   const handleReassign = async (username: string) => {
     try {
       await updateLeadMutation.mutateAsync({ id: leadId, data: { assigned_to: username } });
-      toast.success('تم تغيير المسؤول بنجاح');
+      toast.success(t('toasts.reassignSuccess'));
       setReassignOpen(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'فشل تغيير المسؤول');
+      toast.error(err instanceof Error ? err.message : t('toasts.reassignError'));
     }
   };
 
   const { data, isLoading, error } = useLead(leadId);
   const { data: stages } = usePipelineStages();
 
-  // Latest activity timestamp — used for the stat-strip "آخر نشاط".
+  // Latest activity timestamp — used for the stat-strip's "last activity" card.
   // We piggy-back on the same useLeadActivities query the Activity tab uses
   // so it's a single network round-trip per page open.
   const activitiesQuery = useLeadActivities(leadId);
@@ -145,10 +133,10 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
     const unarchive = !!data?.lead.archived_at;
     try {
       await archiveMutation.mutateAsync({ id: leadId, unarchive });
-      toast.success(unarchive ? 'تم إلغاء الأرشفة' : 'تم أرشفة الـ Lead');
+      toast.success(unarchive ? t('toasts.unarchiveSuccess') : t('toasts.archiveSuccess'));
       setArchiveOpen(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'فشل تنفيذ العملية');
+      toast.error(err instanceof Error ? err.message : t('toasts.archiveActionError'));
     }
   };
 
@@ -162,6 +150,21 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
     },
     [router, sp],
   );
+
+  const TAB_DEFS: Array<{ key: TabKey; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+    { key: 'overview', label: t('tabs.overview'), icon: LayoutDashboard },
+    { key: 'activity', label: t('tabs.activity'), icon: Activity },
+    // Phase 15.1 Commit 3 — lead tasks tab (slots between activity and deals
+    // per Q3-1 lock: activity feeds into tasks = next steps for the agent).
+    { key: 'tasks',    label: t('tabs.tasks'),    icon: ClipboardList },
+    { key: 'deals',    label: t('tabs.deals'),    icon: FileSignature },
+    // Phase 15.2 Commit 1 — repurposed: this was the "files" placeholder
+    // promised in v1.1, now the canonical attachments surface. The tab KEY
+    // stays `files` for URL/router stability (old `?tab=files` bookmarks
+    // still land here). Label + icon updated to match the new semantics.
+    { key: 'files',    label: t('tabs.files'),    icon: Paperclip },
+    { key: 'notes',    label: t('tabs.notes'),    icon: StickyNote },
+  ];
 
   if (isLoading) {
     return (
@@ -183,9 +186,9 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
   if (error || !data) {
     return (
       <Card className="p-6">
-        <p className="text-destructive">تعذّر تحميل بيانات الـ Lead — تأكد من الصلاحيات أو من أن الـ Lead لم يتم حذفه.</p>
+        <p className="text-destructive">{t('loadError')}</p>
         <Button asChild variant="outline" className="mt-3">
-          <Link href="/dashboard/crm/pipeline"><ArrowLeft className="size-4 me-2" /> عودة للـ Pipeline</Link>
+          <Link href="/dashboard/crm/pipeline"><ArrowLeft className="size-4 me-2" /> {t('backToPipeline')}</Link>
         </Button>
       </Card>
     );
@@ -217,18 +220,18 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {lead.archived_at ? 'إلغاء أرشفة الـ Lead؟' : 'أرشفة الـ Lead؟'}
+              {lead.archived_at ? t('archiveDialog.titleUnarchive') : t('archiveDialog.titleArchive')}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {lead.archived_at
-                ? 'سيظهر الـ Lead مرة أخرى في الـ Pipeline والقوائم.'
-                : 'سيختفي الـ Lead من الـ Pipeline والقوائم (بدون حذف نهائي) — تقدر تسترجعه في أي وقت.'}
+                ? t('archiveDialog.descriptionUnarchive')
+                : t('archiveDialog.descriptionArchive')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogCancel>{tCommon('cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleArchiveConfirm} disabled={archiveMutation.isPending}>
-              {lead.archived_at ? 'إلغاء الأرشفة' : 'أرشفة'}
+              {lead.archived_at ? t('archiveDialog.confirmUnarchive') : t('archiveDialog.confirmArchive')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -262,16 +265,16 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
 
       <Tabs value={activeTab} onValueChange={(v) => switchTab(v as TabKey)} className="space-y-4">
         <TabsList className="w-full justify-start overflow-x-auto rounded-xl h-auto p-1">
-          {TAB_DEFS.map((t) => {
-            const Icon = t.icon;
+          {TAB_DEFS.map((tab) => {
+            const Icon = tab.icon;
             return (
               <TabsTrigger
-                key={t.key}
-                value={t.key}
+                key={tab.key}
+                value={tab.key}
                 className="gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm px-3 py-1.5"
               >
                 <Icon className="size-4" />
-                {t.label}
+                {tab.label}
               </TabsTrigger>
             );
           })}
@@ -287,10 +290,10 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
                 size="sm"
                 onClick={() => setSidebarOpen(true)}
                 className="w-full justify-start"
-                aria-label="عرض المعلومات الإضافية للـ Lead"
+                aria-label={t('sidebarSheet.triggerAria')}
               >
                 <Info className="size-4 me-2" />
-                <span>معلومات إضافية</span>
+                <span>{t('sidebarSheet.trigger')}</span>
                 <ChevronLeft className="size-4 ms-auto" aria-hidden />
               </Button>
             </div>
@@ -336,9 +339,9 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
           className="w-[90vw] sm:max-w-md overflow-y-auto p-4"
         >
           <SheetHeader className="pb-4">
-            <SheetTitle>معلومات إضافية</SheetTitle>
+            <SheetTitle>{t('sidebarSheet.title')}</SheetTitle>
             <SheetDescription className="sr-only">
-              تفاصيل الـ Lead الإضافية: جهة الاتصال، الـ Follow-up التالي، الحقول المخصصة.
+              {t('sidebarSheet.description')}
             </SheetDescription>
           </SheetHeader>
           <LeadSidebar lead={lead} />

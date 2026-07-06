@@ -13,6 +13,7 @@
  */
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils/cn';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,9 +23,8 @@ import {
   ArrowLeft, Phone, MessageCircle, Mail, NotebookPen, CalendarPlus, Building2,
   Link2, UserCheck, FileSignature, UserCog, Archive, ArchiveRestore, Pencil,
 } from 'lucide-react';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import {
-  PIPELINE_STAGE_LABELS_AR,
-  LEAD_TYPE_LABELS,
   type PipelineStageId,
   type LeadType,
 } from '@/lib/constants/statuses';
@@ -65,11 +65,16 @@ function initials(name: string): string {
   return parts.map((p) => p[0]?.toUpperCase() ?? '').join('') || '?';
 }
 
-function whatsAppHref(phone: string | null | undefined, name: string | null | undefined): string | null {
+function whatsAppHref(
+  phone: string | null | undefined,
+  name: string | null | undefined,
+  greetingNamed: (name: string) => string,
+  greetingPlain: string,
+): string | null {
   if (!phone) return null;
   const digits = phone.replace(/\D/g, '');
   if (digits.length < 7) return null;
-  const greeting = name ? `أهلاً ${name}،` : 'أهلاً،';
+  const greeting = name ? greetingNamed(name) : greetingPlain;
   return `https://wa.me/${digits}?text=${encodeURIComponent(greeting)}`;
 }
 
@@ -88,22 +93,30 @@ export function LeadHeader({
   onEditCore,
   canEditCore,
 }: LeadHeaderProps) {
+  const t = useTranslations('crm.lead.header');
+  const stageLabelFor = useStatusLabels('pipelineStage');
+  const leadTypeLabelFor = useStatusLabels('leadType');
   const isArchived = !!lead.archived_at;
   const stage = stages?.find((s) => s.id === lead.stage_id);
   const stageLabel = stage?.name_ar
-    ?? (lead.stage_id ? PIPELINE_STAGE_LABELS_AR[lead.stage_id as PipelineStageId] : null);
-  const wa = whatsAppHref(lead.phone, lead.name);
-  // Permission gate for the "إنشاء عرض سعر" button — closes the discoverability
-  // gap surfaced by Sayed's real-world workflow (lead at مكالمة استكشافية needed
-  // a quote; backend was complete but no in-app entry point existed).
-  // sales_agent role has quotes.create per lib/auth/rbac.ts ROLE_EXTRAS.
+    ?? (lead.stage_id ? stageLabelFor(lead.stage_id as PipelineStageId) : null);
+  const wa = whatsAppHref(
+    lead.phone,
+    lead.name,
+    (name) => t('whatsappGreetingNamed', { name }),
+    t('whatsappGreetingPlain'),
+  );
+  // Permission gate for the "Create quote" button — closes the discoverability
+  // gap surfaced by Sayed's real-world workflow (a lead at the Discovery Call
+  // stage needed a quote; backend was complete but no in-app entry point
+  // existed). sales_agent role has quotes.create per lib/auth/rbac.ts ROLE_EXTRAS.
   const canCreateQuote = usePermission('quotes.create');
 
   return (
     <div className="space-y-3">
       <Button asChild variant="ghost" size="sm" className="-ms-2">
         <Link href="/dashboard/crm/pipeline">
-          <ArrowLeft className="size-4 me-1" /> الـ Pipeline
+          <ArrowLeft className="size-4 me-1" /> {t('backToPipeline')}
         </Link>
       </Button>
 
@@ -146,18 +159,18 @@ export function LeadHeader({
                 {stageLabel && <LeadStagePill label={stageLabel} color={stage?.color} />}
                 {lead.lead_type && (
                   <Badge variant="outline" className="bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800/40 max-md:bg-orange-500/20 max-md:text-orange-200 max-md:border-orange-400/30">
-                    {LEAD_TYPE_LABELS[lead.lead_type as LeadType] ?? lead.lead_type.toUpperCase()}
+                    {leadTypeLabelFor(lead.lead_type as LeadType) ?? lead.lead_type.toUpperCase()}
                   </Badge>
                 )}
                 <LeadPriorityBadge priority={lead.priority} />
                 {isArchived && (
                   <Badge variant="outline" className="bg-stone-500/10 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700/50 max-md:bg-stone-500/20 max-md:text-stone-200 max-md:border-stone-400/30">
-                    <Archive className="size-3 me-1" /> مؤرشف
+                    <Archive className="size-3 me-1" /> {t('archivedBadge')}
                   </Badge>
                 )}
                 {(lead.win_probability ?? 0) > 0 && (
                   <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/40 tabular-nums max-md:bg-emerald-500/20 max-md:text-emerald-200 max-md:border-emerald-400/30">
-                    احتمال الفوز · {lead.win_probability}%
+                    {t('winProbabilityBadge', { percent: lead.win_probability })}
                   </Badge>
                 )}
                 {/* Phase 11.5 — linked-client badge. Clickable Link to the client page. */}
@@ -165,7 +178,7 @@ export function LeadHeader({
                   <Link
                     href={`/dashboard/clients/${lead.client_id}`}
                     className="inline-flex"
-                    aria-label={`عرض حساب العميل ${client_name}`}
+                    aria-label={t('linkedClientAria', { name: client_name })}
                   >
                     <Badge
                       variant="outline"
@@ -176,7 +189,7 @@ export function LeadHeader({
                       )}
                     >
                       <Link2 className="size-3 me-1" />
-                      مرتبط بـ {client_name}
+                      {t('linkedClientBadge', { name: client_name })}
                     </Badge>
                   </Link>
                 )}
@@ -189,21 +202,21 @@ export function LeadHeader({
             {wa && (
               <Button asChild variant="default" size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">
                 <a href={wa} target="_blank" rel="noopener noreferrer">
-                  <MessageCircle className="size-4 me-1.5" /> WhatsApp
+                  <MessageCircle className="size-4 me-1.5" /> {t('whatsapp')}
                 </a>
               </Button>
             )}
             {lead.phone && (
               <Button asChild variant="outline" size="sm" className="max-md:bg-white/10 max-md:text-white max-md:border-white/20 max-md:hover:bg-white/20">
                 <a href={`tel:${lead.phone}`}>
-                  <Phone className="size-4 me-1.5" /> اتصال
+                  <Phone className="size-4 me-1.5" /> {t('call')}
                 </a>
               </Button>
             )}
             {lead.email && (
               <Button asChild variant="outline" size="sm" className="max-md:bg-white/10 max-md:text-white max-md:border-white/20 max-md:hover:bg-white/20">
                 <a href={`mailto:${lead.email}`}>
-                  <Mail className="size-4 me-1.5" /> إيميل
+                  <Mail className="size-4 me-1.5" /> {t('email')}
                 </a>
               </Button>
             )}
@@ -214,7 +227,7 @@ export function LeadHeader({
               disabled={!onAddNote}
               className="max-md:bg-white/10 max-md:text-white max-md:border-white/20 max-md:hover:bg-white/20"
             >
-              <NotebookPen className="size-4 me-1.5" /> ملاحظة
+              <NotebookPen className="size-4 me-1.5" /> {t('note')}
             </Button>
             <Button
               variant="outline"
@@ -223,9 +236,9 @@ export function LeadHeader({
               disabled={!onScheduleFollowUp}
               className="max-md:bg-white/10 max-md:text-white max-md:border-white/20 max-md:hover:bg-white/20"
             >
-              <CalendarPlus className="size-4 me-1.5" /> متابعة
+              <CalendarPlus className="size-4 me-1.5" /> {t('followUp')}
             </Button>
-            {/* "إنشاء عرض سعر" — quote CTA. Links to the existing
+            {/* "Create quote" — quote CTA. Links to the existing
                 /dashboard/quotes/new?lead_id= flow (Phase 9 nullable
                 client_id + lead_id FK; auto-prefills from lead via the
                 QuoteBuilder useEffect). Gated by quotes.create permission
@@ -240,7 +253,7 @@ export function LeadHeader({
                 className="max-md:bg-white/10 max-md:text-white max-md:border-white/20 max-md:hover:bg-white/20"
               >
                 <Link href={`/dashboard/quotes/new?lead_id=${lead.id}`}>
-                  <FileSignature className="size-4 me-1.5" /> إنشاء عرض سعر
+                  <FileSignature className="size-4 me-1.5" /> {t('createQuote')}
                 </Link>
               </Button>
             )}
@@ -264,7 +277,7 @@ export function LeadHeader({
                   onClick={onEditCore}
                   className="max-md:bg-white/10 max-md:text-white max-md:border-white/20 max-md:hover:bg-white/20"
                 >
-                  <Pencil className="size-4 me-1.5" /> تعديل البيانات
+                  <Pencil className="size-4 me-1.5" /> {t('editData')}
                 </Button>
               )}
               {canReassign && onReassign && (
@@ -274,7 +287,7 @@ export function LeadHeader({
                   onClick={onReassign}
                   className="max-md:bg-white/10 max-md:text-white max-md:border-white/20 max-md:hover:bg-white/20"
                 >
-                  <UserCog className="size-4 me-1.5" /> تغيير المسؤول
+                  <UserCog className="size-4 me-1.5" /> {t('reassign')}
                 </Button>
               )}
               {!lead.client_id && canLinkClient && onLinkClient && (
@@ -284,7 +297,7 @@ export function LeadHeader({
                   onClick={onLinkClient}
                   className="max-md:bg-white/10 max-md:text-white max-md:border-white/20 max-md:hover:bg-white/20"
                 >
-                  <UserCheck className="size-4 me-1.5" /> ربط بعميل موجود
+                  <UserCheck className="size-4 me-1.5" /> {t('linkClient')}
                 </Button>
               )}
               {canArchive && onArchive && (
@@ -298,9 +311,9 @@ export function LeadHeader({
                   )}
                 >
                   {isArchived ? (
-                    <><ArchiveRestore className="size-4 me-1.5" /> إلغاء الأرشفة</>
+                    <><ArchiveRestore className="size-4 me-1.5" /> {t('unarchive')}</>
                   ) : (
-                    <><Archive className="size-4 me-1.5" /> أرشفة</>
+                    <><Archive className="size-4 me-1.5" /> {t('archive')}</>
                   )}
                 </Button>
               )}

@@ -18,8 +18,8 @@
  *
  * Q-API-001 (warn but allow): on phone-blur the form calls
  *   GET /api/crm/leads/lookup?phone=… and renders an inline
- *   "هذا الرقم موجود قبل كده — اضغط لفتح الـ Lead الموجود" link with the
- *   matched lead's id. Submit is NOT blocked.
+ *   "this number already exists — click to open the existing Lead" link with
+ *   the matched lead's id. Submit is NOT blocked.
  */
 
 import { useState, useCallback, useEffect, useRef, useId, cloneElement, isValidElement } from 'react';
@@ -27,6 +27,7 @@ import type { ReactElement } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useLocale, useTranslations } from 'next-intl';
 import { Loader2, AlertCircle, ExternalLink } from 'lucide-react';
 
 import {
@@ -53,11 +54,13 @@ import { cn } from '@/lib/utils/cn';
 
 import { useCreateLead, type CreateLeadInput } from '@/hooks/useLeads';
 import { fetchAPI } from '@/hooks/api-helpers';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import {
-  LEAD_DEAL_TYPE_LABELS,
-  LEAD_BILLING_CYCLE_LABELS,
+  LEAD_DEAL_TYPE,
+  LEAD_BILLING_CYCLE,
   PIPELINE_STAGE_IDS,
 } from '@/lib/constants/statuses';
+import { dirFor, type Locale } from '@/lib/i18n/config';
 
 interface AddLeadModalProps {
   open: boolean;
@@ -70,21 +73,20 @@ interface DuplicateMatch {
   assigned_display_name: string | null;
 }
 
-const SOURCES = [
-  { value: 'whatsapp', label: 'WhatsApp' },
-  { value: 'referral', label: 'إحالة' },
-  { value: 'manual', label: 'يدوي' },
-  { value: 'ad', label: 'إعلان' },
-  { value: 'social', label: 'سوشيال ميديا' },
-  { value: 'website', label: 'الموقع' },
-];
+// Source + priority option VALUES (labels resolved via t()/accessor at render
+// time — Phase 3.4: was a local AR-labeled array, duplicated verbatim in
+// edit-lead-dialog; source labels live in crm.lead.sources.*, priority in the
+// shared leadPriority entity).
+const SOURCE_VALUES = ['whatsapp', 'referral', 'manual', 'ad', 'social', 'website'] as const;
+const PRIORITY_VALUES = ['low', 'medium', 'high', 'urgent'] as const;
 
-const PRIORITIES = [
-  { value: 'low',    label: 'منخفضة' },
-  { value: 'medium', label: 'عادية' },
-  { value: 'high',   label: 'عالية' },
-  { value: 'urgent', label: 'عاجل' },
-];
+const QUICK_DUE_DAYS = [1, 3, 7, 14] as const;
+const QUICK_DUE_KEYS: Record<(typeof QUICK_DUE_DAYS)[number], string> = {
+  1: 'tomorrow',
+  3: 'in3Days',
+  7: 'inWeek',
+  14: 'in2Weeks',
+};
 
 type FormState = {
   // Contact
@@ -114,7 +116,7 @@ type FormState = {
   follow_up_due_at: string; // ISO datetime-local (YYYY-MM-DDTHH:mm)
 };
 
-function emptyState(): FormState {
+function emptyState(defaultFollowUpTitle: string): FormState {
   return {
     name: '',
     phone: '',
@@ -135,7 +137,7 @@ function emptyState(): FormState {
     priority: 'medium',
     notes: '',
     follow_up_enabled: false,
-    follow_up_title: 'متابعة أولى',
+    follow_up_title: defaultFollowUpTitle,
     follow_up_due_at: '',
   };
 }
@@ -150,20 +152,30 @@ function quickDateLocal(daysFromNow: number, hour = 10): string {
 }
 
 export function AddLeadModal({ open, onOpenChange }: AddLeadModalProps) {
+  const t = useTranslations('crm.modals.addLead');
+  const tCommon = useTranslations('common.actions');
+  const tQuickDue = useTranslations('crm.modals.quickDue');
+  const locale = useLocale() as Locale;
+  const dealTypeLabelFor = useStatusLabels('leadDealType');
+  const billingCycleLabelFor = useStatusLabels('leadBillingCycle');
+  const sourceLabelFor = useTranslations('crm.lead.sources');
+  const priorityLabelFor = useStatusLabels('leadPriority');
+  const SOURCES = SOURCE_VALUES.map((value) => ({ value, label: sourceLabelFor(value) }));
+  const PRIORITIES = PRIORITY_VALUES.map((value) => ({ value, label: priorityLabelFor(value) }));
   const router = useRouter();
   const create = useCreateLead();
 
-  const [form, setForm] = useState<FormState>(emptyState());
+  const [form, setForm] = useState<FormState>(() => emptyState(t('defaultFollowUpTitle')));
   const [duplicate, setDuplicate] = useState<DuplicateMatch | null>(null);
   const [duplicateLoading, setDuplicateLoading] = useState(false);
 
   // Reset on close.
   useEffect(() => {
     if (!open) {
-      setForm(emptyState());
+      setForm(emptyState(t('defaultFollowUpTitle')));
       setDuplicate(null);
     }
-  }, [open]);
+  }, [open, t]);
 
   // Phone-duplicate lookup, debounced 400ms.
   const lookupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -200,11 +212,11 @@ export function AddLeadModal({ open, onOpenChange }: AddLeadModalProps) {
     const name = form.name.trim();
     const phone = form.phone.trim();
     if (!name) {
-      toast.error('الاسم مطلوب');
+      toast.error(t('requiredName'));
       return null;
     }
     if (!phone) {
-      toast.error('الهاتف مطلوب');
+      toast.error(t('requiredPhone'));
       return null;
     }
 
@@ -232,7 +244,7 @@ export function AddLeadModal({ open, onOpenChange }: AddLeadModalProps) {
       payload.follow_up_title = form.follow_up_title.trim();
     }
     return payload;
-  }, [form]);
+  }, [form, t]);
 
   async function handleSave(navigate: boolean) {
     const payload = buildPayload();
@@ -246,9 +258,9 @@ export function AddLeadModal({ open, onOpenChange }: AddLeadModalProps) {
           ?.duplicate_warning ?? null;
 
       if (dupWarn) {
-        toast.warning(`تم الإنشاء — لكن لاحظ وجود Lead سابق برقم مشابه (${dupWarn.existing_lead_name}).`);
+        toast.warning(t('duplicateWarning', { name: dupWarn.existing_lead_name }));
       } else {
-        toast.success('تم إنشاء الـ Lead');
+        toast.success(t('createSuccess'));
       }
 
       if (navigate && leadId) {
@@ -256,12 +268,12 @@ export function AddLeadModal({ open, onOpenChange }: AddLeadModalProps) {
         router.push(`/dashboard/crm/leads/${leadId}`);
       } else {
         // Save and add another → reset, keep open
-        setForm(emptyState());
+        setForm(emptyState(t('defaultFollowUpTitle')));
         setDuplicate(null);
       }
     } catch (err) {
       console.error('Create lead failed:', err);
-      toast.error('فشل إنشاء الـ Lead');
+      toast.error(t('createError'));
     }
   }
 
@@ -269,11 +281,11 @@ export function AddLeadModal({ open, onOpenChange }: AddLeadModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" dir={dirFor(locale)}>
         <DialogHeader>
-          <DialogTitle>Lead جديد</DialogTitle>
+          <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>
-            ملء بيانات العميل المحتمل. الحقول المعلّمة بـ * إلزامية.
+            {t('description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -285,11 +297,11 @@ export function AddLeadModal({ open, onOpenChange }: AddLeadModalProps) {
           className="space-y-5 py-2"
         >
           {/* Contact ─────────────────────────────────────── */}
-          <Section title="بيانات الاتصال">
-            <Field label="الاسم" required>
+          <Section title={t('sections.contact')}>
+            <Field label={t('fields.name')} required>
               <Input value={form.name} onChange={(e) => update('name', e.target.value)} required autoFocus />
             </Field>
-            <Field label="الهاتف" required hint={duplicateLoading ? 'جاري البحث...' : undefined}>
+            <Field label={t('fields.phone')} required hint={duplicateLoading ? t('phoneSearching') : undefined}>
               <Input
                 value={form.phone}
                 onChange={(e) => update('phone', e.target.value)}
@@ -297,7 +309,7 @@ export function AddLeadModal({ open, onOpenChange }: AddLeadModalProps) {
                 required
               />
             </Field>
-            <Field label="الإيميل">
+            <Field label={t('fields.email')}>
               <Input
                 type="email"
                 value={form.email}
@@ -308,8 +320,8 @@ export function AddLeadModal({ open, onOpenChange }: AddLeadModalProps) {
           </Section>
 
           {/* Company / B2B-B2C ─────────────────────────────── */}
-          <Section title="الشركة / النوع">
-            <Field label="نوع العميل">
+          <Section title={t('sections.company')}>
+            <Field label={t('fields.leadTypeB2b')}>
               <div className="inline-flex rounded-lg border border-border p-1 bg-muted/40">
                 {(['b2b', 'b2c'] as const).map((v) => (
                   <button
@@ -323,25 +335,25 @@ export function AddLeadModal({ open, onOpenChange }: AddLeadModalProps) {
                         : 'text-muted-foreground hover:text-foreground',
                     )}
                   >
-                    {v === 'b2b' ? 'شركة (B2B)' : 'فرد (B2C)'}
+                    {v === 'b2b' ? t('fields.leadTypeB2b') : t('fields.leadTypeB2c')}
                   </button>
                 ))}
               </div>
             </Field>
             {form.lead_type === 'b2b' && (
               <>
-                <Field label="اسم الشركة">
+                <Field label={t('fields.company')}>
                   <Input value={form.company} onChange={(e) => update('company', e.target.value)} />
                 </Field>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Field label="القطاع">
+                  <Field label={t('fields.industry')}>
                     <Input value={form.industry} onChange={(e) => update('industry', e.target.value)} />
                   </Field>
-                  <Field label="حجم الشركة">
+                  <Field label={t('fields.companySize')}>
                     <Select value={form.company_size || 'unset'} onValueChange={(v) => update('company_size', v === 'unset' ? '' : v)}>
-                      <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={t('companySizePlaceholder')} /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="unset">—</SelectItem>
+                        <SelectItem value="unset">{t('companySizePlaceholder')}</SelectItem>
                         <SelectItem value="1-10">1–10</SelectItem>
                         <SelectItem value="11-50">11–50</SelectItem>
                         <SelectItem value="51-200">51–200</SelectItem>
@@ -353,25 +365,25 @@ export function AddLeadModal({ open, onOpenChange }: AddLeadModalProps) {
               </>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="جهة الاتصال">
+              <Field label={t('fields.contactPerson')}>
                 <Input value={form.contact_person} onChange={(e) => update('contact_person', e.target.value)} />
               </Field>
-              <Field label="منصب جهة الاتصال">
+              <Field label={t('fields.contactRole')}>
                 <Input value={form.contact_role} onChange={(e) => update('contact_role', e.target.value)} />
               </Field>
             </div>
             {form.lead_type === 'b2b' && (
-              <Field label="صاحب القرار">
+              <Field label={t('fields.decisionMaker')}>
                 <Input value={form.decision_maker} onChange={(e) => update('decision_maker', e.target.value)} />
               </Field>
             )}
           </Section>
 
           {/* Deal ─────────────────────────────────────────── */}
-          <Section title="تفاصيل الصفقة">
-            <Field label="نوع الخدمة">
+          <Section title={t('sections.deal')}>
+            <Field label={t('fields.dealType')}>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                {Object.entries(LEAD_DEAL_TYPE_LABELS).map(([value, label]) => (
+                {Object.values(LEAD_DEAL_TYPE).map((value) => (
                   <button
                     key={value}
                     type="button"
@@ -383,13 +395,13 @@ export function AddLeadModal({ open, onOpenChange }: AddLeadModalProps) {
                         : 'border-border bg-muted/30 hover:bg-muted text-muted-foreground',
                     )}
                   >
-                    {label}
+                    {dealTypeLabelFor(value)}
                   </button>
                 ))}
               </div>
             </Field>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <Field label="القيمة المتوقعة">
+              <Field label={t('fields.expectedValue')}>
                 <Input
                   type="number"
                   inputMode="decimal"
@@ -398,7 +410,7 @@ export function AddLeadModal({ open, onOpenChange }: AddLeadModalProps) {
                   placeholder="0"
                 />
               </Field>
-              <Field label="العملة">
+              <Field label={t('fields.currency')}>
                 <Select value={form.expected_value_currency} onValueChange={(v) => update('expected_value_currency', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -409,19 +421,19 @@ export function AddLeadModal({ open, onOpenChange }: AddLeadModalProps) {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="دورة الفوترة">
+              <Field label={t('fields.billingCycle')}>
                 <Select value={form.billing_cycle} onValueChange={(v) => update('billing_cycle', v as FormState['billing_cycle'])}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {Object.entries(LEAD_BILLING_CYCLE_LABELS).map(([v, l]) => (
-                      <SelectItem key={v} value={v}>{l}</SelectItem>
+                    {Object.values(LEAD_BILLING_CYCLE).map((v) => (
+                      <SelectItem key={v} value={v}>{billingCycleLabelFor(v)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </Field>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="المصدر">
+              <Field label={t('fields.source')}>
                 <Select value={form.source} onValueChange={(v) => update('source', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -431,7 +443,7 @@ export function AddLeadModal({ open, onOpenChange }: AddLeadModalProps) {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="الأولوية">
+              <Field label={t('fields.priority')}>
                 <Select value={form.priority} onValueChange={(v) => update('priority', v as FormState['priority'])}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -445,19 +457,19 @@ export function AddLeadModal({ open, onOpenChange }: AddLeadModalProps) {
           </Section>
 
           {/* Follow-up + Notes ───────────────────────────── */}
-          <Section title="ملاحظة + متابعة (اختياري)">
-            <Field label="ملاحظة">
+          <Section title={t('sections.notesFollowUp')}>
+            <Field label={t('fields.note')}>
               <Textarea
                 value={form.notes}
                 onChange={(e) => update('notes', e.target.value)}
                 rows={2}
-                placeholder="ملاحظة سريعة عن الـ Lead..."
+                placeholder={t('notePlaceholder')}
               />
             </Field>
             <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
               <div>
-                <Label className="text-sm">جدولة متابعة</Label>
-                <p className="text-xs text-muted-foreground">اختر تاريخ المتابعة الأولى</p>
+                <Label className="text-sm">{t('scheduleFollowUp')}</Label>
+                <p className="text-xs text-muted-foreground">{t('scheduleFollowUpHint')}</p>
               </div>
               <Switch
                 checked={form.follow_up_enabled}
@@ -467,30 +479,25 @@ export function AddLeadModal({ open, onOpenChange }: AddLeadModalProps) {
             {form.follow_up_enabled && (
               <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-3">
                 <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { label: 'بكره', days: 1 },
-                    { label: 'بعد 3 أيام', days: 3 },
-                    { label: 'بعد أسبوع', days: 7 },
-                    { label: 'بعد أسبوعين', days: 14 },
-                  ].map((q) => (
+                  {QUICK_DUE_DAYS.map((days) => (
                     <button
-                      key={q.label}
+                      key={days}
                       type="button"
-                      onClick={() => update('follow_up_due_at', quickDateLocal(q.days))}
+                      onClick={() => update('follow_up_due_at', quickDateLocal(days))}
                       className="rounded-full border border-border bg-background px-3 py-1 text-xs hover:bg-muted"
                     >
-                      {q.label}
+                      {tQuickDue(QUICK_DUE_KEYS[days] as Parameters<typeof tQuickDue>[0])}
                     </button>
                   ))}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Field label="عنوان المتابعة">
+                  <Field label={t('followUpTitle')}>
                     <Input
                       value={form.follow_up_title}
                       onChange={(e) => update('follow_up_title', e.target.value)}
                     />
                   </Field>
-                  <Field label="الوقت">
+                  <Field label={t('followUpTime')}>
                     <Input
                       type="datetime-local"
                       value={form.follow_up_due_at}
@@ -504,7 +511,7 @@ export function AddLeadModal({ open, onOpenChange }: AddLeadModalProps) {
 
           <DialogFooter className="!flex !flex-row gap-2 !justify-between flex-wrap">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>
-              إلغاء
+              {tCommon('cancel')}
             </Button>
             <div className="flex gap-2">
               <Button
@@ -514,11 +521,11 @@ export function AddLeadModal({ open, onOpenChange }: AddLeadModalProps) {
                 disabled={submitting}
               >
                 {submitting ? <Loader2 className="size-4 animate-spin me-1.5" /> : null}
-                حفظ + Lead جديد
+                {t('saveAndAddAnother')}
               </Button>
               <Button type="submit" disabled={submitting} className="bg-orange-500 hover:bg-orange-600 text-white">
                 {submitting ? <Loader2 className="size-4 animate-spin me-1.5" /> : null}
-                إنشاء الـ Lead
+                {t('createLead')}
               </Button>
             </div>
           </DialogFooter>
@@ -573,11 +580,12 @@ function Field({
 }
 
 function DuplicateNotice({ match }: { match: DuplicateMatch }) {
+  const t = useTranslations('crm.modals.addLead.duplicateNotice');
   return (
     <div className="flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-800/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
       <AlertCircle className="size-4 shrink-0 mt-0.5" aria-hidden />
       <p className="leading-5">
-        هذا الرقم موجود قبل كده —{' '}
+        {t('prefix')}
         <Link
           href={`/dashboard/crm/leads/${match.id}`}
           target="_blank"
@@ -588,9 +596,11 @@ function DuplicateNotice({ match }: { match: DuplicateMatch }) {
           <ExternalLink className="size-3" />
         </Link>
         {match.assigned_display_name && (
-          <span className="text-amber-700/80 dark:text-amber-400/80"> · مع {match.assigned_display_name}</span>
+          <span className="text-amber-700/80 dark:text-amber-400/80">
+            {t('assignedSuffix', { name: match.assigned_display_name })}
+          </span>
         )}
-        . تقدر تستمر في إنشاء Lead جديد لو كانت صفقة منفصلة.
+        {t('suffix')}
       </p>
     </div>
   );

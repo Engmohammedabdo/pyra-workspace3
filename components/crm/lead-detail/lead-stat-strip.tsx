@@ -10,9 +10,12 @@
  *   4. Win probability (with the Q-BIZ-001 default→override flag note)
  */
 
+import { useLocale, useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { Wallet, CalendarClock, Activity, Target } from 'lucide-react';
 import { formatCurrency, formatRelativeDate } from '@/lib/utils/format';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import type { Locale } from '@/lib/i18n/config';
 import type { PyraSalesLead } from '@/types/database';
 
 interface LeadStatStripProps {
@@ -30,6 +33,9 @@ function daysInPipeline(lead: PyraSalesLead): number | null {
 }
 
 export function LeadStatStrip({ lead, lastActivityAt }: LeadStatStripProps) {
+  const t = useTranslations('crm.lead.statStrip');
+  const statusLabelForBillingCycle = useStatusLabels('leadBillingCycle');
+  const locale = useLocale() as Locale;
   const days = daysInPipeline(lead);
   const lastSeen = lastActivityAt ?? lead.last_contact_at;
   const winProb = lead.win_probability ?? 0;
@@ -38,34 +44,38 @@ export function LeadStatStrip({ lead, lastActivityAt }: LeadStatStripProps) {
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <StatCard
         icon={<Wallet className="size-5" />}
-        label="قيمة الصفقة"
+        label={t('dealValue')}
         tone="orange"
         value={
           (Number(lead.expected_value) || 0) > 0
             ? formatCurrency(Number(lead.expected_value), lead.expected_value_currency || 'AED')
-            : '—'
+            : t('dash')
         }
-        sub={lead.billing_cycle && lead.billing_cycle !== 'one_time' ? lead.billing_cycle : undefined}
+        sub={
+          lead.billing_cycle && lead.billing_cycle !== 'one_time'
+            ? statusLabelForBillingCycle(lead.billing_cycle)
+            : undefined
+        }
       />
       <StatCard
         icon={<CalendarClock className="size-5" />}
-        label={lead.is_converted ? 'مدة الإغلاق' : 'في الـ Pipeline'}
+        label={lead.is_converted ? t('closedDuration') : t('inPipeline')}
         tone="indigo"
-        value={days !== null ? `${days}` : '—'}
-        sub={days !== null ? (days === 1 ? 'يوم' : 'أيام') : undefined}
+        value={days !== null ? `${days}` : t('dash')}
+        sub={days !== null ? t('days', { count: days }) : undefined}
       />
       <StatCard
         icon={<Activity className="size-5" />}
-        label="آخر نشاط"
+        label={t('lastActivity')}
         tone="amber"
-        value={lastSeen ? formatRelativeDate(lastSeen) : '—'}
+        value={lastSeen ? formatRelativeDate(lastSeen, locale) : t('dash')}
       />
       <StatCard
         icon={<Target className="size-5" />}
-        label="احتمال الفوز"
+        label={t('winProbability')}
         tone={winProb >= 75 ? 'emerald' : winProb >= 50 ? 'orange' : 'gray'}
         value={`${winProb}%`}
-        sub={lead.win_probability_overridden ? 'تم تعديله يدوياً' : 'حسب المرحلة'}
+        sub={lead.win_probability_overridden ? t('overriddenManually') : t('byStage')}
       />
     </div>
   );

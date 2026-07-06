@@ -13,6 +13,7 @@
  * (note, call, message, conversion, etc.) still render sensibly.
  */
 
+import { useLocale, useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils/cn';
 import {
   StickyNote, Phone, CalendarClock, MessageCircle, Mail, Paperclip,
@@ -20,12 +21,12 @@ import {
   PlusCircle, Activity as ActivityIcon, ArrowRightCircle, BellRing,
 } from 'lucide-react';
 import { formatRelativeDate } from '@/lib/utils/format';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import {
-  LEAD_ACTIVITY_LABELS_AR,
-  PIPELINE_STAGE_LABELS_AR,
   type LeadActivityTypeNew,
   type PipelineStageId,
 } from '@/lib/constants/statuses';
+import type { Locale } from '@/lib/i18n/config';
 import type { LeadActivity } from '@/hooks/useLeadActivities';
 
 type IconType = React.ComponentType<{ className?: string }>;
@@ -33,34 +34,36 @@ type IconType = React.ComponentType<{ className?: string }>;
 interface VariantSpec {
   icon: IconType;
   tone: string;
-  defaultLabel: string;
 }
 
+// Icons + tones only — labels are resolved in-component via
+// useStatusLabels('leadActivity') (Phase 3.4 restructure, same pattern as the
+// P2 taskPriority accessor swap: module-level maps can't call hooks, so the
+// translatable part moves inside the component).
 const VARIANTS: Partial<Record<LeadActivityTypeNew, VariantSpec>> = {
-  lead_created:        { icon: PlusCircle,    tone: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',   defaultLabel: LEAD_ACTIVITY_LABELS_AR.lead_created },
-  stage_change:        { icon: ArrowRightCircle, tone: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400', defaultLabel: LEAD_ACTIVITY_LABELS_AR.stage_change },
-  note:                { icon: StickyNote,    tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',     defaultLabel: LEAD_ACTIVITY_LABELS_AR.note },
-  call_logged:         { icon: Phone,         tone: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',           defaultLabel: LEAD_ACTIVITY_LABELS_AR.call_logged },
-  meeting_scheduled:   { icon: CalendarClock, tone: 'bg-purple-500/10 text-purple-700 dark:text-purple-300',  defaultLabel: LEAD_ACTIVITY_LABELS_AR.meeting_scheduled },
-  whatsapp_inbound:    { icon: MessageCircle, tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300', defaultLabel: LEAD_ACTIVITY_LABELS_AR.whatsapp_inbound },
-  whatsapp_outbound:   { icon: MessageCircle, tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300', defaultLabel: LEAD_ACTIVITY_LABELS_AR.whatsapp_outbound },
-  email_sent:          { icon: Mail,          tone: 'bg-blue-500/10 text-blue-700 dark:text-blue-300',         defaultLabel: LEAD_ACTIVITY_LABELS_AR.email_sent },
-  file_attached:       { icon: Paperclip,     tone: 'bg-stone-500/10 text-stone-700 dark:text-stone-300',     defaultLabel: LEAD_ACTIVITY_LABELS_AR.file_attached },
-  field_updated:       { icon: Pencil,        tone: 'bg-muted text-muted-foreground',                          defaultLabel: LEAD_ACTIVITY_LABELS_AR.field_updated },
-  assignment_changed:  { icon: UserCog,       tone: 'bg-muted text-muted-foreground',                          defaultLabel: LEAD_ACTIVITY_LABELS_AR.assignment_changed },
-  closed_won_pending:  { icon: Hourglass,     tone: 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-300',  defaultLabel: LEAD_ACTIVITY_LABELS_AR.closed_won_pending },
-  closed_won_approved: { icon: CheckCircle2,  tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300', defaultLabel: LEAD_ACTIVITY_LABELS_AR.closed_won_approved },
-  closed_won_rejected: { icon: XCircle,       tone: 'bg-red-500/10 text-red-700 dark:text-red-300',           defaultLabel: LEAD_ACTIVITY_LABELS_AR.closed_won_rejected },
-  follow_up_created:   { icon: BellRing,      tone: 'bg-orange-500/10 text-orange-600 dark:text-orange-400', defaultLabel: LEAD_ACTIVITY_LABELS_AR.follow_up_created },
-  follow_up_completed: { icon: CheckCircle2,  tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300', defaultLabel: LEAD_ACTIVITY_LABELS_AR.follow_up_completed },
-  follow_up_overdue:   { icon: AlertTriangle, tone: 'bg-red-500/10 text-red-700 dark:text-red-300',           defaultLabel: LEAD_ACTIVITY_LABELS_AR.follow_up_overdue },
-  idle_warning:        { icon: AlertTriangle, tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',     defaultLabel: LEAD_ACTIVITY_LABELS_AR.idle_warning },
+  lead_created:        { icon: PlusCircle,    tone: 'bg-orange-500/10 text-orange-600 dark:text-orange-400' },
+  stage_change:        { icon: ArrowRightCircle, tone: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' },
+  note:                { icon: StickyNote,    tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' },
+  call_logged:         { icon: Phone,         tone: 'bg-sky-500/10 text-sky-700 dark:text-sky-300' },
+  meeting_scheduled:   { icon: CalendarClock, tone: 'bg-purple-500/10 text-purple-700 dark:text-purple-300' },
+  whatsapp_inbound:    { icon: MessageCircle, tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' },
+  whatsapp_outbound:   { icon: MessageCircle, tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' },
+  email_sent:          { icon: Mail,          tone: 'bg-blue-500/10 text-blue-700 dark:text-blue-300' },
+  file_attached:       { icon: Paperclip,     tone: 'bg-stone-500/10 text-stone-700 dark:text-stone-300' },
+  field_updated:       { icon: Pencil,        tone: 'bg-muted text-muted-foreground' },
+  assignment_changed:  { icon: UserCog,       tone: 'bg-muted text-muted-foreground' },
+  closed_won_pending:  { icon: Hourglass,     tone: 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-300' },
+  closed_won_approved: { icon: CheckCircle2,  tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' },
+  closed_won_rejected: { icon: XCircle,       tone: 'bg-red-500/10 text-red-700 dark:text-red-300' },
+  follow_up_created:   { icon: BellRing,      tone: 'bg-orange-500/10 text-orange-600 dark:text-orange-400' },
+  follow_up_completed: { icon: CheckCircle2,  tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' },
+  follow_up_overdue:   { icon: AlertTriangle, tone: 'bg-red-500/10 text-red-700 dark:text-red-300' },
+  idle_warning:        { icon: AlertTriangle, tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' },
 };
 
 const FALLBACK: VariantSpec = {
   icon: ActivityIcon,
   tone: 'bg-muted text-muted-foreground',
-  defaultLabel: 'نشاط',
 };
 
 interface ActivityItemProps {
@@ -74,9 +77,16 @@ function metadataString(meta: unknown, key: string): string | null {
 }
 
 export function ActivityItem({ activity }: ActivityItemProps) {
+  const t = useTranslations('crm.activity');
+  const locale = useLocale() as Locale;
+  const statusLabelForActivity = useStatusLabels('leadActivity');
+  const stageLabelFor = useStatusLabels('pipelineStage');
   const variant = VARIANTS[activity.activity_type as LeadActivityTypeNew] ?? FALLBACK;
   const Icon = variant.icon;
-  const actor = activity.created_by_display_name ?? activity.created_by ?? 'النظام';
+  const actor = activity.created_by_display_name ?? activity.created_by ?? t('fallbackActor');
+  const defaultLabel = activity.activity_type
+    ? statusLabelForActivity(activity.activity_type)
+    : t('fallbackLabel');
 
   // Derive a one-line title that's specific to the type when possible.
   const title = (() => {
@@ -84,26 +94,30 @@ export function ActivityItem({ activity }: ActivityItemProps) {
       case 'stage_change': {
         const from = metadataString(activity.metadata, 'from_stage');
         const to = metadataString(activity.metadata, 'to_stage');
-        const fromLabel = from ? PIPELINE_STAGE_LABELS_AR[from as PipelineStageId] ?? from : null;
-        const toLabel = to ? PIPELINE_STAGE_LABELS_AR[to as PipelineStageId] ?? to : null;
-        if (fromLabel && toLabel) return `انتقلت المرحلة من "${fromLabel}" إلى "${toLabel}"`;
-        if (toLabel) return `انتقلت المرحلة إلى "${toLabel}"`;
-        return variant.defaultLabel;
+        const fromLabel = from ? stageLabelFor(from as PipelineStageId) : null;
+        const toLabel = to ? stageLabelFor(to as PipelineStageId) : null;
+        if (fromLabel && toLabel) return t('titles.stageChangeFromTo', { from: fromLabel, to: toLabel });
+        if (toLabel) return t('titles.stageChangeToOnly', { to: toLabel });
+        return defaultLabel;
       }
       case 'field_updated': {
         const field = metadataString(activity.metadata, 'field');
-        return field ? `تم تحديث: ${field}` : variant.defaultLabel;
+        if (!field) return defaultLabel;
+        const fieldLabel = t.has(`fields.${field}` as Parameters<typeof t>[0])
+          ? t(`fields.${field}` as Parameters<typeof t>[0])
+          : field;
+        return t('titles.fieldUpdated', { field: fieldLabel });
       }
       case 'assignment_changed': {
         const to = metadataString(activity.metadata, 'to_user');
-        return to ? `تم تعيين الـ Lead لـ ${to}` : variant.defaultLabel;
+        return to ? t('titles.assignmentChanged', { to }) : defaultLabel;
       }
       case 'closed_won_rejected': {
         const reason = metadataString(activity.metadata, 'reason');
-        return reason ? `تم رفض إغلاق الصفقة — ${reason}` : variant.defaultLabel;
+        return reason ? t('titles.closedWonRejected', { reason }) : defaultLabel;
       }
       default:
-        return variant.defaultLabel;
+        return defaultLabel;
     }
   })();
 
@@ -135,7 +149,7 @@ export function ActivityItem({ activity }: ActivityItemProps) {
         )}
 
         <p className="text-xs text-muted-foreground mt-1">
-          {actor} · {formatRelativeDate(activity.created_at)}
+          {actor} · {formatRelativeDate(activity.created_at, locale)}
         </p>
       </div>
     </li>

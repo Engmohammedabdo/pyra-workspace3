@@ -18,6 +18,7 @@
 import { useEffect, useState, useCallback, useRef, useId, cloneElement, isValidElement } from 'react';
 import type { ReactElement } from 'react';
 import { toast } from 'sonner';
+import { useLocale, useTranslations } from 'next-intl';
 import { Loader2 } from 'lucide-react';
 
 import {
@@ -32,24 +33,17 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils/cn';
 import { useUpdateLead } from '@/hooks/useLeads';
-import { LEAD_DEAL_TYPE_LABELS, LEAD_BILLING_CYCLE_LABELS } from '@/lib/constants/statuses';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import { LEAD_DEAL_TYPE, LEAD_BILLING_CYCLE } from '@/lib/constants/statuses';
+import { dirFor, type Locale } from '@/lib/i18n/config';
 import type { PyraSalesLead } from '@/types/database';
 
-const SOURCES = [
-  { value: 'whatsapp', label: 'WhatsApp' },
-  { value: 'referral', label: 'إحالة' },
-  { value: 'manual', label: 'يدوي' },
-  { value: 'ad', label: 'إعلان' },
-  { value: 'social', label: 'سوشيال ميديا' },
-  { value: 'website', label: 'الموقع' },
-];
-
-const PRIORITIES = [
-  { value: 'low', label: 'منخفضة' },
-  { value: 'medium', label: 'عادية' },
-  { value: 'high', label: 'عالية' },
-  { value: 'urgent', label: 'عاجل' },
-];
+// Source + priority option VALUES (labels resolved via t()/accessor at render
+// time — Phase 3.4: was a local AR-labeled array, duplicated verbatim in
+// add-lead-modal; source labels live in crm.lead.sources.*, priority in the
+// shared leadPriority entity).
+const SOURCE_VALUES = ['whatsapp', 'referral', 'manual', 'ad', 'social', 'website'] as const;
+const PRIORITY_VALUES = ['low', 'medium', 'high', 'urgent'] as const;
 
 type FormState = {
   name: string;
@@ -102,6 +96,15 @@ interface EditLeadDialogProps {
 }
 
 export function EditLeadDialog({ lead, open, onOpenChange }: EditLeadDialogProps) {
+  const t = useTranslations('crm.modals.editLead');
+  const tCommon = useTranslations('common.actions');
+  const locale = useLocale() as Locale;
+  const dealTypeLabelFor = useStatusLabels('leadDealType');
+  const billingCycleLabelFor = useStatusLabels('leadBillingCycle');
+  const sourceLabelFor = useTranslations('crm.lead.sources');
+  const priorityLabelFor = useStatusLabels('leadPriority');
+  const SOURCES = SOURCE_VALUES.map((value) => ({ value, label: sourceLabelFor(value) }));
+  const PRIORITIES = PRIORITY_VALUES.map((value) => ({ value, label: priorityLabelFor(value) }));
   const [form, setForm] = useState<FormState>(() => seed(lead));
   // Snapshot of the form as it was when the dialog opened. handleSave diffs
   // against this so we PATCH ONLY fields the admin actually changed — this
@@ -127,8 +130,8 @@ export function EditLeadDialog({ lead, open, onOpenChange }: EditLeadDialogProps
   async function handleSave() {
     const name = form.name.trim();
     const phone = form.phone.trim();
-    if (!name) return toast.error('الاسم مطلوب');
-    if (!phone) return toast.error('الهاتف مطلوب');
+    if (!name) return toast.error(t('requiredName'));
+    if (!phone) return toast.error(t('requiredPhone'));
 
     // Only the fields the admin actually touched (form vs opened-snapshot).
     const init = initialRef.current;
@@ -136,7 +139,7 @@ export function EditLeadDialog({ lead, open, onOpenChange }: EditLeadDialogProps
       (k) => form[k] !== init[k],
     );
     if (changedKeys.length === 0) {
-      toast.info('لا توجد تغييرات');
+      toast.info(t('noChanges'));
       onOpenChange(false);
       return;
     }
@@ -172,10 +175,10 @@ export function EditLeadDialog({ lead, open, onOpenChange }: EditLeadDialogProps
 
     try {
       await update.mutateAsync({ id: lead.id, data: payload });
-      toast.success('تم تحديث بيانات الـ Lead');
+      toast.success(t('updateSuccess'));
       onOpenChange(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'فشل تحديث البيانات');
+      toast.error(err instanceof Error ? err.message : t('updateError'));
     }
   }
 
@@ -183,11 +186,11 @@ export function EditLeadDialog({ lead, open, onOpenChange }: EditLeadDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" dir={dirFor(locale)}>
         <DialogHeader>
-          <DialogTitle>تعديل بيانات الـ Lead</DialogTitle>
+          <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>
-            تعديل بيانات العميل المحتمل. الحقول المعلّمة بـ * إلزامية. (متاح للمشرف فقط)
+            {t('description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -199,23 +202,23 @@ export function EditLeadDialog({ lead, open, onOpenChange }: EditLeadDialogProps
           className="space-y-5 py-2"
         >
           {/* Contact */}
-          <Section title="بيانات الاتصال">
-            <Field label="الاسم" required>
+          <Section title={t('sections.contact')}>
+            <Field label={t('fields.name')} required>
               <Input value={form.name} onChange={(e) => set('name', e.target.value)} required autoFocus />
             </Field>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="الهاتف" required>
+              <Field label={t('fields.phone')} required>
                 <Input value={form.phone} onChange={(e) => set('phone', e.target.value)} inputMode="tel" required />
               </Field>
-              <Field label="الإيميل">
+              <Field label={t('fields.email')}>
                 <Input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} />
               </Field>
             </div>
           </Section>
 
           {/* Company */}
-          <Section title="الشركة / النوع">
-            <Field label="نوع العميل">
+          <Section title={t('sections.company')}>
+            <Field label={t('fields.leadTypeB2b')}>
               <div className="inline-flex rounded-lg border border-border p-1 bg-muted/40">
                 {(['b2b', 'b2c'] as const).map((v) => (
                   <button
@@ -229,32 +232,32 @@ export function EditLeadDialog({ lead, open, onOpenChange }: EditLeadDialogProps
                         : 'text-muted-foreground hover:text-foreground',
                     )}
                   >
-                    {v === 'b2b' ? 'شركة (B2B)' : 'فرد (B2C)'}
+                    {v === 'b2b' ? t('fields.leadTypeB2b') : t('fields.leadTypeB2c')}
                   </button>
                 ))}
               </div>
             </Field>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="اسم الشركة">
+              <Field label={t('fields.company')}>
                 <Input value={form.company} onChange={(e) => set('company', e.target.value)} />
               </Field>
-              <Field label="القطاع">
+              <Field label={t('fields.industry')}>
                 <Input value={form.industry} onChange={(e) => set('industry', e.target.value)} />
               </Field>
-              <Field label="جهة الاتصال">
+              <Field label={t('fields.contactPerson')}>
                 <Input value={form.contact_person} onChange={(e) => set('contact_person', e.target.value)} />
               </Field>
-              <Field label="منصب جهة الاتصال">
+              <Field label={t('fields.contactRole')}>
                 <Input value={form.contact_role} onChange={(e) => set('contact_role', e.target.value)} />
               </Field>
-              <Field label="صاحب القرار">
+              <Field label={t('fields.decisionMaker')}>
                 <Input value={form.decision_maker} onChange={(e) => set('decision_maker', e.target.value)} />
               </Field>
-              <Field label="حجم الشركة">
+              <Field label={t('fields.companySize')}>
                 <Select value={form.company_size || 'unset'} onValueChange={(v) => set('company_size', v === 'unset' ? '' : v)}>
-                  <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('companySizePlaceholder')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="unset">—</SelectItem>
+                    <SelectItem value="unset">{t('companySizePlaceholder')}</SelectItem>
                     <SelectItem value="1-10">1–10</SelectItem>
                     <SelectItem value="11-50">11–50</SelectItem>
                     <SelectItem value="51-200">51–200</SelectItem>
@@ -262,17 +265,17 @@ export function EditLeadDialog({ lead, open, onOpenChange }: EditLeadDialogProps
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="الميزانية">
+              <Field label={t('fields.budget')}>
                 <Input value={form.budget_range} onChange={(e) => set('budget_range', e.target.value)} />
               </Field>
             </div>
           </Section>
 
           {/* Deal */}
-          <Section title="تفاصيل الصفقة">
-            <Field label="نوع الخدمة">
+          <Section title={t('sections.deal')}>
+            <Field label={t('fields.dealType')}>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                {Object.entries(LEAD_DEAL_TYPE_LABELS).map(([value, label]) => (
+                {Object.values(LEAD_DEAL_TYPE).map((value) => (
                   <button
                     key={value}
                     type="button"
@@ -284,13 +287,13 @@ export function EditLeadDialog({ lead, open, onOpenChange }: EditLeadDialogProps
                         : 'border-border bg-muted/30 hover:bg-muted text-muted-foreground',
                     )}
                   >
-                    {label}
+                    {dealTypeLabelFor(value)}
                   </button>
                 ))}
               </div>
             </Field>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <Field label="القيمة المتوقعة">
+              <Field label={t('fields.expectedValue')}>
                 <Input
                   type="number"
                   inputMode="decimal"
@@ -299,7 +302,7 @@ export function EditLeadDialog({ lead, open, onOpenChange }: EditLeadDialogProps
                   placeholder="0"
                 />
               </Field>
-              <Field label="العملة">
+              <Field label={t('fields.currency')}>
                 <Select value={form.expected_value_currency} onValueChange={(v) => set('expected_value_currency', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -310,19 +313,19 @@ export function EditLeadDialog({ lead, open, onOpenChange }: EditLeadDialogProps
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="دورة الفوترة">
+              <Field label={t('fields.billingCycle')}>
                 <Select value={form.billing_cycle} onValueChange={(v) => set('billing_cycle', v as FormState['billing_cycle'])}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {Object.entries(LEAD_BILLING_CYCLE_LABELS).map(([v, l]) => (
-                      <SelectItem key={v} value={v}>{l}</SelectItem>
+                    {Object.values(LEAD_BILLING_CYCLE).map((v) => (
+                      <SelectItem key={v} value={v}>{billingCycleLabelFor(v)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </Field>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="المصدر">
+              <Field label={t('fields.source')}>
                 <Select value={form.source} onValueChange={(v) => set('source', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -332,7 +335,7 @@ export function EditLeadDialog({ lead, open, onOpenChange }: EditLeadDialogProps
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="الأولوية">
+              <Field label={t('fields.priority')}>
                 <Select value={form.priority} onValueChange={(v) => set('priority', v as FormState['priority'])}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -346,24 +349,24 @@ export function EditLeadDialog({ lead, open, onOpenChange }: EditLeadDialogProps
           </Section>
 
           {/* Notes */}
-          <Section title="ملاحظات">
-            <Field label="ملاحظة">
+          <Section title={t('sections.notes')}>
+            <Field label={t('fields.note')}>
               <Textarea
                 value={form.notes}
                 onChange={(e) => set('notes', e.target.value)}
                 rows={3}
-                placeholder="ملاحظات عن الـ Lead..."
+                placeholder={t('notePlaceholder')}
               />
             </Field>
           </Section>
 
           <DialogFooter className="!flex !flex-row gap-2 !justify-end flex-wrap">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>
-              إلغاء
+              {tCommon('cancel')}
             </Button>
             <Button type="submit" disabled={submitting} className="bg-orange-500 hover:bg-orange-600 text-white">
               {submitting ? <Loader2 className="size-4 animate-spin me-1.5" /> : null}
-              حفظ التعديلات
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>

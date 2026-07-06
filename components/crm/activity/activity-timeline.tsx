@@ -13,16 +13,19 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { ar } from 'date-fns/locale';
+import { useLocale, useTranslations } from 'next-intl';
 import { dubaiDayKey } from '@/lib/utils/format';
+import { getDateFnsLocale } from '@/lib/i18n/date-locale';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Activity as ActivityIcon, Loader2 } from 'lucide-react';
 import { useLeadActivities, type LeadActivity } from '@/hooks/useLeadActivities';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import { ActivityItem } from './activity-item';
 import { ActivityComposer } from './activity-composer';
-import { LEAD_ACTIVITY_TYPES, LEAD_ACTIVITY_LABELS_AR, type LeadActivityTypeNew } from '@/lib/constants/statuses';
+import { LEAD_ACTIVITY_TYPES, type LeadActivityTypeNew } from '@/lib/constants/statuses';
+import type { Locale } from '@/lib/i18n/config';
 
 interface ActivityTimelineProps {
   leadId: string;
@@ -37,26 +40,34 @@ interface ActivityTimelineProps {
   highlightId?: string | null;
 }
 
-const FILTER_GROUPS: Array<{ label: string; types: LeadActivityTypeNew[] | 'all' }> = [
-  { label: 'كل النشاط', types: 'all' },
-  { label: 'ملاحظات',     types: ['note'] },
-  { label: 'مكالمات',     types: ['call_logged'] },
-  { label: 'WhatsApp',    types: ['whatsapp_inbound', 'whatsapp_outbound'] },
-  { label: 'مراحل',       types: ['stage_change', 'closed_won_pending', 'closed_won_approved', 'closed_won_rejected'] },
-  { label: 'متابعات',     types: ['follow_up_created', 'follow_up_completed', 'follow_up_overdue'] },
+// Stable keys (never change with locale) — used as React keys AND as the
+// `activeFilter` state value. Visible labels are resolved via t() at render
+// time from `crm.activity.filterGroups.*` (Phase 3.4 migration: label used to
+// double as both the key and the display text; now split so switching locale
+// doesn't reset the active filter).
+const FILTER_GROUP_DEFS: Array<{ key: string; types: LeadActivityTypeNew[] | 'all' }> = [
+  { key: 'all',       types: 'all' },
+  { key: 'notes',     types: ['note'] },
+  { key: 'calls',     types: ['call_logged'] },
+  { key: 'whatsapp',  types: ['whatsapp_inbound', 'whatsapp_outbound'] },
+  { key: 'stages',    types: ['stage_change', 'closed_won_pending', 'closed_won_approved', 'closed_won_rejected'] },
+  { key: 'followUps', types: ['follow_up_created', 'follow_up_completed', 'follow_up_overdue'] },
 ];
 
 export function ActivityTimeline({ leadId, showComposer = true, highlightId }: ActivityTimelineProps) {
+  const t = useTranslations('crm.activity');
+  const statusLabelForActivity = useStatusLabels('leadActivity');
+  const locale = useLocale() as Locale;
   const [activeFilter, setActiveFilter] = useState<string>('all');
 
   const filterTypes = useMemo(() => {
-    const g = FILTER_GROUPS.find((f) => f.label === activeFilter);
+    const g = FILTER_GROUP_DEFS.find((f) => f.key === activeFilter);
     if (!g || g.types === 'all') return undefined;
     return g.types;
   }, [activeFilter]);
 
   // The infinite query supports a single `type` param. For groups with
-  // multiple types (WhatsApp, مراحل, متابعات) we fetch all and filter
+  // multiple types (WhatsApp, stages, follow-ups) we fetch all and filter
   // client-side — Q-UI-002's 50/page is enough for v1.
   const singleType = filterTypes && filterTypes.length === 1 ? filterTypes[0] : undefined;
 
@@ -130,12 +141,12 @@ export function ActivityTimeline({ leadId, showComposer = true, highlightId }: A
 
       {/* Filter chips */}
       <div className="flex flex-wrap gap-1.5">
-        {FILTER_GROUPS.map((g) => {
-          const isActive = g.label === activeFilter;
+        {FILTER_GROUP_DEFS.map((g) => {
+          const isActive = g.key === activeFilter;
           return (
             <button
-              key={g.label}
-              onClick={() => setActiveFilter(g.label)}
+              key={g.key}
+              onClick={() => setActiveFilter(g.key)}
               aria-pressed={isActive}
               className={
                 'inline-flex items-center rounded-full px-3 py-1 text-xs font-medium border transition-colors ' +
@@ -144,7 +155,7 @@ export function ActivityTimeline({ leadId, showComposer = true, highlightId }: A
                   : 'bg-muted/40 text-muted-foreground border-border hover:bg-muted')
               }
             >
-              {g.label}
+              {t(`filterGroups.${g.key}` as Parameters<typeof t>[0])}
             </button>
           );
         })}
@@ -160,11 +171,11 @@ export function ActivityTimeline({ leadId, showComposer = true, highlightId }: A
       ) : allActivities.length === 0 ? (
         <EmptyState
           icon={ActivityIcon}
-          title={activeFilter === 'all' ? 'لا يوجد نشاط بعد' : 'لا يوجد نشاط في هذا التصنيف'}
+          title={activeFilter === 'all' ? t('empty.titleAll') : t('empty.titleFiltered')}
           description={
             activeFilter === 'all'
-              ? 'بمجرد ما يتم تسجيل ملاحظة، مكالمة، أو رسالة WhatsApp ستظهر هنا.'
-              : 'جرّب تصنيف آخر من الفلاتر بالأعلى.'
+              ? t('empty.descriptionAll')
+              : t('empty.descriptionFiltered')
           }
         />
       ) : (
@@ -174,7 +185,7 @@ export function ActivityTimeline({ leadId, showComposer = true, highlightId }: A
               <h4 className="text-xs font-medium text-muted-foreground sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70 py-1">
                 {/* `day` is a Dubai YYYY-MM-DD key — parse as local midnight so
                     the printed label matches the key regardless of viewer TZ. */}
-                {format(new Date(day + 'T00:00:00'), 'eeee, d MMMM yyyy', { locale: ar })}
+                {format(new Date(day + 'T00:00:00'), 'eeee, d MMMM yyyy', { locale: getDateFnsLocale(locale) })}
               </h4>
               <ul className="space-y-1 -m-1 ms-2 ps-3 border-s-2 border-dashed border-border/60">
                 {items.map((a) => (
@@ -195,7 +206,7 @@ export function ActivityTimeline({ leadId, showComposer = true, highlightId }: A
                 className="gap-1.5"
               >
                 {q.isFetchingNextPage ? <Loader2 className="size-3.5 animate-spin" /> : null}
-                {q.isFetchingNextPage ? 'جاري التحميل...' : 'تحميل المزيد'}
+                {q.isFetchingNextPage ? t('loadingMore') : t('loadMore')}
               </Button>
             </div>
           )}
@@ -205,7 +216,9 @@ export function ActivityTimeline({ leadId, showComposer = true, highlightId }: A
       {/* Hint about filter labels for testers — only when there are NO activities at all */}
       {q.data?.pages?.[0]?.activities.length === 0 && (
         <p className="text-[10px] text-muted-foreground/60 text-center pt-2">
-          الأنشطة المدعومة: {LEAD_ACTIVITY_TYPES.map((t) => LEAD_ACTIVITY_LABELS_AR[t]).join(' · ')}
+          {t('supportedTypesHint', {
+            types: LEAD_ACTIVITY_TYPES.map((type) => statusLabelForActivity(type)).join(' · '),
+          })}
         </p>
       )}
     </div>

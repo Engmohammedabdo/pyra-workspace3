@@ -19,10 +19,11 @@
  *
  * `defaultExpanded`:
  *   true  → show the composer fully open
- *   false → show a compact "إضافة ملاحظة..." trigger row that expands on click
+ *   false → show a compact "Add note..."-style trigger row that expands on click
  */
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -49,11 +50,14 @@ interface ActivityComposerProps {
   onSubmitted?: () => void;
 }
 
-const KIND_DEFS: Record<ActivityKind, { label: string; icon: React.ComponentType<{ className?: string }>; placeholder: string }> = {
-  note:              { label: 'ملاحظة',  icon: StickyNote,    placeholder: 'اكتب ملاحظة سريعة...' },
-  call_logged:       { label: 'مكالمة',  icon: Phone,         placeholder: 'تلخيص لما اتقال في المكالمة...' },
-  meeting_scheduled: { label: 'اجتماع',  icon: CalendarClock, placeholder: 'تفاصيل الاجتماع...' },
-  email_sent:        { label: 'إيميل',   icon: Mail,          placeholder: 'مضمون الإيميل اللي اتبعت...' },
+// Icons only — labels/placeholders resolved in-component via t() from
+// `crm.activity.composer.kinds.*` (Phase 3.4 restructure, module maps can't
+// call hooks).
+const KIND_ICONS: Record<ActivityKind, React.ComponentType<{ className?: string }>> = {
+  note: StickyNote,
+  call_logged: Phone,
+  meeting_scheduled: CalendarClock,
+  email_sent: Mail,
 };
 
 export function ActivityComposer({
@@ -62,6 +66,8 @@ export function ActivityComposer({
   defaultExpanded = true,
   onSubmitted,
 }: ActivityComposerProps) {
+  const t = useTranslations('crm.activity.composer');
+  const tCommon = useTranslations('common.actions');
   const formId = useId();
   const create = useCreateLeadActivity();
 
@@ -104,7 +110,7 @@ export function ActivityComposer({
   async function handleSubmit() {
     const text = content.trim();
     if (!text) {
-      toast.error('المحتوى مطلوب');
+      toast.error(t('contentRequired'));
       return;
     }
 
@@ -132,12 +138,12 @@ export function ActivityComposer({
         pinned: kind === 'note' && pinned,
       });
       reset();
-      toast.success('تم تسجيل النشاط');
+      toast.success(t('createSuccess'));
       onSubmitted?.();
       if (!defaultExpanded) setExpanded(false);
     } catch (err) {
       console.error('Add activity failed:', err);
-      toast.error('فشل تسجيل النشاط');
+      toast.error(t('createError'));
     }
   }
 
@@ -146,14 +152,14 @@ export function ActivityComposer({
 
   // Compact trigger when not expanded.
   if (!expanded) {
-    const Icon = KIND_DEFS[kind].icon;
+    const Icon = KIND_ICONS[kind];
     return (
       <button
         type="button"
         onClick={() => setExpanded(true)}
         className="w-full text-start rounded-lg border border-dashed border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground hover:bg-muted/40 transition-colors flex items-center gap-2"
       >
-        <Icon className="size-4" /> {KIND_DEFS[kind].placeholder}
+        <Icon className="size-4" /> {t(`kinds.${kind}.placeholder`)}
       </button>
     );
   }
@@ -162,8 +168,8 @@ export function ActivityComposer({
     <Card className="p-3 space-y-3 border-orange-200/40 dark:border-orange-800/30">
       {showTabs && (
         <div className="flex flex-wrap gap-1">
-          {(Object.keys(KIND_DEFS) as ActivityKind[]).map((k) => {
-            const Icon = KIND_DEFS[k].icon;
+          {(Object.keys(KIND_ICONS) as ActivityKind[]).map((k) => {
+            const Icon = KIND_ICONS[k];
             const isActive = k === kind;
             return (
               <button
@@ -179,7 +185,7 @@ export function ActivityComposer({
                 )}
               >
                 <Icon className="size-3.5" />
-                {KIND_DEFS[k].label}
+                {t(`kinds.${k}.label`)}
               </button>
             );
           })}
@@ -200,14 +206,14 @@ export function ActivityComposer({
         rows={3}
         value={content}
         onChange={setContent}
-        placeholder={KIND_DEFS[kind].placeholder}
+        placeholder={t(`kinds.${kind}.placeholder`)}
       />
 
       {/* Type-specific fields */}
       {kind === 'call_logged' && (
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <Label htmlFor={`${formId}-dur`} className="text-xs">المدة (دقائق)</Label>
+            <Label htmlFor={`${formId}-dur`} className="text-xs">{t('durationMinutes')}</Label>
             <Input
               id={`${formId}-dur`}
               type="number"
@@ -215,16 +221,16 @@ export function ActivityComposer({
               min={0}
               value={durationMinutes}
               onChange={(e) => setDurationMinutes(e.target.value)}
-              placeholder="—"
+              placeholder={t('dash')}
             />
           </div>
           <div>
-            <Label htmlFor={`${formId}-dir`} className="text-xs">الاتجاه</Label>
+            <Label htmlFor={`${formId}-dir`} className="text-xs">{t('direction')}</Label>
             <Select value={callDirection} onValueChange={(v) => setCallDirection(v as 'inbound' | 'outbound')}>
               <SelectTrigger id={`${formId}-dir`}><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="outbound">صادر</SelectItem>
-                <SelectItem value="inbound">وارد</SelectItem>
+                <SelectItem value="outbound">{t('outbound')}</SelectItem>
+                <SelectItem value="inbound">{t('inbound')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -234,7 +240,7 @@ export function ActivityComposer({
       {kind === 'meeting_scheduled' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div>
-            <Label htmlFor={`${formId}-mdate`} className="text-xs">موعد الاجتماع</Label>
+            <Label htmlFor={`${formId}-mdate`} className="text-xs">{t('meetingDate')}</Label>
             <Input
               id={`${formId}-mdate`}
               type="datetime-local"
@@ -243,12 +249,12 @@ export function ActivityComposer({
             />
           </div>
           <div>
-            <Label htmlFor={`${formId}-mloc`} className="text-xs">المكان / الرابط</Label>
+            <Label htmlFor={`${formId}-mloc`} className="text-xs">{t('meetingLocation')}</Label>
             <Input
               id={`${formId}-mloc`}
               value={meetingLocation}
               onChange={(e) => setMeetingLocation(e.target.value)}
-              placeholder="مكتب — Zoom — Teams ..."
+              placeholder={t('meetingLocationPlaceholder')}
             />
           </div>
         </div>
@@ -256,19 +262,19 @@ export function ActivityComposer({
 
       {kind === 'email_sent' && (
         <div>
-          <Label htmlFor={`${formId}-subj`} className="text-xs">عنوان الإيميل</Label>
+          <Label htmlFor={`${formId}-subj`} className="text-xs">{t('emailSubject')}</Label>
           <Input
             id={`${formId}-subj`}
             value={emailSubject}
             onChange={(e) => setEmailSubject(e.target.value)}
-            placeholder="عرضنا الجديد لـ ..."
+            placeholder={t('emailSubjectPlaceholder')}
           />
         </div>
       )}
 
       {kind === 'note' && (
         <div className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-3 py-1.5">
-          <Label htmlFor={`${formId}-pin`} className="text-xs cursor-pointer">تثبيت الملاحظة</Label>
+          <Label htmlFor={`${formId}-pin`} className="text-xs cursor-pointer">{t('pinNote')}</Label>
           <Switch id={`${formId}-pin`} checked={pinned} onCheckedChange={setPinned} />
         </div>
       )}
@@ -285,7 +291,7 @@ export function ActivityComposer({
             }}
             disabled={submitting}
           >
-            إلغاء
+            {tCommon('cancel')}
           </Button>
         )}
         <Button
@@ -296,7 +302,7 @@ export function ActivityComposer({
           className="bg-orange-500 hover:bg-orange-600 text-white"
         >
           {submitting ? <Loader2 className="size-4 animate-spin me-1.5" /> : <Check className="size-4 me-1.5" />}
-          حفظ
+          {t('save')}
         </Button>
       </div>
     </Card>

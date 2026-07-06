@@ -5,8 +5,8 @@
  * header (and the Lead sidebar's "schedule" CTA in v1.x).
  *
  * Form:
- *   Title              — defaults to "متابعة"
- *   Due-at             — quick-pick (بكره / 3 أيام / أسبوع / أسبوعين) or custom
+ *   Title              — defaults to a localized "Follow-up" placeholder
+ *   Due-at             — quick-pick (tomorrow / 3 days / week / 2 weeks / month) or custom
  *   Notes              — optional textarea
  *
  * Submit → useCreateFollowUp → POST /api/crm/follow-ups.
@@ -16,6 +16,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useLocale, useTranslations } from 'next-intl';
 import { Loader2 } from 'lucide-react';
 
 import {
@@ -31,12 +32,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useCreateFollowUp } from '@/hooks/useFollowUps';
+import { dirFor, type Locale } from '@/lib/i18n/config';
 
 interface FollowUpModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   leadId: string;
-  /** Pre-fill the title (e.g. "متابعة بعد إرسال العرض"). */
+  /** Pre-fill the title (e.g. "Follow-up after sending the quote"). */
   defaultTitle?: string;
 }
 
@@ -48,42 +50,57 @@ function quickDateLocal(daysFromNow: number, hour = 10): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// Quick-due presets — this modal's superset of crm.modals.quickDue (adds
+// `inMonth`, which the add-lead-modal quick-picks don't offer).
+const QUICK_DUE_DAYS = [1, 3, 7, 14, 30] as const;
+const QUICK_DUE_KEYS: Record<(typeof QUICK_DUE_DAYS)[number], string> = {
+  1: 'tomorrow',
+  3: 'in3Days',
+  7: 'inWeek',
+  14: 'in2Weeks',
+  30: 'inMonth',
+};
+
 export function FollowUpModal({ open, onOpenChange, leadId, defaultTitle }: FollowUpModalProps) {
+  const t = useTranslations('crm.modals.followUp');
+  const tCommon = useTranslations('common.actions');
+  const tQuickDue = useTranslations('crm.modals.quickDue');
+  const locale = useLocale() as Locale;
   const create = useCreateFollowUp();
-  const [title, setTitle] = useState('متابعة');
+  const [title, setTitle] = useState(t('defaultTitle'));
   const [dueAt, setDueAt] = useState('');
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
     if (open) {
-      setTitle(defaultTitle ?? 'متابعة');
+      setTitle(defaultTitle ?? t('defaultTitle'));
       setDueAt(quickDateLocal(1)); // default to "tomorrow 10am"
       setNotes('');
     }
-  }, [open, defaultTitle]);
+  }, [open, defaultTitle, t]);
 
   async function handleSubmit() {
-    const t = title.trim();
-    if (!t) {
-      toast.error('عنوان المتابعة مطلوب');
+    const titleTrimmed = title.trim();
+    if (!titleTrimmed) {
+      toast.error(t('requiredTitle'));
       return;
     }
     if (!dueAt) {
-      toast.error('وقت المتابعة مطلوب');
+      toast.error(t('requiredDueAt'));
       return;
     }
     try {
       await create.mutateAsync({
         lead_id: leadId,
-        title: t,
+        title: titleTrimmed,
         due_at: new Date(dueAt).toISOString(),
         notes: notes.trim() || undefined,
       });
-      toast.success('تم جدولة المتابعة');
+      toast.success(t('createSuccess'));
       onOpenChange(false);
     } catch (err) {
       console.error('Create follow-up failed:', err);
-      toast.error('فشل جدولة المتابعة');
+      toast.error(t('createError'));
     }
   }
 
@@ -91,11 +108,11 @@ export function FollowUpModal({ open, onOpenChange, leadId, defaultTitle }: Foll
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg" dir="rtl">
+      <DialogContent className="sm:max-w-lg" dir={dirFor(locale)}>
         <DialogHeader>
-          <DialogTitle>جدولة متابعة</DialogTitle>
+          <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>
-            ستظهر في "متابعاتي" وفي الـ sidebar الخاص بهذا الـ Lead.
+            {t('description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -107,7 +124,7 @@ export function FollowUpModal({ open, onOpenChange, leadId, defaultTitle }: Foll
           className="space-y-4 py-2"
         >
           <div className="space-y-1.5">
-            <Label htmlFor="fu-title" className="text-xs">العنوان</Label>
+            <Label htmlFor="fu-title" className="text-xs">{t('titleField')}</Label>
             <Input
               id="fu-title"
               value={title}
@@ -118,22 +135,16 @@ export function FollowUpModal({ open, onOpenChange, leadId, defaultTitle }: Foll
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs">متى؟</Label>
+            <Label className="text-xs">{t('whenLabel')}</Label>
             <div className="flex flex-wrap gap-1.5">
-              {[
-                { label: 'بكره', days: 1 },
-                { label: 'بعد 3 أيام', days: 3 },
-                { label: 'بعد أسبوع', days: 7 },
-                { label: 'بعد أسبوعين', days: 14 },
-                { label: 'بعد شهر', days: 30 },
-              ].map((q) => (
+              {QUICK_DUE_DAYS.map((days) => (
                 <button
-                  key={q.label}
+                  key={days}
                   type="button"
-                  onClick={() => setDueAt(quickDateLocal(q.days))}
+                  onClick={() => setDueAt(quickDateLocal(days))}
                   className="rounded-full border border-border bg-muted/30 px-3 py-1 text-xs hover:bg-muted"
                 >
-                  {q.label}
+                  {tQuickDue(QUICK_DUE_KEYS[days] as Parameters<typeof tQuickDue>[0])}
                 </button>
               ))}
             </div>
@@ -146,24 +157,24 @@ export function FollowUpModal({ open, onOpenChange, leadId, defaultTitle }: Foll
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="fu-notes" className="text-xs">ملاحظات (اختياري)</Label>
+            <Label htmlFor="fu-notes" className="text-xs">{t('notesLabel')}</Label>
             <Textarea
               id="fu-notes"
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="مثلاً: نتابع رد على العرض، نرسل الأسعار، ..."
+              placeholder={t('notesPlaceholder')}
               className="resize-none"
             />
           </div>
 
           <DialogFooter className="!flex-row gap-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>
-              إلغاء
+              {tCommon('cancel')}
             </Button>
             <Button type="submit" disabled={submitting} className="bg-orange-500 hover:bg-orange-600 text-white">
               {submitting ? <Loader2 className="size-4 animate-spin me-1.5" /> : null}
-              جدولة
+              {t('submit')}
             </Button>
           </DialogFooter>
         </form>

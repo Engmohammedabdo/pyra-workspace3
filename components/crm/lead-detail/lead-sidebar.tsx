@@ -16,6 +16,7 @@ import { useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useLocale, useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +25,7 @@ import {
 import { useFollowUps, useCompleteFollowUp, type FollowUpsResponse } from '@/hooks/useFollowUps';
 import { fetchAPI } from '@/hooks/api-helpers';
 import { formatRelativeDate } from '@/lib/utils/format';
+import type { Locale } from '@/lib/i18n/config';
 import type { PyraSalesLead } from '@/types/database';
 
 interface LeadSidebarProps {
@@ -31,6 +33,8 @@ interface LeadSidebarProps {
 }
 
 export function LeadSidebar({ lead }: LeadSidebarProps) {
+  const t = useTranslations('crm.lead.sidebar');
+  const locale = useLocale() as Locale;
   const qc = useQueryClient();
   const sp = useSearchParams();
   const { data: followUpsRes } = useFollowUps({
@@ -53,7 +57,7 @@ export function LeadSidebar({ lead }: LeadSidebarProps) {
   });
   const assigneeName = lead.assigned_to
     ? liteUsers.find((u) => u.username === lead.assigned_to)?.display_name ?? lead.assigned_to
-    : 'غير مُسند';
+    : t('unassigned');
 
   // Phase 15.1 Commit 5 — follow-up highlight handler (LOCK 1). Triggered
   // by `?followup={fu_id}` deep-links from the calendar event pill. The
@@ -115,39 +119,39 @@ export function LeadSidebar({ lead }: LeadSidebarProps) {
 
     try {
       await complete.mutateAsync({ id });
-      toast.success('تمّت المتابعة');
+      toast.success(t('completeFollowUpSuccess'));
     } catch (err) {
       console.error('Complete follow-up failed:', err);
       for (const [key, data] of snapshots) {
         qc.setQueryData(key, data);
       }
-      toast.error('فشل إكمال المتابعة');
+      toast.error(t('completeFollowUpError'));
     }
   }
 
   return (
     <aside className="space-y-3">
       <Card className="p-4 space-y-3">
-        <h3 className="text-sm font-semibold">معلومات الاتصال</h3>
+        <h3 className="text-sm font-semibold">{t('contactInfoTitle')}</h3>
         <ul className="space-y-2 text-sm">
-          <Row icon={<UserCog className="size-4" />} label="المسؤول" value={assigneeName} />
-          {lead.phone && <Row icon={<Phone className="size-4" />} label="هاتف" value={lead.phone} />}
-          {lead.email && <Row icon={<Mail className="size-4" />} label="إيميل" value={lead.email} />}
+          <Row icon={<UserCog className="size-4" />} label={t('owner')} value={assigneeName} />
+          {lead.phone && <Row icon={<Phone className="size-4" />} label={t('phone')} value={lead.phone} />}
+          {lead.email && <Row icon={<Mail className="size-4" />} label={t('email')} value={lead.email} />}
           {lead.contact_person && (
             <Row
               icon={<User className="size-4" />}
-              label="جهة الاتصال"
+              label={t('contactPerson')}
               value={lead.contact_role ? `${lead.contact_person} · ${lead.contact_role}` : lead.contact_person}
             />
           )}
           {lead.decision_maker && (
-            <Row icon={<UserCheck className="size-4" />} label="صاحب القرار" value={lead.decision_maker} />
+            <Row icon={<UserCheck className="size-4" />} label={t('decisionMaker')} value={lead.decision_maker} />
           )}
-          {lead.industry && <Row icon={<Building2 className="size-4" />} label="القطاع" value={lead.industry} />}
-          {lead.company_size && <Row icon={<Users2 className="size-4" />} label="حجم الشركة" value={lead.company_size} />}
-          {lead.budget_range && <Row icon={<Tag className="size-4" />} label="الميزانية" value={lead.budget_range} />}
+          {lead.industry && <Row icon={<Building2 className="size-4" />} label={t('industry')} value={lead.industry} />}
+          {lead.company_size && <Row icon={<Users2 className="size-4" />} label={t('companySize')} value={lead.company_size} />}
+          {lead.budget_range && <Row icon={<Tag className="size-4" />} label={t('budget')} value={lead.budget_range} />}
           {!lead.phone && !lead.email && !lead.contact_person && (
-            <li className="text-xs text-muted-foreground">لا توجد بيانات اتصال — حدّث الـ Lead لإضافتها.</li>
+            <li className="text-xs text-muted-foreground">{t('noContactInfo')}</li>
           )}
         </ul>
       </Card>
@@ -157,13 +161,13 @@ export function LeadSidebar({ lead }: LeadSidebarProps) {
         data-followup-id={nextFollowUp?.id}
       >
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">المتابعة القادمة</h3>
+          <h3 className="text-sm font-semibold">{t('nextFollowUpTitle')}</h3>
           <CalendarClock className="size-4 text-muted-foreground" aria-hidden />
         </div>
         {nextFollowUp ? (
           <>
-            <p className="text-sm font-medium leading-5 line-clamp-2">{nextFollowUp.title ?? 'متابعة'}</p>
-            <p className="text-xs text-muted-foreground">{formatRelativeDate(nextFollowUp.due_at)}</p>
+            <p className="text-sm font-medium leading-5 line-clamp-2">{nextFollowUp.title ?? t('followUpFallbackTitle')}</p>
+            <p className="text-xs text-muted-foreground">{formatRelativeDate(nextFollowUp.due_at, locale)}</p>
             <Button
               type="button"
               size="sm"
@@ -177,38 +181,38 @@ export function LeadSidebar({ lead }: LeadSidebarProps) {
               ) : (
                 <Check className="size-3.5" />
               )}
-              تمّت المتابعة
+              {t('completeFollowUp')}
             </Button>
           </>
         ) : (
           <p className="text-xs text-muted-foreground leading-5">
-            لا توجد متابعة مجدولة. اضغط زر "متابعة" بالأعلى لإنشاء واحدة.
+            {t('noFollowUp')}
           </p>
         )}
       </Card>
 
       {/* Phase 13 Q-001a — honest user-facing placeholder. Removes
-          developer-facing language (was "إدارة العلامات — قيد البناء
-          (Phase 6)"). EmptyState component swap was attempted but the
-          full-page-sized icon ring + text-lg heading were
+          developer-facing language (was the old "Manage tags — under
+          construction (Phase 6)" copy). EmptyState component swap was
+          attempted but the full-page-sized icon ring + text-lg heading were
           disproportionate to the sidebar's compact card density (the
           Contact info / Next follow-up cards use text-sm headers).
           Used a size-matched inline stub instead, preserving the spec
-          intent (no developer language; "قريباً في v1.1" copy) while
+          intent (no developer language; "coming in v1.1" copy) while
           respecting the sidebar's visual hierarchy. EmptyState
           size="compact" variant is v1.1 backlog. Tags feature itself
           is also v1.1 backlog. */}
       <Card className="p-4 space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">العلامات</h3>
+          <h3 className="text-sm font-semibold">{t('tagsTitle')}</h3>
           <Tag className="size-4 text-muted-foreground" aria-hidden />
         </div>
-        <p className="text-xs text-muted-foreground">قريباً في v1.1</p>
+        <p className="text-xs text-muted-foreground">{t('tagsComingSoon')}</p>
       </Card>
 
       {customFieldEntries.length > 0 && (
         <Card className="p-4 space-y-2">
-          <h3 className="text-sm font-semibold">حقول مخصصة</h3>
+          <h3 className="text-sm font-semibold">{t('customFieldsTitle')}</h3>
           <ul className="space-y-1.5 text-sm">
             {customFieldEntries.map(([k, v]) => (
               <li key={k} className="flex items-start justify-between gap-3">
