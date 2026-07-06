@@ -1,0 +1,14 @@
+HR DOCUMENTS VAULT + MY-DOCUMENTS CENSUS (delivered inline; controller-saved summary)
+Scope: hr/documents pages+settings (501L), components/hr/documents (612L), my-documents (168L), 3 hooks (0 AR), lib/hr/document-expiry.ts. 14 files, none >300.
+
+HEADLINE (DB-DATA hazard): pyra_document_types is a bilingual table (name + name_ar) but ALL 8 read-sites render name_ar UNCONDITIONALLY:
+- 4 sites read full PyraDocumentType objects (documents-client L163 filter, UploadDocumentDialog L139, DocumentRowActions L124, DocTypeRow L23/24) → fix frontend-only with locale-conditional pattern.
+- 3 sites read JOIN field type_name_ar on PyraEmployeeDocument (documents-client L73, UserDocumentsTab L79, my-documents-client L117) → BLOCKED on API/type change: /api/hr/documents JOIN must also return type_name (English); types/database.ts PyraEmployeeDocument has NO type_name field.
+- EXCEPTION decision: DocTypeRow dual-display (name_ar primary + (name) parenthetical) = admin catalog-management UX — KEEP both visible regardless of locale (deliberate exemption).
+
+EXPIRY_BADGE (lib/hr/document-expiry.ts): classifyExpiry returns pure enum (clean); EXPIRY_BADGE.labelAr ×5 (منتهية/تنتهي خلال أيام/تنتهي قريباً/سارية/دائمة) → RECOMMENDED: drop labelAr from the constant (keep className only), labels via t(`hr.documents.expiry.${tier}`) at the ~4 render sites. Fixes the ×3 independent 'تنتهي قريباً' copies too.
+
+UI strings: ~70 (ui) across the group (toasts, form labels, dialogs, EmptyStates). metadata.title ×3 need generateMetadata pattern. 3 formatDate sites need locale. 0 formatCurrency. 0 dir hazards. 0 toLocale*.
+Terminology drift to normalize at catalog time: تحميل vs تنزيل (download); type_name_ar null-fallback '—' ×2 vs 'وثيقة' ×1; ينتهي vs تنتهي; upload-button phrase ×3 variants.
+Real ICU plural candidate: my-documents-client L73-76 (existing singular/plural ternary وثيقة/وثائق تحتاج).
+Maintainability co-finds: hardcoded '20 ميجابايت' should interpolate MAX_SIZE; placeholder year '2024'.

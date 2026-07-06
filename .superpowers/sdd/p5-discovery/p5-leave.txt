@@ -1,0 +1,355 @@
+LEAVE + APPROVALS DISCOVERY — Phase-5 i18n — files verified 2026-07-06
+
+================================================================
+GRAND TOTALS (all files in scope)
+================================================================
+Files scanned: 9 source files (+ 2 helper files inspected as instructed)
+  - app/dashboard/leave/leave-client.tsx           (499 lines)
+  - app/dashboard/leave/page.tsx                   (7 lines, server)
+  - app/dashboard/leave/settings/leave-settings-client.tsx (610 lines) — NOTE: not explicitly named in scope prompt but lives under app/dashboard/leave/** so included
+  - app/dashboard/leave/settings/page.tsx           (7 lines, server)
+  - app/dashboard/hr/leave-balances/leave-balances-client.tsx (162 lines)
+  - app/dashboard/hr/leave-balances/page.tsx        (9 lines, server)
+  - components/hr/leave-balances/AdjustBalanceDialog.tsx (147 lines)
+  - app/dashboard/approvals/approvals-client.tsx    (421 lines)
+  - app/dashboard/approvals/page.tsx                (13 lines, server)
+  - hooks/useLeave.ts (57 lines) — EXISTS but is DEAD/UNUSED by any of the above; see note below
+  - lib/leave/days.ts (24 lines) — countLeaveDays, 0 AR (English JSDoc comment only)
+
+Total AR-bearing lines (ui + data + statuses + comment classes): ~231
+  - (ui) user-visible JSX/label/placeholder/toast/aria/dialog text: ~200
+  - (data) free-text values written to / read from DB (reasons, cancellation_reason passthrough): ~4 (not translatable — user input)
+  - (statuses) label maps that should route through useStatusLabels/centralized constants: ~23 distinct entries across 4 duplicated maps (see section 2)
+  - (comment): 1 Arabic-adjacent comment reference is actually English (migration file); 0 Arabic-language code comments found in the 9 scanned TSX/TS files
+
+Files >300 lines (flag for split consideration; CLAUDE.md's <300-line rule targets new/edited pages):
+  - app/dashboard/leave/settings/leave-settings-client.tsx — 610 lines (LARGEST in this batch — consider splitting into LeaveTypeList / LeaveTypeDialog / CarryOverDialog sub-components during implementation)
+  - app/dashboard/approvals/approvals-client.tsx — 421 lines (3 tabs — consider splitting into LeaveApprovalTab / ExpenseApprovalTab / TimesheetApprovalTab)
+  - app/dashboard/leave/leave-client.tsx — 499 lines (consider splitting balance-cards / request-list / cancel-dialog)
+
+Proposed catalog key shape:
+  hr.leave.list.*            (leave-client.tsx: header, balance cards, create dialog, request list, cancel dialog)
+  hr.leave.settings.*        (leave-settings-client.tsx: leave-type CRUD, icon/color option labels, carry-over dialog)
+  hr.leaveBalances.*         (leave-balances-client.tsx + AdjustBalanceDialog.tsx: admin balance table + adjust dialog)
+  hr.approvals.*             (approvals-client.tsx: shared empty-states, tab labels, reject dialog) with sub-namespaces:
+    hr.approvals.leave.*     (leave tab card, badges)
+    hr.approvals.expense.*   (expense tab card)
+    hr.approvals.timesheet.* (timesheet tab card)
+  Shared cross-cutting: statuses.leave (EXISTS, pending/approved/rejected — missing 'cancelled', see HAZARD 1);
+  statuses.leaveType (EXISTS but keyed on WRONG casing vs real DB values — see HAZARD 1, CRITICAL).
+  NEW catalog candidates: hr.leave.icons.* / hr.leave.colors.* for the ICON_OPTIONS/COLOR_OPTIONS label lists in leave-settings-client.tsx (these are admin-facing config labels, not statuses).
+
+================================================================
+1. app/dashboard/leave/leave-client.tsx (499 lines)
+================================================================
+
+--- Local status/type maps (CRITICAL HAZARD AREA — see section 2 below for full analysis) ---
+- L21: `const STATUS_LABELS: Record<string, string> = { ...LEAVE_STATUS_LABELS, cancelled: 'ملغية' };` (statuses) — spreads the shared LEAVE_STATUS_LABELS (pending/approved/rejected) then ADDS 'cancelled' locally because the shared constant doesn't have it. This is a genuine gap in `lib/constants/statuses.ts` LEAVE_STATUS_LABELS / LeaveStatus type (only pending/approved/rejected) vs the real 4th status 'cancelled' used throughout this UI (self-cancel + admin-cancel-with-reason flow). Same gap exists in messages/ar/statuses.json's `leave` entity.
+- L22: `const TYPE_LABELS: Record<string, string> = { annual: 'سنوية', sick: 'مرضية', personal: 'شخصية' };` (statuses) — HARDCODED, lowercase keys. See HAZARD 1: this NEVER matches real DB `pyra_leave_types.name` values ('Annual'/'Sick'/'Personal'/'Unpaid', capitalized English seed data — verified in supabase/migrations/002_erp_features.sql L56-58 and 028_unpaid_leave_type.sql L15). This map is a legacy FALLBACK path only exercised when `dynamicBalances` lookup misses (line 388, 308) — in practice with v2 balances active it is dead weight that will never fire for seeded data, but WILL silently mis-render if a future non-dynamic-balance code path is hit.
+- L23: TYPE_ICONS keyed same way (annual/sick/personal) — icon lookup, not translatable, but co-located with the same casing hazard (used as fallback: `TYPE_ICONS[req.type] || CalendarOff` and `TYPE_ICONS[b.name] || CalendarOff`).
+
+--- UI strings ---
+- L163: toast.success `'تم تقديم طلب الإجازة'` (ui)
+- L168: toast.error fallback `'فشل تقديم الطلب'` (ui) — err.message may be SERVER-SUPPLIED Arabic passthrough (api-namespace dependency)
+- L176: toast.success ternary `status === 'approved' ? 'تمت الموافقة' : 'تم الرفض'` (ui)
+- L178: toast.error `'فشل العملية'` (ui)
+- L185: toast.success `'تم إلغاء الطلب'` (ui) — legacy pending-delete path
+- L187: toast.error `'فشل الإلغاء'` (ui)
+- L202: toast.success `'تم إلغاء الإجازة بنجاح'` (ui) — new cancel-with-reason path
+- L208: toast.error fallback `'فشل الإلغاء'` (ui) — err.message may be server passthrough
+- L239-241: hardcoded legacy (non-v2) balance card labels `'إجازة سنوية'` / `'إجازة مرضية'` / `'إجازة شخصية'` (statuses-adjacent, but only rendered when v2 API returns nothing — dead-code-adjacent fallback, worth translating anyway for defensive coverage)
+- L248-250: legacy leaveTypeOptions labels `'سنوية'` / `'مرضية'` / `'شخصية'` (statuses) — same fallback path
+- L257: h1 `الإجازات` (ui)
+- L258: `` `{requests.length} طلب` `` — ICU count interpolation (no plural forms, just count + fixed noun) [ICU]
+- L267: button text `طلب إجازة` (ui)
+- L272: DialogTitle `طلب إجازة جديد` (ui)
+- L276: label `نوع الإجازة` (ui)
+- L285: label `من تاريخ` (ui)
+- L289: label `إلى تاريخ` (ui)
+- L296: `جاري التحقق من التعارضات...` (ui)
+- L302: conflict warning `تنبيه: أعضاء فريق في إجازة خلال نفس الفترة` (ui)
+- L308: inline type-label resolution `dynamicBalances.find(...).name_ar || TYPE_LABELS[c.leave_type] || c.leave_type` — THIS is a live 3-tier fallback chain hitting the casing hazard for real
+- L319: label `السبب (اختياري)` (ui)
+- L320: placeholder `سبب الإجازة...` (ui)
+- L323: submit button ternary `جاري التقديم... / تقديم الطلب` (ui)
+- L351: `` `{remaining} يوم متبقي من {b.total}` `` — ICU interpolation, count + total [ICU]
+- L353: `` `+{b.carried_over} مرحّل` `` (ui) [ICU]
+- L374: EmptyState title `لا توجد طلبات إجازة`, description `يمكنك تقديم طلب إجازة جديد`, actionLabel `طلب إجازة` (ui)
+- L388: type label resolution (live hazard path, see above) `dynamicType?.name_ar || TYPE_LABELS[req.type] || req.type`
+- L402: `` `({req.days_count} يوم)` `` [ICU]
+- L405-406: dates rendered RAW (not via formatDate) inside `dir="ltr"` span: `{req.start_date} → {req.end_date}` — HAZARD: raw YYYY-MM-DD strings, not locale-formatted; should probably go through formatDate but changing display format is a behavior change, flag for plan decision
+- L410: `` `سبب الإلغاء: {req.cancellation_reason}` `` — label + user-free-text DATA concat (ui label translatable, data itself is DB free text, exempt)
+- L413: `` `مقدم من: {req.username}` `` — label (ui) + raw username (data, exempt, not Arabic)
+- L419: `STATUS_LABELS[req.status] || req.status` — statuses lookup with raw-status fallback leak
+- L436: button `إلغاء` (ui, Ban icon)
+- L443: button `موافقة` (ui)
+- L447: button `رفض` (ui)
+- L467: DialogTitle `إلغاء طلب الإجازة` (ui)
+- L471: helper text `يرجى كتابة سبب الإلغاء. إذا كانت الإجازة موافق عليها سيتم إرجاع الرصيد تلقائيًا.` (ui)
+- L474: label `` `سبب الإلغاء *` `` (ui, asterisk is JSX span not translatable content)
+- L478: placeholder `اكتب سبب إلغاء الإجازة...` (ui)
+- L485: button `تراجع` (ui)
+- L492: button ternary `جاري الإلغاء... / تأكيد الإلغاء` (ui)
+
+--- dir attrs ---
+- L286, L290: `dir="ltr"` on native `<input type="date">` fields (locale-agnostic date picker widget — likely keep as-is)
+- L309: `dir="ltr"` on conflict date-range span (raw dates)
+- L405: `dir="ltr"` on request date-range span (raw dates, same as above)
+
+--- formatDate / toLocale* sites ---
+- 0 formatDate call sites in this file. 0 toLocaleDateString/toLocaleString calls. All dates rendered as raw YYYY-MM-DD strings under dir="ltr" (see HAZARD 2 below).
+
+================================================================
+2. app/dashboard/leave/page.tsx (server, 7 lines)
+================================================================
+- No AR strings. Pure server component gating on `leave.view` permission, delegates to client. No metadata export (no title to translate).
+
+================================================================
+3. app/dashboard/leave/settings/leave-settings-client.tsx (610 lines — LARGEST FILE, flag for split)
+================================================================
+
+--- Config option labels (admin-facing, NOT status-catalog candidates — these are icon/color picker labels for defining NEW leave types) ---
+- L47-56: ICON_OPTIONS labels: `تقويم`/`شمس`/`طب`/`شخصي`/`أمومة`/`قلب`/`سفر`/`دراسة`/`عمل` (ui) — 9 entries
+- L59-66: COLOR_OPTIONS labels: `برتقالي`/`أزرق`/`بنفسجي`/`أخضر`/`أحمر`/`أصفر`/`وردي`/`سماوي` (ui) — 8 entries
+
+--- UI strings ---
+- L177: toast.error `يرجى ملء جميع الحقول المطلوبة` (ui)
+- L190: toast.success ternary `editingId ? 'تم تحديث نوع الإجازة' : 'تم إنشاء نوع الإجازة'` (ui)
+- L196: toast.error fallback `فشل الحفظ` (ui) — err.message may be server passthrough
+- L207: toast.success `تم حذف نوع الإجازة` (ui)
+- L211: toast.error fallback `فشل الحذف` (ui)
+- L221-223: toast.success interpolated result string `` `تم ترحيل الأرصدة: ${result.created} جديد، ${result.updated} محدث (${result.total_processed} إجمالي)` `` — 3-value ICU-style interpolation, all counts [ICU]
+- L226: toast.error fallback `فشل الترحيل` (ui)
+- L254: h1 `إعدادات الإجازات` (ui)
+- L255-256: subtitle `إدارة أنواع الإجازات وترحيل الأرصدة` (ui)
+- L265: button `ترحيل الأرصدة` (ui)
+- L270: DialogTitle `ترحيل أرصدة الإجازات` (ui)
+- L273-276: helper text `سيتم ترحيل الأيام المتبقية من أنواع الإجازات التي تسمح بالترحيل (حسب الحد الأقصى المحدد لكل نوع).` (ui)
+- L279: label `من سنة` (ui)
+- L297: label `إلى سنة` (ui)
+- L322-323: loading label `جاري الترحيل...` (ui)
+- L326: button `تنفيذ الترحيل` (ui)
+- L330-332: validation text `سنة الهدف يجب أن تكون بعد سنة المصدر` (ui)
+- L344: button `إضافة نوع` (ui)
+- L353-355: EmptyState title `لا توجد أنواع إجازات`, description `أضف أنواع الإجازات لبدء إدارة أرصدة الموظفين`, actionLabel `إضافة نوع إجازة` (ui)
+- L361: CardTitle `` `أنواع الإجازات ({leaveTypes.length})` `` [ICU]
+- L380: `{lt.name_ar}` — RAW DB DATA rendered directly (data, exempt — this IS the correct display of the admin-entered Arabic name, not a translation target)
+- L381: `({lt.name})` — RAW DB DATA (the English slug/name, data, exempt)
+- L385: `` `{lt.default_days} يوم` `` [ICU]
+- L389: `` `ترحيل: {lt.max_carry_over} يوم` `` [ICU]
+- L394: badge `يتطلب مرفق` (ui)
+- L404: badge ternary `lt.is_paid ? 'مدفوعة' : 'غير مدفوعة'` (statuses-like — this IS a genuine "is_paid" status label that could be centralized, currently inline)
+- L441: DialogTitle ternary `editingId ? 'تعديل نوع الإجازة' : 'إضافة نوع إجازة جديد'` (ui)
+- L447: label `` `الاسم (إنجليزي) *` `` (ui)
+- L451: placeholder `Annual Leave` (ui, English placeholder text — ironic given HAZARD 1, but this is a PLACEHOLDER hint not a real value)
+- L456: label `` `الاسم (عربي) *` `` (ui)
+- L460: placeholder `إجازة سنوية` (ui)
+- L467: label `الأيقونة` (ui)
+- L485: label `اللون` (ui)
+- L509: label `` `الأيام الافتراضية *` `` (ui)
+- L521: label `حد الترحيل (أيام)` (ui)
+- L535: label `الترتيب` (ui)
+- L548: label `يتطلب مرفق` (ui, toggle)
+- L556: label `إجازة مدفوعة` (ui, toggle)
+- L571-577: submit button 3-way ternary `جاري الحفظ... / تحديث / إنشاء` (ui)
+- L587: DialogTitle `تأكيد الحذف` (ui)
+- L590-592: confirm text `هل أنت متأكد من حذف نوع الإجازة؟ سيتم إلغاء تفعيله ولن يظهر في النظام.` (ui)
+- L595: button `إلغاء` (ui)
+- L602: button `حذف` (ui)
+
+--- dir attrs ---
+- L452: `dir="ltr"` on the "English name" input (correct, this field IS meant to be Latin-script)
+- L517, L529, L543: `dir="ltr"` on numeric inputs (default_days, max_carry_over, sort_order) — locale-agnostic numerals, likely keep as-is
+
+--- formatDate / toLocale* ---
+- 0 formatDate/toLocaleDateString calls. Uses raw `new Date().getFullYear()` for year math only (no display formatting).
+
+--- [ICU] ---
+- L221-223 (3-value interpolation), L361 (count), L385 (count), L389 (count)
+
+================================================================
+4. app/dashboard/leave/settings/page.tsx (server, 7 lines)
+================================================================
+- No AR strings. Gates on `leave.manage`.
+
+================================================================
+5. app/dashboard/hr/leave-balances/leave-balances-client.tsx (162 lines)
+================================================================
+- L4: `export const metadata = { title: 'أرصدة الإجازات' };` (ui — server Metadata, needs getTranslations at the page.tsx level since this file is the CLIENT — wait, re-check: this line is actually in page.tsx not the client, see below) — CORRECTION: metadata line lives in page.tsx (confirmed below), noting mislabel risk.
+- L61: h1 `أرصدة الإجازات` (ui)
+- L63-65: subtitle `عرض وتعديل أرصدة إجازات الموظفين حسب السنة` (ui)
+- L84: EmptyState title `لا يوجد موظفون`, description `لا توجد بيانات أرصدة إجازات لهذه السنة بعد` (ui)
+- L92: CardTitle `` `أرصدة {year} ({employees.length} موظف)` `` — 2-value interpolation (year is a raw number, count is ICU) [ICU]
+- L100: table header `الموظف` (ui)
+- L104: table header `{c.name_ar}` — RAW DB DATA (leave-type name, per-column header sourced from balances API; data, exempt)
+- L108: table header `إجراء` (ui)
+- L115: `{emp.display_name}` — raw DB data (exempt)
+- L126: `` `{b.remaining} / {b.total_days + b.carried_over}` `` — BALANCE MATH DISPLAY, numeric only, no AR text but flagged per instructions (see HAZARD 3)
+- L129: `` `مستخدم: {b.used_days}` `` (ui label) + ICU count
+- L142: button `تعديل` (ui)
+
+--- formatDate/toLocale ---
+- 0. Uses `dubaiDayKey()` (already-locked helper, not a translation target) for year derivation, not date display.
+
+--- dir attrs ---
+- L124: `dir="ltr"` on the remaining/total balance-math span (numeric ratio display — correct usage for LTR numerals)
+
+================================================================
+6. app/dashboard/hr/leave-balances/page.tsx (server, 9 lines)
+================================================================
+- L4: `export const metadata = { title: 'أرصدة الإجازات' };` (ui) — THIS is the actual metadata site (corrects the note in section 5 above — the client file has NO metadata export, only the page.tsx does). Needs `getTranslations` treatment at build/generateMetadata time, or acceptance that metadata titles stay Arabic-only per existing pattern used elsewhere (check p4 precedent: p4 census flagged contracts/page.tsx metadata the same way, same treatment applies here).
+
+================================================================
+7. components/hr/leave-balances/AdjustBalanceDialog.tsx (147 lines)
+================================================================
+- L72: toast.success `تم تحديث أرصدة الإجازات` (ui)
+- L75: toast.error `` `فشل حفظ: ${failed.map((r) => r.name_ar).join('، ')}` `` — interpolates RAW DB name_ar values (data) into an Arabic-only error template (ui) — the Arabic list-separator `، ` is itself locale-specific punctuation, HAZARD for EN locale (should be `, ` in English) [ICU-adjacent]
+- L83: DialogTitle `` `تعديل أرصدة {employee?.display_name}` `` (ui label + raw data interpolation)
+- L88: `{r.name_ar}` — raw DB data per-row label (exempt)
+- L91: label `الرصيد الكلي` (ui)
+- L103: label `المستخدم` (ui)
+- L115: label `المرحّل` (ui)
+- L137-140: submit button ternary `جاري الحفظ... / حفظ` (ui)
+
+--- dir attrs ---
+- L99, L111, L123: `dir="ltr"` on numeric inputs (total_days/used_days/carried_over) — locale-agnostic numerals, keep as-is
+
+--- formatDate ---
+- 0.
+
+================================================================
+8. app/dashboard/approvals/approvals-client.tsx (421 lines)
+================================================================
+
+--- Local status/type map (CRITICAL HAZARD — 3rd DUPLICATE of the leave-type map, DIFFERENT casing/content than leave-client.tsx's TYPE_LABELS) ---
+- L27-33: `const LEAVE_TYPE_LABELS: Record<string, string> = { annual: 'سنوية', sick: 'مرضية', personal: 'شخصية', unpaid: 'بدون راتب', emergency: 'طارئة' };` (statuses) — SAME lowercase-key hazard as leave-client.tsx's TYPE_LABELS, but this one additionally has 'unpaid'→'بدون راتب' and 'emergency'→'طارئة' entries that leave-client.tsx's map does NOT have. This is effectively a 3RD independent copy of the leave-type label map in the codebase (4th if counting the messages/ar/statuses.json `leaveType` catalog entry, which is ALSO lowercase-keyed and thus ALSO mismatched against real DB `name` values). Used at L199 with raw-fallback: `LEAVE_TYPE_LABELS[l.type] || l.type` — since `l.type` comes straight from `pyra_leave_requests.type` (== `pyra_leave_types.name`, e.g. 'Annual'/'Unpaid'), this lookup will near-ALWAYS miss and fall through to the raw capitalized English DB value being displayed to the manager reviewing approvals. THIS IS A LIVE, VISIBLE BUG for admins today, not just an i18n nicety — flag prominently for the plan (fix belongs either in this batch or as a bug ticket referencing HAZARD 1).
+
+--- UI strings ---
+- L69: toast.success ternary `vars.status === 'approved' ? 'تمت الموافقة على الإجازة' : 'تم رفض الإجازة'` (ui)
+- L72, L82, L92: toast.error `حدث خطأ — حاول مرة أخرى` (ui, repeated 3x across leave/expense/timesheet mutations — good candidate for ONE shared key)
+- L79: toast.success ternary `vars.action === 'approve' ? 'تمت الموافقة على المصروف' : 'تم رفض المصروف'` (ui)
+- L89: toast.success ternary `vars.action === 'approve' ? 'تم اعتماد الفترة' : 'تم رفض الفترة'` (ui)
+- L123: EmptyState title `مفيش موظفين تحت إدارتك`, description `لما يكون عندك موظفين تابعينلك، طلباتهم هتظهر هنا للموافقة` (ui) — NOTE: Egyptian-dialect colloquial Arabic ("مفيش"، "تابعينلك"، "هتظهر") — inconsistent register vs the rest of the codebase's MSA (Modern Standard Arabic). Flag for translator/reviewer: dialect vs MSA decision needed, this file uses colloquial Arabic pervasively (see below) unlike leave-client.tsx / leave-settings-client.tsx which are MSA.
+- L140: h1 `الموافقات` (ui)
+- L144: `` `عندك ${total} طلب مستني موافقتك` `` — colloquial, ICU count interpolation [ICU]
+- L145: `مفيش طلبات مستنياك دلوقتي` (ui, colloquial)
+- L154: EmptyState title `كل الطلبات اتراجعت 🎉` (ui, colloquial + emoji), description `لما حد من فريقك يبعت طلب، هيظهر هنا` (colloquial)
+- L163, 170, 177: Tabs labels `الإجازات` / `المصاريف` / `ساعات العمل` (ui, MSA — inconsistent register vs surrounding colloquial strings in same file)
+- L188: EmptyState title `مفيش طلبات إجازات مستنياك` (colloquial)
+- L199: LEAVE_TYPE_LABELS lookup (see hazard above)
+- L202: `` `{l.days_count} يوم` `` [ICU]
+- L214: `` `الرصيد المتبقي: {l.remaining_balance} يوم` `` — BALANCE MATH DISPLAY (HAZARD 3), ICU count
+- L219-220: `من {formatDate(l.start_date)} إلى {formatDate(l.end_date)}` — GOOD: this file DOES use formatDate() (contrast with leave-client.tsx's raw-string dates — inconsistency between the two leave surfaces, worth normalizing during implementation)
+- L233: openRejectDialog label template `` `إجازة ${l.display_name}` `` (ui label + raw data)
+- L237: button `رفض` (ui)
+- L246: button `موافقة` (ui)
+- L260: EmptyState title `مفيش مصاريف مستنياك` (colloquial)
+- L285: `` `تاريخ المصروف: ` `` + formatDate(e.expense_date) (ui + GOOD formatDate usage)
+- L296: link text `عرض الفاتورة` (ui)
+- L305: reject dialog label `` `مصروف ${formatCurrency(e.amount, e.currency)}` `` (ui + formatCurrency, correctly locale-stable per CLAUDE.md currency rule)
+- L310: button `رفض` (ui, repeated)
+- L319: button `موافقة` (ui, repeated)
+- L333: EmptyState title `مفيش جداول ساعات مستنياك` (colloquial)
+- L344: `` `{t.total_hours ?? 0} ساعة` `` [ICU]
+- L348-349: `الفترة: {formatDate(t.period_start)} → {formatDate(t.period_end)}` (ui + GOOD formatDate usage)
+- L358: reject dialog label `` `جدول ${t.display_name}` `` (ui + raw data)
+- L362: button `رفض` (ui, 3rd repeat)
+- L371: button `موافقة` (ui, 3rd repeat)
+- L388: DialogTitle `` `رفض ${rejectDialog.label}` `` (ui + already-composed label from above)
+- L390: DialogDescription `اكتب سبب الرفض عشان الموظف يفهم ليه ويصلحه` (ui, colloquial — "عشان"، "ليه" are dialect)
+- L397: placeholder `السبب (اختياري)...` (ui)
+- L406: button `إلغاء` (ui)
+- L414: button `تأكيد الرفض` (ui)
+
+--- dir attrs ---
+- L219, L220, L285, L348, L349: `dir="ltr"` wrapping `<span>{formatDate(...)}</span>` — formatDate output wrapped in dir="ltr", consistent pattern across the file's 3 date-range displays.
+
+--- formatDate call sites: 6 total (L219, L220, L285, L348, L349 — wait, recount: L219 has one call, L220 has one call inside the same paragraph = 2; L285 = 1; L348 = 1; L349 = 1 → 5 total formatDate() calls in this file). formatCurrency call sites: 2 (L270, L305).
+
+--- [ICU] ---
+- L144 (count), L202 (count), L214 (count), L344 (count) — all simple count+fixed-noun patterns, no true plural-form branching needed (Arabic dual/plural rules NOT applied anywhere — flag as a v1 simplification consistent with the CLDR-vs-flat-threshold note in CLAUDE.md's i18n section, applies here too: these are informal admin-facing counts, likely fine to keep as plain interpolation).
+
+================================================================
+9. app/dashboard/approvals/page.tsx (server, 13 lines)
+================================================================
+- L6: Metadata title `'الموافقات | Pyra Workspace'` (ui)
+- L7: Metadata description `'موافقات الإجازات والمصاريف وساعات العمل لفريقك'` (ui)
+- Both need getTranslations treatment (matches the p4-census pattern noted for contracts/page.tsx metadata).
+
+================================================================
+10. hooks/useLeave.ts (57 lines) — DEAD CODE, hands-off per prompt instruction
+================================================================
+- 0 AR strings (pure typed CRUD hooks: useLeaveRequests/useLeaveRequest/useCreateLeaveRequest/useUpdateLeaveRequest).
+- **VERIFIED DEAD**: grepped for `useLeaveRequests|useLeaveRequest\b|useCreateLeaveRequest|useUpdateLeaveRequest` usage outside this file — NO imports found anywhere in app/ or components/. leave-client.tsx uses raw `fetchAPI`/`mutateAPI` calls directly inline (per CLAUDE.md backlog note: "leave-client.tsx still uses raw fetch/useState" — CONFIRMED true, it manages its own useState/useEffect/fetchAPI calls, does NOT consume this hook file at all).
+- HANDS OFF per task instruction — no data-layer census needed beyond confirming 0 AR content. Not a namespace target (no strings to move).
+
+================================================================
+11. lib/leave/days.ts (24 lines) — countLeaveDays
+================================================================
+- 0 AR strings. JSDoc comment is English. Pure date-math helper (excludes WEEKEND_DAYS). Not a translation target. Confirmed per task instruction ("any AR?" — answer: no).
+
+================================================================
+HAZARDS (full detail — summary has top-3 only)
+================================================================
+
+HAZARD 1 (CRITICAL) — leave-type NAME string casing/matching chaos, 4-way duplication:
+  pyra_leave_types.name real seed values (verified via migrations 002 + 028):
+    'Annual', 'Sick', 'Personal', 'Unpaid'  (capitalized English, NOT lowercase slugs)
+  pyra_leave_requests.type is compared via `.eq('name', type)` in app/api/leave/route.ts:85 — i.e.
+  the STORED value in leave requests IS whatever `pyra_leave_types.name` is (case-sensitive exact match).
+  FOUR independent lowercase-keyed label maps exist across the codebase, ALL of which mismatch the
+  real casing and thus ALL silently fail their primary lookup for every existing leave type in production:
+    1. app/dashboard/leave/leave-client.tsx:22        TYPE_LABELS = {annual, sick, personal}
+    2. app/dashboard/approvals/approvals-client.tsx:27 LEAVE_TYPE_LABELS = {annual, sick, personal, unpaid, emergency}
+    3. messages/ar/statuses.json "leaveType"           = {annual, sick, personal, unpaid, emergency}
+    4. (icons only, not translatable) leave-client.tsx:23 TYPE_ICONS = {annual, sick, personal}
+  leave-client.tsx MOSTLY escapes the bug because its primary lookup path is `dynamicBalances.find(b => b.name === req.type)?.name_ar` FIRST, with TYPE_LABELS only as 2nd fallback (lines 308, 388) — so in practice the v2-dynamic-balance API's `name_ar` (real DB Arabic name) is what actually renders today, and the hardcoded map is dead-ish.
+  approvals-client.tsx has NO dynamic-balance fallback chain — L199 is `LEAVE_TYPE_LABELS[l.type] || l.type` DIRECTLY, meaning a manager reviewing a leave approval for an 'Annual' leave request sees the RAW ENGLISH WORD "Annual" today, not any Arabic label. This is a live, pre-existing, non-i18n-related bug independent of this migration, surfaced by this census.
+  PLAN IMPLICATION: any i18n fix for hr.approvals.leave.type.* MUST NOT simply wrap the existing broken map in useTranslations — it must either (a) fetch the leave-type's name_ar via the API response (best: the /api/approvals/team route should already join pyra_leave_types and return name_ar, verify at implementation time) or (b) build a case-insensitive / DB-driven lookup. Naively translating the existing lowercase keys would perpetuate the bug under a new i18n coat of paint.
+  Additionally: LEAVE_STATUS_LABELS (statuses.leave in both lib/constants/statuses.ts and messages/ar/statuses.json) is MISSING the 'cancelled' status that leave-client.tsx locally patches in (L21) — the catalog itself needs a 4th key added, not just a translation pass.
+
+HAZARD 2 — Raw unformatted dates in leave-client.tsx vs formatDate() in approvals-client.tsx:
+  leave-client.tsx renders `{req.start_date} → {req.end_date}` and conflict-entry dates as RAW
+  YYYY-MM-DD strings (lines 310, 406) wrapped in dir="ltr" spans — no formatDate() call anywhere
+  in the file (0 call sites). approvals-client.tsx, covering the SAME leave-request data one layer
+  up (manager's approval view), correctly uses `formatDate()` for the identical start_date/end_date
+  fields (lines 219-220). This is a pre-existing display inconsistency between the employee's own
+  leave page and the manager's approval page for the exact same underlying dates. i18n implementation
+  should decide: normalize leave-client.tsx onto formatDate(locale) for consistency (behavior change,
+  needs a plan decision — CLAUDE.md's "Dates" i18n rule says formatDate takes a trailing locale param
+  defaulting to 'ar', so wrapping leave-client.tsx's raw strings in formatDate(date, locale) would BOTH
+  fix i18n AND fix this pre-existing inconsistency in one move) or leave as-is with an explicit exemption
+  comment if raw ISO display is intentional (unlikely — no evidence of intent, looks like an oversight).
+
+HAZARD 3 — Balance math display (available = total + carried_over − used) has no translation risk itself
+  (pure numerals) but the SURROUNDING labels are scattered across 3 files with inconsistent phrasing:
+    - leave-client.tsx:351   `{remaining} يوم متبقي من {b.total}`          ("X days remaining of Y")
+    - leave-balances-client.tsx:126  `{b.remaining} / {b.total_days + b.carried_over}`  (raw ratio, no words)
+    - leave-balances-client.tsx:129  `مستخدم: {b.used_days}`                ("used: X")
+    - approvals-client.tsx:214      `الرصيد المتبقي: {l.remaining_balance} يوم`  ("remaining balance: X days")
+  Three different phrasings of "remaining" (متبقي / الرصيد المتبقي) across employee-self-view,
+  HR-admin-view, and manager-approval-view for conceptually the same balance-math value. Not a
+  blocking hazard, but worth flagging so the EN translations chosen are at least internally
+  consistent in wording (e.g. all "X days remaining" / "Balance: X days") even though the AR
+  source strings differ. No computation logic lives in these files — all three read pre-computed
+  fields from their respective APIs (available = total + carried_over − used is computed server-side
+  per CLAUDE.md's Batch D lock, not recomputed in these components).
+
+HAZARD 4 (register inconsistency, non-blocking but plan-relevant) — approvals-client.tsx is
+  written in EGYPTIAN COLLOQUIAL Arabic ("مفيش", "دلوقتي", "عشان", "ليه", "هتظهر", "مستنياك",
+  "اتراجعت") throughout its empty-states, header subtitle, and reject-dialog description, while
+  its own Tabs labels ("الإجازات"/"المصاريف"/"ساعات العمل") and ALL of the other 8 files in this
+  scope are Modern Standard Arabic (MSA). Per CLAUDE.md's i18n rule "AR strings are extracted
+  VERBATIM from code, never re-authored" — the colloquial strings must be extracted AS-IS into
+  messages/ar/hr.json (do not silently MSA-ify them during extraction), but flag for the EN
+  translation pass that a literal/formal English tone is expected regardless of the AR source's
+  informality (EN readers won't perceive the dialect register).
+
+HAZARD 5 (notification-content strings, Phase 8 exempt per task scope) — app/api/leave/route.ts
+  (out of this file-census's direct scope, but referenced): L138 `type: 'leave_request_pending'`
+  and other notify() calls in the leave API routes carry Arabic title/message content persisted to
+  pyra_notifications — these are NOT in the 9 scanned files but are the notification-content
+  counterpart to this leave module; per CLAUDE.md's i18n rules these stay Arabic until Phase 8 and
+  should NOT be touched in this Phase 5 pass. Noting for completeness since the leave module's
+  notify() calls are adjacent to every mutation censused above (submit/approve/reject/cancel all
+  fire notify() server-side, none of which live in the 9 client-facing files scanned here).

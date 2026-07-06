@@ -1,0 +1,494 @@
+PAYROLL DISCOVERY — Phase-5 i18n (Payroll + Payslips) — files verified 2026-07-06
+
+================================================================
+GRAND TOTALS (all files in scope)
+================================================================
+Files scanned: 9
+  - app/dashboard/payroll/{page.tsx, payroll-client.tsx}  (2)
+  - components/payroll/{PayrollRunsTable.tsx, PayrollRunRow.tsx, EmployeePaymentsTab.tsx, CreatePayrollDialog.tsx, AddPaymentDialog.tsx}  (5)
+  - app/dashboard/my-payslips/{page.tsx, my-payslips-client.tsx}  (2)
+  - hooks/usePayroll.ts, hooks/useEmployeePayments.ts — EXIST, checked: NO Arabic strings (pure typed CRUD hooks, api-helpers pattern, identical shape to Phase-4 finance hooks). 0 AR lines each.
+
+Total AR-bearing lines (ui + data + statuses classes; comments excluded from count): 149
+  - (ui) user-visible JSX/label/placeholder/aria/toast: ~128
+  - (statuses) label maps that should route through useStatusLabels(entity): 4 distinct maps (payroll status x2 files, employeePayment status x2 files) + 2 source_type free-standing maps (NOT in statuses.json — see HAZARDS)
+  - (data): 0 (no Arabic string is itself compared against a DB value or persisted verbatim in this scope — status/source_type comparisons are all on the English enum key, labels are display-only)
+  - (comment): 0 Arabic-language code comments in this scope
+
+Files >300 lines: 2
+  - components/payroll/PayrollRunRow.tsx — 405 lines (largest in scope; candidate for sub-component split at implementation time per CLAUDE.md <300-line rule, though this is an existing file, not new)
+  - app/dashboard/my-payslips/my-payslips-client.tsx — 411 lines (same note — existing file, flag only)
+
+Both PAYROLL_STATUS_LABELS (lib/constants/statuses.ts:127) and EMPLOYEE_PAYMENT_STATUS_LABELS
+(lib/constants/statuses.ts:269) verified to exist as typed Record exports. Both entities
+("payroll" and "employeePayment") are ALSO present in messages/ar/statuses.json +
+messages/en/statuses.json (verified by direct read):
+  payroll:         { draft, calculated, approved, paid }               — 4 keys, EN+AR both present
+  employeePayment: { pending, approved, paid, rejected }                — 4 keys, EN+AR both present
+No latent data-gap here (unlike Phase-4's contract `in_progress` / expense `draft` gaps) — the
+DB status vocab for payroll/employeePayment fully matches the catalog. Swap target for both is
+`useStatusLabels('payroll')` / `useStatusLabels('employeePayment')`.
+
+Proposed catalog key shape:
+  hr.payroll.list.*        (payroll-client.tsx: header, tabs, dialogs wiring)
+  hr.payroll.runsTable.*   (PayrollRunsTable.tsx: year filter, empty state)
+  hr.payroll.runRow.*      (PayrollRunRow.tsx: expand/collapse, action buttons, items table headers, toasts)
+  hr.payroll.paymentsTab.* (EmployeePaymentsTab.tsx: table headers, action menu, toasts)
+  hr.payroll.createDialog.* (CreatePayrollDialog.tsx: month/year/currency form)
+  hr.payroll.addPaymentDialog.* (AddPaymentDialog.tsx: employee/type/amount form)
+  hr.payslips.*            (my-payslips-client.tsx: stats cards, payslip list, payments list, downloads)
+  Shared cross-cutting: statuses.payroll / statuses.employeePayment (already exist, both files
+  currently use local STATUS_LABELS re-declarations instead of useStatusLabels — see below) +
+  a NEW shared "paymentSourceType" entity is needed for {task,bonus,deduction,salary,advance,
+  commission,overtime} — currently duplicated as 3 separate inline Record literals across
+  EmployeePaymentsTab.tsx, my-payslips-client.tsx, and AddPaymentDialog.tsx's SelectItem list —
+  see HAZARDS H2.
+
+================================================================
+1. app/dashboard/payroll/
+================================================================
+
+app/dashboard/payroll/page.tsx
+- Server component. requirePermission('payroll.manage') gate only. 0 AR lines, 0 Metadata title
+  (no `export const metadata` here — unlike Phase-4 finance pages which had `title: '... | Pyra'`).
+
+app/dashboard/payroll/payroll-client.tsx (82 lines)
+- L37: h1 `مسير الرواتب` (ui)
+- L38: subtitle `إدارة وصرف رواتب الموظفين` (ui)
+- L45: comment note (L20-21 code comment, English, not Arabic — skip)
+- L45: button text `إنشاء مسير رواتب` (ui)
+- L54: TabsTrigger `مسيرات الرواتب` (ui)
+- L58: TabsTrigger `المدفوعات` (ui)
+- No dir attrs, no toLocaleDateString, no formatCurrency/formatDate, no localeCompare in this
+  file. Pure composition/wiring component — low string density.
+
+================================================================
+2. components/payroll/
+================================================================
+
+components/payroll/PayrollRunsTable.tsx (89 lines)
+- L37: label `السنة:` (ui)
+- L70: EmptyState title `'لا توجد مسيرات رواتب'` (ui)
+- L71: EmptyState description `'أنشئ مسير رواتب جديد لبدء حساب وصرف الرواتب'` (ui)
+- L72: EmptyState actionLabel `'إنشاء مسير رواتب'` (ui) — duplicates payroll-client.tsx L45 button
+  text; can share one catalog key
+- No dir attrs, no formatCurrency/formatDate, no toLocale*, no localeCompare in this file.
+
+components/payroll/PayrollRunRow.tsx (405 lines — >300)  [FILE >300 LINES]
+- L21: import `PAYROLL_STATUS_LABELS` from `@/lib/constants/statuses` — ALREADY using the shared
+  constant (good precedent, same pattern as Phase-4's credit-notes/[id] + expenses-client).
+- L45: `const STATUS_LABELS: Record<string, string> = PAYROLL_STATUS_LABELS;` (statuses) — this is
+  a straight re-export/alias, NOT a re-declaration — swap target is simply routing through
+  `useStatusLabels('payroll')` instead of the static import + local alias.
+- L78: toast.success `'تم حساب الرواتب بنجاح'` (ui)
+- L81: `toast.warning(w)` — renders SERVER-SUPPLIED warning strings verbatim (array of strings
+  returned from the calculate mutation's `result.warnings`) — see HAZARD H4, same class as
+  Phase-4's `json.error` passthrough pattern; depends on the `/api/dashboard/payroll/[id]/
+  calculate` route's warning strings being migrated to the `api` namespace.
+- L84: toast.error `'فشل في حساب الرواتب'` (ui)
+- L95: toast.success `'تم اعتماد مسير الرواتب'` (ui)
+- L96: toast.error `'فشل في اعتماد المسير'` (ui)
+- L108: toast.success `'تم تأكيد صرف الرواتب'` (ui)
+- L109: toast.error `'فشل في تأكيد الدفع'` (ui)
+- L117: `window.confirm('هل تريد حذف هذا المسير؟ لا يمكن التراجع عن هذا الإجراء.')` (ui) — NOTE:
+  native `window.confirm`, not an AlertDialog component (inconsistent with Phase-4 finance pages'
+  AlertDialog pattern) — flag for plan, translatable regardless of dialog mechanism.
+- L120: toast.success `'تم حذف المسير بنجاح'` (ui)
+- L121: toast.error `'فشل في حذف المسير'` (ui)
+- L159: toast.success `'تم تحميل كشف الراتب'` (ui)
+- L161: toast.error `'حدث خطأ أثناء إنشاء كشف الراتب'` (ui)
+- L177: aria-label `` `تفاصيل مسير ${run.month}/${run.year}` `` — ICU interpolation (numeric
+  month/year, digits only, low risk) [ICU]
+- L188: `{MONTH_NAMES_AR[run.month - 1]} {run.year}` — HARDCODED `MONTH_NAMES_AR` import from
+  `lib/constants/dates.ts` (NOT locale-aware `monthNamesFor(locale)`, which already exists in the
+  same file per Phase-4.6 precedent for finance reports) — MUST swap to `monthNamesFor(locale)`.
+  1-based DB month convention (`month - 1` index), per that file's own documented calling
+  convention.
+- L191: `` `{run.employee_count} موظف` `` — ICU count interpolation, degenerate singular/plural
+  (always "موظف" regardless of count — Arabic would need dual/plural forms for count=1/2, but
+  existing code doesn't attempt it) [ICU]
+- a11y lock (HR bundle): L175-176 `aria-expanded={isExpanded}` + `aria-controls={detailId}` on the
+  toggle `<button>`, detail region kept in DOM via `hidden={!isExpanded}` at L226 (NOT conditional
+  render) — CONFIRMED intact, matches the locked HR bundle a11y pattern. AR string driving this:
+  L177 aria-label (see above).
+- L201: `{STATUS_LABELS[run.status] || run.status}` (statuses) — raw status leak fallback if
+  status missing from map
+- L209: `{formatCurrency(run.total_amount, run.currency)}` — MONEY: explicit currency passed
+  (run.currency) — COMPLIANT with multi-currency payroll lock (Batch/Phase 2 doctrine: every
+  payroll figure must pass the row's real currency). GOOD.
+- L211: label `الإجمالي` (ui)
+- L244: ternary `{run.status === 'calculated' ? 'إعادة الحساب' : 'حساب الرواتب'}` (ui)
+- L260: button text `اعتماد المسير` (ui)
+- L276: button text `تأكيد الصرف` (ui)
+- L293: button text `حذف المسير` (ui)
+- L310-319: 10 column headers, all `scope="col"` (a11y lock confirmed intact — HR bundle pattern):
+  `الموظف` / `القسم` / `الراتب` / `المهام` / `إضافي` / `مكافأة` / `عمولة` / `خصومات` / `الصافي` /
+  `كشف` (ui) — 10 distinct header strings
+- L334: `{item.department || '—'}` — raw DB data fallback, em-dash placeholder (data, exempt)
+- L337: `formatCurrency(item.base_salary, item.currency)` — MONEY: explicit `item.currency` passed
+  — COMPLIANT (item is `PayrollItemWithCurrency`, locally extended type per L34-36 comment
+  documenting the multi-currency retrofit). GOOD.
+- L340, 343, 346, 349: same pattern — `formatCurrency(item.X, item.currency)` for task_payments/
+  overtime_amount/bonus/commission, each with a `> 0 ? ... : '—'` guard — ALL compliant (explicit
+  currency every time).
+- L352: `` `- ${formatCurrency(item.deductions, item.currency)}` `` — MONEY: explicit currency,
+  COMPLIANT. ICU interpolation wrapping a minus sign + formatted amount [ICU]
+- L355: `formatCurrency(item.net_pay, item.currency)` — MONEY: COMPLIANT.
+- L364: aria-label `"تحميل"` (ui)
+- L381: ternary `run.status === 'draft' ? 'اضغط على "حساب الرواتب" لحساب بنود المسير' : 'لا توجد
+  بنود في هذا المسير'` — contains a NESTED quoted phrase referencing another UI button's label
+  (`"حساب الرواتب"`) — if that button's label ever changes, this string silently drifts; flag as
+  a cross-string dependency for the catalog author (ui) [ICU: rich-text nested reference]
+- L389: `` `أنشئ بواسطة: ${run.created_by}` `` — ICU interpolation; `run.created_by` is a raw
+  username (data, exempt) [ICU]
+- L392: `` `اعتمد بواسطة: ${run.approved_by}` `` — same pattern [ICU]
+- L396: `` `تاريخ الصرف: ${new Date(run.paid_at).toLocaleDateString('ar-AE')}` `` — HARDCODED
+  `toLocaleDateString('ar-AE')` locale string, no locale param passed through; also this bypasses
+  the codebase's `formatDate()` utility entirely (raw `Date.prototype.toLocaleDateString` call)
+  [ICU interpolation + toLocale* hazard]
+- HAZARD (money-adjacent, already-fixed precedent confirmed): the file's own top-of-file comment
+  (L34-36) documents that `PayrollItem` from the hook "predates multi-currency" and extends
+  locally with `currency?: string` — this is a KNOWN, DOCUMENTED workaround, not a live bug; the
+  hook itself (`hooks/usePayroll.ts`) does NOT declare `currency` on `PayrollItem` (verified: hook
+  interface has no `currency` field on `PayrollItem`, only on `PayrollRun`) — the API route DOES
+  return it (confirmed by the local type-extension pattern working in production per the file's
+  comment) but the shared hook type is stale. NOT an i18n issue directly, but flag as a
+  type-hygiene item adjacent to the money-discipline lock, since a future dev trusting the hook's
+  `PayrollItem` type (without the local extension) could accidentally omit currency.
+- formatCurrency call sites: 7 total (L209, L337, L340, L343, L346, L349, L352, L355 — recount:
+  that's 8; precise count = 8, ALL pass explicit currency, ALL compliant). formatDate (proper
+  utility) call sites: 0 — both date displays in this file use raw `toLocaleDateString('ar-AE')`
+  instead (L396; see also my-payslips-client.tsx below for the same anti-pattern) — 1 site.
+
+components/payroll/EmployeePaymentsTab.tsx (202 lines)
+- L24-32: `SOURCE_TYPE_LABELS` inline Record — `task:'مهمة'`, `bonus:'مكافأة'`, `deduction:'خصم'`,
+  `salary:'راتب'`, `advance:'سلفة'`, `commission:'عمولة'`, `overtime:'إضافي'` (statuses-like, NO
+  existing catalog entity — candidate NEW entity `paymentSourceType`, 7 keys) — see HAZARD H2 for
+  cross-file duplication.
+- L34-39: `PAYMENT_STATUS_STYLES` — Tailwind class map keyed by status, NO Arabic text (skip, not
+  a string).
+- L41-46: `PAYMENT_STATUS_LABELS` inline Record — `pending:'معلق'`, `approved:'معتمد'`,
+  `rejected:'مرفوض'`, `paid:'مدفوع'` (statuses) — NOTE: this is a LOCAL RE-DECLARATION, NOT
+  importing `EMPLOYEE_PAYMENT_STATUS_LABELS` from `lib/constants/statuses.ts` — TEXT DRIFT: the
+  shared catalog's `employeePayment.pending` = `'بانتظار الموافقة'` (verified from statuses.json
+  read above) vs this file's `pending: 'معلق'` — DIFFERENT ARABIC STRINGS for the same status key,
+  same entity. MUST-FIX during catalog consolidation (pick one canonical string — recommend the
+  catalog's `'بانتظار الموافقة'` since it's more descriptive and already the cross-module
+  standard for "pending approval" per Phase-4's expense/leave precedent).
+- L80: paragraph `سجل جميع المدفوعات والعمولات للموظفين` (ui)
+- L83: button `إضافة دفعة` (ui)
+- L103: EmptyState title `'لا توجد مدفوعات'` (ui)
+- L104: EmptyState description `'لم يتم تسجيل أي مدفوعات للموظفين بعد'` (ui)
+- L113-119: 6 column headers, `scope="col"` present on ALL (a11y lock confirmed intact):
+  `الموظف` / `النوع` / `الوصف` / `المبلغ` / `الحالة` / `التاريخ` (ui) — 6 distinct strings
+  (7th `<th>` at L119 has no text, colspan filler for the action-menu column — skip)
+- L129: `{p.display_name || p.username}` — raw DB data fallback (data, exempt)
+- L132: `{SOURCE_TYPE_LABELS[p.source_type] || p.source_type}` (statuses) — raw fallback leak
+- L138: `formatCurrency(p.amount, p.currency)` — MONEY: explicit currency, COMPLIANT.
+- L145: `{PAYMENT_STATUS_LABELS[p.status] || p.status}` (statuses) — raw fallback leak
+- L149: `` new Date(p.created_at).toLocaleDateString('ar-AE') `` — HARDCODED locale string,
+  bypasses `formatDate()` utility [toLocale* hazard]
+- L160: aria-label `"إجراءات"` (ui)
+- L176: DropdownMenuItem `اعتماد` (ui)
+- L185: DropdownMenuItem `دفع` (ui)
+- formatCurrency call sites: 1 (L138, compliant). formatDate (proper utility): 0 — 1 raw
+  toLocaleDateString site (L149).
+
+components/payroll/CreatePayrollDialog.tsx (144 lines)
+- L23: import `MONTH_NAMES_AR` from `@/lib/constants/dates` — HARDCODED array import, NOT the
+  locale-aware `monthNamesFor(locale)` accessor that already exists in the same source file —
+  MUST swap. This is the payroll MONTH PICKER itself (feeds the Select at L81), so this is the
+  highest-priority MONTH_NAMES_AR swap site in the whole payroll scope.
+- L22: import `SALARY_CURRENCIES` from `@/lib/constants/auth` — currency code list (AED/EGP/USD/
+  SAR per HR+Payroll Organization lock), NOT Arabic strings themselves (codes are locale-agnostic,
+  skip — but the SelectItem rendering them at L114 is just the raw code, no label needed).
+- L43: toast.success `'تم إنشاء مسير الرواتب بنجاح'` (ui)
+- L50: toast.error `'فشل في إنشاء مسير الرواتب'` (ui)
+- L69: DialogTitle `إنشاء مسير رواتب جديد` (ui)
+- L75: label `الشهر` (ui)
+- L81: `{MONTH_NAMES_AR.map((name, idx) => ...)}` (statuses-like month picker; see hazard above)
+- L92: label `السنة` (ui)
+- L107: label `العملة` (ui)
+- L118-120: `` `سيشمل المسير فقط الموظفين الذين عملتهم ${newCurrency}` `` — ICU interpolation;
+  `newCurrency` is a currency CODE (AED/EGP/USD/SAR — locale-agnostic, digits/letters only) so
+  low risk, but the surrounding Arabic sentence must still be cataloged [ICU]
+- L126: Button `إلغاء` (ui)
+- L138: Button `إنشاء` (ui)
+- No dir attrs, no formatCurrency/formatDate, no toLocale*, no localeCompare directly (the
+  MONTH_NAMES_AR usage at L81 is the closest analog — see hazard).
+
+components/payroll/AddPaymentDialog.tsx (168 lines)
+- L52: toast.error `'اختر الموظف والنوع والمبلغ'` (ui)
+- L65: toast.success `'تم تسجيل الدفعة'` (ui)
+- L69: toast.error `'فشل في تسجيل الدفعة'` (ui)
+- L78: DialogTitle `إضافة دفعة جديدة` (ui)
+- L79: DialogDescription `تسجيل عمولة أو مكافأة أو خصم لموظف` (ui)
+- L83: Label `الموظف *` (ui)
+- L88: SelectValue placeholder `"اختر الموظف"` (ui)
+- L99: Label `النوع *` (ui)
+- L106: SelectItem `عمولة` (statuses-like — 3rd duplication of "commission" source-type label
+  across the payroll scope, see HAZARD H2)
+- L107: SelectItem `مهمة` (statuses-like — "task")
+- L108: SelectItem `مكافأة` (statuses-like — "bonus")
+- L109: SelectItem `خصم` (statuses-like — "deduction")
+- L110: SelectItem `إضافي` (statuses-like — "overtime") — NOTE: this select's option LIST is
+  {commission, task, bonus, deduction, overtime} — 5 options, MISSING `salary` and `advance`
+  which DO appear in EmployeePaymentsTab.tsx's SOURCE_TYPE_LABELS (7 keys) and my-payslips-
+  client.tsx's SOURCE_LABELS (6 keys, includes salary but not advance) — a 3-WAY INCONSISTENCY in
+  which source_type values are even selectable/displayable across the 3 files. Flag as a
+  pre-existing data-model inconsistency for the plan (not purely an i18n issue) — see HAZARD H2.
+- L115: Label `الوصف` (ui)
+- L119: placeholder `"مثال: عمولة مشروع Etmam Brand Identity"` — MIXED-LATINISM (placeholder
+  contains an English client/project name "Etmam Brand Identity" embedded in an Arabic example
+  sentence) — this is EXAMPLE/PLACEHOLDER text, not live data; flag but likely low-risk to keep
+  as-is or genericize during catalog authoring.
+- L124: Label `المبلغ *` (ui)
+- L134: Label `العملة` (ui)
+- L141-144: SelectItem `AED`/`USD`/`SAR`/`EGP` — currency CODES, not Arabic text (skip, locale-
+  agnostic by design per Money Discipline doctrine).
+- L151: Button `إلغاء` (ui)
+- L162: text `تسجيل` (ui)
+- dir="ltr" HARDCODED: L130 (amount input) — numeric field, likely intentional keep-LTR (flag
+  only, matches Phase-4 convention for numeric inputs).
+- No formatCurrency/formatDate/toLocale*/localeCompare calls (pure form, no display formatting).
+
+================================================================
+3. app/dashboard/my-payslips/
+================================================================
+
+app/dashboard/my-payslips/page.tsx
+- Server component. requirePermission('payroll.view') gate only. 0 AR lines, 0 Metadata title.
+
+app/dashboard/my-payslips/my-payslips-client.tsx (411 lines — >300)  [FILE >300 LINES]
+- L53-59: `STATUS_STYLES` — Tailwind class map (skip, no Arabic text).
+- L61-67: `STATUS_LABELS` inline Record — `draft:'مسودة'`, `calculated:'محسوب'`, `approved:
+  'معتمد'`, `paid:'مدفوع'`, `pending:'معلق'` (statuses) — LOCAL RE-DECLARATION, NOT importing
+  `PAYROLL_STATUS_LABELS`/`EMPLOYEE_PAYMENT_STATUS_LABELS` — this file's map MIXES both entities
+  into ONE object (payroll run statuses draft/calculated/approved/paid PLUS employeePayment's
+  extra `pending` key) because the same `STATUS_LABELS` object is reused for BOTH payslip.
+  run_status (payroll entity) AND payment.status (employeePayment entity) at different render
+  sites (L285 vs L378) — ARCHITECTURAL HAZARD for the catalog swap: cannot simply replace this
+  one map with a single `useStatusLabels(entity)` call; the two use-sites need to call
+  `useStatusLabels('payroll')` and `useStatusLabels('employeePayment')` SEPARATELY. Also: this
+  file's `pending: 'معلق'` again DIFFERS from the catalog's `employeePayment.pending =
+  'بانتظار الموافقة'` — SAME TEXT DRIFT as EmployeePaymentsTab.tsx (both files independently
+  invented `'معلق'` instead of using the catalog string — 2 SEPARATE occurrences of the same
+  drift, not just 1).
+- L69-71: **LOCAL `formatCurrency()` FUNCTION RE-IMPLEMENTATION** — this file defines its OWN
+  `formatCurrency(amount, currency = 'AED')` helper (LRM mark `‎` + `toLocaleString('en-US',
+  ...)` + manual ` ${currency}` suffix) INSTEAD OF importing `formatCurrency` from
+  `@/lib/utils/format` (the canonical shared utility used everywhere else in the payroll scope,
+  e.g. PayrollRunRow.tsx L17, EmployeePaymentsTab.tsx L17). MONEY DISCIPLINE HAZARD: this
+  shadow implementation may or may not stay behaviorally identical to the canonical
+  `formatCurrency` as that utility evolves (e.g. if the canonical one changes rounding, symbol
+  placement, or RTL/LRM handling) — a DRY violation adjacent to the money-discipline lock.
+  EVERY call site in this file (L199, L202, L212, L215, L225, L228, L300, L303, L306, L311, L320,
+  L392) uses this LOCAL shadow function, not the shared one. All 12 call sites DO pass an explicit
+  currency param (or the `currency` field from grouped-by-currency maps) — so the MULTI-CURRENCY
+  GROUPING ITSELF is compliant (per-currency Record<string, number> maps, never summed across
+  currencies — matches the "grand total per currency" doctrine documented inline at L140-165) —
+  but the underlying formatter is a duplicate implementation, not the canonical one. Flag as a
+  MUST-FIX consolidation item (swap to shared `formatCurrency` from `lib/utils/format`) alongside
+  the i18n pass, since touching this file for string-catalog work is the natural moment to also
+  fix the DRY violation.
+- L87: `SOURCE_LABELS` inline Record — `commission:'عمولة'`, `task:'مهمة'`, `bonus:'مكافأة'`,
+  `deduction:'خصم'`, `overtime:'إضافي'`, `salary:'راتب'` (statuses-like) — 3rd distinct copy of
+  the payment-source-type label map in this scope (see HAZARD H2); this one has 6 keys (includes
+  `salary`, excludes `advance` — yet another different subset than the other 2 files).
+- L132: toast.success `'تم تحميل كشف الراتب'` (ui)
+- L134: toast.error `'حدث خطأ أثناء إنشاء كشف الراتب'` (ui) — IDENTICAL string to PayrollRunRow.tsx
+  L161 (can share one catalog key)
+- L176: h1 `كشف حسابي` (ui)
+- L177: subtitle `كشوف الرواتب والمدفوعات والعمولات` (ui)
+- L197: label `إجمالي المستلم` (ui)
+- L209: label `عمولات ومهام` (ui)
+- L222: label `قيد المعالجة` (ui)
+- L236: label `عدد الدفعات` (ui)
+- L263: EmptyState title `'لا توجد كشوف رواتب'` (ui)
+- L264: EmptyState description `'لم يتم إصدار أي كشوف رواتب لحسابك بعد'` (ui)
+- L278: `{MONTH_NAMES_AR[(payslip.month || 1) - 1]} {payslip.year}` — SAME hazard as
+  PayrollRunRow.tsx L188: HARDCODED `MONTH_NAMES_AR` import (L23) instead of `monthNamesFor
+  (locale)`. 2nd occurrence of this exact hazard in scope.
+- L285: `{STATUS_LABELS[payslip.run_status] || payslip.run_status}` (statuses) — this is the
+  PAYROLL-entity use of the mixed STATUS_LABELS map (see L61-67 hazard above)
+- L289: `` new Date(payslip.paid_at).toLocaleDateString('ar-AE') `` — HARDCODED locale string,
+  bypasses `formatDate()` utility (3rd occurrence in scope, after PayrollRunRow.tsx L396 and
+  EmployeePaymentsTab.tsx L149)
+- L303: `` `أساسي: ${formatCurrency(payslip.base_salary, payslip.currency)}` `` [ICU]
+- L306: `` `+مكافأة: ${formatCurrency(payslip.bonus, payslip.currency)}` `` [ICU]
+- L311: `` `-خصم: ${formatCurrency(payslip.deductions, payslip.currency)}` `` [ICU]
+- L337: Button text `تحميل` (ui, `<span className="hidden sm:inline">`)
+- L351: h2 `سجل المدفوعات والعمولات` (ui)
+- L371: `{SOURCE_LABELS[p.source_type] || p.source_type}` (statuses) — 3rd distinct source-type map
+  use-site
+- L378: `{STATUS_LABELS[p.status] || p.status}` (statuses) — this is the EMPLOYEEPAYMENT-entity
+  use of the SAME mixed STATUS_LABELS map (contrast with L285's payroll-entity use) — CONFIRMS the
+  architectural hazard: one map object serves two different status vocabularies at two call
+  sites in the same file.
+- L382: `{p.description && <p>{p.description}</p>}` — raw DB data (data, exempt)
+- L385: `` new Date(p.created_at).toLocaleDateString('ar-AE', { year:'numeric', month:'long',
+  day:'numeric' }) `` — HARDCODED locale string with options object, bypasses `formatDate()`
+  utility (4th occurrence in scope — this one additionally passes formatting OPTIONS, so the
+  swap to `formatDate()` needs to check whether the shared utility supports an equivalent
+  "long month name" format or whether this needs a distinct treatment)
+- L392: `` `{p.source_type === 'deduction' ? '-' : ''}{formatCurrency(p.amount, p.currency ||
+  'AED')}` `` — MONEY: explicit currency with fallback default, compliant pattern (matches the
+  `'AED'` default seen elsewhere as a FALLBACK not a hardcode-override)
+- L404-407: EmptyState title `'لا توجد مدفوعات'` (ui) + description `'لم يتم تسجيل أي رواتب أو
+  مدفوعات بعد'` (ui)
+- formatCurrency (LOCAL SHADOW, not canonical) call sites: 12 (L199, L202, L212, L215, L225, L228,
+  L300, L303, L306, L311, L320, L392). formatDate (proper utility): 0 — 2 raw toLocaleDateString
+  sites (L289, L385).
+
+================================================================
+4. hooks/usePayroll.ts / hooks/useEmployeePayments.ts
+================================================================
+Both: pure TypeScript CRUD hooks following the CLAUDE.md `fetchAPI`/`mutateAPI`/`buildQueryString`
+pattern, identical shape to Phase-4's useContracts/useCreditNotes/useExpenses. Zero Arabic
+strings, zero toasts, zero date/currency formatting, zero locale-sensitive code. NOT in scope for
+string-catalog work.
+
+Type-hygiene note (adjacent, not itself i18n): `usePayroll.ts`'s `PayrollItem` interface (L6-21)
+does NOT declare a `currency` field, yet `PayrollRunRow.tsx` locally extends it to
+`PayrollItemWithCurrency` to access `item.currency` (confirmed the API route DOES return it in
+practice, per that file's own comment) — this is a pre-existing type gap the plan may want to
+close by adding `currency: string` to the canonical `PayrollItem` interface, removing the need
+for the local extension. Not blocking for i18n work, but a natural adjacent fix since both touch
+the same file.
+
+================================================================
+5. Cross-cutting flags
+================================================================
+- toLocaleDateString('ar-AE') hardcoded, bypassing `formatDate()` utility: 4 occurrences —
+  PayrollRunRow.tsx L396, EmployeePaymentsTab.tsx L149, my-payslips-client.tsx L289 + L385 (the
+  L385 site also passes a `{year,month:'long',day:'numeric'}` options object). ALL 4 need a
+  locale param / swap to the shared `formatDate()` utility per Phase 0-2 convention.
+- MONTH_NAMES_AR hardcoded (NOT using the already-existing `monthNamesFor(locale)` accessor from
+  the SAME source file `lib/constants/dates.ts`): 3 import sites — CreatePayrollDialog.tsx L23
+  (month PICKER, highest priority), PayrollRunRow.tsx L32 (display), my-payslips-client.tsx L23
+  (display). This is the CLEANEST swap in the whole census — the locale-aware accessor already
+  exists (added in the same Phase-4.6 finance-reports precedent), it's just not wired into the
+  payroll scope yet.
+- Money discipline (multi-currency payroll lock): 8 formatCurrency call sites in PayrollRunRow.tsx
+  (all compliant, explicit currency), 1 in EmployeePaymentsTab.tsx (compliant), 12 in
+  my-payslips-client.tsx BUT via a LOCAL SHADOW `formatCurrency()` re-implementation (L69-71)
+  instead of the canonical `lib/utils/format` utility — see HAZARD H1. Zero sites found that omit
+  currency or hardcode 'AED' as an override (the few `|| 'AED'` fallbacks are defensive defaults
+  matching the codebase-wide convention, not violations).
+- STATUS_LABELS re-declaration / drift inventory (same concept, different Arabic string — MUST
+  reconcile to ONE canonical string per key during catalog authoring):
+  1. employeePayment "pending": catalog = `'بانتظار الموافقة'` (statuses.json, verified) vs
+     EmployeePaymentsTab.tsx L44 `'معلق'` vs my-payslips-client.tsx L66 `'معلق'` — TWO independent
+     files both drifted to the SAME wrong string `'معلق'`, both differing from the catalog.
+  2. Neither EmployeePaymentsTab.tsx nor my-payslips-client.tsx imports `PAYROLL_STATUS_LABELS` or
+     `EMPLOYEE_PAYMENT_STATUS_LABELS` from `lib/constants/statuses.ts` — both hand-roll local
+     Records, unlike PayrollRunRow.tsx which DOES import `PAYROLL_STATUS_LABELS` correctly (good
+     precedent to follow).
+  3. my-payslips-client.tsx's single `STATUS_LABELS` object (L61-67) serves BOTH the `payroll`
+     entity (run_status, L285) AND the `employeePayment` entity (payment.status, L378) — this
+     needs to SPLIT into two separate `useStatusLabels()` calls when migrated, not a 1:1 map swap.
+- Payment source_type label map inventory (NO existing catalog entity — candidate NEW
+  "paymentSourceType" entity; 3 INDEPENDENT inline copies found, each with a DIFFERENT subset of
+  keys):
+  1. EmployeePaymentsTab.tsx `SOURCE_TYPE_LABELS` (L24-32): 7 keys — task, bonus, deduction,
+     salary, advance, commission, overtime.
+  2. my-payslips-client.tsx `SOURCE_LABELS` (L87-89): 6 keys — commission, task, bonus, deduction,
+     overtime, salary (missing `advance`).
+  3. AddPaymentDialog.tsx inline SelectItem list (L106-110): 5 keys — commission, task, bonus,
+     deduction, overtime (missing `salary` AND `advance` — meaning a payment record of type
+     salary/advance CANNOT be created via this form's UI, only displayed if it already exists in
+     the DB from another path). This is a PRE-EXISTING product-behavior inconsistency, not purely
+     an i18n artifact — flag to the plan owner, don't silently "fix" scope during a string swap.
+  All 3 use IDENTICAL Arabic label text for the keys they DO share (عمولة/مهمة/مكافأة/خصم/إضافي/
+  راتب/سلفة) — NO text drift on the labels themselves, only on WHICH keys are present. Safe to
+  consolidate into one shared constant + a matching `paymentSourceType` entity in statuses.json.
+- dir="ltr" hardcoded: AddPaymentDialog.tsx L130 (amount input) — numeric field, likely
+  intentional keep-LTR per Phase-4 convention (flag, not swap).
+- Mixed-latinism: AddPaymentDialog.tsx L119 placeholder example text "عمولة مشروع Etmam Brand
+  Identity" — English project name embedded in Arabic placeholder (low-risk, example text).
+- Degenerate/near-degenerate plural: PayrollRunRow.tsx L191 `` `{run.employee_count} موظف` `` —
+  always renders "موظف" regardless of count (no plural handling attempted currently); ICU
+  `{count, plural, ...}` candidate for correctness at edge counts.
+- No JSON arrays needed anywhere in this scope (MONTH_NAMES_AR is a keyed-index array by
+  established convention — already exempted per the CLAUDE.md "Catalogs must never contain JSON
+  arrays" rule's own precedent for calendar.dayNames-style objects; MONTH_NAMES_AR itself is
+  LOCKED per lib/constants/dates.ts's own header comment "MONTH_NAMES_AR itself is untouched —
+  locked, Phase 4 constraint" — the swap target is the ACCESSOR call site, not the array).
+- Server-message passthrough: PayrollRunRow.tsx L81 `toast.warning(w)` iterating
+  `result.warnings` (array of server-supplied strings from the calculate mutation) — depends on
+  `/api/dashboard/payroll/[id]/calculate` route's warning-string i18n migration before this
+  client-side loop can be considered "done" for EN-locale users.
+- HR bundle a11y locks (aria-expanded/aria-controls toggles, scope=col headers): CONFIRMED INTACT
+  in PayrollRunRow.tsx (L175-176 toggle, L310-319 headers) and EmployeePaymentsTab.tsx (L113-119
+  headers). All AR strings feeding these attributes (aria-labels, header text) are cataloged
+  above in their respective file sections — no additional a11y-specific strings beyond what's
+  already listed.
+
+================================================================
+6. HAZARDS section
+================================================================
+
+H1. [HIGH — money discipline / DRY violation] app/dashboard/my-payslips/my-payslips-client.tsx
+L69-71 defines a LOCAL `formatCurrency()` function (LRM-mark + `toLocaleString('en-US', ...)` +
+manual currency-code suffix) instead of importing the canonical `formatCurrency` from
+`@/lib/utils/format` used everywhere else in the payroll scope (PayrollRunRow.tsx,
+EmployeePaymentsTab.tsx both import the shared one). All 12 call sites in this file use the local
+shadow. Every call site DOES pass an explicit currency (compliant with the multi-currency-payroll
+money-discipline lock in spirit), but the DUPLICATE IMPLEMENTATION itself is a hazard — if the
+canonical formatter's behavior (rounding, symbol placement, RTL handling) changes in the future,
+this file silently diverges. Recommend the i18n pass ALSO swaps this to the shared import as a
+drive-by fix, since the file is already being touched for string-catalog work and the two
+implementations currently produce visually similar but not-guaranteed-identical output.
+
+H2. [MEDIUM — data-model inconsistency, not purely i18n] Payment `source_type` label maps exist
+as 3 SEPARATE inline Record literals (EmployeePaymentsTab.tsx 7 keys, my-payslips-client.tsx 6
+keys, AddPaymentDialog.tsx's SelectItem list 5 keys) with 3 DIFFERENT subsets of the same
+underlying set {task, bonus, deduction, salary, advance, commission, overtime}. The label TEXT is
+identical across all 3 where keys overlap (no wording drift), but AddPaymentDialog's create-form
+does not expose `salary` or `advance` as selectable options — meaning those payment types can only
+ever be created by some other code path (not found in this scope — likely a server-side-only
+source, e.g. the payroll calculate route synthesizing `source_type='salary'` items, or a legacy
+data path). Flag to the plan/user: decide whether to (a) consolidate into ONE shared constant +
+new `paymentSourceType` statuses.json entity with all 7 keys, keeping the create-form's narrower
+selectable subset as an intentional UI restriction, or (b) treat the 5-vs-7 gap as a product bug
+to fix. Recommend (a) — the display maps should share one source of truth; the CREATE form's
+option list can justifiably stay a curated subset (users shouldn't manually create "salary" type
+payments, those come from payroll runs).
+
+H3. [MEDIUM — cross-entity status-label collision] app/dashboard/my-payslips/
+my-payslips-client.tsx's single `STATUS_LABELS` object (L61-67) is used at TWO call sites for TWO
+DIFFERENT status entities: L285 renders `payslip.run_status` (a `payroll` entity value: draft/
+calculated/approved/paid) and L378 renders `p.status` (an `employeePayment` entity value:
+pending/approved/paid/rejected). The map's `pending` key only makes sense for the employeePayment
+use-site (payroll runs never have a `pending` status in the catalog) — this "works" today only
+because Arabic object-key lookup silently falls through to `|| payslip.run_status` / `|| p.status`
+raw-value fallback when a key is absent for the OTHER entity's vocabulary. When migrating to
+`useStatusLabels(entity)`, this file needs TWO separate hook calls
+(`useStatusLabels('payroll')` for L285, `useStatusLabels('employeePayment')` for L378) — a
+straight 1:1 replace of the single local map would be WRONG and must not be attempted.
+
+H4. [LOW — server-message passthrough coupling] PayrollRunRow.tsx L81 `toast.warning(w)` for each
+string in `result.warnings` (from the calculate-payroll mutation response) renders live
+server-supplied Arabic text with no client-side fallback/wrapper. This is a stronger coupling than
+Phase-4's `json.error || 'fallback'` pattern (there's no fallback here at all — it's 100% server
+text). Until `/api/dashboard/payroll/[id]/calculate`'s warning strings are migrated to the `api`
+i18n namespace, an EN-locale user calculating payroll will see Arabic warnings inline among
+otherwise-English UI. Sequencing dependency for the phase-5 API-route census.
+
+H5. [LOW — Phase 9 PDF exemption, noted for cross-reference] `lib/pdf/payslip-pdf.ts` (252 lines,
+OUT OF DIRECT SCOPE per this census's file list but INVOKED from both PayrollRunRow.tsx
+(handleDownloadPayslip) and my-payslips-client.tsx (handleDownload)) contains hardcoded Arabic
+labels for the payslip PDF line items: `'الراتب الأساسي'`, `'مدفوعات المهام'`, `'العمل الإضافي'`,
+`'المكافآت'`, `'العمولات'`, `` `خصم ${idx+1}` ``, `'الخصومات'`, `'صافي الراتب'` — per CLAUDE.md's
+i18n rules, PDF generators are Phase-9-EXEMPT (marked (pdf) not (ui)) and are NOT part of this
+phase's string-catalog work. Listed here ONLY for completeness/cross-reference since the two
+in-scope files both call into it — no action needed in Phase 5.
+
+H6. [LOW — window.confirm vs AlertDialog] PayrollRunRow.tsx L117 uses native
+`window.confirm(...)` for the delete-payroll-run confirmation, unlike Phase-4 finance pages which
+uniformly use the shadcn `AlertDialog` component for delete confirmations. The Arabic string
+itself is a normal translation target regardless, but flag the mechanism inconsistency for
+awareness (native confirm() cannot be styled/RTL-controlled the same way, and its browser-default
+text ["OK"/"Cancel"] won't route through next-intl at all — only the message body will).
+
+END OF CENSUS.

@@ -1,0 +1,620 @@
+EVALUATIONS DISCOVERY — Phase-5 i18n (HR Evaluations Module) — files verified 2026-07-06
+
+================================================================
+GRAND TOTALS (all files in scope)
+================================================================
+Files scanned: 6
+  - app/dashboard/evaluations/evaluations-client.tsx  (1361 LOC)
+  - app/dashboard/evaluations/page.tsx  (7 LOC, server component, no strings)
+  - app/dashboard/evaluations/settings/evaluations-settings-client.tsx  (302 LOC)
+  - app/dashboard/evaluations/settings/page.tsx  (7 LOC, server component, no strings)
+  - components/evaluations/KpiProgressEditor.tsx  (71 LOC)
+  - components/evaluations/PerformanceTrend.tsx  (162 LOC)
+  - hooks/useEvaluations.ts  (66 LOC) — EXISTS but DEAD CODE: grep confirms zero imports of
+    useEvaluations/useEvaluation/useCreateEvaluation/useUpdateEvaluation/useDeleteEvaluation
+    anywhere in app/components/hooks. evaluations-client.tsx uses its OWN inline useQuery/
+    useMutation calls instead (queryKey ['evaluations'], ['evaluation-periods'],
+    ['evaluation-criteria']). This hook has 0 Arabic strings anyway (generic error-free typed
+    CRUD wrapper) — flag as "not in scope for string work, candidate for removal in a separate
+    cleanup" but note it for the plan owner.
+
+NOTE ON SCOPE: no `app/dashboard/evaluations/[id]/page.tsx` exists — evaluation "detail" is an
+inline expand/collapse row inside evaluations-client.tsx's EvaluationsTab (toggleExpand), not a
+separate route. `app/dashboard/overtime/` does NOT exist as a directory — CLAUDE.md lists
+`overtime.view` as a BASE_EMPLOYEE permission (self-service "my payslips"-style scope) but there
+is no standalone dashboard page under that path in this codebase today. Confirmed via directory
+listing — 0 files, not a scan miss.
+
+Total AR-bearing lines (ui + data + statuses classes; comments excluded from count but listed): 173
+  - (ui) user-visible JSX/label/placeholder/toast/aria: 158
+  - (data) string compared against or written to DB, or raw DB field displayed: 4 (criteria
+    name_ar/description are DB DATA — see DB-DATA HAZARD section; category value strings compared
+    against c.category are English keys, not Arabic, so those are safe/exempt)
+  - (comment): 1 Arabic-referencing code comment (KpiProgressEditor.tsx L19 docstring "تحديث
+    التقدم" quoted inside an English JSDoc comment — not itself translatable UI, informational only)
+  - (statuses) label maps that should route through useStatusLabels(entity) instead of local
+    STATUS_LABELS/STATUS_STYLES objects: 2 distinct maps (STATUS_LABELS covering period+evaluation
+    statuses conflated into ONE map — see HAZARD H1 below; EVAL_TYPE_LABELS which has NO existing
+    statuses.json entity)
+
+Files >300 lines: evaluations-client.tsx (1361 — LARGE, well over the <300-line CLAUDE.md mandate
+for new/edited pages; this file mixes 3 tabs (Evaluations/Periods/KPIs) each with their own
+create-dialogs + mutations in one file). evaluations-settings-client.tsx sits exactly at 302 —
+technically over threshold by 2 lines, low practical concern but noted.
+
+Proposed catalog key shape:
+  hr.evaluations.tabs.*              (top-level Tabs labels: التقييمات / الفترات / مؤشرات الأداء / الأداء عبر الفترات)
+  hr.evaluations.list.*              (EvaluationsTab: header, empty state, list row, badges)
+  hr.evaluations.list.createDialog.* (تقييم جديد dialog: period/employee/evaluator/type selects)
+  hr.evaluations.list.scoreDialog.*  (تقييم الدرجات dialog: score buttons 1-5, comment input)
+  hr.evaluations.list.comments.*     (نقاط القوة / نقاط التحسين / ملاحظات عامة — edit + read-only variants)
+  hr.evaluations.list.actions.*      (تقييم الدرجات / تقديم التقييم / الاعتراف بالتقييم / التوصية بمكافأة)
+  hr.evaluations.periods.*           (PeriodsTab: header, empty state, list row, create dialog, تفعيل/إغلاق buttons)
+  hr.evaluations.kpis.*              (KpisTab: header, empty state, list row, create dialog)
+  hr.evaluations.settings.*          (evaluations-settings-client.tsx: header, category groups, criterion row, create dialog)
+  components: hr.evaluations.kpiProgressEditor.* (KpiProgressEditor.tsx)
+              hr.evaluations.performanceTrend.*  (PerformanceTrend.tsx)
+  Shared cross-cutting: statuses.evaluation (ALREADY EXISTS in messages/ar/statuses.json — keys
+  draft/in_progress/completed) — but see HAZARD H1: the actual UI uses a DIFFERENT status set
+  (draft/active/closed for periods; draft/submitted/acknowledged for evaluations) that does NOT
+  match the existing `evaluation` entity's 3 keys at all. This is a naming collision requiring a
+  plan decision, not a direct swap-in.
+  NEW entity candidates needed: `evaluationType` (manager/self/peer/360), `evaluationCriteriaCategory`
+  (technical/communication/leadership/productivity/teamwork/creativity/other) — neither exists in
+  statuses.json today.
+
+================================================================
+1. app/dashboard/evaluations/page.tsx
+================================================================
+Server component. requirePermission('evaluations.view') gate only. 0 Arabic strings, no metadata
+title (no `export const metadata` block at all — unlike finance pages which had a `title: '... | Pyra'`
+Metadata export). Not in scope for string work.
+
+================================================================
+2. app/dashboard/evaluations/settings/page.tsx
+================================================================
+Server component. requirePermission('evaluations.manage') gate only. 0 Arabic strings, no metadata.
+Not in scope for string work.
+
+================================================================
+3. app/dashboard/evaluations/evaluations-client.tsx  [1361 LOC — LARGE FILE]
+================================================================
+
+--- Constants (module scope) ---
+- L143-149: STATUS_STYLES Record — CSS class map only, no AR text (skip)
+- L151-157: STATUS_LABELS Record (statuses) — CONFLATES two different DB status domains into one
+  map: {draft:'مسودة', active:'نشط', closed:'مغلق', submitted:'مقدم', acknowledged:'معترف به'}.
+  `draft`/`active`/`closed` belong to EvaluationPeriod.status; `submitted`/`acknowledged` (and
+  `draft` again, reused) belong to Evaluation.status. Both domains share the literal key `draft`
+  with the SAME label ('مسودة') so the conflation happens to be harmless today, but see HAZARD H1
+  for the deeper mismatch against statuses.json's `evaluation` entity.
+- L159-164: EVAL_TYPE_LABELS Record (statuses-like, NO existing catalog entity) —
+  {manager:'تقييم المدير', self:'تقييم ذاتي', peer:'تقييم الأقران', '360':'تقييم 360°'} — candidate
+  NEW entity `evaluationType`. Note the '360' key has a literal '°' degree symbol baked into the
+  Arabic label — verify this survives ICU/JSON escaping unchanged.
+
+--- Main component (EvaluationsClient) ---
+- L184: TabsTrigger text `التقييمات` (ui)
+- L188: TabsTrigger text `الفترات` (ui)
+- L192: TabsTrigger text `مؤشرات الأداء` (ui)
+- L196: TabsTrigger text `الأداء عبر الفترات` (ui)
+- L180: `<Tabs defaultValue="evaluations" dir="rtl">` — HARDCODED dir="rtl" on the Tabs root (not
+  conditional on locale) — flag for plan: should likely become locale-driven `dir` like other
+  migrated pages, or removed if the parent layout already sets document dir.
+
+--- EvaluationsTab (Tab 1) ---
+- L293: toast.error `'فشل في تحميل تفاصيل التقييم'` (ui)
+- L320: toast.success `'تم إنشاء التقييم بنجاح'` (ui)
+- L325: toast.error `'فشل في إنشاء التقييم'` (ui)
+- L332: toast.success `'تم حفظ الدرجات بنجاح'` (ui)
+- L337: toast.error `'فشل في حفظ الدرجات'` (ui)
+- L343: toast.success `'تم تقديم التقييم بنجاح'` (ui)
+- L347: toast.error `'فشل في تقديم التقييم'` (ui)
+- L353: toast.success `'تم الاعتراف بالتقييم بنجاح'` (ui)
+- L357: toast.error `'فشل في الاعتراف بالتقييم'` (ui)
+- L363: toast.success `'تم حفظ الملاحظات'` (ui)
+- L364: toast.error `'فشل في حفظ الملاحظات'` (ui)
+- L371: toast.success `data?.message || 'تمت التوصية بمكافأة بنجاح'` — SERVER-SUPPLIED Arabic
+  passthrough as PRIMARY (not just fallback-on-error — here the success path itself prefers the
+  server message). See HAZARD H2 (bonus-recommendation message) below — this is the tiered
+  5/10/15% notification-adjacent string the task flagged to check.
+- L375: toast.error `err instanceof Error ? err.message : 'فشل في التوصية بمكافأة'` — client Error
+  object message passthrough (likely also server-supplied via mutateAPI's error path) [HAZARD-adjacent]
+- L381: toast.error `'جميع الحقول مطلوبة'` (ui)
+- L421: `renderStars` — no AR text, but see RATING DISPLAY section below (numeric formatting)
+- L459: h2 `التقييمات` (ui) — duplicate concept of L184 tab label, separate key context (page header vs tab label)
+- L467: Button text `تقييم جديد` (ui)
+- L476: EmptyState title `"لا توجد تقييمات"` (ui)
+- L477: EmptyState description `"لم يتم إنشاء أي تقييمات بعد"` (ui)
+- L478: EmptyState actionLabel `'إنشاء تقييم'` (ui)
+- L492: `{ev.employee?.display_name || ev.employee_username}` — raw DB data (data, exempt)
+- L495: `{STATUS_LABELS[ev.status] || ev.status}` — statuses (see H1), raw-value fallback leak if
+  status missing from map
+- L498: `{EVAL_TYPE_LABELS[ev.evaluation_type] || ev.evaluation_type}` — statuses-like (evaluationType
+  candidate entity), raw-value fallback leak
+- L504: `المقيّم: {ev.evaluator?.display_name || ev.evaluator_username}` — ICU interpolation, label +
+  raw DB data [ICU]
+- L509: `{ev.period.name_ar}` — RAW DB DATA — evaluation_periods.name_ar is a bilingual DB COLUMN
+  (name / name_ar), NOT a UI string — see DB-DATA HAZARD section
+- L539: CardTitle `مخطط التقييم` (ui)
+- L546: `criterion: s.criteria?.name_ar || s.criteria?.name || ''` — RAW DB DATA (criteria name/name_ar)
+  fed into RadarChart dataKey label — DB-DATA HAZARD (see below)
+- L562: RadarChart `name="الدرجة"` (recharts legend prop, ui — technically a chart-internal label,
+  still user-visible on hover/legend)
+- L580: CardTitle `الدرجات التفصيلية` (ui)
+- L591: `{s.criteria?.name_ar || s.criteria?.name}` — RAW DB DATA (criteria name) — DB-DATA HAZARD
+- L594: `{s.comment}` — raw DB data (data, exempt — free-text evaluator comment)
+- L599: `{s.score.toFixed(1)}` — RATING/SCORE DISPLAY: numeric locale-stable formatting via
+  `.toFixed(1)`, NOT `toLocaleString` — safe pattern, must stay locale-stable per CLAUDE.md money/number
+  rule (though this is a rating not currency, same "don't localize digits" principle applies)
+- L601: `/5` literal (ui, trivial denominator suffix — likely fine as static text "/5" but flag if
+  ICU wants it merged into a template like "{score} / 5")
+- L615: CardTitle `ملاحظات التقييم` (ui) — appears TWICE in file (edit-mode L615, read-only-mode L669)
+  — same string, can share one key
+- L619: Label `نقاط القوة` (ui)
+- L625: Textarea placeholder `"أذكر نقاط القوة..."` (ui)
+- L631: Label `نقاط التحسين` (ui)
+- L637: Textarea placeholder `"أذكر نقاط التحسين..."` (ui)
+- L643: Label `ملاحظات عامة` (ui)
+- L649: Textarea placeholder `"ملاحظات إضافية..."` (ui)
+- L660: Button ternary `saveCommentsMutation.isPending ? 'جارٍ الحفظ...' : 'حفظ الملاحظات'` (ui) [ICU: loading-state variant]
+- L669: CardTitle `ملاحظات التقييم` (ui) (read-only variant, duplicate of L615)
+- L674: `نقاط القوة:` label (ui) — read-only variant, SAME PHRASE as L619's Label but with trailing
+  colon — near-duplicate string, likely mergeable if the colon is added via CSS/layout instead of
+  baked into the string
+- L675: `{expandedData.strengths}` — raw DB data (data, exempt)
+- L680: `نقاط التحسين:` label (ui) — same near-duplicate pattern as above
+- L681: `{expandedData.improvements}` — raw DB data (data, exempt)
+- L686: `ملاحظات عامة:` label (ui) — same near-duplicate pattern
+- L687: `{expandedData.comments}` — raw DB data (data, exempt)
+- L707: Button text `تقييم الدرجات` (ui)
+- L715: Button text `تقديم التقييم` (ui)
+- L727: Button text `الاعتراف بالتقييم` (ui)
+- L739-744: Button ternary chain `{bonusRecommendedIds.has(ev.id) ? 'تمت التوصية بمكافأة' :
+  recommendBonusMutation.isPending ? 'جارٍ الإرسال...' : 'التوصية بمكافأة'}` (ui) [ICU: 3-way state
+  ternary — bonus button label] — HAZARD-adjacent: this button's default/pending/success label text
+  is 3-way, must preserve exact branching in ICU form.
+- L732: HAZARD comparison: `Number(expandedData.overall_rating) >= 3.5` — gates bonus-recommend
+  button visibility; NUMERIC comparison against DB `overall_rating`, not a string comparison — SAFE,
+  no i18n risk, but flagging because it's the same numeric threshold referenced in CLAUDE.md's
+  "Batch E — evaluations + reporting" lock (tiered 5/10/15% bonus at rating≥3.5). This UI-side gate
+  must stay numeric and untouched by the i18n pass.
+- L760: DialogTitle `تقييم جديد` (ui)
+- L764: Label `فترة التقييم` (ui)
+- L767: SelectValue placeholder `"اختر الفترة"` (ui)
+- L772: `{p.name_ar}` — RAW DB DATA (period name_ar) — DB-DATA HAZARD (see below)
+- L779: Label `الموظف` (ui)
+- L785: SelectValue placeholder `"اختر الموظف"` (ui)
+- L790: `{u.display_name}` — raw DB data (data, exempt)
+- L797: Label `المقيّم` (ui)
+- L803: SelectValue placeholder `"اختر المقيّم"` (ui)
+- L808: `{u.display_name}` — raw DB data (data, exempt)
+- L815: Label `نوع التقييم` (ui)
+- L824: SelectItem `تقييم المدير` (statuses-like, evaluationType — 2nd inline duplication of
+  EVAL_TYPE_LABELS.manager)
+- L825: SelectItem `تقييم ذاتي` (statuses-like, duplicates EVAL_TYPE_LABELS.self)
+- L826: SelectItem `تقييم الأقران` (statuses-like, duplicates EVAL_TYPE_LABELS.peer)
+- L827: SelectItem `تقييم 360°` (statuses-like, duplicates EVAL_TYPE_LABELS['360']) — same '°' symbol hazard as L163
+- L834: Button `إلغاء` (ui)
+- L841: Button ternary `createEvalMutation.isPending ? 'جارٍ الإنشاء...' : 'إنشاء'` (ui) [ICU: loading-state]
+- L851: DialogTitle `تقييم الدرجات` (ui)
+- L858: `{c.name_ar}` — RAW DB DATA (pyra_evaluation_criteria.name_ar) — DB-DATA HAZARD (see below)
+- L862: `{c.category}` — raw DB value rendered directly as a Badge with NO label-map lookup at all
+  (unlike the settings page's CATEGORY_LABELS) — this is the ENGLISH category key (e.g.
+  "technical") displayed VERBATIM in the score dialog, NOT translated to Arabic even in the
+  current all-Arabic UI. Pre-existing bug/inconsistency, not introduced by i18n — flag for plan:
+  should probably use CATEGORY_LABELS here too, but that's a bugfix, not purely a translation swap.
+- L866: `الوزن: {c.weight}` — ICU interpolation, label + numeric DB value [ICU]
+- L870: `{c.description}` — RAW DB DATA (pyra_evaluation_criteria.description) — DB-DATA HAZARD
+- L873: Label `الدرجة:` (ui)
+- L891: `{val}` — numeric literal (1-5 score buttons), not Arabic text, locale-stable (skip)
+- L897: Input placeholder `"ملاحظة (اختياري)"` (ui)
+- L912: Button `إلغاء` (ui)
+- L919: Button ternary `saveScoresMutation.isPending ? 'جارٍ الحفظ...' : 'حفظ الدرجات'` (ui) [ICU: loading-state]
+
+--- PeriodsTab (Tab 2) ---
+- L944: toast.error `'فشل في تحميل الفترات'` (ui)
+- L954: toast.success `'تم إنشاء الفترة بنجاح'` (ui)
+- L955: toast.error `'فشل في إنشاء الفترة'` (ui)
+- L960: toast.success `` `تم تحديث الحالة إلى "${STATUS_LABELS[status]}"` `` — ICU interpolation
+  embedding a STATUS_LABELS lookup INSIDE a toast message (double nesting: translatable template +
+  translatable status label) [ICU] — this is a more complex ICU case than a flat string; the
+  status label must resolve through useStatusLabels/whatever replaces STATUS_LABELS before the
+  outer template renders.
+- L961: toast.error `'فشل في تحديث الحالة'` (ui)
+- L965: toast.error `'جميع الحقول مطلوبة'` (ui) — DUPLICATE of L381's exact same string in
+  EvaluationsTab — can share one key (e.g. a common `hr.evaluations.allFieldsRequired` or fold into
+  a truly generic shared validation namespace if one exists)
+- L984: h2 `فترات التقييم` (ui)
+- L992: Button `فترة جديدة` (ui)
+- L1000: EmptyState title `"لا توجد فترات تقييم"` (ui)
+- L1001: EmptyState description `"قم بإنشاء فترة تقييم جديدة للبدء"` (ui)
+- L1002: EmptyState actionLabel `'إنشاء فترة'` (ui)
+- L1011: `{p.name_ar}` — RAW DB DATA (period name_ar) — DB-DATA HAZARD
+- L1013: `{STATUS_LABELS[p.status] || p.status}` — statuses (H1), raw-value fallback leak
+- L1017: `` `{p.start_date} — {p.end_date}` `` — ICU interpolation, DATE-ONLY strings rendered
+  verbatim (no formatDate() call — raw YYYY-MM-DD strings from the date input, not a formatted
+  display) [ICU] — note: NOT a formatDate() site, so not counted in the formatDate tally below;
+  flag for plan whether these raw ISO date strings should get formatDate() treatment for
+  locale-appropriate display (currently neither locale nor format-safe, just raw passthrough).
+- L1029: Button `تفعيل` (ui) — period status transition draft→active
+- L1039: Button `إغلاق` (ui) — period status transition active→closed
+- L1053: DialogTitle `فترة تقييم جديدة` (ui)
+- L1057: Label `الاسم (إنجليزي)` (ui) — mixed-latinism (parenthetical language tag)
+- L1061: Input placeholder `"Q1 2025 Review"` — placeholder is intentionally ENGLISH (example value
+  for the `name` EN field) — NOT an Arabic string, exempt/skip, but noted because it's the paired
+  field to L1066 below.
+- L1066: Label `الاسم (عربي)` (ui) — mixed-latinism
+- L1070: Input placeholder `"مراجعة الربع الأول 2025"` (ui) — example value for `name_ar` field
+- L1075: Label `تاريخ البداية` (ui)
+- L1084: Label `تاريخ النهاية` (ui)
+- L1094: Button `إلغاء` (ui)
+- L1102: Button ternary `createPeriodMutation.isPending ? 'جارٍ الإنشاء...' : 'إنشاء'` (ui) [ICU: loading-state]
+
+--- KpisTab (Tab 3) ---
+- L1144: toast.error `'فشل في تحميل مؤشرات الأداء'` (ui)
+- L1157: toast.success `'تم إنشاء مؤشر الأداء بنجاح'` (ui)
+- L1162: toast.error `'فشل في إنشاء مؤشر الأداء'` (ui)
+- L1167: toast.error `'اسم المستخدم والعنوان مطلوبان'` (ui)
+- L1195: h2 `مؤشرات الأداء (KPIs)` (ui) — mixed-latinism ("(KPIs)" English acronym in parens)
+- L1203: Button `مؤشر جديد` (ui)
+- L1211: EmptyState title `"لا توجد مؤشرات أداء"` (ui)
+- L1212: EmptyState description `"قم بإنشاء مؤشرات أداء لتتبع تقدم الموظفين"` (ui)
+- L1213: EmptyState actionLabel `'إنشاء مؤشر'` (ui)
+- L1224: `{kpi.title}` — raw DB data (admin-entered KPI title, free text; data, exempt)
+- L1227: `{kpi.user?.display_name || kpi.username}` — raw DB data (data, exempt)
+- L1232: `{kpi.period.name_ar}` — RAW DB DATA (period name_ar) — DB-DATA HAZARD
+- RATING/NUMBER DISPLAY (locale-stable, must stay verbatim per CLAUDE.md money/number rule):
+  - L1238: `{kpi.actual_value}` — raw numeric, no formatting call, locale-stable by default (safe)
+  - L1242: `{' / '}{kpi.target_value}` — raw numeric with literal " / " separator (ICU-adjacent but
+    numeric, not Arabic text) [ICU: numeric interpolation]
+  - L1247: `{kpi.unit}` — raw DB data (admin-entered unit string like "مشروع"/"ساعة"/"%" per the
+    create-dialog placeholder hint at L1322 — free text, NOT a fixed enum, data/exempt)
+  - L1254: `{pct}%` — computed percentage, numeric + literal '%' (locale-stable, safe)
+- L1276: DialogTitle `مؤشر أداء جديد` (ui)
+- L1280: Label `الموظف` (ui) — DUPLICATE of L779's exact Label text in EvaluationsTab create dialog
+  (same word "الموظف" used contextually for a different select) — can share one key if the plan
+  wants a shared "employee" label, or keep tab-scoped for clarity.
+- L1286: SelectValue placeholder `"اختر الموظف"` (ui) — DUPLICATE of L785
+- L1291: `{u.display_name}` — raw DB data (data, exempt)
+- L1298: Label `العنوان` (ui)
+- L1302: Input placeholder `"مثال: عدد المشاريع المنجزة"` (ui) — example/hint text
+- L1307: Label `القيمة المستهدفة` (ui)
+- L1312: Input placeholder `"مثال: 10"` (ui) — example/hint text (numeric example)
+- L1314: `dir="ltr"` HARDCODED on target_value numeric input — same pattern as finance pages (numeric
+  field LTR override, likely intentional keep-as-is)
+- L1318: Label `الوحدة` (ui)
+- L1322: Input placeholder `"مثال: مشروع، ساعة، %"` (ui) — example/hint listing unit examples
+  (contains literal Arabic words as EXAMPLES, not enum values — this is instructional placeholder
+  text, straightforward UI translation target, NOT a statuses-like map)
+- L1327: Label `فترة التقييم (اختياري)` (ui)
+- L1333: SelectValue placeholder `"اختر الفترة (اختياري)"` (ui) — near-duplicate of L767's `"اختر
+  الفترة"` (same field concept, different verbosity — required vs optional context)
+- L1338: `{p.name_ar}` — RAW DB DATA (period name_ar) — DB-DATA HAZARD (3rd occurrence in file)
+- L1346: Button `إلغاء` (ui)
+- L1354: Button ternary `createKpiMutation.isPending ? 'جارٍ الإنشاء...' : 'إنشاء'` (ui) [ICU: loading-state]
+
+--- Cross-cutting notes for this file ---
+- localeCompare: NONE found in this file (unlike finance pages).
+- toLocaleString/toLocaleDateString: NONE found.
+- formatDate() calls: 0 (dates rendered as raw strings — see L1017 note above).
+- formatCurrency() calls: 0 (this module has no money values).
+- Hardcoded 'AED' or other currency codes: N/A, not applicable to this module.
+
+================================================================
+4. app/dashboard/evaluations/settings/evaluations-settings-client.tsx  [302 LOC]
+================================================================
+
+--- Constants ---
+- L59-67: CATEGORIES array — 7 entries (statuses-like, NO existing catalog entity) —
+  {technical:'تقنية', communication:'تواصل', leadership:'قيادة', productivity:'إنتاجية',
+  teamwork:'عمل جماعي', creativity:'إبداع', other:'أخرى'} — candidate NEW entity
+  `evaluationCriteriaCategory`. NOTE: this is the SAME conceptual category set used by
+  `pyra_evaluation_criteria.category`, but as flagged above, evaluations-client.tsx's score dialog
+  (L862) does NOT use this map — it renders the raw `c.category` value directly. DRY/consistency
+  gap pre-dating i18n, worth flagging to plan owner: settings page has a proper label map, main
+  evaluations page does not use it.
+- L69-72: CATEGORY_LABELS built from CATEGORIES loop — same data, different lookup shape (skip,
+  derived at runtime not additional strings)
+
+--- Component body ---
+- L97: toast.success `'تم إنشاء المعيار بنجاح'` (ui)
+- L102: toast.error `'فشل في إنشاء المعيار'` (ui)
+- L106: toast.error `'الاسم والاسم بالعربية مطلوبان'` (ui)
+- L148: h2 `إعدادات معايير التقييم` (ui)
+- L156: Button `معيار جديد` (ui)
+- L164: EmptyState title `"لا توجد معايير تقييم"` (ui)
+- L165: EmptyState description `"قم بإنشاء معايير التقييم التي ستُستخدم في تقييم الموظفين"` (ui)
+- L166: EmptyState actionLabel `"إنشاء معيار"` (ui)
+- L175: `{CATEGORY_LABELS[category] || category}` — statuses-like (evaluationCriteriaCategory),
+  raw-value fallback leak if category missing from map
+- L178: `` `({items.length} {items.length === 1 ? 'معيار' : 'معايير'})` `` — ICU interpolation, HAND-
+  ROLLED 2-way plural (count===1 singular vs other plural) — CLASSIC ICU `{count, plural, one{معيار}
+  other{معايير}}` candidate. Note Arabic grammatically has MORE plural categories (zero/one/two/
+  few/many/other) than this 2-way branch captures — e.g. count=0 currently renders "0 معايير" via
+  the `other` branch of this manual ternary, and count=2 (dual form) would ideally be "معياران" in
+  proper Arabic but this code just says "2 معايير" — pre-existing simplification, flag as ICU
+  candidate but note the CLDR-correct plural categories would change the visible text at edge
+  counts (0, 2, 11-99) beyond what a naive 2-way swap preserves. Per CLAUDE.md's plural-ladder
+  guidance, decide explicitly whether to keep the simplified 2-way branch in code (safer,
+  behavior-preserving) or upgrade to full ICU plural categories (behavior CHANGE at edge counts).
+- L188: `{c.name_ar}` — RAW DB DATA (pyra_evaluation_criteria.name_ar) — DB-DATA HAZARD
+- L189: `({c.name})` — RAW DB DATA (pyra_evaluation_criteria.name, English) — data, exempt, but
+  note the parens are UI chrome around DB data, not translatable text itself
+- L197: `{c.description}` — RAW DB DATA (pyra_evaluation_criteria.description) — DB-DATA HAZARD
+- L202: `الوزن` label (ui) — appears twice conceptually (here + evaluations-client.tsx L866's
+  "الوزن: {c.weight}" — near-duplicate label text across 2 files, candidate for a shared key)
+- L204: `{c.weight}` — raw numeric DB value, locale-stable (safe)
+- L208: `الترتيب` label (ui)
+- L209: `{c.sort_order}` — raw numeric DB value, locale-stable (safe)
+- L224: DialogTitle `معيار تقييم جديد` (ui)
+- L228: Label `الاسم (إنجليزي)` (ui) — DUPLICATE of evaluations-client.tsx L1057's exact string
+  (period-name field) — same phrase reused for a different field's language-variant label; likely
+  shareable as a generic "nameEnglishLabel" key across the whole HR/evaluations namespace.
+- L232: Input placeholder `"Technical Skills"` — intentionally English example value, exempt/skip
+- L237: Label `الاسم (عربي)` (ui) — DUPLICATE of evaluations-client.tsx L1066
+- L241: Input placeholder `"المهارات التقنية"` (ui) — Arabic example value for name_ar field
+- L246: Label `الوصف (اختياري)` (ui)
+- L250: Textarea placeholder `"وصف المعيار..."` (ui)
+- L256: Label `الوزن` (ui) — 3rd occurrence of this exact word across the module (see L202, and
+  evaluations-client.tsx L866's inline "الوزن:")
+- L264: `dir="ltr"` HARDCODED on weight numeric input — same numeric-field pattern as elsewhere
+- L268: Label `الفئة` (ui)
+- L274: SelectValue placeholder `"اختر الفئة"` (ui)
+- L287: Button `إلغاء` (ui) — DUPLICATE of the ~6 other "إلغاء" cancel buttons across
+  evaluations-client.tsx (all Dialog cancel buttons in this module use the identical word) —
+  strong candidate for ONE shared `common.cancel` key rather than per-dialog duplication.
+- L295: Button ternary `createMutation.isPending ? 'جارٍ الإنشاء...' : 'إنشاء'` (ui) [ICU:
+  loading-state] — DUPLICATE pattern of the 4 other "جارٍ الإنشاء.../إنشاء" ternaries in
+  evaluations-client.tsx (create period, create eval, create KPI, create criterion all share
+  identical wording) — strong candidate for a shared `common.creating`/`common.create` pair.
+
+--- Cross-cutting notes for this file ---
+- No dir="rtl" hardcoded on any root element in this file (unlike evaluations-client.tsx's Tabs).
+- No localeCompare, no toLocaleDateString, no formatDate, no formatCurrency calls.
+
+================================================================
+5. components/evaluations/KpiProgressEditor.tsx  [71 LOC]
+================================================================
+- L19: JSDoc comment (English-language doc comment) quoting the Arabic UI string `"تحديث التقدم"`
+  inline for documentation purposes — this is a CODE COMMENT, not rendered UI; counted separately
+  in the (comment) tally above, not the (ui) tally. No action needed beyond keeping the comment
+  in sync if the label text changes.
+- L31: toast.success `'تم تحديث التقدم بنجاح'` (ui)
+- L35: toast.error `err instanceof Error ? err.message : 'فشل في تحديث التقدم'` — client Error
+  message passthrough (likely server-supplied via mutateAPI); fallback is a plain UI string (ui)
+- L42: toast.error `'القيمة الفعلية يجب أن تكون رقماً غير سالب'` (ui)
+- L50: `<span>تحديث التقدم:</span>` (ui) — inline label, SAME PHRASE as the JSDoc comment reference
+  above (consistency, not duplication concern since one is a comment)
+- L54: `dir="ltr"` HARDCODED on the numeric Input (actual_value editor) — same numeric-field
+  pattern as elsewhere in the module
+- L67: Button ternary `mutation.isPending ? 'جارٍ الحفظ...' : 'حفظ'` (ui) [ICU: loading-state] —
+  DUPLICATE pattern of the "جارٍ الحفظ.../حفظ" ternaries seen elsewhere (save scores, save comments
+  in evaluations-client.tsx) — shareable `common.saving`/`common.save` candidate.
+
+RATING/NUMBER DISPLAY: this component edits `actual_value` (a KPI numeric progress value) — no
+formatting/toLocale calls, raw `parseFloat`/`String()` round-trip, locale-stable by default (safe,
+no action needed for the money/number rule).
+
+================================================================
+6. components/evaluations/PerformanceTrend.tsx  [162 LOC]
+================================================================
+- L88: Label `اختر الموظف` (ui)
+- L91: SelectValue placeholder `"اختر موظفاً لعرض أداءه"` (ui)
+- L96: `{u.display_name}` — raw DB data (data, exempt)
+- L106: EmptyState title `"اختر موظفاً"` (ui) — near-duplicate concept of L88's Label ("اختر
+  موظفاً" appears as both a form label prefix "اختر الموظف" and this standalone EmptyState title
+  "اختر موظفاً" — slightly different grammatical forms, NOT identical strings, keep as 2 keys but
+  flag the near-duplication)
+- L107: EmptyState description `"اختر موظفاً من القائمة أعلاه لعرض تقييماته عبر الفترات المختلفة"` (ui)
+- L115: EmptyState title `"لا توجد تقييمات مقدّمة"` (ui)
+- L116: EmptyState description `"لا توجد تقييمات مقدّمة أو معترف بها لهذا الموظف بعد"` (ui)
+- L120: CardTitle `الأداء عبر الفترات` (ui) — DUPLICATE of evaluations-client.tsx L196's tab label
+  exact text ("الأداء عبر الفترات") — this component IS what renders inside that tab, so the
+  duplication is EXPECTED/intentional (tab label + card title happen to read the same); can share
+  one key across the two files if desired, or keep separate for independent editability.
+- L123: `` `المتوسط: {average.toFixed(1)} / 5` `` — ICU interpolation: label + RATING DISPLAY
+  (`.toFixed(1)`, locale-stable numeric formatting — SAFE pattern, matches the module's other
+  rating displays) + literal "/ 5" denominator [ICU]
+- L131: Badge text `أداء منخفض` (ui) — "low performance" warning badge, tied to the
+  LOW_PERFORMANCE_THRESHOLD=3.0 numeric constant (L43) — the THRESHOLD ITSELF is a numeric
+  comparison (`d.rating < LOW_PERFORMANCE_THRESHOLD`), not a string comparison, so NO i18n risk on
+  the comparison logic — only the badge LABEL is a translation target.
+- L147: recharts `<Line name="التقييم" .../>` — chart legend/tooltip label prop (ui, chart-internal
+  but user-visible on hover)
+- chartData mapping at L72: `period: ev.period?.name_ar || ev.period?.name || '—'` — RAW DB DATA
+  (period name_ar) used as an X-axis category label in the LineChart — DB-DATA HAZARD (see below);
+  ALSO note the `'—'` em-dash fallback literal (not Arabic text, a punctuation placeholder, skip).
+
+RATING/NUMBER DISPLAY: `average.toFixed(1)` (L123) and the `rating: Number(ev.overall_rating)`
+mapping (L73) — both locale-stable numeric patterns, consistent with the rest of the module. No
+`toLocaleString` found anywhere in this file. YAxis `allowDecimals={false}` (L142) is a chart
+config option, not a translation concern.
+
+================================================================
+7. hooks/useEvaluations.ts  [66 LOC — DEAD CODE, confirmed 0 imports]
+================================================================
+Pure typed CRUD hooks (useEvaluations, useEvaluation, useCreateEvaluation, useUpdateEvaluation,
+useDeleteEvaluation) following the fetchAPI/mutateAPI/buildQueryString pattern. Zero Arabic
+strings, zero toasts. The `Evaluation` interface here (L6-17) is a DIFFERENT, THINNER shape than
+evaluations-client.tsx's inline `Evaluation` interface (L76-94) — e.g. this file's version has
+`employee_id`/`evaluator_id`/`period`/`score`/`feedback` fields that DON'T MATCH the real API
+response shape used by evaluations-client.tsx (`employee_username`/`evaluator_username`/`period_id`/
+`overall_rating`/`comments`). This strongly suggests the hook was written speculatively/early and
+never wired up, then evaluations-client.tsx was built independently with its own inline queries
+against the real API. NOT in scope for string-catalog work (0 AR content); flagged for the plan
+owner as a dead-code removal candidate, separate from the i18n effort itself.
+
+================================================================
+8. DB-DATA HAZARD section (per task instruction #3)
+================================================================
+
+The task specifically calls out that `pyra_evaluation_criteria` seed rows are Arabic DB DATA
+(repaired 2026-07-03 per CLAUDE.md's "DB Migrations" corruption-sweep note) — these are NOT
+translatable UI strings. This scan found THREE distinct DB entities whose Arabic content flows
+into the UI verbatim, all of which must be EXCLUDED from the i18n string catalog (they are data,
+not code strings) but DOCUMENTED here so the plan owner doesn't accidentally try to "translate" them:
+
+DB1. `pyra_evaluation_criteria.name_ar` / `.name` / `.description` — criteria display names +
+descriptions. Rendered at:
+  - evaluations-client.tsx L858 (`{c.name_ar}` in score dialog)
+  - evaluations-client.tsx L870 (`{c.description}` in score dialog)
+  - evaluations-client.tsx L546, L591 (`s.criteria?.name_ar || s.criteria?.name` — radar chart +
+    scores table, via the joined `EvaluationScore.criteria` relation)
+  - evaluations-settings-client.tsx L188 (`{c.name_ar}`), L189 (`({c.name})`), L197 (`{c.description}`)
+  These are seeded/admin-entered bilingual pairs (`name` EN + `name_ar` AR) — the CORRECT pattern is
+  already in place (the DB itself carries both languages; the UI should pick `name` vs `name_ar`
+  based on the ACTIVE LOCALE, not hardcode `name_ar`). Currently ALL these sites hardcode
+  `name_ar` as primary — this is the exact "bilingual DB column, locale-driven selection" pattern
+  CLAUDE.md's i18n rules would want swapped to something like `locale === 'ar' ? name_ar : name`
+  (or a shared helper), NOT a `next-intl` catalog key. Flag as a DATA-DISPLAY i18n task distinct
+  from the UI-string catalog work.
+
+DB2. `pyra_evaluation_periods.name_ar` / `.name` — period display names. Rendered at:
+  - evaluations-client.tsx L509 (period badge in evaluation list row)
+  - evaluations-client.tsx L772 (create-evaluation dialog period SelectItem)
+  - evaluations-client.tsx L1011 (PeriodsTab list row)
+  - evaluations-client.tsx L1232, L1338 (KpisTab list row + create-KPI dialog period SelectItem)
+  - PerformanceTrend.tsx L72 (chart X-axis category — `ev.period?.name_ar || ev.period?.name`)
+  Same pattern as DB1: bilingual DB pair, hardcoded to `name_ar`, needs locale-driven selection
+  instead of catalog translation. SIX call sites across 2 files use this exact bilingual field —
+  highest-frequency DB-DATA hazard in this module.
+
+DB3. `pyra_evaluation_criteria.category` (raw English enum value: technical/communication/
+  leadership/productivity/teamwork/creativity/other) — this one is DIFFERENT from DB1/DB2: it's
+  the RAW ENGLISH KEY, not Arabic data. It IS meant to be looked up through a label map
+  (CATEGORY_LABELS in the settings page) to produce Arabic display text. The settings page does
+  this correctly (L175); evaluations-client.tsx's score dialog does NOT (L862 renders raw
+  `c.category` unmapped) — this is a PRE-EXISTING BUG (English key leaking into the Arabic UI),
+  not a data hazard per se, but adjacent — flag for the plan: fixing this bug (routing L862 through
+  a category label map) is a natural side-effect of building the `evaluationCriteriaCategory`
+  catalog entity, so bundle the fix with the i18n work rather than treating it as separate scope.
+
+================================================================
+9. HAZARDS section (business logic branching / status-vs-comparison risk)
+================================================================
+
+H1. [MEDIUM — statuses entity mismatch] The existing `evaluation` entity in
+messages/ar/statuses.json (`{draft: 'مسودة', in_progress: 'جاري التقييم', completed: 'مكتمل'}`)
+does NOT match either of the TWO real status domains this module actually uses:
+  - EvaluationPeriod.status: draft / active / closed
+  - Evaluation.status: draft / submitted / acknowledged
+Only the `draft` key overlaps (and even then, the catalog's `draft` label 'مسودة' happens to match
+this module's STATUS_LABELS.draft — coincidental agreement, not a wired connection). The catalog's
+`in_progress` and `completed` values are UNUSED by this module; this module's `active`/`closed`/
+`submitted`/`acknowledged` are UNDEFINED in the catalog. This is a NAMING COLLISION requiring an
+explicit plan decision: (a) rename/extend the existing `evaluation` entity to cover both real status
+sets (likely needs splitting into `evaluationPeriod` + `evaluation` as TWO separate entities since
+they're different DB columns on different tables), or (b) leave `evaluation` in statuses.json
+alone (maybe it's used by content-pipeline-adjacent code elsewhere?) and introduce fresh entities
+for this module. Recommend verifying grep-wide whether `evaluation` entity from statuses.json is
+consumed ANYWHERE currently (this scan found ZERO consumption of `useStatusLabels('evaluation')` or
+`EVALUATION_STATUS_LABELS` import in the 6 files scanned) before deciding whether to repurpose or
+introduce new entities. This is a pre-existing catalog/implementation drift, not something this
+i18n pass introduced.
+
+H2. [MEDIUM — bonus-recommendation notification content, Phase-8-exemption question] The task
+asked specifically whether the bonus-recommendation strings (tiered 5/10/15%) are Phase 8 exempt
+(the "notification content stays Arabic" carve-out per CLAUDE.md's i18n rules: "Notification /
+WhatsApp / DB-data strings inside routes STAY Arabic ... until Phase 8"). Findings:
+  - The CLIENT-SIDE UI in evaluations-client.tsx does NOT contain the tiered percentage text
+    itself — the 5/10/15% tiering logic + message construction lives SERVER-SIDE (per CLAUDE.md's
+    "HR Gap-Remediation" section: "the `recommend_bonus` action ... is now surfaced as a button").
+    The client only renders `data?.message || 'تمت التوصية بمكافأة بنجاح'` (L371) — i.e. it PREFERS
+    the server's message and falls back to a generic client string.
+  - This IS the exact "server response message" pattern CLAUDE.md's i18n rules cover via the `api`
+    namespace (`getTranslations('api')` in route handlers) — the underlying
+    `/api/dashboard/evaluations/[id]` PATCH route (action=recommend_bonus) is OUT OF SCOPE for this
+    census (route handlers are a separate discovery pass per the api-namespace convention), but the
+    CLIENT'S fallback string ('تمت التوصية بمكافأة بنجاح' at L371, and 'فشل في التوصية بمكافأة' at
+    L375) ARE in scope as ordinary UI toast strings — they should go through the `hr.evaluations.*`
+    (or api) catalog like any other toast, they are NOT the tiered-percentage content itself.
+  - CONCLUSION: the tiered 5/10/15% bonus AMOUNT text (if it appears in a notification body sent to
+    the employee) is NOT present anywhere in these 6 files — it must live in the API route or in
+    `lib/notifications/`. This client-side census found no percentage literals to exempt or migrate.
+    Recommend the API-route discovery pass for `/api/dashboard/evaluations/[id]` explicitly checks
+    for the tiered percentage strings and applies the Phase-8 notification-content exemption there,
+    not here.
+  - The numeric GATE (`overall_rating >= 3.5`, L732) that shows/hides the bonus button is untouched
+    by any of this — pure numeric comparison, no i18n risk.
+
+H3. [LOW — bilingual DB-column hardcoding, see DB-DATA HAZARD section above] Six+ call sites
+hardcode `.name_ar` as the primary display value for both `pyra_evaluation_periods` and
+`pyra_evaluation_criteria` bilingual pairs, with `.name` (English) only as a fallback-if-null, NEVER
+as the primary for an English-locale session. This means even after the UI chrome (labels/buttons/
+toasts) is fully bilingual, an English-locale user would STILL see Arabic period names and Arabic
+criteria names throughout the module (dialog selects, list rows, radar chart, KPI period badges).
+This is architecturally a BIGGER lift than the string-catalog work — it requires either (a) a
+shared `localizedField(row, 'name')` helper that picks `name` vs `name_ar` by active locale, wired
+into every one of the 6+ call sites, or (b) accepting that period/criteria NAMES stay
+Arabic-primary as a documented business decision (similar to the credit-note `reason` free-text
+hazard documented in the Phase-4 finance census). Flag for explicit plan decision — do NOT silently
+resolve this as a side-effect of the UI-string catalog work.
+
+H4. [LOW — rating/score numeric display, VERIFIED SAFE] Every rating/score display in this module
+(`rating.toFixed(1)` in renderStars L439, `s.score.toFixed(1)` L599, `average.toFixed(1)` in
+PerformanceTrend L123, raw `kpi.actual_value`/`kpi.target_value` L1238/1242, `pct%` L1254,
+`c.weight`/`c.sort_order` in settings L204/L209) uses either raw number interpolation or
+`.toFixed()` — NONE use `toLocaleString()` or any locale-sensitive digit formatting. This matches
+CLAUDE.md's "Currency/number formatting is locale-stable... do not localize digits in money" rule
+(extended here to ratings/scores/percentages) — VERIFIED SAFE, no action needed, flagging only as
+a confirmed-clean area per the task's explicit ask to check rating/score displays.
+
+H5. [LOW — hardcoded dir="rtl"/dir="ltr", non-conditional] `dir="rtl"` hardcoded on the Tabs root
+(evaluations-client.tsx L180) and on 5 Dialog contents across the module (create-eval L758,
+score-dialog L849, create-period L1051, create-KPI L1274, create-criterion in settings L222)
+consistently use `dir="rtl"` HARDCODED (not locale-conditional). Numeric input fields use
+`dir="ltr"` hardcoded (target_value L1314, weight L264 in settings, actual_value L54 in
+KpiProgressEditor) — these numeric ones are LIKELY fine to keep as-is (locale-agnostic LTR digit
+entry), but the 6 `dir="rtl"` occurrences on Dialog/Tabs ROOT elements are NOT numeric-field
+overrides — they set the overall reading direction for dialog CONTENT (labels, text) and would
+need to become locale-conditional (`dir={locale === 'ar' ? 'rtl' : 'ltr'}` or removed entirely if a
+parent layout already provides `dir` via `<html dir>`) once English-locale rendering is live. This
+mirrors the Phase-4 finance census's note about hardcoded dir but is MORE SEVERE here because those
+were sub-element numeric overrides while these are DIALOG-ROOT direction declarations.
+
+================================================================
+10. Cross-cutting flags summary
+================================================================
+- Hardcoded dir="rtl" (non-conditional, dialog/tabs ROOT level — see H5): 6 occurrences across
+  evaluations-client.tsx (Tabs L180, 4x DialogContent) + evaluations-settings-client.tsx (1x
+  DialogContent L222).
+- Hardcoded dir="ltr" (numeric input override, likely keep-as-is): evaluations-client.tsx L1314
+  (target_value), evaluations-settings-client.tsx L264 (weight), KpiProgressEditor.tsx L54
+  (actual_value). 3 occurrences.
+- localeCompare: 0 occurrences in this scope (module has no client-side sortable table columns
+  like the finance DataTable pages).
+- toLocaleString/toLocaleDateString: 0 occurrences.
+- formatDate() calls: 0 occurrences (dates render as raw ISO strings at evaluations-client.tsx
+  L1017 — flag for plan whether formatDate() should be retrofitted here).
+- formatCurrency() calls: 0 occurrences (module has no money values — N/A).
+- Hardcoded 'AED' or other currency literal: N/A, not applicable.
+- Degenerate/near-degenerate ICU plural patterns: evaluations-settings-client.tsx L178 (`({count}
+  {count===1?'معيار':'معايير'})`) — the ONE clear ICU plural candidate in this module; see full
+  discussion under file #4 above.
+- Server-message passthrough toasts (`toast.success(data?.message || '...')` /
+  `toast.error(err.message || '...')`): evaluations-client.tsx L371, L375;
+  KpiProgressEditor.tsx L35. All 3 depend on the underlying API routes
+  (`/api/dashboard/evaluations/[id]`, `/api/dashboard/kpi/[id]`) being migrated to the `api`
+  i18n namespace before the client fallback text alone is "done" — same cross-file sequencing
+  dependency noted in the Phase-4 finance census.
+- Mixed-latinism (English word/acronym embedded in Arabic string or parenthetical language tag):
+  evaluations-client.tsx L1057/L1066 ("الاسم (إنجليزي)"/"الاسم (عربي)"), L1195 ("مؤشرات الأداء
+  (KPIs)"); evaluations-settings-client.tsx L228/L237 (same "(إنجليزي)"/"(عربي)" pattern, DUPLICATE
+  of the period-name-field labels in the other file).
+- Duplicate/shareable strings across files (candidates for a shared `common.*` sub-namespace rather
+  than per-context keys): "إلغاء" (cancel — appears ~7 times across both client files, ALL Dialog
+  cancel buttons); "جارٍ الإنشاء.../إنشاء" (creating/create — 5 occurrences: create-eval,
+  create-period, create-KPI, create-criterion, all identical); "جارٍ الحفظ.../حفظ" (saving/save —
+  3 occurrences: save-scores, save-comments, KpiProgressEditor save button); "الوزن" (weight label
+  — 3 occurrences across 2 files); "الموظف" (employee label — 2 occurrences in same file, different
+  dialogs). Recommend the plan authors decide whether the HR/evaluations namespace gets its own
+  local `common` sub-key or whether these fold into a workspace-wide shared `common.json` namespace
+  (outside this census's scope to decide, but the duplication volume here is high enough to flag).
+- No JSON arrays needed — all candidate messages are flat keyed strings + ICU plural/interpolation
+  cases enumerated above (consistent with the "catalogs must never contain JSON arrays" CLAUDE.md
+  rule — CATEGORIES/EVAL_TYPE_LABELS/CATEGORIES-in-settings are currently JS arrays/objects in code,
+  NOT catalog JSON — when migrated to statuses.json-style entities they'll become keyed objects per
+  the existing pattern, e.g. `evaluationType.manager`, not an array).
+
+END OF CENSUS.

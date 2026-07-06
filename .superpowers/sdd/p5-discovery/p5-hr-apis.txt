@@ -1,0 +1,562 @@
+PLAIN-TEXT CENSUS — HR/Payroll/Leave/Attendance/Evaluations API routes (app/api/hr/**, app/api/leave/**, app/api/timesheet/**, app/api/my-documents/**, app/api/my-productivity/**, app/api/dashboard/attendance/**, app/api/dashboard/payroll/**, app/api/dashboard/leave/carry-over, app/api/dashboard/evaluations/**, app/api/dashboard/overtime/**, app/api/dashboard/work-schedules/**) + 5 shared libs (lib/hr/create-employee.ts, lib/hr/store-generated-document.ts, lib/payroll/calculate-item.ts, lib/payroll/payment-lifecycle.ts, lib/notifications/approvers.ts). 39 route.ts files + 5 lib files scanned (44 total, verified by directory listing against 4 parallel sub-scope agents' file lists — reconciled exactly, no gaps/overlaps). AR-line counts via `[\x{0600}-\x{06FF}]` grep, spot-verified by direct re-grep of the leave-type-hazard sites and the onboarding PDF-label duplication (both confirmed byte-exact against agent reports). Classes: (a) API response message (apiError/apiSuccess/apiValidationError/apiServerError/apiNotFound, or a string surfaced verbatim through a shared lib into one of those) — translate NOW via getTranslations('api'); (b) notification content (notify()/notifyMany()/notifyBatch()/notifyApprovers(), or a direct pyra_notifications/pyra_client_notifications insert structurally identical to notify()) — Phase 8 exempt, count only; (c) DB data write (pyra_activity_log descriptions, stored notes/labels/descriptions) — exempt as stored data, computed-per-request flagged; (pdf) PDF content — Phase 9 exempt, count only. This module is where the PDF exemption is LIVE and non-trivial: the onboarding wizard generates offer-letter/NDA/asset-handover PDFs and the payroll module has a payslip route — see dedicated notes per file; (email) email subject/body strings — Phase 9 exempt, count only (NONE found anywhere in this census — no email sending occurs in any of the 44 files); (internal) console.error/logError-only strings never surfaced to any HTTP caller; (d) HAZARD — business logic branching on an Arabic string value. Comments containing Arabic = no action (3 found across all 44 files: 1 illustrative quoted-phrase comment in a finance-style pattern at hr/leave-balances/route.ts:25, 2 doc-comment JSDoc examples in lib/notifications/approvers.ts:14-15 — all verified non-executable, no action).
+
+EXCLUSIONS (per task scope, NOT scanned, do not re-add without a scope change):
+- app/api/cron/** (document-expiry-check, task-deadline-reminders, attendance-checkin-reminder, leave-balance-rollover, etc.) — EXEMPT, no human caller (getExternalAuth + cron.* key), per Phase D-3 cron pattern lock.
+- lib/pdf/** (offer-letter-pdf.ts, nda-pdf.ts, asset-handover-pdf.ts, arabic.ts, pdf-assets-server.ts, any payslip PDF generator) — Phase 9 wholesale exemption, NOT opened. Only Arabic literals the ROUTE ITSELF constructs and passes INTO these generators (e.g. onboarding's document labels) were counted, classified (pdf).
+- lib/leave/days.ts (countLeaveDays), lib/leave/carry-over.ts (calculateCarryOver), lib/production/report.ts (computeProductivity), lib/auth/team-scope.ts, lib/api/activity.ts — call sites noted, internals NOT opened (out of the 5-shared-lib scope given).
+- app/api/dashboard/leave/** other than carry-over (e.g. any dashboard-level leave list/admin routes beyond carry-over) — not found to exist beyond carry-over; confirmed via directory listing.
+- app/api/dashboard/overtime/** other than summary — not found to exist beyond summary; confirmed via directory listing.
+
+GRAND TOTALS: 182 AR-bearing lines across 44 files → (a) 156 lines / (b) 15 lines (Phase 8 exempt — see per-scope breakdown) / (c) 3 lines (Phase-N/A, stored data, exempt) / (pdf) 6 lines (Phase 9 exempt — onboarding document-label construction, see file-level notes) / (email) 0 / (internal) 2 lines (lib/hr/store-generated-document.ts — never surfaced verbatim to any HTTP caller on current call paths) / comments 3 (no action). Zero confirmed class-(d) business-logic-on-Arabic-string hazards found in the sense of "an Arabic UI string driving a code branch" — HOWEVER this module contains the single most important non-translatable-string family in the entire i18n effort so far: the **Leave-Type-Name-Matching family** (3 confirmed sites, see dedicated HAZARDS section below) — these are DB match keys (not UI strings) that must be explicitly EXCLUDED from any find-and-replace or automated string-extraction pass, since `pyra_leave_requests.type` / `pyra_leave_types.name` values are live comparison keys, not translatable UI text. 4 of 44 files have ZERO Arabic lines (clean): app/api/hr/overview/route.ts, app/api/leave/balance/route.ts, app/api/my-documents/route.ts, app/api/my-productivity/route.ts, plus app/api/dashboard/attendance/summary/route.ts and lib/payroll/payment-lifecycle.ts — full list below (6 total, corrected after merge — see FILES WITH ZERO ARABIC section).
+
+Per-scope subtotals (as reported by the 4 parallel discovery agents, each independently verified):
+- HR core + onboarding (14 files: 12 routes + 2 libs) — 79 AR lines → a:63 (incl. 3 reclassified label-echoes), b:2, c:0, pdf:6, internal:2, email:0
+- Attendance + Work Schedules + Payroll (12 files: 10 routes + 2 libs) — 45 AR lines → a:41, b:2, c:2, pdf:0, email:0
+- Leave + Timesheet + My-Documents + My-Productivity (10 files: 9 routes + 1 lib) — 34 AR lines → a:25, b:9, c:0, pdf:0, email:0
+- Evaluations + Leave Carry-Over + Overtime Summary (8 files: 8 routes, 0 libs) — 33 AR lines → a:27, b:2, c:1, pdf:0, email:0
+Reconciled combined total: a:156, b:15, c:3, pdf:6, internal:2, email:0 → **182 AR-bearing lines across 44 files.**
+
+Hazard-ADJACENT findings (not i18n, but flagged for a separate follow-up — NOT blocking this census; consolidated from all 4 sub-scope agents):
+- **Sun–Thu weekend fallback regression (2 independent sites)** — CLAUDE.md's locked Batch C decision states Pyramedia's weekend is Sunday-only (`DEFAULT_WORK_DAYS = [1,2,3,4,5,6]` in `lib/constants/auth.ts`), yet TWO fallback code paths still hardcode the OLD Sun–Thu week: `app/api/dashboard/attendance/summary/route.ts:65` (`let workDays: number[] = [0, 1, 2, 3, 4]; // Default: Sun-Thu`) and `app/api/timesheet/route.ts:58-66` (`UAE_DEFAULT_SCHEDULE.work_days = [0, 1, 2, 3, 4]`). Both are reached only when a user has no `work_schedule_id` and no default schedule resolves — an edge case, but a real business-logic drift contradicting the explicit CLAUDE.md warning "the Sun–Thu fallback must not come back."
+- **Duplicated manual UTC+4 offset math instead of `dubaiDayKey()`** (3 sites, all in attendance): `app/api/dashboard/attendance/route.ts:83-87`, `clock-out/route.ts:25-28`, `summary/route.ts:94-96` — each independently computes `new Date(nowUtc.getTime() + uaeOffset)` then `.toISOString().slice(0,10)` instead of calling the canonical `dubaiDayKey()` helper (Phase 15.1 lock). Currently correct (Dubai has no DST) but a drift risk and a DRY violation — 3 copies of the same arithmetic.
+- **UTC-day-key smell in timesheet week-range filter** — `app/api/timesheet/route.ts:48` uses `startDate.toISOString().split('T')[0]` / `endDate.toISOString().split('T')[0]` for a week-range filter. Lower severity than a same-day "today" cutoff but still inconsistent with the `dubaiDayKey()` standard. By contrast `app/api/leave/[id]/route.ts:218-219`, `app/api/my-productivity/route.ts:20`, `app/api/hr/overview/route.ts` (multiple sites), `app/api/hr/leave-balances/route.ts:76`, and `app/api/hr/productivity/route.ts:20` all correctly use `dubaiDayKey()` — good reference patterns.
+- **Legacy v1 `pyra_leave_balances` table still read** — `app/api/leave/balance/route.ts:76-93` (approximately) contains a fallback code path that queries the DEAD legacy `pyra_leave_balances` table, directly contradicting the Batch D lock ("`pyra_leave_balances_v2` is the SINGLE source of truth... do NOT read/write" the v1 table). Both tables were reportedly 0-row at cutover so this is inert in practice, but it's live dead-code that should be removed as cleanup — flagged per the task's explicit instruction to note any v1-table reference.
+- **Overtime summary missing `status='approved'` filter** — `app/api/dashboard/overtime/summary/route.ts:39-44` filters `.eq('is_overtime', true)` but does NOT additionally filter `.eq('status', 'approved')`, diverging from the documented payroll overtime formula (CLAUDE.md Payroll Integrity Fixes #3: "approved timesheets (is_overtime=true AND status='approved')"). This may include draft/pending overtime hours in the summary's `estimated_pay` figure. Zero Arabic-string content — pure business-logic observation, not a class-(d) hazard.
+- **`lib/hr/document-types` + several routes surface raw `apiServerError(error.message)`** passing untranslated Postgres/Supabase driver error text verbatim (e.g. `app/api/hr/document-types/route.ts` lines 25, 66) — not Arabic, but a translation-quality gap (English DB errors reaching an otherwise-Arabic API surface).
+- No hardcoded `ar-EG` locale calls (`.toLocaleDateString('ar-EG', ...)`) found anywhere in this census's 44 files (contrast with the Finance census's `finance/dashboard/route.ts:147` finding).
+
+================ PER FILE — app/api/hr/** core + onboarding (12 routes + 2 libs) ================
+
+1) app/api/hr/overview/route.ts — 0 AR lines. Clean reference file — correctly uses `dubaiDayKey()` throughout (5+ call sites) and reads `MONTH_NAMES_AR` as an imported constant array reference (not a literal in this file). Confirms the leave-type is_paid check here (`pyra_leave_types(is_paid)` join) branches on a BOOLEAN column, not a name string — no hazard.
+
+2) app/api/hr/documents/route.ts — AR lines: 12 (a:10, b:2)
+(a) verbatim:
+- 177: 'employee_username مطلوب'
+- 183: 'اسم المستخدم غير صالح'
+- 186: 'type_id مطلوب'
+- 189: 'الملف مطلوب'
+- 194: 'الملف فارغ'
+- 198: `حجم الملف يتجاوز الحد الأقصى (20 ميجابايت). حجم الملف الحالي: ${(file.size/1024/1024).toFixed(2)} MB` [ICU: numeric interpolation]
+- 206: `نوع الملف "${file.type}" غير مدعوم. الأنواع المسموح بها: PDF, JPG, PNG, WebP` [ICU: MIME-type interpolation mid-sentence]
+- 228: 'خطأ داخلي في تحديد نوع الملف'
+- 258: `فشل رفع الملف: ${uploadError.message}` [ICU: raw English error-message interpolation — renders English mid-Arabic-sentence]
+- 298: 'فشل تسجيل الوثيقة'
+(b) notify() call (central helper — Phase 8 exempt):
+- 329: title 'تم إضافة وثيقة إلى ملفك'
+- 330: message 'أضاف قسم الموارد البشرية وثيقة جديدة إلى مستنداتك'
+
+3) app/api/hr/documents/[id]/route.ts — AR lines: 7 (a:7)
+(a) verbatim:
+- 51: 'طلب غير صالح'
+- 64: 'لا توجد حقول صالحة للتحديث'
+- 89: 'الوثيقة غير موجودة' (PATCH)
+- 98: 'فشل تحديث الوثيقة'
+- 101: 'الوثيقة غير موجودة' (duplicate within file)
+- 169: 'الوثيقة غير موجودة' (DELETE, duplicate within file)
+- 207: 'فشل حذف الوثيقة'
+
+4) app/api/hr/documents/[id]/signed-url/route.ts — AR lines: 2 (a:2)
+(a) verbatim:
+- 56: 'الوثيقة غير موجودة' (duplicate of file 3)
+- 76: 'فشل إنشاء رابط التحميل'
+
+5) app/api/hr/document-types/route.ts — AR lines: 1 (a:1)
+(a) verbatim:
+- 46: 'الاسم والاسم العربي مطلوبان'
+Note: `apiServerError(error.message)` at lines 25, 66 surfaces raw untranslated Supabase driver errors (English) — flagged as translation-quality gap, not an AR line.
+
+6) app/api/hr/document-types/[id]/route.ts — AR lines: 3 (a:3)
+(a) verbatim:
+- 35: 'لا توجد حقول لتحديثها' [near-dup of file 3's phrasing]
+- 48: 'نوع المستند غير موجود' (PATCH)
+- 91: 'نوع المستند غير موجود' (DELETE, duplicate within file)
+
+7) app/api/hr/leave-balances/route.ts — AR lines: 9 (a:9) + comment:1 (no action)
+(a) verbatim:
+- 80: 'سنة غير صالحة'
+- 181: 'بيانات غير صالحة'
+- 190: 'username مطلوب'
+- 193: 'leave_type_id مطلوب'
+- 196: 'year مطلوب ويجب أن يكون رقماً'
+- 204: `${key} يجب أن يكون رقماً صحيحاً أكبر من أو يساوي صفر` [ICU: `key` interpolates an English field name mid-sentence]
+- 241: 'فشل تحديث الرصيد'
+- 261: 'فشل إنشاء الرصيد'
+Comment (no action): line 25 — English comment quoting an Arabic UI-label word ("تعديل") for illustration only.
+LEAVE-TYPE-NAME-MATCHING CHECK (per task instruction): this file reads `pyra_leave_types.name_ar` (line 86) and returns it verbatim as DATA in the API response (line 151) — pure passthrough, NOT a comparison/branch. No `.name`/`.name_ar` equality check against a literal Arabic string found anywhere in this file. Confirmed clean.
+
+8) app/api/hr/productivity/route.ts — AR lines: 1 (a:1)
+(a) verbatim:
+- 22: 'صيغة الشهر غير صحيحة — المطلوب YYYY-MM'
+Calls computeProductivity() from lib/production/report.ts (out of scope, not opened).
+
+9) app/api/hr/onboarding/route.ts — AR lines: 24 (a:18, b:2, pdf:3, +3 dup-label-echoes folded into the a:18 count)
+(a) verbatim:
+- 149: 'طلب غير صالح — يجب أن يكون JSON'
+- 205: `عملة غير صالحة — القيم المقبولة: ${SALARY_CURRENCIES.join(', ')}` [ICU: English currency-code list interpolation]
+- 223: `قائمة الوثائق غير صالحة — القيم المقبولة: ${ONBOARDING_DOC_KEYS.join(', ')}` [ICU: English doc-key list interpolation]
+- 227: 'اختر وثيقة واحدة على الأقل'
+- 244: `الحقول التالية مطلوبة: ${missing.join(', ')}` [ICU: English field-name list interpolation]
+- 339: 'الموظف غير موجود'
+- 343: 'الموظف غير نشط — استخدم مسار التعيين الجديد لإعادة التفعيل'
+- 348: 'لدى الموظف سجل onboarding بالفعل'
+- 355: `عملة العرض (${cleanCurrency}) لا تطابق عملة راتب الموظف (${existingUser.salary_currency})` [ICU: two currency-code interpolations]
+- 372: 'اسم المستخدم مستخدم بالفعل لموظف نشط'
+- 450: `تم إنشاء المستخدم لكن فشل إنشاء سجل الإيبورد. يُرجى التواصل مع المسؤول. (${onbInsertError.message})` [ICU: raw English DB-error interpolation]
+- 492: 'فشل ربط سجل الـ onboarding بالموظف — لم يتم إنشاء أي شيء، أعد المحاولة'
+- 700-701: ternary [ICU SELECT] — `isExisting ? 'فشل توليد المستندات — لم يتم إنشاء سجل التعيين. حاول مرة أخرى.' : 'تم إنشاء المستخدم لكن فشل توليد المستندات...'`
+- 749: 'فشل في إنشاء مستندات التعيين'
+- 566, 602, 640: the 3 document-label strings ALSO appear in the `storedDocuments` array which is returned verbatim inside `apiSuccess()` — this second occurrence is genuinely (a)-class (see (pdf) note below for the first occurrence)
+(b) notify() call (fire-and-forget welcome notification):
+- 809: title `'مرحباً بك في Pyra Workspace! 🎉'`
+- 810: message `نرحب بك في ${companyName}. تم إعداد حسابك بنجاح.` [ICU]
+(pdf) — Arabic label literals passed as the `label:` param into `storeGeneratedDocument()` (Phase 9 exempt at this occurrence; VERIFIED by direct re-grep — see below):
+- 561: `عرض عمل — ${cleanNameAr}`
+- 597: `اتفاقية سرية — ${cleanNameAr}`
+- 635: `نموذج تسليم عهدة — ${cleanNameAr}`
+VERIFIED (direct grep, orchestrator re-check): lines 561/566 ("عرض عمل"), 597/602 ("اتفاقية سرية"), 635/640 ("نموذج تسليم عهدة") — each label literal appears EXACTLY TWICE in this file, confirming the agent's dual-classification (first occurrence → storeGeneratedDocument's `label:` param = (pdf); second occurrence → `storedDocuments.push(...)` which round-trips into the `apiSuccess()` response body = (a)).
+
+10) app/api/hr/onboarding/[id]/route.ts — AR lines: 4 (a:4)
+(a) verbatim:
+- 70: 'سجل التعيين غير موجود' (GET)
+- 162: 'طلب غير صالح — يجب أن يكون JSON' (duplicate of file 9)
+- 169: 'action يجب أن يكون "complete" أو "cancel"' [note: raw English enum values quoted mid-sentence]
+- 192: 'سجل التعيين غير موجود' (PATCH, duplicate within file)
+
+11) app/api/hr/onboarding/[id]/tasks/[taskId]/route.ts — AR lines: 3 (a:3)
+(a) verbatim:
+- 42: 'طلب غير صالح — يجب أن يكون JSON' (duplicate)
+- 48: 'is_done يجب أن يكون قيمة منطقية (true/false)'
+- 88: 'المهمة غير موجودة'
+
+12) app/api/hr/onboarding/[id]/documents/[docType]/regenerate/route.ts — AR lines: 6 (a:2, pdf:3)
+(pdf) — `DOC_TYPE_MAP` constant `labelPrefix` values, used to build the label passed into `storeGeneratedDocument()`:
+- 36: `labelPrefix: 'عرض عمل'`
+- 37: `labelPrefix: 'اتفاقية سرية'`
+- 38: `labelPrefix: 'نموذج تسليم عهدة'`
+(a) verbatim:
+- 57: `docType غير صالح — القيم المقبولة: offer_letter, nda, asset_handover` [ICU-shaped static literal]
+- 83: 'سجل التعيين غير موجود' (duplicate of file 10)
+- 259: 'فشل حفظ الوثيقة المُعاد توليدها'
+DRY note: this file's 3 `labelPrefix` constants duplicate the SAME 3 Arabic words hardcoded independently in file 9 (onboarding/route.ts lines 561/597/635) — see dedup candidate list.
+
+13) lib/hr/create-employee.ts — AR lines: 5 (a:5, passthrough)
+All 5 are Arabic error strings in the `CreateEmployeeResult` discriminated union, surfaced verbatim via `apiError(createResult.error, createResult.status)` at onboarding/route.ts:381 — confirmed live passthrough to the HTTP caller:
+- 129: 'اسم المستخدم مستخدم بالفعل'
+- 148: `فشل في إنشاء حساب المصادقة: ${authError.message}` [ICU: English Auth-error interpolation]
+- 195: `فشل في إنشاء المستخدم: ${insertError.message}` [ICU]
+- 214: `فشل في إنشاء ربط المصادقة: ${mappingError.message}` [ICU]
+- 348: `فشل في إعادة تفعيل المستخدم: ${updateError?.message ?? 'unknown'}` [ICU: includes an English literal fallback 'unknown']
+Also called from app/api/users POST (outside this census's scope) — same strings surface there too, not re-counted.
+
+14) lib/hr/store-generated-document.ts — AR lines: 2 (internal:2)
+Both are Arabic error strings in `StoreGeneratedDocumentResult`'s discriminated union. Trace confirmed: file 9 only `logError()`s them (never forwards verbatim to an HTTP response — the per-doc failure path continues to the next document); file 12 substitutes its OWN static Arabic message instead of forwarding `storeResult.error`. Neither current call path surfaces these verbatim to an HTTP caller — classified (internal), not (a). Would need reclassifying if a future call site does `apiError(storeResult.error, ...)`:
+- 85: `فشل رفع الملف: ${uploadError.message}`
+- 108: `فشل تسجيل الوثيقة: ${insertError.message}`
+
+================ PER FILE — app/api/dashboard/attendance/** + work-schedules/** + payroll/** (10 routes + 2 libs) ================
+
+15) app/api/dashboard/attendance/route.ts — AR lines: 1 (a:1)
+(a) verbatim:
+- 98: 'لقد سجلت الدخول مسبقاً اليوم'
+Hazard-adjacent: manual UTC+4 offset math at lines 83-87 instead of `dubaiDayKey()` — see header.
+
+16) app/api/dashboard/attendance/admin/route.ts — AR lines: 4 (a:4)
+(a) verbatim:
+- 33: 'الموظف والتاريخ والحالة مطلوبة'
+- 67: 'فشل تحديث سجل الحضور'
+- 88: 'فشل إنشاء سجل الحضور'
+- 105: 'خطأ في تعديل الحضور' (passed as message arg to `apiServerError(message, err, request)`, 3-arg Phase 14.1 observability form)
+
+17) app/api/dashboard/attendance/clock-out/route.ts — AR lines: 2 (a:2)
+(a) verbatim:
+- 39: 'لم تسجل الدخول اليوم بعد'
+- 43: 'لقد سجلت الانصراف مسبقاً'
+Hazard-adjacent: manual UTC+4 offset math at lines 25-28 — see header.
+
+18) app/api/dashboard/attendance/summary/route.ts — 0 AR lines. Pure aggregation/read endpoint. Hazard-adjacent: manual UTC+4 offset (lines 94-96) + stale Sun-Thu fallback array at line 65 — see header (flagged as CRITICAL regression against the locked Batch C weekend decision).
+
+19) app/api/dashboard/work-schedules/route.ts — AR lines: 4 (a:4)
+(a) verbatim:
+- 58: 'الاسم والاسم العربي مطلوبان'
+- 68: 'أيام العمل غير صالحة'
+- 71: 'صيغة وقت البداية غير صالحة'
+- 74: 'صيغة وقت النهاية غير صالحة'
+Note: correctly imports `DEFAULT_WORK_DAYS` from `lib/constants/auth.ts` (line 7, used line 86) — the CORRECT reference pattern, contrasted with attendance/summary's stale inline fallback.
+
+20) app/api/dashboard/work-schedules/[id]/route.ts — AR lines: 9 (a:9)
+(a) verbatim:
+- 33: 'الاسم والاسم العربي مطلوبان' (dup of file 19)
+- 43: 'أيام العمل غير صالحة' (dup)
+- 46: 'صيغة وقت البداية غير صالحة' (dup)
+- 49: 'صيغة وقت النهاية غير صالحة' (dup)
+- 63: 'لا يمكن إلغاء الجدول الافتراضي — عيّن جدولاً افتراضياً آخر أولاً'
+- 101: 'الجدول غير موجود' (PATCH)
+- 139: 'الجدول غير موجود' (DELETE, duplicate within file)
+- 144: 'لا يمكن حذف الجدول الافتراضي'
+- 160: `الجدول مستخدم لـ ${count} موظف، أعد تعيينهم أولاً` [ICU PLURAL candidate: "${count} موظف" never pluralizes]
+
+21) app/api/dashboard/payroll/route.ts — AR lines: 4 (a:4)
+(a) verbatim (POST handler only; GET is pure list, 0 Arabic):
+- 67: 'الشهر يجب أن يكون بين 1 و 12'
+- 72: 'السنة غير صالحة'
+- 78: `العملة غير صالحة. القيم المسموحة: ${SALARY_CURRENCIES.join('، ')}` [ICU: Arabic comma '، ' used as the list-join separator for interpolated English currency codes — locale-specific list-formatting detail]
+- 94: `يوجد مسير رواتب بعملة ${resolvedCurrency} لهذا الشهر بالفعل` [ICU: currency-code interpolation]
+
+22) app/api/dashboard/payroll/[id]/route.ts — AR lines: 11 (a:8, b:2, c:1)
+(a) verbatim:
+- 37: 'مسير الرواتب غير موجود' (GET)
+- 98: 'الإجراء يجب أن يكون approve أو pay'
+- 110: 'مسير الرواتب غير موجود' (PATCH, dup within file)
+- 114: 'لا يمكن اعتماد مسير رواتب غير محسوب'
+- 224: 'لا يمكن صرف مسير رواتب غير معتمد'
+- 291: 'إجراء غير معروف'
+- 319: 'مسير الرواتب غير موجود' (DELETE, dup within file)
+- 322: `لا يمكن حذف مسير بحالة "${run.status}"، يمكن حذف المسيرات المسودة فقط` [ICU: raw English status-enum interpolated]
+(c) stored (pyra_expenses.description, computed-per-request, exempt):
+- 184: `راتب شهر ${run.month}/${run.year} — ${nameMap[item.username] || item.username}` [ICU: two interpolations]
+(b) notifyBatch() call (central helper — Phase 8 exempt):
+- 280: title 'تم صرف راتبك'
+- 281: `راتب شهر ${monthLabel}: ${it.net_pay} ${it.currency || 'AED'} — كشف الراتب جاهز` [ICU: 3 interpolations]
+
+23) app/api/dashboard/payroll/[id]/calculate/route.ts — AR lines: 5 (a:5)
+(a) verbatim:
+- 32: 'مسير الرواتب غير موجود'
+- 36: 'لا يمكن حساب مسير رواتب بحالة: ' + run.status [string-concat form; raw English status-enum]
+- 75: 'لا يوجد موظفون نشطون'
+- 94: 'لا يوجد موظفون بعملة هذا المسير'
+- 355: `${skippedMismatchedPayments} دفعة بعملة مختلفة تم تجاهلها` [ICU PLURAL candidate; embedded in a `warnings[]` array returned via `apiSuccess()` — still (a)-class since it reaches the HTTP response body]
+Pushes the literal 'إجازة غير مدفوعة' as a `typeName` display value at line 164 — pure DISPLAY data (see file 25 for where it's consumed), NOT a comparison; the actual unpaid-leave gate uses `pyra_leave_types.is_paid` (boolean), confirmed not a hazard.
+
+24) app/api/dashboard/payroll/[id]/payslip/route.ts — AR lines: 4 (a:4)
+(a) verbatim:
+- 26: 'لا يمكنك عرض بيانات موظف آخر'
+- 30: 'اسم المستخدم مطلوب'
+- 44: 'مسير الرواتب غير موجود' (dup pattern)
+- 54: 'كشف الراتب غير موجود لهذا الموظف'
+Confirmed via direct read: this route returns PLAIN JSON only (payroll/employee/item/company_name fields) — NO import of any `lib/pdf/**` generator. Zero (pdf)-class lines in this file, despite the task's anticipatory instruction to check for a PDF call site.
+
+25) lib/payroll/calculate-item.ts — AR lines: 1 (c:1, computed-per-request)
+- 93: `${leave.typeName} — ${leave.days} يوم` — builds `DeductionDetail.reason`, stored into `pyra_payroll_items.deduction_details` (jsonb). `leave.typeName` originates as the literal 'إجازة غير مدفوعة' set by the CALLING route (file 23, line 164) — this lib file only concatenates it with a day-count. Classified (c) DB-stored/returned-data (analogous to the Finance census's `pyra_employee_payments.notes` pattern), NOT (a) — never passed through apiError/apiSuccess as a top-level message. [ICU PLURAL candidate: "${leave.days} يوم" never pluralizes]
+Confirms the CLAUDE.md lock: "payroll math is a pure function" — no apiError/apiSuccess calls anywhere in this file.
+
+26) lib/payroll/payment-lifecycle.ts — 0 AR lines. Pure lifecycle helper (`markPaymentsPaidAndPropagate()`), fire-and-forget logError only, zero human-facing text.
+
+================ PER FILE — app/api/leave/** + timesheet/** + my-documents/** + my-productivity/** (9 routes + 1 lib) ================
+
+27) app/api/leave/route.ts — AR lines: 7 (a:5, b:2)
+(a) verbatim:
+- 55: 'النوع وتواريخ البداية والنهاية مطلوبة'
+- 59: 'تاريخ النهاية يجب أن يكون بعد البداية'
+- 62: 'لا توجد أيام عمل ضمن الفترة المحددة'
+- 74: 'المتعاقدون المستقلون لا يقدّمون طلبات إجازة عبر النظام'
+- 105: `رصيد الإجازات غير كافٍ. المتبقي: ${available} يوم` [ICU PLURAL candidate]
+(b) notifyApprovers() call (central helper — Phase 8 exempt):
+- 139: title `طلب إجازة جديد من ${auth.pyraUser.display_name}` [ICU]
+- 140: message `${days_count} يوم — من ${start_date} إلى ${end_date}` [ICU PLURAL candidate + raw ISO date interpolation]
+LEAVE-TYPE-NAME-MATCHING HAZARD SITE #1 present at line 85 — see dedicated HAZARDS section below.
+
+28) app/api/leave/[id]/route.ts — AR lines: 14 (a:8, b:6)
+(a) verbatim:
+- 24: 'الطلب غير موجود'
+- 35: 'غير مصرح بالاعتماد'
+- 44: 'يمكنك فقط اعتماد طلبات الموظفين تحت إدارتك المباشرة'
+- 117: title (approved branch) 'تمت الموافقة على طلب إجازتك' — SELECT-branch source, counted toward (b) below
+- 118: title (rejected branch) 'تم رفض طلب إجازتك' — SELECT-branch source, counted toward (b) below
+- 179: 'سبب الإلغاء مطلوب'
+- 184: 'لا يمكن إلغاء طلب بهذه الحالة'
+- 191: 'غير مصرح بإلغاء هذا الطلب'
+- 273: 'عملية غير مدعومة'
+(b) notify()/notifyApprovers() calls (Phase 8 exempt):
+- 117/118: titles (ICU SELECT approved/rejected — see above, dual-classified)
+- 122: message (approved) `وافق ${auth.pyraUser.display_name} على طلب إجازتك` [ICU]
+- 123: message (rejected) `رفض ${auth.pyraUser.display_name} طلب إجازتك` [ICU]
+- 165/263: title (2 duplicate cancel branches) `تم إلغاء إجازة — ${existing.username}` [ICU]
+- 166/264: message (2 duplicate cancel branches) `${existing.type} من ${existing.start_date} إلى ${existing.end_date}` [ICU: interpolates existing.type — the raw leave-type-name DB value, rendered as DISPLAY data, not compared — not a hazard, but a UX gap since it may render a non-localized name value]
+LEAVE-TYPE-NAME-MATCHING HAZARD SITES #2 (line 65) and #3 (line 228) present — see dedicated HAZARDS section below.
+
+29) app/api/leave/balance/route.ts — 0 AR lines (both section-header comments are pure ASCII box-drawing + English, verified by direct re-grep — no Arabic glyphs). Hazard-adjacent: contains a fallback read of the DEAD legacy `pyra_leave_balances` v1 table (~lines 76-93) — see header. Non-hazard verified: line ~63-67 compares `b.name === 'annual'/'sick'/'personal'` — these are ENGLISH literals (the `name` column), NOT Arabic — confirmed not a Leave-Type-Name-Matching hazard.
+
+30) app/api/leave/conflicts/route.ts — AR lines: 1 (a:1)
+(a) verbatim:
+- 21: 'start_date و end_date مطلوبان' [mixed English-param + Arabic-connector construction, flagged for translator attention]
+Non-hazard: line 103 `leave_type: c.type` is a pure data relay into the API response, not a comparison/branch.
+
+31) app/api/timesheet/route.ts — AR lines: 2 (a:2)
+(a) verbatim:
+- 134: 'التاريخ والساعات مطلوبة'
+- 135: 'الساعات يجب أن تكون بين 0 و 24' [mixed numeric + Arabic-connector construction]
+Hazard-adjacent: `UAE_DEFAULT_SCHEDULE.work_days=[0,1,2,3,4]` Sun-Thu fallback (lines 58-66) — CRITICAL regression flagged in header; UTC-day-key smell at line 48.
+
+32) app/api/timesheet/[id]/route.ts — AR lines: 9 (a:9)
+(a) verbatim:
+- 24: 'السجل غير موجود' (PATCH)
+- 29: 'غير مصرح'
+- 33: 'لا يمكن تعديل سجل تم إرساله'
+- 45: 'غير مصرح بالاعتماد' (EXACT dup of leave/[id]/route.ts:35 — cross-scope dedup)
+- 57: 'يمكنك فقط اعتماد إدخالات الموظفين تحت إدارتك المباشرة' (near-dup of leave/[id]/route.ts:44 — parameterized family)
+- 61: 'لا يمكنك اعتماد إدخالاتك الخاصة'
+- 106: 'السجل غير موجود' (DELETE, dup within file)
+- 111: 'غير مصرح' (dup within file)
+- 112: 'لا يمكن حذف سجل تم إرساله'
+
+33) app/api/my-documents/route.ts — 0 AR lines. All strings English; logError/console.error use English prefixes only.
+
+34) app/api/my-documents/[id]/signed-url/route.ts — AR lines: 4 (a:4)
+(a) verbatim:
+- 37: 'معرّف الوثيقة مفقود'
+- 51: 'الوثيقة غير موجودة'
+- 58: 'لا يمكنك الوصول إلى وثائق موظف آخر'
+- 74: 'فشل إنشاء رابط الوصول'
+
+35) app/api/my-productivity/route.ts — 0 AR lines. Uses requireApiPermission/apiSuccess/apiServerError() with no custom message args.
+
+36) lib/notifications/approvers.ts — 0 AR lines in executable code. 2 AR lines exist ONLY in a top-of-file JSDoc example comment (lines 14-15), mirroring (but never executing) the real strings at app/api/leave/route.ts:139-140. Classified comment/doc-example, no action, not counted in totals. Function body branches only on `mgr?.status === 'active'` and `role === 'admin'` (English) — no hazard.
+
+================ PER FILE — app/api/dashboard/evaluations/** + leave/carry-over + overtime/summary (8 routes, 0 libs) ================
+
+37) app/api/dashboard/evaluations/route.ts — AR lines: 2 (a:2)
+(a) verbatim:
+- 120: 'الحقول المطلوبة: فترة التقييم، الموظف، المقيّم'
+- 133: 'فترة التقييم غير موجودة'
+
+38) app/api/dashboard/evaluations/[id]/route.ts — AR lines: 21 (a:16, b:4, c:1)
+(a) verbatim:
+- 34: 'التقييم غير موجود'
+- 40: 'ليس لديك صلاحية لعرض هذا التقييم'
+- 145: 'التقييم غير موجود' (PATCH, dup within file)
+- 154: 'فقط المقيّم يمكنه تقديم التقييم'
+- 157: 'لا يمكن تقديم تقييم تم تقديمه مسبقاً'
+- 201: 'فقط المسؤول يمكنه التوصية بمكافأة'
+- 206: 'التقييم لا يستحق مكافأة'
+- 219: 'تمت التوصية بمكافأة لهذا التقييم مسبقاً'
+- 231: 'لم يتم العثور على بيانات الموظف'
+- 238: 'لا يوجد راتب محدد للموظف — لا يمكن حساب المكافأة'
+- 281: 'فشل في إنشاء سجل المكافأة'
+- 303: `تمت التوصية بمكافأة بمبلغ ${bonusAmount} ${currency}` [ICU: reached via apiSuccess({message:...}) — surfaced verbatim]
+- 313: 'فقط الموظف يمكنه الاعتراف بالتقييم'
+- 316: 'يجب أن يكون التقييم في حالة "مقدم" للاعتراف به' [note: hardcodes the Arabic status-label inline rather than a status-label lookup; branch condition itself checks the English 'submitted' value — confirmed NOT a hazard]
+- 359: 'فقط المقيّم أو المسؤول يمكنهم تعديل التقييم'
+- 369: 'لا توجد بيانات للتحديث'
+(b) notify() calls (Phase 8 exempt):
+- 188: title 'تم تقديم تقييم أدائك'
+- 189: message 'راجع تقييمك وأكّد اطّلاعك عليه'
+- 347: title 'تم الاعتراف بالتقييم'
+- 348: message `${auth.pyraUser.display_name} اطّلع على التقييم وأكّده` [ICU]
+(c) stored (pyra_employee_payments.description, computed-per-request):
+- 261: `description = "مكافأة أداء — تقييم ${periodLabel}".trim()`, where `periodLabel = period?.name_ar || period?.name || ''` [ICU-SELECT-like fallback into stored name_ar/name columns]
+The `recommend_bonus` action (lines 198-308) is confirmed present exactly per the special instructions: tiered 5/10/15% bonus by `overall_rating` threshold, uses `employee.salary_currency || 'AED'` (correct multi-currency), creates a pending `pyra_employee_payments` row. No Arabic in the accompanying `pyra_activity_log` insert (English action_type + detail keys only).
+
+39) app/api/dashboard/evaluations/[id]/scores/route.ts — AR lines: 6 (a:6)
+(a) verbatim:
+- 29: 'يجب توفير قائمة الدرجات'
+- 41: 'التقييم غير موجود' (dup)
+- 48: 'ليس لديك صلاحية لتقييم هذا الموظف'
+- 53: 'لا يمكن تعديل درجات تقييم تم تقديمه'
+- 59: 'كل درجة يجب أن تحتوي على معرف المعيار والدرجة'
+- 62: 'الدرجة يجب أن تكون بين 1 و 5'
+No `kpi/[id]` PATCH sub-route was found within this scope's 8 files (confirmed absent, contrary to the anticipatory special instruction — this scores route handles bulk upsert + weighted-average recompute, distinct from any separate KPI-specific endpoint which — if it exists — lives outside this file list).
+
+40) app/api/dashboard/evaluations/criteria/route.ts — AR lines: 1 (a:1)
+(a) verbatim:
+- 46: 'الاسم والاسم بالعربية مطلوبان'
+
+41) app/api/dashboard/evaluations/periods/route.ts — AR lines: 2 (a:2)
+(a) verbatim:
+- 46: 'جميع الحقول مطلوبة: الاسم، الاسم بالعربية، تاريخ البداية، تاريخ النهاية'
+- 50: 'تاريخ البداية يجب أن يكون قبل تاريخ النهاية' [EXACT duplicate of the Finance census's `api.finance.dateRangeInvalid` string — cross-census dedup, 4 total occurrences now confirmed across HR+Finance]
+
+42) app/api/dashboard/evaluations/periods/[id]/route.ts — AR lines: 4 (a:4)
+(a) verbatim:
+- 33: 'فترة التقييم غير موجودة' (EXACT dup of file 37 line 133)
+- 38: 'الحالة غير صالحة — يجب أن تكون: draft, active, closed' [ICU: raw English enum list interpolated as literal comma-list]
+- 43: 'تاريخ البداية يجب أن يكون قبل تاريخ النهاية' (dup of file 41 + Finance census)
+- 55: 'لا توجد بيانات للتحديث' (dup of file 38 line 369)
+
+43) app/api/dashboard/leave/carry-over/route.ts — AR lines: 3 (a:3)
+(a) verbatim:
+- 19: 'سنة المصدر وسنة الهدف مطلوبتان'
+- 23: 'السنوات يجب أن تكون أرقام'
+- 27: 'سنة الهدف يجب أن تكون بعد سنة المصدر'
+Confirmed as the ADMIN-facing manual-trigger route (gated on `leave.manage`), distinct from the yearly rollover cron (excluded). Delegates all DB work to `calculateCarryOver()` (out of scope, not re-scanned).
+
+44) app/api/dashboard/overtime/summary/route.ts — AR lines: 2 (a:2)
+(a) verbatim:
+- 20: 'الشهر مطلوب بصيغة YYYY-MM'
+- 26: 'صيغة الشهر غير صالحة'
+Business-logic observation (non-i18n, see header): missing `status='approved'` filter on the overtime query.
+
+================ FILES WITH ZERO ARABIC (clean, no action) ================
+app/api/hr/overview/route.ts, app/api/leave/balance/route.ts, app/api/my-documents/route.ts, app/api/my-productivity/route.ts, app/api/dashboard/attendance/summary/route.ts, lib/payroll/payment-lifecycle.ts.
+(6 of 44 files — 14%. lib/notifications/approvers.ts has 0 AR in executable code but is listed separately in its own file section above since its doc-comment does contain Arabic glyphs.)
+
+================ LEAVE-TYPE-NAME-MATCHING HAZARD (mandatory dedicated section — investigated explicitly per task instructions) ================
+
+Per CLAUDE.md's locked HR/Payroll decisions: `pyra_leave_requests.type` is a NAME string matching `pyra_leave_types.name` — there is NO `leave_type_id` column on `pyra_leave_requests`. Every site below resolves `is_paid` / balance behavior by comparing this NAME string, not a stable ID. **These are DB match keys, not UI strings, and must NEVER be run through the i18n translation layer or any automated find-and-replace during the Phase 5+ catalog migration** — `pyra_leave_types.name` values are live comparison keys whose exact byte value drives balance-deduction and is_paid-detection business logic. Confirmed by direct orchestrator re-grep (`\.eq\('name'` across app/api/leave/**) — exactly 3 matches, matching the discovery agent's report precisely.
+
+**Site 1 — `app/api/leave/route.ts:85`** (POST — new leave request):
+```
+.from('pyra_leave_types')
+.select('id, default_days, is_paid')
+.eq('name', type)              // line 85 — `type` is the raw request-body field (line 54)
+.eq('is_active', true)
+.single();
+```
+`type` is caller-supplied, expected to exact-match a `pyra_leave_types.name` row (which may itself be an Arabic string, e.g. a custom Arabic-named leave type). **(d)-ADJACENT COMPARISON HAZARD — DB match key, must NEVER be translated.** Downstream: `leaveType?.is_paid` gates the balance-sufficiency check.
+
+**Site 2 — `app/api/leave/[id]/route.ts:65`** (PATCH — approve branch, balance deduction):
+```
+.from('pyra_leave_types')
+.select('id, default_days, is_paid')
+.eq('name', existing.type)     // line 65 — `existing.type` is the STORED pyra_leave_requests.type value
+.single();
+```
+**(d)-ADJACENT COMPARISON HAZARD.** Downstream: `leaveType.is_paid` gates whether `used_days` increments in `pyra_leave_balances_v2` on approval.
+
+**Site 3 — `app/api/leave/[id]/route.ts:228`** (PATCH — reason-based cancel branch, balance restoration):
+```
+.from('pyra_leave_types')
+.select('id')
+.eq('name', existing.type)     // line 228 — same stored value, same comparison shape
+.single();
+```
+**(d)-ADJACENT COMPARISON HAZARD.** Downstream: resolves `leave_type_id` for the `pyra_leave_balances_v2` restoration update.
+
+**Non-hazard sites verified (relay/display only, NOT comparison):**
+- `app/api/leave/conflicts/route.ts:103` — `leave_type: c.type` relays the raw value into the API response as data. Not a hazard.
+- `app/api/leave/[id]/route.ts:166,264` — `${existing.type}` interpolated into a notifyApprovers() message. Display relay, not a branch — but flagged as a UX gap: the interpolated value renders the raw `pyra_leave_types.name` value verbatim (possibly not locale-appropriate) rather than a resolved `name_ar`/locale-aware label.
+- `app/api/leave/balance/route.ts` (~lines 63-67) — `b.name === 'annual'/'sick'/'personal'` compares against ENGLISH literals (the `name` column), confirmed NOT Arabic-string branching, NOT part of this hazard family.
+- `app/api/dashboard/payroll/[id]/calculate/route.ts:164` — pushes the Arabic literal `'إجازة غير مدفوعة'` as a pure DISPLAY `typeName` (consumed by `lib/payroll/calculate-item.ts:93` to build a deduction-reason string) — never compared/branched on. The actual unpaid-leave gate in that route uses `pyra_leave_types.is_paid` (boolean), confirmed separately as NOT part of this hazard family.
+
+**`countLeaveDays()` call sites** (implementation in `lib/leave/days.ts`, out of scope — call sites only): `app/api/leave/route.ts:61`, `app/api/leave/[id]/route.ts:221`. Both correctly route through `pyra_leave_balances_v2` — no reference to the DEAD legacy v1 `pyra_leave_balances` table in either file (the only v1-table reference anywhere in this census is the separate, non-hazard finding in `app/api/leave/balance/route.ts`, flagged in Hazard-Adjacent findings above).
+
+**SUMMARY: exactly 3 confirmed Leave-Type-Name-Matching hazard sites** (app/api/leave/route.ts:85; app/api/leave/[id]/route.ts:65 and :228), all verified by direct grep. This is the single most important non-translatable-string family discovered in this census — the Phase 5+ catalog-migration tooling MUST explicitly exclude `.eq('name', ...)` arguments against `pyra_leave_types` from any automated string-extraction or translation pass.
+
+================ OTHER CLASS-(d) HAZARDS ================
+None found beyond the Leave-Type-Name-Matching family above, across all 44 files. All other branching in this census (payroll run status, timesheet status, evaluation status, `action==='approve'|'pay'|'complete'|'cancel'`, `is_default`/`is_active`/`is_done`/`is_paid` booleans, day-of-week integer arrays, `role==='admin'`, permission strings) compares against English enum constants, booleans, or integers — never Arabic text. Closest-to-hazard non-issues, explicitly verified and ruled out: evaluations/[id]/route.ts:316 (quotes an Arabic status-label inline but branches on the English 'submitted' value); finance/contracts-style `cycleLabels`-shaped ICU-SELECT patterns were NOT found anywhere in this census's 44 files (unlike the Finance census's file 21 finding).
+
+================ DEDUP CANDIDATES (api.hr.* / api.leave.* / api.timesheet.* / api.payroll.* / api.attendance.* / api.workSchedules.* / api.evaluations.* / api.myDocuments.* / api.overtime.* key design) ================
+
+Exact repeats WITHIN this census (occurrences, module, proposed key):
+1. 'مسير الرواتب غير موجود' (Payroll run not found) ×5 — payroll/[id]/route.ts:37,110,319; payroll/[id]/calculate/route.ts:32; payroll/[id]/payslip/route.ts:44 → api.payroll.runNotFound.
+2. 'الوثيقة غير موجودة' (Document not found) ×4 — hr/documents/[id]/route.ts:89,101,169; hr/documents/[id]/signed-url/route.ts:56 → api.hr.documentNotFound. (NOTE: my-documents' equivalent uses the SAME exact string at my-documents/[id]/signed-url/route.ts:51 — 5th occurrence, cross-scope within this same census.)
+3. 'سجل التعيين غير موجود' (Onboarding record not found) ×3 — onboarding/[id]/route.ts:70,192; onboarding/[id]/documents/[docType]/regenerate/route.ts:83 → api.hr.onboardingNotFound.
+4. 'التقييم غير موجود' (Evaluation not found) ×3 — evaluations/[id]/route.ts:34,145; evaluations/[id]/scores/route.ts:41 → api.evaluations.notFound.
+5. 'الاسم والاسم العربي مطلوبان' (Name + Arabic name required) ×2 — work-schedules/route.ts:58; work-schedules/[id]/route.ts:33 → api.workSchedules.namesRequired. (Near-dup family: hr/document-types/route.ts:46 uses the identical phrase; evaluations/criteria/route.ts:46 uses "الاسم والاسم بالعربية مطلوبان" — same intent, "العربي" vs "بالعربية" wording variance — 4 total near-identical occurrences across 3 modules, strong parameterization candidate.)
+6. 'أيام العمل غير صالحة' / 'صيغة وقت البداية غير صالحة' / 'صيغة وقت النهاية غير صالحة' ×2 each — work-schedules/route.ts vs work-schedules/[id]/route.ts (exact file-pair dup) → api.workSchedules.workDaysInvalid / startTimeFormatInvalid / endTimeFormatInvalid.
+7. 'الجدول غير موجود' ×2, same file — work-schedules/[id]/route.ts:101,139 → api.workSchedules.notFound.
+8. 'فترة التقييم غير موجودة' ×2 — evaluations/route.ts:133; evaluations/periods/[id]/route.ts:33 → api.evaluations.periodNotFound.
+9. 'تاريخ البداية يجب أن يكون قبل تاريخ النهاية' (Start date must be before end date) ×2 WITHIN this census — evaluations/periods/route.ts:50; evaluations/periods/[id]/route.ts:43 → api.evaluations.dateRangeInvalid. **CROSS-CENSUS: EXACT SAME STRING found ×2 in the Finance census** (finance/revenue-targets/route.ts:101; finance/revenue-targets/[id]/route.ts:25) → 4 TOTAL occurrences across HR+Finance — highest-confidence cross-census dedup candidate for a single api.common.dateRangeInvalid key.
+10. 'لا توجد بيانات للتحديث' / 'لا توجد حقول صالحة للتحديث' / 'لا توجد حقول لتحديثها' (No fields/data to update — 3 near-synonym phrasings) — evaluations/[id]/route.ts:369; evaluations/periods/[id]/route.ts:55; hr/documents/[id]/route.ts:64; hr/document-types/[id]/route.ts:35 → 4 occurrences in THIS census, near-identical intent to the Finance census's 3-occurrence "لا توجد حقول للتحديث" family (finance/cards/[id], finance/recurring-invoices/[id], finance/revenue-targets/[id]) → strong candidate for cross-module api.common.noFieldsToUpdate, though wording ("بيانات" vs "حقول") needs product normalization before finalizing one canonical string.
+11. 'غير مصرح بالاعتماد' (Not authorized to approve) ×2, cross-module — leave/[id]/route.ts:35; timesheet/[id]/route.ts:45 → EXACT identical string → api.common.notAuthorizedToApprove (highest-confidence in-census dedup).
+12. 'يمكنك فقط اعتماد {طلبات|إدخالات} الموظفين تحت إدارتك المباشرة' — leave/[id]/route.ts:44 ("طلبات") vs timesheet/[id]/route.ts:57 ("إدخالات") — same template, differs only by noun → parameterized api.common.scopedApprovalOnly({noun}) candidate, same shape as the Finance census's statusTransitionInvalid family recommendation.
+13. `تم إلغاء إجازة — ${username}` / `${type} من ${start} إلى ${end}` — EXACT duplicate pair within leave/[id]/route.ts at lines 165-166 (legacy soft-cancel branch) AND 263-264 (reason-based cancel branch) → single api.leave.cancelledNotification({username},{type},{start},{end}) key serving both code paths.
+14. 'السجل غير موجود' / 'غير مصرح' — each ×2 within timesheet/[id]/route.ts (PATCH+DELETE handlers) → api.timesheet.recordNotFound / api.timesheet.notAuthorized.
+15. PDF-label-prefix triad 'عرض عمل' / 'اتفاقية سرية' / 'نموذج تسليم عهدة' — hardcoded independently in BOTH hr/onboarding/route.ts (lines 561/566, 597/602, 635/640) AND hr/onboarding/[id]/documents/[docType]/regenerate/route.ts (DOC_TYPE_MAP constant, lines 36-38) — VERIFIED via direct grep, confirming the clearest DRY opportunity in this census: extract to a shared `ONBOARDING_DOC_LABEL_PREFIXES` constant in `lib/constants/onboarding.ts` (which already exports `DEFAULT_ONBOARDING_TASKS`), serving both (pdf)-classified call sites from one source instead of two independently-hardcoded copies.
+16. Field-required-with-English-identifier family — hr/documents/route.ts:177 ("employee_username مطلوب"),:186 ("type_id مطلوب"); hr/leave-balances/route.ts:190 ("username مطلوب"),:193 ("leave_type_id مطلوب") — 4 occurrences sharing the shape "{englishFieldName} مطلوب" → api.hr.fieldRequired({field}) candidate; flagged for the catalog design to decide whether the field name should stay raw English (developer precision) or map to an Arabic noun (better end-user UX).
+17. Status-guard "cannot X a {run/record} in status Y" family — payroll/[id]/route.ts:114,224,322; payroll/[id]/calculate/route.ts:36; leave/[id]/route.ts:184; timesheet/[id]/route.ts:33,112 — 7 distinct "cannot perform action while in status" messages across payroll/leave/timesheet, same family as the Finance census's api.common.statusTransitionInvalid recommendation — strong candidate for ONE shared api.common.actionBlockedByStatus({action},{entity},{status}) key spanning Finance+HR rather than parallel per-module families.
+18. Mixed English-token + Arabic-connector constructions (quality flag, not dedup) — leave/conflicts/route.ts:21 ('start_date و end_date مطلوبان'); timesheet/route.ts:135 ('الساعات يجب أن تكون بين 0 و 24') — both splice raw English/numeric tokens via the bare connector "و" — candidates for a cleaner ICU-parameterized rewrite during the translation pass.
+19. ICU-PLURAL debt across this census (never-pluralizing count-interpolations, same debt class flagged in the Finance census): "${available} يوم" (leave/route.ts:105), "${days_count} يوم" (leave/route.ts:140), "${leave.days} يوم" (calculate-item.ts:93, (c)-class), "${count} موظف" (work-schedules/[id]/route.ts:160), "${skippedMismatchedPayments} دفعة" (payroll/calculate/route.ts:355) — 5 independently-discovered instances of the "${n} <singular-noun>" pattern in HR alone, plus 3 more already found in Finance ("يوم"/"فاتورة"/"مصروف") — 8 total across both censuses, strong signal this should be solved ONCE at the ICU tooling/formatter level, not per-string.
+20. "{X} غير موجود(ة)" not-found family spans nearly every module in this census (الوثيقة/سجل التعيين/التقييم/فترة التقييم/الجدول/مسير الرواتب/كشف الراتب/الطلب/السجل/المهمة — 10 distinct entity nouns, ~25 total occurrences) — same shape as the Finance census's api.invoices.notFound/api.quotes.notFound/api.finance.contractNotFound family. Strong candidate for a single parameterized api.common.entityNotFound({entity}) catalog key spanning Finance+HR+CRM, OR kept per-module as the Finance census chose — flagged as an open catalog-design decision, not resolved here.
+
+================ HAZARDS SUMMARY (d) — final ================
+- Leave-Type-Name-Matching family: 3 confirmed sites (see dedicated section above) — the ONLY true (d)-adjacent hazard family in this census, and the reason this module's scan carried an explicit mandatory investigation. These are DB match keys and MUST be excluded from any automated i18n string-extraction/translation pass.
+- Zero other class-(d) cases found across all 44 files — see "OTHER CLASS-(d) HAZARDS" above for the explicit non-hazard verifications performed.
+
+================ PER-FILE INDEX, sorted by (a)-count descending ================
+app/api/hr/onboarding/route.ts -- total:24 (a:18, b:2, pdf:3, email:0)
+app/api/dashboard/evaluations/[id]/route.ts -- total:21 (a:16, b:4, c:1, email:0)
+app/api/hr/documents/route.ts -- total:12 (a:10, b:2, c:0, email:0)
+app/api/leave/[id]/route.ts -- total:14 (a:8, b:6, c:0, email:0)
+app/api/dashboard/payroll/[id]/route.ts -- total:11 (a:8, b:2, c:1, email:0)
+app/api/hr/leave-balances/route.ts -- total:9 (a:9, b:0, c:0, email:0)
+app/api/dashboard/work-schedules/[id]/route.ts -- total:9 (a:9, b:0, c:0, email:0)
+app/api/timesheet/[id]/route.ts -- total:9 (a:9, b:0, c:0, email:0)
+app/api/hr/documents/[id]/route.ts -- total:7 (a:7, b:0, c:0, email:0)
+app/api/leave/route.ts -- total:7 (a:5, b:2, c:0, email:0)
+app/api/dashboard/evaluations/[id]/scores/route.ts -- total:6 (a:6, b:0, c:0, email:0)
+app/api/hr/onboarding/[id]/documents/[docType]/regenerate/route.ts -- total:6 (a:2, pdf:3, c:0, email:0)
+lib/hr/create-employee.ts -- total:5 (a:5, b:0, c:0, email:0)
+app/api/dashboard/payroll/[id]/calculate/route.ts -- total:5 (a:5, b:0, c:0, email:0)
+app/api/dashboard/evaluations/periods/[id]/route.ts -- total:4 (a:4, b:0, c:0, email:0)
+app/api/hr/onboarding/[id]/route.ts -- total:4 (a:4, b:0, c:0, email:0)
+app/api/dashboard/attendance/admin/route.ts -- total:4 (a:4, b:0, c:0, email:0)
+app/api/dashboard/work-schedules/route.ts -- total:4 (a:4, b:0, c:0, email:0)
+app/api/dashboard/payroll/route.ts -- total:4 (a:4, b:0, c:0, email:0)
+app/api/dashboard/payroll/[id]/payslip/route.ts -- total:4 (a:4, b:0, c:0, email:0)
+app/api/my-documents/[id]/signed-url/route.ts -- total:4 (a:4, b:0, c:0, email:0)
+app/api/hr/document-types/[id]/route.ts -- total:3 (a:3, b:0, c:0, email:0)
+app/api/hr/onboarding/[id]/tasks/[taskId]/route.ts -- total:3 (a:3, b:0, c:0, email:0)
+app/api/dashboard/leave/carry-over/route.ts -- total:3 (a:3, b:0, c:0, email:0)
+app/api/dashboard/evaluations/route.ts -- total:2 (a:2, b:0, c:0, email:0)
+app/api/dashboard/evaluations/periods/route.ts -- total:2 (a:2, b:0, c:0, email:0)
+app/api/dashboard/overtime/summary/route.ts -- total:2 (a:2, b:0, c:0, email:0)
+app/api/hr/documents/[id]/signed-url/route.ts -- total:2 (a:2, b:0, c:0, email:0)
+app/api/timesheet/route.ts -- total:2 (a:2, b:0, c:0, email:0)
+app/api/dashboard/attendance/clock-out/route.ts -- total:2 (a:2, b:0, c:0, email:0)
+lib/hr/store-generated-document.ts -- total:2 (a:0, internal:2, c:0, email:0)
+app/api/hr/document-types/route.ts -- total:1 (a:1, b:0, c:0, email:0)
+app/api/hr/productivity/route.ts -- total:1 (a:1, b:0, c:0, email:0)
+app/api/dashboard/evaluations/criteria/route.ts -- total:1 (a:1, b:0, c:0, email:0)
+app/api/leave/conflicts/route.ts -- total:1 (a:1, b:0, c:0, email:0)
+app/api/dashboard/attendance/route.ts -- total:1 (a:1, b:0, c:0, email:0)
+lib/payroll/calculate-item.ts -- total:1 (a:0, b:0, c:1, email:0)
+app/api/hr/overview/route.ts -- total:0 (a:0, b:0, c:0, email:0)
+app/api/leave/balance/route.ts -- total:0 (a:0, b:0, c:0, email:0)
+app/api/my-documents/route.ts -- total:0 (a:0, b:0, c:0, email:0)
+app/api/my-productivity/route.ts -- total:0 (a:0, b:0, c:0, email:0)
+app/api/dashboard/attendance/summary/route.ts -- total:0 (a:0, b:0, c:0, email:0)
+lib/payroll/payment-lifecycle.ts -- total:0 (a:0, b:0, c:0, email:0)
+lib/notifications/approvers.ts -- total:0 (a:0, b:0, c:0, email:0) [+2 doc-comment-only lines, not counted]
+
+Note: index sorted primarily by (a)-count descending (translate-now workload), matching the Finance census's sort convention; ties broken by total-AR-lines descending, then path alphabetically.
+
+================ PROPOSED API CATALOG KEY GROUPS ================
+
+api.hr.*  (hr/documents, hr/document-types, hr/leave-balances, hr/productivity, hr/onboarding — ~63 (a)-class strings + 5 more via lib/hr/create-employee.ts passthrough)
+  - api.hr.documentNotFound ("الوثيقة غير موجودة", ×4 within hr/, ×5 incl. my-documents cross-scope dup)
+  - api.hr.onboardingNotFound ("سجل التعيين غير موجود", ×3)
+  - api.hr.documentTypeNotFound ("نوع المستند غير موجود", ×2)
+  - api.hr.invalidJsonBody ("طلب غير صالح — يجب أن يكون JSON", ×3) — candidate for api.common.invalidJsonBody
+  - api.hr.noValidFieldsToUpdate (2 near-dup phrasings — candidate to merge into api.common.noFieldsToUpdate)
+  - api.hr.docUsernameRequired / docTypeIdRequired / fileRequired / fileEmpty / fileSizeExceeds({maxMb},{actualMb}) / fileMimeUnsupported({mime}) / fileExtLookupFailed / fileUploadFailed({message}) / documentInsertFailed / documentUpdateFailed / documentDeleteFailed / signedUrlCreateFailed
+  - api.hr.docTypeNameBothRequired / leaveBalanceYearInvalid / bodyInvalid / usernameRequired / leaveTypeIdRequired / yearRequired / fieldMustBeNonNegativeInteger({field}) / balanceUpdateFailed / balanceInsertFailed
+  - api.hr.productivityMonthFormatInvalid
+  - api.hr.onboardingCurrencyInvalid({allowed}) / documentsListInvalid({allowed}) / documentsListEmpty / requiredFieldsMissing({fields}) / employeeNotFound / employeeInactive / employeeAlreadyOnboarding / currencyMismatch({offerCurrency},{salaryCurrency}) / usernameTakenActive / onboardingInsertPartialFailure({dbMessage}) / onboardingLinkRollbackFailed / documentGenerationFailedExisting / documentGenerationFailedNewHire / allDocumentsGenerationFailed / onboardingActionInvalid / taskIsDoneMustBeBoolean / taskNotFound / regenerateDocTypeInvalid / regenerateStoreFailed
+  - api.hr.userCreate.usernameTaken / authCreateFailed({message}) / userInsertFailed({message}) / authMappingFailed({message}) / reactivateFailed({message}) — from lib/hr/create-employee.ts, surfaced via onboarding's apiError forward
+
+api.attendance.*  (~7 (a)-class strings)
+  - api.attendance.alreadyClockedIn / notClockedInYet / alreadyClockedOut / adminFieldsRequired / adminUpdateFailed / adminInsertFailed / adminEditGenericError
+
+api.workSchedules.*  (~9 distinct (a)-class strings after dedup)
+  - api.workSchedules.namesRequired (×2) / workDaysInvalid (×2) / startTimeFormatInvalid (×2) / endTimeFormatInvalid (×2) / notFound (×2) / cannotUnsetLastDefault / cannotDeleteDefault / inUseByEmployees({count}) [ICU PLURAL debt]
+
+api.payroll.*  (~24 (a)-class strings before dedup)
+  - api.payroll.runNotFound (×5) / monthOutOfRange / yearInvalid / currencyInvalid({allowed}) [ICU list-join] / runAlreadyExistsForCurrency({currency}) / actionMustBeApproveOrPay / unknownAction / cannotApproveUncalculated / cannotPayUnapproved / cannotDeleteNonDraft({status}) / cannotCalculateInStatus({status}) / noActiveEmployees / noEmployeesInRunCurrency / mismatchedCurrencyWarning({count}) [ICU PLURAL debt] / payslipForbiddenOtherEmployee / usernameRequired / itemNotFoundForEmployee
+
+api.leave.*  (~14 (a)-class + 8 (b)-class notification strings)
+  - api.leave.notFound / typeAndDatesRequired / endDateAfterStart / noWorkingDaysInRange / contractorsBlocked / insufficientBalance({available}) [ICU PLURAL debt] / notAuthorizedToApprove (shared w/ timesheet) / approvalScopeDenied({noun}) / cancellationReasonRequired / cannotCancelThisStatus / notAuthorizedToCancel / unsupportedOperation / carryOverYearsRequired / carryOverYearsMustBeNumbers / carryOverToYearMustBeAfterFromYear
+  - Notifications (Phase 8 exempt): approvalOutcome({approved}) [ICU SELECT] / cancelledNotification({username},{type},{start},{end}) / pendingApproval({displayName},{days},{start},{end}) [ICU PLURAL debt]
+
+api.timesheet.*  (~11 (a)-class strings)
+  - api.timesheet.dateAndHoursRequired / hoursRange / recordNotFound (×2) / notAuthorized (×2) / recordLockedForAction({action}) / notAuthorizedToApprove (shared w/ leave) / approvalScopeDenied({noun}) / noSelfApproval
+
+api.myDocuments.*  (4 (a)-class strings)
+  - api.myDocuments.idMissing / notFound / forbiddenOtherEmployee / signUrlFailed
+
+api.evaluations.*  (~26 (a)-class strings)
+  - api.evaluations.notFound (×3) / periodNotFound (×2) / requiredFields / viewForbidden / submitForbidden / alreadySubmitted / bonusForbidden / notEligibleForBonus / bonusAlreadyRecommended / employeeNotFound / noSalaryConfigured / bonusInsertFailed / bonusRecommendedSuccess({amount},{currency}) [ICU] / acknowledgeForbidden / mustBeSubmittedToAcknowledge / editForbidden / noFieldsToUpdate / scoresRequired / scoreEditForbidden / scoresLockedAfterSubmit / scoreFieldsRequired / scoreOutOfRange({min},{max}) / criteriaNameRequired / periodFieldsRequired / periodDateRangeInvalid / periodInvalidStatus({allowedList})
+  - Notifications (Phase 8 exempt): evaluationSubmittedTitle/Message / evaluationAcknowledgedTitle/Message({displayName})
+
+api.overtime.*  (2 (a)-class strings)
+  - api.overtime.monthRequired / monthFormatInvalid
+
+Cross-module unification candidates (confirm against p3-crm-apis.txt + p4-finance-apis.txt before finalizing keys):
+  - api.common.dateRangeInvalid — 4 EXACT identical occurrences across HR (evaluations ×2) + Finance (revenue-targets ×2) — highest-confidence cross-census dedup found so far.
+  - api.common.noFieldsToUpdate — HR contributes 4 more near-dup phrasings ("لا توجد بيانات للتحديث"/"حقول صالحة للتحديث"/"حقول لتحديثها") on top of Finance's 3-occurrence exact-match cluster — wording needs ONE canonical Arabic string picked across all modules.
+  - api.common.notAuthorizedToApprove — exact match between leave + timesheet within this census alone.
+  - api.common.scopedApprovalOnly({noun}) — leave/timesheet parameterized family, same shape as Finance's statusTransitionInvalid recommendation.
+  - api.common.actionBlockedByStatus({action},{entity},{status}) — 7 occurrences across payroll/leave/timesheet in this census + the Finance census's own statusTransitionInvalid family (invoices/quotes/expenses) — strongest candidate yet for ONE shared cross-module key rather than parallel per-module families.
+  - api.common.entityNotFound({entity}) — ~25 occurrences across 10 entity nouns in this census alone, plus the Finance census's equivalent family (invoices/quotes/contracts/milestones) — an open catalog-design decision (parameterize vs. per-module), not resolved here.
+  - api.common.invalidJsonBody — new candidate, first surfacing in this HR census (×3 occurrences here) — check whether Finance/CRM routes have an equivalent JSON-parse-guard string.
+  - ICU-PLURAL debt (never-pluralizing "${n} <noun>" pattern) — now confirmed in 8 total occurrences across HR (5) + Finance (3) — strong signal for a shared plural-aware formatter helper solved ONCE at the ICU tooling level.
+  - ONBOARDING_DOC_LABEL_PREFIXES — not an api.* key but a genuine shared-constant refactor: extract the 3 Arabic doc-label prefixes (currently duplicated in hr/onboarding/route.ts AND the regenerate route) into lib/constants/onboarding.ts.

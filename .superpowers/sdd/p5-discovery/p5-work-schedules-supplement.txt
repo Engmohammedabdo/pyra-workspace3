@@ -1,0 +1,12 @@
+WORK SCHEDULES CENSUS (delivered inline by sub-agent; saved by controller for durability)
+Scope: app/dashboard/hr/work-schedules (page 9L, client 259L), components/hr/work-schedules (WorkScheduleDialog 204L, schedule-form.ts 41L), hooks/useWorkSchedules.ts (0 AR).
+
+KEY FINDINGS:
+- ~25 (ui) AR lines across client + dialog (toasts, labels, empty state, delete confirm, form labels incl. معامل الإضافي / معامل عمل نهاية الأسبوع).
+- HAZARD 1: schedule-form.ts DAY_LABELS = Record<number,string> numeric-keyed FULL day names (الأحد..السبت WITH ال prefix) — does NOT match calendar.dayNames (abbreviated أحد..سبت). Migration: delete DAY_LABELS from the pure helper (can't call useTranslations there); add index→key array ['sun'..'sat'] in schedule-form.ts (ASCII, safe); new catalog keyed object hr.workSchedules.dayNamesFull with FULL forms preserved verbatim; resolve at the 2 call sites (client L190, dialog L92).
+- HAZARD 2: client L171-176 mixed-direction paragraph — dir="ltr" wraps BOTH HH:MM times AND Arabic text (ساعات/يوم، استراحة، دقيقة) — split: dir="ltr" span for the time range only.
+- HAZARD 3: 3 [ICU] template literals in that same paragraph + CardTitle count (L146 جداول العمل (${n})).
+- DECISION NEEDED (plan): WorkScheduleDialog L70 Arabic EXAMPLE placeholder "الأسبوع العادي" for the name_ar DATA field — stays hardcoded AR (data-field example, board-template precedent); L61 "Standard Week" stays for name (EN data field).
+- Business-rule sentence in delete confirm (L236-237: cannot delete assigned/default schedule) gets its OWN key, not a generic confirm template.
+- Near-duplicate family: جداول العمل ×3 (metadata/h1/nav) + إضافة جدول variants ×3 — reuse nav key where exact; keep intentional short/long CTA variants as distinct keys.
+- Zero formatDate/formatTime/formatCurrency/toLocale*/dir-root hazards. Hook clean. All files <300L.

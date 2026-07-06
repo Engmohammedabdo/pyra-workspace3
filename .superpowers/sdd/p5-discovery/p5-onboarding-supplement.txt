@@ -1,0 +1,15 @@
+HR ONBOARDING CENSUS (delivered inline; controller-saved summary)
+Scope: hr/onboarding pages (489L incl. detail 310L >300 — split candidate), components/hr/onboarding (9 files: wizard + steps + checklist + documents + picker), wizard-helpers.ts (pure), hooks/useOnboarding.ts (0 AR). ~169 AR lines: ui≈145, data≈3, statuses≈20, comment 1.
+
+KEY DECISIONS FOR PLAN:
+1. NEW statuses entity `onboarding` (in_progress/completed/cancelled from ONBOARDING_STATUS_LABELS in lib/constants/onboarding.ts — verbatim) + wire both consumers via useStatusLabels('onboarding').
+2. NEW entities/keys: employmentType (5: دوام كامل/دوام جزئي/عقد مؤقت/فريلانس/تدريب from WizardStepPosition LOCAL map) + workLocation (3: مكتبي/عن بُعد/هجين) — census H5 says centralize; users module likely duplicates (crosscut will confirm) → make statuses entities.
+3. ASSET_TYPES_AR (6 items, lib/constants/onboarding) = UI dropdown options → catalog keyed object (NOT array).
+4. Asset condition VALUES جديد/جيد/متوسط are PERSISTED to offer_data jsonb → (data) class: display stays = value stays Arabic; DO NOT introduce enum keys in this phase (schema-adjacent change, out of scope) — keep as-is with exempt tags; backlog entry for enum-key migration.
+5. Doc-name triad drift (H4): 4 UI phrasings for offer letter (عرض العمل ×3, خطاب العرض ×1 in wizard-helpers) — catalog ONE key group hr.onboarding.docNames.{offerLetter,nda,assetHandover} using the MAJORITY phrasing عرض العمل/اتفاقية السرية (NDA)/نموذج تسليم العهدة; wizard-helpers WIZARD_DOC_LABELS converges (documented drift fix, same class as P4's موقّع). DB-seeded name_ar rows stay exempt.
+6. wizard-helpers validateStep: RETURN-KEY pattern (return 'hr.onboarding.wizard.validation.xxx' keys; NewHireWizard toast.error(t(key))). PASSWORD_MIN interpolation key {min}.
+7. H3 fix folded in: WizardStepPersonal L123 placeholder '8+ أحرف' → key with {min: PASSWORD_MIN_LENGTH} (fixes the single-source lock violation as part of the string swap).
+8. 6× toLocaleString/DateString('ar-AE') sites (detail ×2 + checklist date ×1 + compensation ×2 + review ×1): dates → formatDate(x, undefined, locale); money totals → keep raw number formatting BUT parametrize locale in place ('ar-AE'↔'en-GB')? NO — money invariance: route money through formatCurrency(x, currency) is the CORRECT fix but changes rendering (adds currency code style). SIMPLEST SAFE: parametrize locale in place for EN while AR stays byte-identical + keep suffix logic; flag formatCurrency consolidation to backlog. The hardcoded 'د.إ' for possibly-non-AED employees = pre-existing bug → chipped separately.
+9. metadata.title ×3 → generateMetadata + getTranslations.
+10. Guillemet cross-references («موظف جديد», «توليد المستندات», «إتمام التعيين») quote other buttons — use the SAME t() keys interpolated into the description strings so they can't drift.
+11. 'اختر وثيقة واحدة على الأقل' duplicated (helper validation + review hint) → ONE key.

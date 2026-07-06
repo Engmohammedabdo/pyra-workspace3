@@ -1,0 +1,626 @@
+PHASE-5 HR CROSS-CUTTING DISCOVERY — findings (repo: C:\xampp\htdocs\pyra-workspace-3)
+
+=== 1. STATUS ENTITIES — WHAT EXISTS vs WHAT'S MISSING ===
+
+Confirmed present in messages/ar/statuses.json (34 top-level entity groups) —
+Phase 5 does NOT need to re-add these, only wire useStatusLabels()/existing
+labels into HR UI call sites: leave, payroll, attendance, employeePayment,
+evaluation, leaveType. Full entity list from the catalog: invoice, quote,
+contract, expense, leave, payroll, po, creditNote, subscription, paymentMethod,
+billingCycle, employeePayment, evaluation, contentPipeline, followUp, client,
+lead, pipelineStage, leadType, leadDealType, leadBillingCycle, leadActivity,
+conversation, conversationPriority, leadTask, leadTaskPriority,
+calendarEventSource, attendance, taskPriority, leaveType, leadPriority,
+insightSeverity, crmContract, milestone, contractType, periodCycle.
+
+GAP 1 — TIMESHEET has NO _LABELS export at all (unlike every other status
+enum in lib/constants/statuses.ts). `TIMESHEET_STATUS` (lib/constants/
+statuses.ts:197-202) = { DRAFT:'draft', SUBMITTED:'submitted',
+APPROVED:'approved', REJECTED:'rejected' } — used server-side only (API
+routes gate on TIMESHEET_STATUS.APPROVED/DRAFT). No `TIMESHEET_STATUS_LABELS`
+const exists anywhere in the codebase. UI files (timesheet-client.tsx,
+approvals-client.tsx) must have their OWN inline Arabic label maps for
+draft/submitted/approved/rejected — verify exact wording at plan time via
+`grep -n "draft.*مسودة\|submitted.*مرسل\|'draft':" app/dashboard/timesheet/timesheet-client.tsx app/dashboard/approvals/approvals-client.tsx`.
+ADD to statuses.json: new `timesheet` entity, e.g.
+  "timesheet": { "draft": "مسودة", "submitted": "مُرسل", "approved": "معتمد", "rejected": "مرفوض" }
+(exact AR wording must be copied verbatim from whatever inline map the
+implementers find in timesheet-client.tsx/approvals-client.tsx at swap time —
+do NOT invent new wording; this census did not have time to read every inline
+literal in those two files, which are covered by sibling P5 census files
+p5-attendance-timesheet.txt / p5-leave.txt).
+
+GAP 2 — Onboarding status labels live OUTSIDE statuses.ts, in a SEPARATE file
+`lib/constants/onboarding.ts`:
+  export const ONBOARDING_STATUS_LABELS: Record<OnboardingStatus, string> = {
+    in_progress: 'جاري التعيين', completed: 'مكتمل', cancelled: 'ملغي',
+  };
+This is a real gap in the "single home for status labels" convention (Phase
+1-4 precedent puts everything in lib/constants/statuses.ts +
+messages/*/statuses.json) — onboarding forked its own file. Phase 5 should
+ADD a `onboarding` entity to statuses.json with this verbatim AR (in_progress/
+completed/cancelled), matching the existing const's wording exactly. Note
+`onboarding.completed`/`cancelled` collide in spelling with contract/PO/
+milestone entities that already use "مكتمل"/"ملغي" for those same words in
+OTHER entities — this is fine (catalog is namespaced per-entity, no cross-
+contamination), just flagging so the plan author doesn't think it's a dedup
+opportunity across entities (status semantics differ even when the word is
+identical).
+
+Also in lib/constants/onboarding.ts: `ASSET_TYPES_AR` (6-item readonly array:
+لابتوب / هاتف متحرك / خط هاتف SIM / بطاقة دخول / كاميرا معدات / أخرى) and
+`DEFAULT_ONBOARDING_TASKS` (8-item string array, seed task titles written
+directly into DB rows `pyra_onboarding_tasks.title` on onboarding creation).
+**`DEFAULT_ONBOARDING_TASKS` is SEEDED DB DATA, not a translatable UI label
+map** — same doctrine as CRM's "board-template SEEDED column/label names ...
+remain Arabic DB data" exemption (CLAUDE.md i18n rules). Do NOT attempt to
+route these through next-intl; the task titles are written once into
+`pyra_onboarding_tasks` rows at creation time and displayed as stored data
+thereafter (localizing at creation time is a v1.1 item per the CRM precedent,
+not part of this UI-string migration). `ASSET_TYPES_AR`, by contrast, IS a
+pure enum-like UI picker list (not DB-seeded) — this one SHOULD get a catalog
+entity if surfaced in onboarding UI; check with `grep -rn ASSET_TYPES_AR
+components/hr/onboarding app/dashboard/hr/onboarding` at plan time (not
+grepped in this pass — flag for follow-up, likely used in
+WizardStepAssets-style component).
+
+GAP 3 — Document expiry tiers (`EXPIRY_BADGE` in lib/hr/document-expiry.ts)
+are a 5-tier badge map OUTSIDE statuses.ts, in its own file:
+  export const EXPIRY_BADGE: Record<ExpiryTier, { labelAr: string; className }> = {
+    expired:     { labelAr: 'منتهية' },
+    expiring_7:  { labelAr: 'تنتهي خلال أيام' },
+    expiring_30: { labelAr: 'تنتهي قريباً' },
+    ok:          { labelAr: 'سارية' },
+    none:        { labelAr: 'دائمة' },
+  };
+`classifyExpiry(expiryDate, todayKey)` (pure fn, Dubai-day-safe, unit-tested
+in __tests__/document-expiry.test.ts) returns the ExpiryTier key; UI (HR
+documents vault list + my-documents employee list) reads `EXPIRY_BADGE[tier]
+.labelAr` + className together as one object. ADD a `documentExpiry` entity
+to statuses.json (verbatim AR: expired/expiring_7/expiring_30/ok/none as
+above) — but the IMPLEMENTATION requires either (a) widening EXPIRY_BADGE to
+carry both labelAr/labelEn (parallel to existing patterns) or (b) having
+callers look up the label via useStatusLabels('documentExpiry')[tier]
+separately from the className (which stays in EXPIRY_BADGE, colors aren't
+translatable). Two consumer files known: components/hr/documents/* (via
+documents-client.tsx) and app/dashboard/my-documents (employee read-only
+list) — BOTH must swap together since they share the one classifyExpiry/
+EXPIRY_BADGE helper (breaking one without the other creates inconsistent
+labels between HR admin view and employee self-view of the SAME document).
+
+GAP 4 — Overtime has NO dedicated status/label entity anywhere. Overtime is
+represented as (a) `pyra_timesheet_entries.is_overtime` boolean +
+`status` (draft/submitted/approved/rejected, same TIMESHEET_STATUS as
+above) — no separate "overtime status," or (b) `pyra_employee_payments
+.source_type = 'overtime'` (payment source-type label, see EMPLOYEE_PAYMENT-
+adjacent `SOURCE_LABELS` shadow map found in user-detail-client.tsx:87-90,
+OUT of Phase 5 declared scope but same underlying enum values —
+task/bonus/commission/overtime — likely re-shadowed inside payroll/HR files
+too; verify via `grep -rn "SOURCE_LABELS\|source_type.*'overtime'" components/payroll app/dashboard/payroll app/dashboard/hr`).
+Recommend: if a shadow SOURCE_LABELS map exists inside the Phase-5-scoped
+payroll/HR files, add a `paymentSourceType` entity (task/bonus/commission/
+overtime) to statuses.json — parallel precedent to Phase 4's `contractType`.
+Not confirmed present in-scope by this pass; flag for the payroll-focused
+sibling census (p5-payroll.txt) to confirm exact file + AR wording.
+
+=== 2. EMPLOYMENT ENUMS (lib/constants/auth.ts) ===
+
+`EMPLOYMENT_TYPES`, `WORK_LOCATIONS`, `PAYMENT_TYPES`, `SALARY_CURRENCIES` are
+plain `as const` string-value arrays in lib/constants/auth.ts — they carry
+**NO AR labels in auth.ts itself** (auth.ts only has `CURRENCY_LABELS_AR` for
+SALARY_CURRENCIES: AED→'درهم إماراتي', EGP→'جنيه مصري', USD→'دولار أمريكي',
+SAR→'ريال سعودي' — this one IS centralized).
+
+EMPLOYMENT_TYPES + WORK_LOCATIONS + PAYMENT_TYPES have NO centralized label
+map — every consumer forks its OWN inline shadow map, and the wording
+actively DIVERGES across 3 files for the identical enum values:
+  - components/hr/onboarding/WizardStepPosition.tsx:18-30 (IN Phase 5 scope,
+    components/hr/**) — EMPLOYMENT_TYPE_LABELS = { full_time:'دوام كامل',
+    part_time:'دوام جزئي', contract:'عقد مؤقت', freelance:'فريلانس',
+    intern:'تدريب' }; WORK_LOCATION_LABELS = { onsite:'مكتبي', remote:'عن بُعد',
+    hybrid:'هجين' }.
+  - app/dashboard/users/[username]/user-detail-client.tsx:74-85 (NOT in
+    Phase 5 scope — app/dashboard/users) — WORK_LOCATION_LABELS = {
+    onsite:'في المكتب', remote:'عن بعد', hybrid:'هجين' }; PAYMENT_TYPE_LABELS
+    = { monthly_salary:'راتب شهري', hourly:'بالساعة', per_task:'بالمهمة',
+    commission:'عمولة' }.
+  - app/dashboard/directory/directory-client.tsx:46-58 (NOT in Phase 5
+    scope — app/dashboard/directory) — EMPLOYMENT_TYPE_LABELS (with color
+    classes) = { full_time:'دوام كامل', part_time:'دوام جزئي',
+    contract:'متعاقد', freelance:'مستقل', intern:'متدرب' };
+    WORK_LOCATION_LABELS = { remote:'عن بعد', onsite:'حضوري', hybrid:'هجين' }.
+
+Three genuinely DIFFERENT Arabic words compete for the same 3 enum values
+(onsite: "مكتبي" / "في المكتب" / "حضوري"; contract: "عقد مؤقت" / (missing) /
+"متعاقد"; freelance: "فريلانس" / (missing) / "مستقل"). This is the SAME class
+of wording-collision hazard the Phase-4 census flagged for contract
+`in_progress` (CRM "جاري" vs Finance "قيد التنفيذ") — needs an Abdou decision
+if/when a shared `employmentType`/`workLocation`/`paymentType` catalog entity
+is created, OR Phase 5 can scope its swap to ONLY the in-scope file
+(WizardStepPosition.tsx under components/hr/onboarding/) and leave the
+out-of-scope directory/users-client shadow maps untouched (they belong to a
+different phase's declared surface). RECOMMENDATION: add 3 new statuses.json
+entities (`employmentType`, `workLocation`, `paymentType`) scoped to Phase 5's
+own file (WizardStepPosition.tsx + WizardStepCompensation.tsx if it also
+renders PAYMENT_TYPES), using that file's wording as canonical since it's the
+one Phase 5 actually owns — do NOT silently touch user-detail-client.tsx or
+directory-client.tsx (out of declared scope; their wording collision is a
+carry-over hazard for whichever phase claims app/dashboard/users +
+app/dashboard/directory).
+
+Where displayed in the HR surface (Phase-5-scoped only):
+  - components/hr/onboarding/WizardStepPosition.tsx — employment_type +
+    work_location pickers (admin onboarding wizard, Step 3).
+  - components/hr/onboarding/WizardStepCompensation.tsx — imports
+    SALARY_CURRENCIES + CURRENCY_LABELS_AR (already centralized, safe) for
+    the currency picker; also imports PAYMENT_TYPES? — verify (not fully
+    read this pass).
+  - components/payroll/CreatePayrollDialog.tsx — SALARY_CURRENCIES only
+    (currency picker for payroll run), no employment-type/work-location
+    rendering.
+Out of Phase 5 scope but same-enum collision: app/dashboard/users/users-
+client.tsx (renders SALARY_CURRENCIES raw, no AR label needed — currency
+codes shown as-is); app/dashboard/users/[username]/user-detail-client.tsx;
+app/dashboard/directory/directory-client.tsx.
+
+`SALARY_CURRENCIES` raw codes (AED/EGP/USD/SAR) are shown AS-IS (not
+translated) in `<SelectItem>` lists — these are ISO codes, locale-invariant
+by design (same doctrine as money formatting), no action needed for the
+codes themselves. Only `CURRENCY_LABELS_AR` (the human-readable currency
+NAME, e.g. "درهم إماراتي") needs an EN counterpart if displayed anywhere —
+grep confirms `CURRENCY_LABELS_AR` is consumed by WizardStepCompensation.tsx
+(onboarding PDFs + wizard UI per its own doc-comment) — this file falls
+inside Phase 5 scope (components/hr/onboarding/). Recommend a
+`currencyLabel` or fold into a widened auth-adjacent statuses.json entity;
+auth.ts is explicitly called out in CLAUDE.md as NOT owning i18n keys itself
+(constants file), so the EN counterpart must live in a NEW statuses.json
+entity, e.g. `"currency": { "AED": "..:EN.. ", ... }` with AR pulled verbatim
+from CURRENCY_LABELS_AR.
+
+=== 3. FORMAT-HELPER CALL SITES ===
+
+formatCurrency/formatCurrencyMap: locale-invariant by construction (hardcoded
+'en-AE', confirmed in Phase 4 census) — NO action needed for any Phase-5
+call site using these. Same invariant holds.
+
+formatTime(isoString, locale='ar') in lib/utils/format.ts:13 ALREADY takes a
+locale param (branches ar-AE vs en-AE for toLocaleTimeString) — needs LOCALE
+THREADING (pass resolved UI locale) at every call site, not a rewrite.
+formatHours(hours) at :27 takes NO locale param — verify its output is
+locale-invariant (likely just a plain number + "h"/"ساعة" suffix — check
+inline, not fully read this pass).
+
+Hardcoded-locale toLocale*/Intl.* HAZARD SITES found (file:line — snippet):
+  1. app/dashboard/timesheet/timesheet-client.tsx:493 —
+     `new Date(entry.date).toLocaleDateString('ar-EG', {...})` — REAL HAZARD,
+     hardcoded ar-EG regardless of UI locale.
+  2. app/dashboard/timesheet/timesheet-client.tsx:451 —
+     `overtimeSummary.estimated_pay.toLocaleString('en-US', {min:0,max:2})`
+     — locale-invariant (en-US, ASCII digits) — same doctrine as
+     formatCurrency, no change needed, but note it's 'en-US' not the
+     project's usual 'en-AE' (inconsistent invariant-locale choice, cosmetic
+     only — not a bug, just note for consistency if touching this file).
+  3. app/dashboard/my-payslips/my-payslips-client.tsx:70 — LRM-prefixed
+     `‎${Number(amount).toLocaleString('en-US', {min:2,max:2})} ${currency}`
+     — locale-invariant, no change needed (LRM mark keeps LTR number
+     rendering embedded correctly inside RTL flow — do NOT strip this).
+  4. app/dashboard/my-payslips/my-payslips-client.tsx:289 —
+     `new Date(payslip.paid_at).toLocaleDateString('ar-AE')` — REAL HAZARD.
+  5. app/dashboard/my-payslips/my-payslips-client.tsx:385 —
+     `new Date(p.created_at).toLocaleDateString('ar-AE', {year,month:'long',day})`
+     — REAL HAZARD (month:'long' will render an Arabic month name
+     unconditionally).
+  6. app/dashboard/hr/onboarding/[id]/onboarding-detail-client.tsx:225 —
+     `Number(offerData.basic).toLocaleString('ar-AE')` — REAL HAZARD (Arabic-
+     Indic digit grouping risk depending on runtime Intl data — must become
+     locale-conditional or switch to a fixed invariant locale matching the
+     project's money-is-locale-invariant doctrine).
+  7. app/dashboard/hr/onboarding/[id]/onboarding-detail-client.tsx:238 —
+     same pattern, `total.toLocaleString('ar-AE')`.
+  8. components/attendance/AttendanceCalendar.tsx:199 —
+     `recDate.toLocaleDateString('ar-AE', {day:'numeric',month:'short'})` —
+     REAL HAZARD (month:'short' Arabic name).
+  9. components/attendance/TodayClockCard.tsx:50 —
+     `currentTime.toLocaleTimeString('ar-AE', {...})` — REAL HAZARD (live
+     clock display, always Arabic time format).
+  10. components/attendance/TodayClockCard.tsx:58 —
+      `currentTime.toLocaleDateString('ar-AE', {...})` — REAL HAZARD (paired
+      with #9, same card).
+  11. components/payroll/EmployeePaymentsTab.tsx:149 —
+      `new Date(p.created_at).toLocaleDateString('ar-AE')` — REAL HAZARD.
+  12. components/payroll/PayrollRunRow.tsx:396 —
+      `new Date(run.paid_at).toLocaleDateString('ar-AE')` — REAL HAZARD.
+  13. components/hr/onboarding/OnboardingChecklist.tsx:92 —
+      `new Date(task.done_at).toLocaleDateString('ar-AE')` — REAL HAZARD.
+  14. components/hr/onboarding/WizardStepCompensation.tsx:120,126 —
+      `monthly.toLocaleString('ar-AE')` / `annual.toLocaleString('ar-AE')`
+      (currency preview numbers) — REAL HAZARD (should be locale-invariant
+      like formatCurrency, or explicitly locale-threaded if intentionally
+      Arabic-digit).
+  15. components/hr/onboarding/WizardStepReview.tsx:112 —
+      `monthly.toLocaleString('ar-AE')` — same pattern as #14.
+
+SUMMARY: 13 of 15 hardcoded-locale hits are REAL HAZARDS (all use bare
+'ar-AE'/'ar-EG' with no locale conditional) — this is a MUCH HIGHER hazard
+density than Phase 4 Finance (which had only 1 real hazard out of 7 hits).
+The HR surface leans heavily on ad hoc `.toLocaleDateString('ar-AE')` /
+`.toLocaleString('ar-AE')` rather than the shared formatDate/formatCurrency
+helpers — every one of these must either (a) route through formatDate(date,
+pattern, locale) with the resolved UI locale, or (b) for the money-preview
+sites (#14, #15, #2 estimated_pay, my-payslips #3), decide whether they
+should become locale-invariant (matching formatCurrency doctrine) or
+properly locale-threaded (if the intent is genuinely to show Arabic-Indic
+digits sometimes) — this is a plan-level decision, not obvious from code
+alone. RECOMMEND: money previews → make locale-invariant (en-AE, matching
+formatCurrency); DATE displays (all the toLocaleDateString hits) → thread
+through formatDate() with resolved locale.
+
+MONTH_NAMES_AR call sites (direct import, NOT yet using the Phase-4-built
+`monthNamesFor(locale)` accessor) — need swap to the locale-aware accessor:
+  - components/payroll/CreatePayrollDialog.tsx:23,81 — month picker
+    `<SelectItem>` list built from `MONTH_NAMES_AR.map(...)`.
+  - components/payroll/PayrollRunRow.tsx:32,188 —
+    `{MONTH_NAMES_AR[run.month - 1]} {run.year}` (payroll run row label).
+  - components/attendance/AttendanceCalendar.tsx:13,59 —
+    `{MONTH_NAMES_AR[month - 1]} {year}` (calendar header).
+  - app/api/hr/overview/route.ts:8,274 — SERVER-SIDE (`label:
+    MONTH_NAMES_AR[r.month - 1] ?? String(r.month)`, payroll trend chart
+    data) — needs `getTranslations`-resolved locale threaded into
+    `monthNamesFor(locale)` since this is an API route response, not a
+    client component defaulting to 'ar'.
+`monthNamesFor(locale)` (lib/constants/dates.ts:57-59) ALREADY EXISTS from
+Phase 4 — this is a drop-in swap, not new infra. Same for
+`quarterNamesFor(locale)` (unlikely used in HR but check payroll reports if
+any exist).
+
+=== 4. DAY NAMES (attendance calendar) ===
+
+components/attendance/AttendanceCalendar.tsx:17 hardcodes its OWN
+`DAY_NAMES_AR = ['أحد','إثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت']`
+(local shadow array, used at :80 for the calendar header row AND at :189
+`DAY_NAMES_AR[recDate.getDay()]` for a per-record day-name badge).
+
+**This is 100% reusable from the EXISTING `calendar.dayNames` keyed object**
+in messages/ar/calendar.json:23-31 — `{ sun, mon, tue, wed, thu, fri, sat }`
+— confirmed BYTE-IDENTICAL Arabic words already in the catalog (أحد/إثنين/
+ثلاثاء/أربعاء/خميس/جمعة/سبت). The existing consumer pattern (from Phase 2,
+components/calendar/calendar-month-view.tsx:44,50) is:
+  const DAY_NAME_KEYS = ['sun','mon','tue','wed','thu','fri','sat'] as const;
+  const dayNames = DAY_NAME_KEYS.map((key) => t(`dayNames.${key}`));
+AttendanceCalendar.tsx should adopt the IDENTICAL pattern — do NOT create a
+new `attendance.dayNames` entity; reuse `calendar.dayNames` directly (cross-
+namespace `useTranslations` calls are already the norm in this codebase —
+verify next-intl setup allows `useTranslations('calendar')` from a component
+outside app/dashboard/calendar; it should, since translations are locale-
+scoped not path-scoped).
+
+=== 5. HOOKS ===
+
+Read all 11 HR-relevant hooks: useAttendance.ts, usePayroll.ts,
+useEmployeePayments.ts, useLeave.ts, useEvaluations.ts, useHROverview.ts,
+useDocumentTypes.ts, useEmployeeDocuments.ts, useMyDocuments.ts,
+useOnboarding.ts, useProductivity.ts. **ZERO Arabic literals in any of the 11
+hooks** (grepped `'[ء-ي]` — no hits in any file). Matches the Phase 4
+pattern where hooks are thin typed CRUD wrappers with no rendered strings.
+No hook-level swap work needed for Phase 5.
+
+=== 6. RAW-FETCH HANDS-OFF LIST ===
+
+Unlike Phase 4 Finance (17 raw-fetch files), the HR surface is MOSTLY React-
+Query-compliant already (per the HR Department Improvement 2026-06-27 +
+Payroll Integrity Fixes 2026-06-30 bundles). Confirmed data-layer pattern
+per file (fetchAPI/mutateAPI = imperative-non-cached-fetch-wrapper count;
+useQuery/useMutation = React-Query-hook count):
+
+HANDS-OFF (imperative fetchAPI/mutateAPI inside useState/useEffect — a data-
+layer debt matching CLAUDE.md's documented backlog item "migrate leave-
+client.tsx off raw fetch/useState to React Query" — do NOT convert these
+during the i18n pass, text-swap ONLY):
+  - app/dashboard/leave/leave-client.tsx — 0 useQuery/useMutation hits,
+    uses fetchAPI+useState+useEffect exclusively (CONFIRMED, matches
+    CLAUDE.md's explicit backlog note).
+  - app/dashboard/leave/settings/leave-settings-client.tsx — same pattern
+    (5 fetchAPI/mutateAPI hits, 0 useQuery/useMutation).
+  - app/dashboard/my-payslips/my-payslips-client.tsx — same pattern (2
+    fetchAPI/mutateAPI hits — likely payslip PDF download imperative fetch,
+    which CLAUDE.md's HR/Payroll v1.1 Cleanup section explicitly says is
+    "the accepted pattern, not a raw fetch" — so THIS ONE specific fetchAPI
+    call (PDF download trigger) is fine to leave; verify the OTHER fetchAPI
+    hit isn't a data-load that should have been a hook).
+
+MIXED (both patterns present — some imperative fetchAPI calls alongside
+React-Query hooks; likely fine, e.g. a one-off action trigger beside a
+useQuery list — do NOT assume broken, but flag for implementer sanity check
+before assuming a hook already covers everything):
+  - app/dashboard/timesheet/timesheet-client.tsx — 10 fetchAPI/mutateAPI, 11
+    useQuery/useMutation hits.
+  - app/dashboard/attendance/attendance-client.tsx — 2 fetchAPI/mutateAPI, 2
+    useQuery/useMutation hits (small numbers, likely just the file's own
+    inline useQuery wrapping fetchAPI as queryFn — the CLAUDE.md-sanctioned
+    "Inline useQuery when no hook exists" pattern, NOT raw fetch; low risk).
+  - app/dashboard/approvals/approvals-client.tsx — 5 fetchAPI/mutateAPI, 6
+    useQuery/useMutation hits (same likely-fine inline-useQuery pattern).
+
+FULLY MIGRATED (pure hooks, zero imperative fetchAPI/mutateAPI, zero data-
+layer concern for i18n implementers):
+  - app/dashboard/payroll/payroll-client.tsx — 0/0 (confirmed hook-only per
+    HR bundle 2026-06-27 decision #6).
+  - app/dashboard/my-documents/my-documents-client.tsx — 0/0.
+  - app/dashboard/hr/documents/documents-client.tsx — uses
+    useEmployeeDocuments/useDocumentTypes/useUsers hooks directly, 0/0/0.
+  - app/dashboard/hr/documents/settings/document-types-client.tsx — 0/0/0.
+  - app/dashboard/hr/hr-overview-client.tsx — 0/0/0 (uses useHROverview).
+  - app/dashboard/hr/leave-balances/leave-balances-client.tsx — 0/0/0.
+  - app/dashboard/hr/onboarding/onboarding-client.tsx — 0/0/0.
+  - app/dashboard/hr/onboarding/[id]/onboarding-detail-client.tsx — 0/0/0.
+  - app/dashboard/hr/productivity/productivity-client.tsx — 0/0/0.
+  - app/dashboard/hr/work-schedules/work-schedules-client.tsx — 0/0/0.
+  - app/dashboard/evaluations/evaluations-client.tsx — inline
+    useQuery+fetchAPI pattern (React-Query-compliant, NOT raw fetch) — 3
+    useQuery calls confirmed reading /api/dashboard/evaluations{,/periods,
+    /criteria}.
+
+NOTE: `app/dashboard/my-productivity` does NOT exist as a dashboard page —
+`app/api/my-productivity/route.ts` exists (API only) and is consumed by
+`components/dashboard/MyProductivityCard.tsx` (a widget, not a page) via
+`hooks/useProductivity.ts`. MyProductivityCard.tsx has ZERO Arabic literals
+and zero useTranslations — confirm at plan time where this card is rendered
+(likely app/dashboard/my-tasks/my-tasks-client.tsx and/or
+components/dashboard/EmployeeQuickPanel.tsx per grep — both already outside
+or adjacent to Phase 5's declared scope; my-tasks was Phase 2 work-core,
+already migrated).
+
+NO literal raw `fetch()`/`await fetch()` calls found anywhere in the HR
+surface (attendance/leave/timesheet/payroll/my-payslips/my-documents/hr/
+approvals) — grep for `await fetch(\|= fetch(\|fetch(\`` returned zero hits
+across all HR page directories. This surface is materially cleaner than
+Finance was.
+
+=== 7. MANIFEST — MIGRATED_PATHS ADDITIONS ===
+
+Current manifest (scripts/i18n-check.ts, ~94 lines through Phase 4) ends
+with the Phase 4 Finance block (app/dashboard/invoices, app/dashboard/quotes,
+app/dashboard/finance/* subdirs individually — NOT bare app/dashboard/finance
+because cards/ is an intentionally-orphaned removal candidate — plus
+components/quotes, components/finance, components/dashboard/{finance-
+overview,finance-reports,finance-targets,invoice-detail,invoice-new,client-
+statement,recurring-list,recurring-new,supplier-detail}, components/reports,
+app/api/invoices, app/api/quotes, app/api/finance, hooks/useInvoices.ts).
+`app/dashboard/page.tsx` IS already in the manifest (the Phase-4-census
+hazard #1 about the un-migrated admin-stats shell has apparently been
+resolved by a later commit — confirm via `git log --oneline -- app/dashboard/page.tsx`
+if the plan needs certainty, not done in this pass).
+
+Phase 5 must APPEND (mirroring the individually-listed-subdirs pattern Phase
+4 established for finance, since app/dashboard/hr/documents and app/
+dashboard/hr/onboarding etc. are all legitimately in-scope with no orphaned
+siblings found — unlike finance/cards):
+  // Phase 5 — HR
+  'app/dashboard/attendance',
+  'app/dashboard/leave',
+  'app/dashboard/timesheet',
+  'app/dashboard/payroll',
+  'app/dashboard/my-payslips',
+  'app/dashboard/my-documents',
+  'app/dashboard/hr',                    (covers documents, documents/settings,
+                                           leave-balances, onboarding,
+                                           onboarding/[id], productivity,
+                                           work-schedules, hr-overview,
+                                           page.tsx — verify NO orphaned
+                                           subdir exists before using the
+                                           bare directory; this pass found
+                                           none, all 8 subdirs + root page
+                                           are live in-scope surfaces)
+  'app/dashboard/approvals',
+  'app/dashboard/evaluations',           (evaluations-client.tsx +
+                                           settings/evaluations-settings-
+                                           client.tsx both in scope per the
+                                           task's declared app/dashboard/
+                                           {...,evaluations} list)
+  'components/attendance',
+  'components/payroll',
+  'components/hr',                       (covers hr/documents, hr/onboarding
+                                           sub-dirs)
+  'components/evaluations',              (VERIFY THIS DIRECTORY EXISTS —
+                                           not confirmed present in this pass;
+                                           evaluations-client.tsx may inline
+                                           all its sub-UI rather than split
+                                           into components/evaluations/ —
+                                           check before adding, manifest
+                                           entries for empty/missing dirs
+                                           FAIL LOUD per i18n-check.ts:154-160)
+  'app/api/hr',
+  'app/api/leave',
+  'app/api/timesheet',
+  'app/api/my-documents',
+  'app/api/my-productivity',
+  'app/api/dashboard/attendance',
+  'app/api/dashboard/payroll',
+  'app/api/dashboard/leave',
+  'app/api/dashboard/evaluations',
+  'hooks/useAttendance.ts',
+  'hooks/usePayroll.ts',
+  'hooks/useEmployeePayments.ts',
+  'hooks/useLeave.ts',
+  'hooks/useEvaluations.ts',
+  'hooks/useHROverview.ts',
+  'hooks/useDocumentTypes.ts',
+  'hooks/useEmployeeDocuments.ts',
+  'hooks/useMyDocuments.ts',
+  'hooks/useOnboarding.ts',
+  'hooks/useProductivity.ts',
+
+CAUTION — do NOT add these (out of Phase 5's declared scope, will break
+i18n:check or wrongly claim un-migrated files as done):
+  - 'app/dashboard/users' (contains the divergent EMPLOYMENT_TYPE_LABELS/
+    WORK_LOCATION_LABELS shadow maps documented in §2 — un-migrated, not
+    Phase 5's surface).
+  - 'app/dashboard/directory' (same reason — divergent shadow maps, not
+    declared scope).
+  - 'app/dashboard/profile' (has HR-adjacent bank_details/IBAN self-service
+    fields from Batch B but is not in Phase 5's declared page list — see §9).
+  - bare 'components/dashboard' (contains EmployeeQuickPanel.tsx with 4
+    un-migrated Arabic toast strings — clock-in/out — and MyProductivityCard
+    — do NOT sweep the whole directory; if Phase 5 wants to migrate
+    EmployeeQuickPanel.tsx specifically because it's attendance-domain,
+    add ONLY that file path, not the parent directory).
+
+CONFIRMED EXIST (all API dirs checked, safe to add): app/api/hr,
+app/api/leave, app/api/timesheet, app/api/my-documents,
+app/api/my-productivity, app/api/dashboard/attendance,
+app/api/dashboard/payroll, app/api/dashboard/leave,
+app/api/dashboard/evaluations.
+
+=== 8. PAYLOAD SIZE (gzip) ===
+
+Current combined (Phases 0-4 shipped, includes finance.json + crm.json):
+  messages/ar/*.json combined: 35,568 bytes gzipped
+  messages/en/*.json combined: 31,637 bytes gzipped
+Per-AR-file breakdown: api.json 5867B, auth.json 1397B, boards.json 3607B,
+calendar.json 859B, common.json 770B, crm.json 11400B, finance.json 10155B,
+mywork.json 1035B, nav.json 2849B, statuses.json 2139B.
+
+No 'hr.json' namespace exists yet. NAMESPACE_FILES (lib/i18n/messages.ts:11-15)
+currently = ['common','nav','auth','statuses','mywork','boards','calendar',
+'api','crm','finance']. i18n/global.ts type-imports all 10 files + builds
+the combined Messages type. Phase 5 will add 'hr' → both files need updating
+(register in NAMESPACE_FILES array AND add `import type hr from
+'../messages/ar/hr.json'` + widen the Messages intersection type in
+i18n/global.ts — same 2-file registration Phase 4 did for 'finance').
+
+Given the HAZARD DENSITY found in §3 (13 real hardcoded-locale sites vs
+Finance's 1) and the multiple sub-modules (attendance, leave [+settings],
+timesheet, payroll [+employee-payments], my-payslips, my-documents, hr-
+overview, hr-documents [+settings], hr-onboarding [wizard + detail +
+checklist], hr-work-schedules, hr-leave-balances, hr-productivity,
+approvals, evaluations [+settings]) — expect hr.json to be the LARGEST
+catalog file yet, likely exceeding crm.json's 11,400B gzipped given HR has
+MORE distinct sub-surfaces than CRM's single pipeline+leads+customers trio.
+Budget 12,000-18,000B gzipped for hr.json, plus statuses.json growth for the
+~5 new entities identified in §1/§2 (timesheet, onboarding, documentExpiry,
+employmentType, workLocation, paymentType, currency — 7 candidate additions,
+each small, maybe +800-1200B total to statuses.json).
+
+=== 9. SHARED WIDGETS / OVERLAP CHECK ===
+
+CONFIRMED NO CONFLICT: `app/dashboard/page.tsx` (dashboard root) already has
+a `leave_balance` section (LeaveBar components for annual/sick/personal,
+:231-237) rendered for non-admin users, and per the manifest this file IS
+already in MIGRATED_PATHS (Phase 4 apparently absorbed it, resolving the
+Phase-4-census hazard #1 about the un-migrated admin-stats shell — this
+census did not verify via git log whether it was Phase 4 or a later fix
+commit, but the manifest entry is present now). **Phase 5 must NOT re-touch
+app/dashboard/page.tsx** — it's claimed by an earlier phase; if any Arabic
+remnants are found there during Phase 5 work, that's a regression report
+against the claiming phase, not new Phase 5 scope.
+
+OVERLAP FLAG (not a conflict, just adjacent surface outside declared scope):
+`app/dashboard/profile/profile-client.tsx` renders Batch-B HR self-service
+fields (bank_details.bank/iban/account_name/account_no — IBAN self-edit) —
+this file is NOT in Phase 5's declared page list (app/dashboard/{attendance,
+leave,timesheet,payroll,my-payslips,my-documents,my-productivity,
+evaluations,hr,approvals}) and is NOT yet in MIGRATED_PATHS. It contains
+HR-domain data (bank details) but lives under app/dashboard/profile — likely
+belongs to whichever phase claims the profile/account-settings surface. Flag
+for the plan: either explicitly exclude (leave for a later phase) or, if
+Phase 5's scope is meant to include "anything HR-data-adjacent," add it
+explicitly (recommend EXCLUDE — profile is a distinct "my account" surface,
+not an HR-module page, matching how Phase 4 didn't absorb payment-method
+UI living outside app/dashboard/finance).
+
+components/dashboard/EmployeeQuickPanel.tsx (dashboard-root-adjacent widget,
+NOT under any Phase-5-declared directory) has 4 Arabic toast strings tied
+DIRECTLY to attendance actions (clock-in/out success/error toasts at
+:51-56: 'تم تسجيل الدخول بنجاح' / 'حدث خطأ أثناء تسجيل الدخول' / 'تم تسجيل
+الانصراف بنجاح' / 'حدث خطأ أثناء تسجيل الانصراف'). This is genuinely
+attendance-domain content sitting in a dashboard-root widget file outside
+Phase 5's declared component scope (components/{attendance,payroll,hr,
+evaluations} does not include bare components/dashboard). Flag as a
+cross-phase carry-over item, same class as the Phase-4-census's
+app/dashboard/page.tsx hazard — the plan author should decide whether Phase
+5 absorbs this one file (its 4 strings are 100% attendance-clock-in/out
+content) or leaves it for whichever phase claims components/dashboard/*
+widgets generally.
+
+components/dashboard/MyProductivityCard.tsx — zero Arabic, zero
+useTranslations, safe/no-op either way.
+
+No other shared-widget overlaps found between Phase 5's declared surface and
+prior-phase-migrated territory (my-tasks, boards, calendar, CRM, finance are
+all structurally separate directories with no HR imports crossing in).
+
+=== 10. HAZARDS (full list; top-3 called out in final summary) ===
+
+1. **13 hardcoded 'ar-AE'/'ar-EG' toLocale*/Intl.* call sites across the HR
+   surface** (§3) — far higher density than Finance's 1-of-7. Concentrated
+   in components/attendance/{AttendanceCalendar,TodayClockCard}.tsx,
+   components/payroll/{EmployeePaymentsTab,PayrollRunRow}.tsx,
+   app/dashboard/my-payslips/my-payslips-client.tsx,
+   app/dashboard/hr/onboarding/[id]/onboarding-detail-client.tsx,
+   components/hr/onboarding/{OnboardingChecklist,WizardStepCompensation,
+   WizardStepReview}.tsx, app/dashboard/timesheet/timesheet-client.tsx. Each
+   needs an explicit per-site decision: thread the resolved UI locale
+   (dates) vs. convert to a fixed locale-invariant format (money previews,
+   matching formatCurrency's doctrine). A live attendance clock
+   (TodayClockCard) rendering '11:42 صباحاً' unconditionally regardless of
+   an English-locale user is the most user-visible instance.
+
+2. **Wording collision across 3 files for EMPLOYMENT_TYPES/WORK_LOCATIONS
+   enum labels** (§2) — onsite/contract/freelance each have 2-3 genuinely
+   different Arabic words in production today (components/hr/onboarding/
+   WizardStepPosition.tsx vs app/dashboard/users/[username]/user-detail-
+   client.tsx vs app/dashboard/directory/directory-client.tsx). Only the
+   FIRST file is in Phase 5's declared scope — the other two are carry-over
+   hazards for a different phase, but if Phase 5 mints a new statuses.json
+   `employmentType`/`workLocation` entity using its own file's wording, that
+   entity will NOT match what the other two (still-unmigrated) files show,
+   meaning the same real-world attribute displays 2 different words
+   depending on which page the admin is viewing — a pre-existing UX bug the
+   i18n effort will make more visible (same class as Phase 4's contract
+   in_progress collision), not introduce.
+
+3. **`pyra_leave_types.name`-matching + name_ar DB-driven display is NOT
+   swappable to next-intl for v2 dynamic leave types.** app/dashboard/leave/
+   leave-client.tsx:308 falls back to `dynamicBalances.find(b => b.name ===
+   c.leave_type)?.name_ar || TYPE_LABELS[c.leave_type] || c.leave_type` —
+   the v2 Batch-D leave-balances system (locked decision, CLAUDE.md) makes
+   leave types ADMIN-CONFIGURABLE DB rows with their own `name`/`name_ar`
+   columns (e.g. the seeded `lt_unpaid` row). The existing `leaveType`
+   catalog entity (5 fixed keys: annual/sick/personal/unpaid/emergency) can
+   only ever cover LEGACY/fixed types — any admin-added custom leave type's
+   Arabic name is genuine DB content with NO English counterpart and NO
+   catalog key, structurally identical to the CRM board-template-seeded-
+   column exemption. Phase 5 must NOT attempt to route dynamic leave-type
+   names through next-intl; keep the `name_ar || TYPE_LABELS[...] ||
+   raw-name` fallback chain intact, and only swap the STATIC `TYPE_LABELS`
+   shadow map (annual/sick/personal, lines 22-23 of leave-client.tsx) plus
+   the STATUS_LABELS shadow (line 21, which spreads the canonical
+   LEAVE_STATUS_LABELS + adds a local 'cancelled' override — verify at plan
+   time whether the local 'ملغية' override diverges from canonical). Same
+   applies server-side: app/api/leave/route.ts:85, app/api/leave/[id]/
+   route.ts:65,228 all do `.eq('name', type)`/`.eq('name', existing.type)`
+   against the DB — these are QUERY filters (not display), completely out
+   of i18n scope, but confirm implementers don't accidentally "fix" the
+   column name assumption while touching these files for unrelated reasons
+   (per the project's own Engineering Discipline memory note about never
+   guessing column names).
+
+ADDITIONAL — lower-priority hazards noted but not in the top-3:
+  - app/api/timesheet/route.ts:48 parses a `week` query param via local
+    `new Date(week)` then serializes both bounds via UTC
+    `.toISOString().split('T')[0]` — a Dubai-day boundary bug on the
+    server FILTER (not a display bug), pre-existing, out of strict i18n
+    scope but adjacent; flag as a carry-over bug-fix candidate, not a
+    Phase-5 i18n task.
+  - app/api/hr/overview/route.ts:186-188 LOOKS like raw UTC
+    (`in7DaysDate.toISOString().slice(0,10)`) but is actually SAFE — it's
+    pure date arithmetic seeded FROM an already-Dubai-day `todayKey` (via
+    `dubaiDayKey()`), so the +7-day offset stays correct. Verified NOT a
+    hazard, included here only to preempt a false-positive flag during
+    Phase 5 review.
+  - app/api/dashboard/attendance/{route,clock-out/route,summary/route}.ts
+    all pre-offset `nowUtc` by a manual `uaeOffset` before calling
+    `.toISOString().slice(0,10)` — functionally equivalent to
+    `dubaiDayKey()` but hand-rolled rather than using the canonical helper.
+    Not a bug, just inconsistent-with-convention; low-priority cleanup note,
+    not blocking for i18n.

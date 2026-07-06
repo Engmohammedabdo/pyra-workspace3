@@ -1,0 +1,241 @@
+ATTENDANCE + TIMESHEET DISCOVERY — Phase-5 i18n — files verified 2026-07-06
+
+================================================================
+GRAND TOTALS (all files in scope)
+================================================================
+Files scanned: 9
+  - app/dashboard/attendance/{attendance-client.tsx, page.tsx}  (2)
+  - components/attendance/{TodayClockCard.tsx, AttendanceSummaryCards.tsx, AttendanceCalendar.tsx, AdminAttendanceDialog.tsx}  (4)
+  - app/dashboard/timesheet/{timesheet-client.tsx, page.tsx}  (2)
+  - hooks/useAttendance.ts — EXISTS, checked: NO Arabic strings (pure typed CRUD hooks, api-helpers pattern, matches useContracts.ts/useCreditNotes.ts/useExpenses.ts precedent from Phase-4). 0 AR lines.
+
+Total AR-bearing lines (ui + data + statuses classes; comments excluded from count but listed): 131
+  - (ui) user-visible JSX/label/placeholder/aria/toast: 108
+  - (data) string compared against or written to DB / used as day-name array for date-math (non-translatable content): 4 (DAY_NAMES_AR arrays x2 files used for date-index lookup, not just display — see HAZARDS)
+  - (comment): 1 (`// TODO: Add pagination for large timesheet datasets` — actually English, so 0 true Arabic comments; noting the TODO itself as a dev-facing artifact, not counted in AR total)
+  - (statuses) label maps that should route through useStatusLabels(entity) instead of local STATUS_MAP/inline objects: 19 distinct label entries across 2 local maps in timesheet-client.tsx (STATUS_LABELS x4, PERIOD_STATUS_LABELS x4) + attendance already correctly uses the shared ATTENDANCE_STATUS_LABELS/STYLES constant (11 entries total incl. calendar legend duplication) — see detail below.
+
+Files >300 lines: 1 — app/dashboard/timesheet/timesheet-client.tsx (742 lines, well over the <300 CLAUDE.md target; flag for split consideration at implementation time, same as Phase-4's expenses-client.tsx note — existing file, note only, not a blocker).
+
+Proposed catalog key shape:
+  hr.attendance.page.*        (attendance-client.tsx: header button, toasts)
+  hr.attendance.todayCard.*    (TodayClockCard.tsx: clock-in/out card, elapsed timer, live time+date display)
+  hr.attendance.summaryCards.* (AttendanceSummaryCards.tsx: 4 KPI cards)
+  hr.attendance.calendar.*     (AttendanceCalendar.tsx: month nav, calendar grid, legend, records table)
+  hr.attendance.adminDialog.*  (AdminAttendanceDialog.tsx: admin edit/add record dialog)
+  hr.timesheet.page.*          (timesheet-client.tsx: header, add-entry dialog, summary cards, overtime card, entries tab, periods tab, add-period dialog)
+  Shared cross-cutting: statuses.attendance (ALREADY EXISTS in messages/ar/statuses.json + ATTENDANCE_STATUS_LABELS — attendance is READY to route through useStatusLabels('attendance')). NO `timesheet` entity exists in statuses.json or as a `TIMESHEET_STATUS_LABELS` constant — `lib/constants/statuses.ts` only exports the bare `TIMESHEET_STATUS` enum (draft/submitted/approved/rejected), no labels map. A NEW `timesheet` entity (entry status: draft/submitted/approved/rejected) + a NEW `timesheetPeriod` entity (period status: open/submitted/approved/rejected — note DIFFERENT key set, "open" not "draft") would need to be added to statuses.json — see HAZARDS/gaps section.
+
+================================================================
+1. app/dashboard/attendance/
+================================================================
+
+app/dashboard/attendance/page.tsx
+- 0 AR lines. Server component, only calls requirePermission('attendance.view'). No metadata title (unlike Phase-4 finance pages which had `title: '... | Pyra'`).
+
+app/dashboard/attendance/attendance-client.tsx
+- L146: toast.success `'تم تسجيل الدخول بنجاح'` (ui)
+- L147: toast.error `'حدث خطأ أثناء تسجيل الدخول'` (ui)
+- L150: toast.success `'تم تسجيل الانصراف بنجاح'` (ui)
+- L151: toast.error `'حدث خطأ أثناء تسجيل الانصراف'` (ui)
+- L180: Button text `تعديل حضور موظف` (ui)
+- No dir attrs, no toLocaleDateString/toLocaleTimeString, no localeCompare in this file (delegated to child components).
+- `dubaiDayKey()` correctly imported + used at L22/L65 for "today" comparison against `records` (`r.date === today`) — CORRECT Dubai-day pattern, matches Phase 15.1 lock. No hazard here.
+- `workSchedule?.work_days ?? [0, 1, 2, 3, 4]` fallback at L119 — NOTE: this is a STALE Sun-Thu (0=Sun..4=Thu) fallback default, contradicting the locked Batch-C decision "Pyramedia weekend = Sunday only" / `DEFAULT_WORK_DAYS = [1,2,3,4,5,6]` from `lib/constants/auth.ts`. This is a PRE-EXISTING DATA/LOGIC BUG unrelated to i18n (flagging per the "no live hazard silently fixed" discipline — this is NOT a translation issue, but the i18n pass will touch this file so it's worth a heads-up to the plan owner; do NOT silently "fix" as part of string-only work without confirming with the user).
+
+================================================================
+2. components/attendance/
+================================================================
+
+components/attendance/TodayClockCard.tsx
+- L50-55: `currentTime.toLocaleTimeString('ar-AE', { hour:'2-digit', minute:'2-digit', second:'2-digit', timeZone:'Asia/Dubai' })` — HARDCODED locale 'ar-AE', hardcoded timeZone 'Asia/Dubai' (correct TZ, but locale needs to flip to 'en-AE'-equivalent or a locale param for EN mode; this is a DIRECT `toLocaleTimeString` call, NOT using the shared `formatTime()` helper from lib/utils/format — a bypass of the shared formatter)
+- L57-63: `currentTime.toLocaleDateString('ar-AE', { weekday:'long', day:'numeric', month:'long', timeZone:'Asia/Dubai' })` — SAME hardcoded-locale pattern, also bypasses shared `formatDate()`/`formatRelativeDate()` helpers. This is the LIVE clock display (updates every second via setInterval in parent) — HIGH VISIBILITY, must get correct locale switching.
+- L74: `تم تسجيل الانصراف — {formatHours(todayRecord!.total_hours)} ساعة` (ui) [ICU: interpolates formatHours() output + trailing unit word "ساعة"]
+- L81: `مسجل الدخول منذ {formatTime(todayRecord!.clock_in)}` (ui) [ICU: interpolates formatTime() output]
+- L90: `لم تسجل الدخول اليوم` (ui)
+- L102: `اكتمل اليوم` (ui)
+- L112: ternary `{clockingOut ? 'جاري التسجيل...' : 'تسجيل انصراف'}` (ui)
+- L122: ternary `{clockingIn ? 'جاري التسجيل...' : 'تسجيل دخول'}` (ui)
+- `formatTime`/`formatHours` (shared, from lib/utils/format) ARE used correctly at L74/L81 for record-derived values — but the LIVE current-time display at L50-63 does NOT use these shared helpers, instead calling raw `toLocaleTimeString`/`toLocaleDateString` with a hardcoded 'ar-AE' locale string. This is the #1 hazard in this file: two different formatting approaches for time in the same component, only one of which is i18n-ready.
+- No dir attrs, no localeCompare.
+
+components/attendance/AttendanceSummaryCards.tsx
+- L46: `أيام الحضور` (ui)
+- L55: `أيام التأخر` (ui)
+- L64: `أيام الغياب` (ui)
+- L73: `إجمالي الساعات` (ui)
+- L78: `المعدل: {formatHours(summary.avg_hours_per_day)} / يوم` (ui) [ICU: interpolates formatHours() output]
+- formatHours (shared helper) used correctly at L75, L78. No toLocale*/localeCompare/dir attrs in this file.
+- NOTE: these 4 KPI labels ("أيام الحضور"/"أيام التأخر"/"أيام الغياب"/"إجمالي الساعات") are PURE UI labels, NOT status values — they do not map to ATTENDANCE_STATUS_LABELS keys (those are per-record statuses: present/absent/late/early_leave/holiday/weekend). These are aggregate-summary labels and belong in the page catalog (hr.attendance.summaryCards.*), not the shared statuses catalog.
+
+components/attendance/AttendanceCalendar.tsx
+- L17: `const DAY_NAMES_AR = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];` (data/ui hybrid) — HARDCODED Arabic day-name array, INDEXED BY `Date.getDay()` (0=Sunday..6=Saturday) at TWO call sites: L80 (`DAY_NAMES_AR.map(day => ...)` for the calendar's weekday header row) and L189 (`DAY_NAMES_AR[recDate.getDay()]` for the per-record day-name cell in the records table). **The `messages/ar/calendar.json` `calendar.dayNames` keyed-object pattern (`{sun,mon,tue,wed,thu,fri,sat}`) is DIRECTLY REUSABLE here** — confirmed by reading messages/ar/calendar.json: it holds exactly this same 7-value Sun-Sat set as a keyed object (not an array, per the "catalogs must never contain JSON arrays" i18n rule). Recommend consuming the SAME `calendar.dayNames` namespace (via useTranslations('calendar')) rather than duplicating a 3rd copy of day names in a new hr.attendance.* key — OR mirror the keyed-object pattern under a new key if cross-namespace imports aren't the convention (check namespace-loading rules before deciding). Either way, DO NOT re-author this as a plain array in the new catalog — arrays poison next-intl's type inference per the locked i18n rule.
+- L59: `{MONTH_NAMES_AR[month - 1]} {year}` (ui/data hybrid) — imports `MONTH_NAMES_AR` from `lib/constants/dates.ts` (1-based month index convention per that file's own doc comment). This is the SAME shared constant used by finance report routes (per the HR/Payroll v1.1 cleanup note: "finance ARABIC_MONTHS → shared MONTH_NAMES_AR"). A parallel `monthNamesFor(locale)` helper is noted to exist in `lib/constants/dates.ts` (per its own comment: "English month names, same index convention... via monthNamesFor(locale) instead of reading MONTH_NAMES_AR") — THIS is likely the correct swap target for bilingual month display; flag for plan to use `monthNamesFor(locale)` here instead of the raw AR-only array.
+- L62: aria-label `"الشهر التالي"` (ui) — NOTE: labeled "next month" but wired to `onNext` via a ChevronRight icon — check semantic pairing (RTL: chevron-right visually points backward/previous in Arabic reading direction, but the aria-label says "next" — this pairing pre-dates i18n work; the icon uses `rtl:rotate-180` correctly per the Phase 15.1 lock, so visually it's fine, but VERIFY aria-label meaning vs button placement order for the EN swap — under LTR the icon flips back so "next" + ChevronRight becomes visually correct in EN, this is likely fine, just documenting the cross-check).
+- L63: `<ChevronRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />` — CORRECT rtl:rotate-180 icon pattern (Phase 15.1 lock #7 / re-confirmed CRM-audit lock #9 discipline). No fix needed, just confirming compliance.
+- L65: aria-label `"الشهر السابق"` (ui)
+- L66: `<ChevronLeft className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />` — CORRECT pattern, same as above.
+- L76: `تقويم الحضور` (ui) — CardTitle-style heading
+- L103: `ATTENDANCE_STATUS_LABELS[cell.status as keyof typeof ATTENDANCE_STATUS_LABELS]` — GOOD, already routes through the shared constant (statuses class) — swap target is simply `useStatusLabels('attendance')` instead of the direct import, per CLAUDE.md's stated migration pattern ("new/migrated modules use useStatusLabels(entity)... the legacy *_STATUS_LABELS Arabic maps remain ONLY for not-yet-migrated modules").
+- L106: `ariaLabel = \`${cell.date} — ${statusLabel}\`` (ui) [ICU: interpolates date + translated status label into an AR aria-label — accessibility-critical, must stay correct in EN mode too] — AR ARIA-LABEL FLAG: this is a live screen-reader string built from a translated status label; must re-verify word order/em-dash convention under EN.
+- L134: `role="list" aria-label="مفتاح ألوان الحضور"` (ui) — AR ARIA-LABEL on the calendar color-legend list.
+- L146: `ATTENDANCE_STATUS_LABELS[item.status as keyof typeof ATTENDANCE_STATUS_LABELS]` — 2nd usage of the SAME shared constant for the legend (statuses class, same swap target as L103).
+- L159: `سجل الحضور` (ui) — CardTitle-style heading, records table section
+- L171: EmptyState title `"لا توجد سجلات"` (ui)
+- L172: EmptyState description `"لم يتم تسجيل أي حضور في هذا الشهر"` (ui)
+- L179: column header `التاريخ` (ui)
+- L180: column header `الدخول` (ui)
+- L181: column header `الانصراف` (ui)
+- L182: column header `الساعات` (ui)
+- L183: column header `الحالة` (ui)
+- L199: `recDate.toLocaleDateString('ar-AE', { day: 'numeric', month: 'short' })` — HARDCODED locale 'ar-AE', direct `toLocaleDateString` call bypassing the shared `formatDate()` helper (which DOES take a `locale` param per Phase 0-2 convention). Same class of hazard as TodayClockCard's live clock — a raw Intl call with hardcoded 'ar-AE' instead of the shared formatter.
+- L204/L208: `formatTime(record.clock_in)` / `formatTime(record.clock_out)` — CORRECT, uses shared helper (default locale 'ar', no explicit param passed — will need a locale arg threaded through once the page goes bilingual).
+- L211: `formatHours(record.total_hours)` — CORRECT, uses shared helper.
+- L216/L218: `ATTENDANCE_STATUS_STYLES[record.status]` / `ATTENDANCE_STATUS_LABELS[record.status] || record.status` — 3rd usage of the shared constants in this file (statuses class); the `|| record.status` fallback is a RAW-STATUS-LEAK pattern (same class as Phase-4's contracts-client STATUS_MAP fallback) — low risk since `record.status` is an English DB enum value, would just look odd/untranslated if it ever fires, not a broken comparison.
+- HAZARD (status-vs-comparison, SAFE): `cell.status === 'weekend'` compares at L118 against the raw DB/derived status string ('weekend' is synthesized client-side at attendance-client.tsx L124, not DB-stored) — comparison is against the ENGLISH enum value, display-only via ATTENDANCE_STATUS_LABELS — SAFE pattern, matches Phase-4's H3 finding (display separate from comparison).
+- getCalendarDotColor() switch statement (L32-42) — compares against English status keys only, no Arabic strings, no hazard.
+
+components/attendance/AdminAttendanceDialog.tsx
+- L77: toast.error `'يرجى اختيار موظف'` (ui)
+- L81: toast.error `'يرجى تحديد التاريخ'` (ui)
+- L96: toast.success `'تم حفظ سجل الحضور'` (ui)
+- L107: toast.error ternary `e instanceof Error ? e.message : 'فشل الحفظ'` — NOTE: `e.message` here is a CLIENT-SIDE JS Error thrown by `mutateAPI`/`fetchAPI` (per api-helpers.ts pattern), which typically wraps the SERVER's Arabic error message — same "server-message passthrough" dependency class as Phase-4's H4 finding; the underlying `/api/dashboard/attendance/admin` route's error strings must be migrated to the `api` i18n namespace before this fallback path is fully bilingual.
+- L115: `dir="rtl"` HARDCODED on `<DialogContent>` — this is a page-level directional override (not a numeric/identifier LTR sub-element like Phase-4's flagged cases) — WORTH FLAGGING DIFFERENTLY: this is the DIALOG'S OWN dir, likely needs to become locale-conditional (`dir={locale === 'ar' ? 'rtl' : 'ltr'}`) once the page supports EN, rather than staying hardcoded 'rtl'. Cross-reference: the global `<html lang dir>` is already dynamic per CLAUDE.md i18n section — but this dialog sets its OWN dir attribute independently, which would fight the global direction in EN mode. FLAG AS HAZARD for plan (not a pure string swap).
+- L117: DialogTitle `تعديل / إضافة سجل حضور` (ui)
+- L123: Label `الموظف` (ui)
+- L126: SelectValue placeholder `"اختر موظفاً..."` (ui)
+- L140: Label `التاريخ` (ui)
+- L153: Label `الحالة` (ui)
+- L159-166: `ATTENDANCE_STATUS_LABELS` entries iterated via `Object.entries()` for the status Select dropdown — 4th usage site of the shared constant in this scope (statuses class) — GOOD pattern, iterates the constant directly rather than hardcoding options; swap target is again `useStatusLabels('attendance')`.
+- L173: Label `وقت الدخول (اختياري)` (ui)
+- L183: Label `وقت الانصراف (اختياري)` (ui)
+- L196: Label `ملاحظات (اختياري)` (ui)
+- L201: placeholder `"أي ملاحظات إضافية..."` (ui)
+- L213: Button ternary `{upsert.isPending ? 'جاري الحفظ...' : 'حفظ السجل'}` (ui)
+- L221: Button `إلغاء` (ui)
+- No toLocale*/localeCompare calls in this file. `dubaiDayKey()` correctly used at L50 for the default date field value AND inside `toUTCIso()` doc-comment math (L39-44, which itself is pure date-math code, not a translatable string — but flagging per Phase 15.1 discipline: the function's inline comment documents the Dubai+4h UTC conversion correctly, no bug found here, unlike attendance-client.tsx's stale weekend-fallback).
+- `DialogFooter className="flex-row-reverse gap-2 sm:justify-start"` (L207) — cosmetic-only per the locked "HR bundle v1.1 backlog: AdminAttendanceDialog DialogFooter flex-row-reverse cosmetic alignment" note; NOT an i18n concern, just confirming it's pre-flagged as low-value elsewhere, no action needed here.
+
+================================================================
+3. app/dashboard/timesheet/
+================================================================
+
+app/dashboard/timesheet/page.tsx
+- 0 AR lines. Server component, only calls requirePermission('timesheet.view'). No metadata title.
+
+app/dashboard/timesheet/timesheet-client.tsx  [FILE >300 LINES — 742 total, LARGEST file in this census]
+- L1: `// TODO: Add pagination for large timesheet datasets` — English dev comment, NOT Arabic (not counted in AR total, noting only because it signals pre-existing tech debt awareness in this exact file).
+- L32-37: `STATUS_LABELS` local const — `{ draft: 'مسودة', submitted: 'مرسل', approved: 'معتمد', rejected: 'مرفوض' }` (statuses) — 4 entries, LOCAL/HARDCODED, NOT imported from any shared constant (no `TIMESHEET_STATUS_LABELS` exists to import from — see gap note in GRAND TOTALS). This is the entry-level timesheet status.
+- L46-51: `PERIOD_STATUS_LABELS` local const — `{ open: 'مفتوحة', submitted: 'مرسلة', approved: 'معتمدة', rejected: 'مرفوضة' }` (statuses) — 4 entries, LOCAL/HARDCODED. NOTE: this is a DIFFERENT status vocabulary than the entry-level one (`open` vs `draft` as the initial state) — confirms these need TWO separate catalog/statuses entities (`timesheet` for entries, `timesheetPeriod` for periods), not one shared map.
+- L150: toast.success `'تم إضافة السجل'` (ui)
+- L160: toast.error `'فشل الإضافة'` (ui)
+- L165: toast.success `'تم إرسال السجل للاعتماد'` (ui)
+- L166: toast.error `'فشل الإرسال'` (ui)
+- L173: toast.success ternary `approved ? 'تم اعتماد السجل' : 'تم رفض السجل'` (ui)
+- L176: toast.error `'فشل العملية'` (ui)
+- L181: toast.success `'تم الحذف'` (ui)
+- L182: toast.error `'فشل الحذف'` (ui) [2nd distinct "فشل الحذف" — same string reusable as one key across entry+period deletes if desired, though period deletion doesn't appear to exist as a mutation in this file — verify: only entries have a delete mutation; periods do not expose delete in this UI]
+- L189: toast.success `'تم إنشاء الفترة'` (ui)
+- L195: toast.error ternary `err instanceof Error ? err.message : 'فشل إنشاء الفترة'` — server-message passthrough dependency (same class as Phase-4 H4 / AdminAttendanceDialog L107)
+- L202-206: `actionLabels` local const inside `updatePeriodStatusMutation.onSuccess` — `{ submit: 'تم إرسال الفترة', approve: 'تم اعتماد الفترة', reject: 'تم رفض الفترة' }` (ui) — 3 more dynamic toast strings, keyed by action name; ICU-worthy as a keyed lookup (not a plural, but a discriminated success-message-by-action pattern, similar to invoice/quote toast patterns elsewhere in the codebase)
+- L210: toast.error ternary `err instanceof Error ? err.message : 'فشل العملية'` — server-message passthrough dependency
+- L271: h1 `سجل ساعات العمل` (ui)
+- L273: `` `{entries.length} سجل · إجمالي {totalHours.toFixed(1)} ساعة` `` — ICU interpolation (count + formatted-number), uses a middle-dot separator `&middot;` (HTML entity, renders as `·`) — TWO interpolated values in one Arabic sentence, needs careful ICU message authoring with named placeholders (e.g. `{count} سجل · إجمالي {hours} ساعة`) [ICU]
+- L280: Button text `تسجيل ساعات` (ui) — dialog trigger
+- L285: DialogTitle `تسجيل ساعات عمل` (ui)
+- L290: form label `التاريخ` (ui)
+- L295: `dir="ltr"` on date `<Input>` — numeric/date-picker field, likely keep-as-is per Phase-4 precedent (locale-agnostic date widget)
+- L299: form label `الساعات` (ui)
+- L307: placeholder `"مثال: 8"` (ui) [ICU-adjacent: example-value placeholder, verbatim digit]
+- L308: `dir="ltr"` on hours `<Input>` — numeric field, keep-as-is
+- L313: form label `المشروع (اختياري)` (ui)
+- L319: `<option value="">بدون مشروع</option>` (ui) — NOTE: raw HTML `<select>`/`<option>` elements (NOT the shadcn `Select` component used elsewhere in this codebase) — a11y/styling inconsistency pre-existing, not an i18n blocker but worth noting for the plan (the rest of the app uses `@/components/ui/select`).
+- L328: form label `ملاحظات` (ui)
+- L332: placeholder `"ما الذي عملت عليه؟"` (ui)
+- L343: checkbox label `قابل للفوترة` (ui)
+- L347: label `سعر الساعة` (ui)
+- L354: placeholder `"مثال: 150"` (ui)
+- L355: `dir="ltr"` on billing-rate `<Input>` — numeric field, keep-as-is
+- L366: Button ternary with icon `{saving ? <><Loader2.../> جاري الحفظ...</> : 'حفظ'}` [ICU: rich-text wrapping icon, same pattern as Phase-4's expenses/categories save button]
+- L382: KPI label `إجمالي الساعات` (ui) — DUPLICATE TEXT of AttendanceSummaryCards.tsx L73's "إجمالي الساعات" (different page/feature, same phrase — candidate for a genuinely shared key if the catalog wants cross-page reuse, OR kept as two independent keys since they're different modules; recommend independent keys per module-scoped namespacing convention already used in Phase-4).
+- L395: KPI label `معتمد` (ui) — SAME WORD as the shared `approved` status label ('معتمد') used elsewhere (STATUS_LABELS.approved, ATTENDANCE isn't relevant here) — this is a standalone KPI card label, not routed through any status map, though it happens to match the word.
+- L408: KPI label `بانتظار الاعتماد` (ui) — NOTE: this exact phrase ALSO appeared in Phase-4's expenses-client.tsx as a TEXT-DRIFT flag (differed from EXPENSE_STATUS_LABELS.pending's 'بانتظار الموافقة') — here in timesheet it's a KPI card count label ("N entries awaiting approval"), not a status-map value, so it's a DIFFERENT use-case, not necessarily drift — but the same Arabic phrase recurring across modules for slightly different concepts (submitted status-adjacent copy) is worth flagging as a possible shared microcopy key (e.g. a generic "pendingApproval" phrase) if the catalog wants to DRY it.
+- L421: card heading `ملخص العمل الإضافي — الشهر الحالي` (ui) [ICU-adjacent: em-dash separated two-clause heading]
+- L433: unit label `ساعات إضافية` (ui)
+- L442: unit label `إدخال إضافي` (ui)
+- L451: `overtimeSummary.estimated_pay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })` — HARDCODED locale 'en-US' for a NUMBER (not a date/time) — this is INTENTIONAL per CLAUDE.md's i18n rule ("Currency/number formatting is locale-stable (en-AE) by design — do not localize digits in money") — flag as CONFIRMED-SAFE, not a hazard, just documenting the pattern match.
+- L453: unit label `تقدير الأجر الإضافي` (ui)
+- L464: TabsTrigger `الإدخالات` (ui)
+- L465: TabsTrigger `الفترات` (ui)
+- L462: `<Tabs defaultValue="entries" dir="rtl">` — HARDCODED `dir="rtl"` on the Tabs component — SAME CLASS OF HAZARD as AdminAttendanceDialog's `dir="rtl"` on DialogContent: a component-level directional override that will need to become locale-conditional, not a simple string swap. FLAG.
+- L473: EmptyState title `"لا توجد سجلات"` (ui) — NOTE: DUPLICATE of AttendanceCalendar.tsx L171's exact same string "لا توجد سجلات" for a different feature (attendance records vs timesheet entries) — same-text-different-context, recommend independent keys per module.
+- L474: EmptyState description `"ابدأ بتسجيل ساعات عملك"` (ui)
+- L475: EmptyState actionLabel `"تسجيل ساعات"` (ui) — DUPLICATE of L280's button text "تسجيل ساعات" — SAME key reusable within this file/module.
+- L493-495: `new Date(entry.date).toLocaleDateString('ar-EG', { weekday: 'short' })` — HARDCODED locale **'ar-EG'** (NOTE: different regional locale than the 'ar-AE' used everywhere else in this scope — TodayClockCard and AttendanceCalendar both use 'ar-AE', this one uses 'ar-EG' — INCONSISTENCY flagged; per the HR bundle v1.1 backlog note, "calendar-event-pill.tsx" and "crm/dashboard/dashboard-data-sources.tsx" are the two LOCKED intentional 'ar-EG' exceptions documented elsewhere — THIS timesheet-client.tsx L493 usage is a THIRD, previously-undocumented 'ar-EG' call site not covered by that lock. Flag for plan: either this needs the same intentional-exception treatment or it's an unnoticed inconsistency that should become 'ar-AE' + the shared locale convention.
+- L501: fallback text `entry.description || 'بدون وصف'` (ui)
+- L505: Badge text `قابل للفوترة` (ui) — DUPLICATE of L343's checkbox label (same concept, display badge vs form checkbox — same key reusable)
+- L506: `` ` (${entry.billing_rate}/س)` `` — ICU interpolation, `/س` = "per hour" abbreviation suffix (Arabic abbreviation glyph, needs an EN equivalent like "/hr") [ICU]
+- L511: Badge text `عمل إضافي` (ui)
+- L537-538: `STATUS_STYLES[entry.status]` / `STATUS_LABELS[entry.status]` — local hardcoded map usage (statuses class, NOT shared — needs new `timesheet` entity + useStatusLabels('timesheet'))
+- L549: Button text `إرسال` (ui) — submit action
+- L570: Button text `اعتماد` (ui) — approve action, DUPLICATE of many other "اعتماد" strings across the codebase (expenses, credit-notes in Phase-4) — likely candidate for a truly shared generic action-verb key if the catalog wants maximum DRY, though current convention (per Phase-4 census) seems to be module-scoped keys even for repeated action verbs.
+- L579: Button text `رفض` (ui) — reject action
+- L601: Button text `إنشاء فترة` (ui) — dialog trigger
+- L606: DialogTitle `إنشاء فترة زمنية` (ui)
+- L611: form label `تاريخ البداية` (ui)
+- L616: `dir="ltr"` on start-date `<Input>` — keep-as-is
+- L620: form label `تاريخ النهاية` (ui)
+- L625: `dir="ltr"` on end-date `<Input>` — keep-as-is
+- L634: Button ternary `{periodSaving ? 'جاري الإنشاء...' : 'إنشاء'}` (ui)
+- L651: EmptyState title `"لا توجد فترات"` (ui)
+- L652: EmptyState description `"أنشئ فترة زمنية لتجميع سجلات الساعات"` (ui)
+- L653: EmptyState actionLabel `"إنشاء فترة"` (ui) — DUPLICATE of L601 button text — same key reusable.
+- L671-672: `` `{period.start_date} — {period.end_date}` `` with `dir="ltr"` wrapper — ICU interpolation (two raw date strings joined by em-dash, LTR-forced for numeric date display)
+- L674-675: `PERIOD_STATUS_STYLES[period.status]` / `PERIOD_STATUS_LABELS[period.status]` — local hardcoded map usage (statuses class, NOT shared)
+- L680: `` `{period.total_hours.toFixed(1)} ساعة` `` [ICU]
+- L683: ternary `period.period_type === 'weekly' ? 'أسبوعية' : period.period_type === 'biweekly' ? 'نصف شهرية' : 'شهرية'` (statuses-like) — 3-way inline period-type label ternary, NOT in any shared constant; candidate NEW entity `timesheetPeriodType` (weekly/biweekly/monthly) if the plan wants full statuses-catalog coverage, OR keep as a small local keyed lookup under hr.timesheet namespace.
+- L687: `` `سبب الرفض: ${period.rejection_note}` `` — ICU interpolation; `period.rejection_note` is RAW DB free-text (data, exempt) — same class as Phase-4's credit-note reason field, but here it's DISPLAY-ONLY (read from DB, not auto-generated/persisted by the client), so NO H1-equivalent persistence hazard — confirmed lower risk than the Phase-4 finding.
+- L704: Button text `إرسال` (ui) — 2nd occurrence, period-submit (same word as L549's entry-submit — likely shareable generic key, or module-scoped separately)
+- L717: Button text `اعتماد` (ui) — 2nd occurrence (period-approve)
+- L726: Button text `رفض` (ui) — 2nd occurrence (period-reject)
+- No `localeCompare` calls found anywhere in this file (unlike Phase-4's contracts/expenses list pages which had sortable-column localeCompare — this file has no client-side sortable table, just a flat list render).
+- formatCurrency/formatDate call sites: 0 direct calls to the SHARED helpers in this file — all date/number display is either raw `.toLocaleDateString()`/`.toLocaleString()` calls (2 found: L451 'en-US' number, L493 'ar-EG' date) or raw string interpolation of DB date fields (L525 `entry.date`, L671-672 `period.start_date`/`end_date` — these are YYYY-MM-DD strings rendered VERBATIM, not passed through formatDate at all). This is a GAP vs the attendance components (which correctly use formatTime/formatHours) — timesheet-client.tsx does NOT consume the shared formatting helpers for its date displays at all.
+
+================================================================
+4. Cross-cutting flags
+================================================================
+- localeCompare('ar'): NONE found in this scope (0 occurrences — contrast with Phase-4's 4 occurrences in contracts/expenses list pages). No sortable-column hazard here.
+- Hardcoded dir="rtl": AdminAttendanceDialog.tsx L115 (DialogContent), timesheet-client.tsx L462 (Tabs) — 2 occurrences, BOTH are component-level directional overrides that will need to become locale-conditional once the page supports EN (NOT the "keep as-is" numeric-field pattern from Phase-4 — these are full-component RTL forces that would visually break an English render). FLAG AS HIGHER PRIORITY than Phase-4's dir="ltr" numeric-field findings.
+- Hardcoded dir="ltr": contracts-style numeric/date/identifier fields — attendance: none found; timesheet-client.tsx: L295 (date), L308 (hours), L355 (billing rate), L430/450 (overtime summary numeric displays), L489 (entry hours "Nh"), L515 (overtime multiplier "xN"), L523 (entry.date raw string), L616/625 (period start/end dates), L671 (period date range) — 11 occurrences, all numeric/date/identifier display, consistent with Phase-4's "keep as-is" precedent.
+- Hardcoded locale strings passed to Intl `toLocale*` methods (bypassing shared formatTime/formatDate/formatHours helpers):
+  1. TodayClockCard.tsx L50 `toLocaleTimeString('ar-AE', ...)` — live clock, HIGH VISIBILITY
+  2. TodayClockCard.tsx L58 `toLocaleDateString('ar-AE', ...)` — live date, HIGH VISIBILITY
+  3. AttendanceCalendar.tsx L199 `toLocaleDateString('ar-AE', ...)` — records table per-row date
+  4. timesheet-client.tsx L451 `toLocaleString('en-US', ...)` — CONFIRMED SAFE (money/number, matches locked "do not localize digits" rule)
+  5. timesheet-client.tsx L493 `toLocaleDateString('ar-EG', ...)` — INCONSISTENT regional locale (see file-level note above; a 3rd undocumented 'ar-EG' site alongside the 2 already-locked exceptions elsewhere in the codebase)
+  Total needing locale-param conversion (excl. the confirmed-safe money case): 4.
+- `dubaiDayKey()` usage — CORRECT: attendance-client.tsx L22/65 (today comparison), AdminAttendanceDialog.tsx L27/50 (default date field). timesheet-client.tsx L22/107 also imports+uses `dubaiDayKey()` correctly for the add-entry form's default date — NO raw `.toISOString().slice(0,10)` regression found anywhere in this scope (clean on the Phase 15.1 lock).
+- MONTH_NAMES_AR usage: AttendanceCalendar.tsx L59 only (1 site) — candidate for `monthNamesFor(locale)` swap per that helper's own doc-comment hint (see file-level note).
+- Day-name arrays (calendar day names): AttendanceCalendar.tsx `DAY_NAMES_AR` const (L17), used at 2 call sites (L80 header row, L189 per-record cell) — REUSABLE against the EXISTING `messages/ar/calendar.json` `calendar.dayNames` keyed-object (verified present, Sun-Sat, matches exactly). This is the clearest "don't reinvent, reuse the existing pattern" finding in this census.
+- [ICU] template literals: contracts-style interpolations found across both timesheet toasts (action-keyed success messages, count+hours summary line, billing-rate suffix, rejection-note passthrough, date-range display) and attendance (elapsed-time-since-clock-in, hours-worked-today, avg-hours-per-day, calendar aria-label date+status). Full list embedded in per-file sections above.
+- AR aria-labels (a11y — HR bundle keyboard-grid/aria-label lock territory): AttendanceCalendar.tsx L62 `"الشهر التالي"`, L65 `"الشهر السابق"`, L105-107 dynamic `${cell.date} — ${statusLabel}` per-cell gridcell aria-label, L134 `"مفتاح ألوان الحضور"` (color-legend list aria-label). These are the SAME keyboard-grid a11y surface called out in the HR bundle lock ("keyboard grid (role=gridcell, aria-label, tabIndex, focus-visible ring)") — confirms this component is the one referenced by that lock. All 4 aria-labels need catalog entries, and the dynamic per-cell one (L106) needs careful ICU authoring since it concatenates a raw date string with a translated status label.
+- Server-message passthrough toasts (`err instanceof Error ? err.message : 'فشل ...'` / `e.message`): timesheet-client.tsx L195, L210; AdminAttendanceDialog.tsx L107. All 3 depend on the underlying API routes (`/api/dashboard/timesheet-periods*`, `/api/dashboard/attendance/admin`) being migrated to the `api` i18n namespace before the client fallback text is meaningfully bilingual — same cross-file sequencing dependency noted in Phase-4's H4.
+- Duplicate/near-duplicate strings across files in THIS scope (not Phase-4 carryover): "إجمالي الساعات" (AttendanceSummaryCards.tsx L73 vs timesheet-client.tsx L382 — same phrase, different module/feature); "لا توجد سجلات" (AttendanceCalendar.tsx L171 vs timesheet-client.tsx L473 — same phrase, different EmptyState); "تسجيل ساعات" (timesheet-client.tsx L280 button vs L475 EmptyState actionLabel — SAME feature, trivially shareable); "قابل للفوترة" (timesheet-client.tsx L343 checkbox vs L505 badge — SAME feature, trivially shareable); "اعتماد"/"رفض"/"إرسال" (repeated 2x each within timesheet-client.tsx for entry-level vs period-level actions — same words, arguably shareable within the file's own namespace).
+
+================================================================
+5. HAZARDS section
+================================================================
+
+H1. [HIGH — locale-bypass on live/high-visibility displays] TodayClockCard.tsx L50-63: the live current-time + current-date display (ticks every second via the parent's `setInterval`) uses raw `toLocaleTimeString('ar-AE', ...)` / `toLocaleDateString('ar-AE', ...)` instead of the shared `formatTime()`/`formatDate()` helpers that already accept a `locale` param. This is the MOST VISIBLE clock on the page and currently has NO path to render in English without a code change beyond simple string-catalog work — it needs its own refactor to either call the shared helpers (if they can be extended to support this exact option set: weekday/day/month long-form + separate time-with-seconds) or take an explicit `locale` param mirroring the Phase 0-2 convention.
+
+H2. [MEDIUM — component-level dir override, not a string swap] AdminAttendanceDialog.tsx L115 `dir="rtl"` on `<DialogContent>` and timesheet-client.tsx L462 `dir="rtl"` on `<Tabs>` are HARDCODED full-component directional overrides (distinct from the "keep-as-is" numeric-field dir="ltr" pattern documented in Phase-4). Once the global `<html dir>` becomes locale-conditional per CLAUDE.md's i18n architecture, these two hardcoded `dir="rtl"` props will fight the page's real direction in EN-locale sessions, breaking RTL-specific components (Dialog close button position, Tabs underline direction) for English users. Needs an explicit decision: make these conditional on the resolved locale, or remove the override and let it inherit from `<html dir>` (verify Dialog/Tabs don't need an explicit dir at all — check if the override was ever necessary vs copy-paste).
+
+H3. [MEDIUM — reused Arabic day-name array, reuse existing catalog instead of duplicating] AttendanceCalendar.tsx's local `DAY_NAMES_AR` (L17) duplicates content ALREADY present in `messages/ar/calendar.json`'s `calendar.dayNames` keyed object. Per the locked i18n rule "Catalogs must NEVER contain JSON arrays — use keyed objects instead (see calendar.dayNames...)" — this is exactly the precedent to follow. Recommend either importing/consuming the existing `calendar` namespace here, or replicating the exact same keyed-object shape under a new key if cross-namespace `useTranslations` composition isn't the established convention (verify against how other modules that need calendar-adjacent data have handled this — check if any other non-calendar page already imports the `calendar` namespace for day names before deciding the pattern).
+
+H4. [LOW-MEDIUM — undocumented 3rd 'ar-EG' locale exception] timesheet-client.tsx L493 uses `toLocaleDateString('ar-EG', ...)` for the entry's short weekday name, while every OTHER Arabic locale call in this exact census scope uses 'ar-AE' (TodayClockCard x2, AttendanceCalendar x1). The CLAUDE.md HR/Payroll v1.1 cleanup section documents exactly TWO intentional 'ar-EG' exceptions elsewhere (`calendar-event-pill.tsx`, `crm/dashboard/dashboard-data-sources.tsx`) with an explicit "MUST NOT be swapped" lock — this timesheet call site is NOT among those two, so it's either (a) an unnoticed 3rd intentional exception that should be documented alongside the other two, or (b) an inconsistency that should conform to 'ar-AE' like its sibling files. Flag for the plan owner to decide before touching this line — do NOT silently normalize it without confirming which case applies.
+
+H5. [LOW — stale weekend-fallback pre-existing bug, unrelated to i18n but adjacent] attendance-client.tsx L119: `workSchedule?.work_days ?? [0, 1, 2, 3, 4]` (Sun-Thu, 0-indexed) contradicts the locked "Pyramedia weekend = Sunday only" / `DEFAULT_WORK_DAYS = [1,2,3,4,5,6]` decision from the Batch-C work-schedules lock. This is a DATA/LOGIC bug the i18n pass will touch (same file, same function) but must NOT silently "fix" as a side effect of string-catalog work — flag to the user/plan-owner as a separate concern, consistent with how Phase-4 flagged the contract `in_progress` / expense `draft` status gaps as "pre-existing, not ours to silently fix."
+
+H6. [LOW — two new statuses-catalog entities needed] Timesheet has TWO separate status vocabularies used in this scope with NO shared-constant backing at all (unlike attendance, which is fully ready via `ATTENDANCE_STATUS_LABELS` + the existing `statuses.attendance` JSON entity): (a) entry-level `STATUS_LABELS` = draft/submitted/approved/rejected, matching the existing bare `TIMESHEET_STATUS` enum in lib/constants/statuses.ts but with NO `TIMESHEET_STATUS_LABELS` map ever having been created; (b) period-level `PERIOD_STATUS_LABELS` = open/submitted/approved/rejected (note: "open" replaces "draft" as the initial state — a genuinely different enum, not just a duplicate). The i18n plan needs to author BOTH `timesheet` and `timesheetPeriod` entities in statuses.json from scratch (no existing Arabic canonical source to extract from except these two local consts in timesheet-client.tsx itself — verified as the ONLY place these labels are defined, so extraction is straightforward, just needs the plan to explicitly create 2 new entities rather than assuming reuse of an existing one).
+
+END OF CENSUS.

@@ -1,0 +1,17 @@
+HR OVERVIEW + PRODUCTIVITY CENSUS (delivered inline by sub-agent; controller-saved summary)
+Scope: app/dashboard/hr/{page,hr-overview-client}.tsx, components/hr/overview/** (8 cards), app/dashboard/hr/productivity/**, hooks/useHROverview+useProductivity, lib/hr/overview-helpers.ts, lib/production/{metrics,report}.ts. 17 files / 1,553 lines, none >300.
+
+TOTALS: ~60 (ui) strings; hooks + metrics.ts + report.ts = ZERO AR (clean pure-data pattern).
+
+STANDOUT FINDINGS:
+1. deriveAlerts() in lib/hr/overview-helpers.ts bakes 5 AR sentences SERVER-SIDE (leave backlog >5 / pending 1-5 [two hand-authored plural tiers — keep as 2 keys per CLDR-ladder doctrine] / payroll-not-calculated / absent-no-leave / docs expired / expiring-30d). MIGRATION DECISION: Approach A recommended — inject t (getTranslations from the /api/hr/overview route) into deriveAlerts(input, t); HrAlerts.tsx stays dumb renderer of alert.message; matches CLAUDE.md server-computed-strings rule. computeCelebrations() needs ZERO work (returns codes/data; CelebrationsCard translates client-side).
+2. Recharts tooltip closures: HeadcountChart L67 ('موظف'), PayrollTrendChart L72 ('إجمالي الرواتب') — resolve via component-top useTranslations consts.
+3. HeadcountChart L41 aria-label joins DYNAMIC department names with literal Arabic comma '، ' — needs {list} param + locale-appropriate separator.
+4. ALL 6 formatDate sites omit locale (UpcomingLeaveList ×2, CelebrationsCard ×1 w/ 'd MMMM' pattern, productivity-client ×3) — thread locale.
+5. metadata.title ×2 (hr/page.tsx 'الموارد البشرية — نظرة عامة', productivity/page.tsx 'تقرير الإنتاجية | Pyra Workspace') — need generateMetadata + getTranslations pattern.
+6. EvaluationsStatusCard L48 renders server-supplied active_period string verbatim — HIDDEN AR SOURCE in /api/hr/overview route (API census must cover).
+7. EvaluationsStatusCard StatPills معلقة/مقدمة/مؤكدة inline — reconcile vs EVALUATION_STATUS_LABELS/statuses entity (see evaluations census H1: entity mismatch draft/in_progress/completed vs real domains).
+8. يوم/أيام ternary DUPLICATED in UpcomingLeaveList L61 + LeaveLiabilityCard L53 → one shared ICU key. سنة/سنوات in CelebrationsCard L39. productivity-client unit suffixes (يوم/س) always-singular — preserve behavior, EN gets proper plurals.
+9. productivity-client L63 dense 4-param attendance line; L164 footer bakes internal decision date '(قرار مقفول 2026-07-03)' into user copy — plan decision: extract verbatim AR; EN may drop the parenthetical? NO — verbatim rule governs AR only; EN authored faithfully (keep the date).
+10. HrKpiRow: 11 strings, 6 KPI cards, formatCurrency passes last_paid_currency correctly. PayrollTrendChart/LeaveLiabilityCard per-currency correct.
+11. dubaiDayKey used correctly ×5 (productivity-client, metrics.ts) — no UTC smells. Zero dir attrs. Zero toLocale*/MONTH_NAMES.
