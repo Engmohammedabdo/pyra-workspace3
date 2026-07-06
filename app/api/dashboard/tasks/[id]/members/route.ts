@@ -20,10 +20,13 @@ export async function GET(
     const { id } = await params;
     const supabase = await createServerSupabaseClient();
 
-    // Fetch task to get board_id and assigned_to
+    // Fetch task to get board_id. NOTE: pyra_tasks has NO `assigned_to`
+    // column — assignees live in the pyra_task_assignees junction table.
+    // Selecting the non-existent column here used to error the query and
+    // return 404, breaking the @-mention autocomplete (2026-07-06 fix).
     const { data: task, error: taskError } = await supabase
       .from('pyra_tasks')
-      .select('id, board_id, assigned_to')
+      .select('id, board_id')
       .eq('id', id)
       .single();
 
@@ -80,17 +83,25 @@ export async function GET(
       }
     }
 
-    // 3. Include task assignee if set
-    if (task.assigned_to && !usersMap.has(task.assigned_to)) {
-      const { data: assignee } = await supabase
+    // 3. Include all task assignees (from the junction table)
+    const { data: taskAssignees } = await supabase
+      .from('pyra_task_assignees')
+      .select('username')
+      .eq('task_id', id);
+
+    const assigneeUsernames = (taskAssignees || [])
+      .map((a) => a.username)
+      .filter((u) => !usersMap.has(u));
+
+    if (assigneeUsernames.length > 0) {
+      const { data: assigneeUsers } = await supabase
         .from('pyra_users')
         .select('username, display_name')
-        .eq('username', task.assigned_to)
-        .single();
+        .in('username', assigneeUsernames);
 
-      if (assignee) {
-        usersMap.set(assignee.username, { display_name: assignee.display_name, username: assignee.username });
-      }
+      (assigneeUsers || []).forEach((u) => {
+        usersMap.set(u.username, { display_name: u.display_name, username: u.username });
+      });
     }
 
     return apiSuccess(Array.from(usersMap.values()));
