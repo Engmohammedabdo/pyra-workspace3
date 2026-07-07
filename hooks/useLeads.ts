@@ -2,11 +2,13 @@
 
 import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { fetchAPI, mutateAPI, buildQueryString, ApiError } from './api-helpers';
 import { useStatusLabels } from '@/lib/i18n/status-labels';
-import { PIPELINE_STAGE_IDS, type PipelineStageId } from '@/lib/constants/statuses';
+import { PIPELINE_STAGE_IDS } from '@/lib/constants/statuses';
+import { isStaticPipelineStageId } from '@/lib/crm/pipeline-stages';
+import { usePipelineStages } from './usePipelineStages';
 import type { PyraSalesLead } from '@/types/database';
 
 // ── Types returned by API endpoints ──
@@ -237,7 +239,19 @@ export interface RunMoveStageExtras {
 export function useMoveLeadStageWithToasts() {
   const moveStage = useMoveLeadStage();
   const t = useTranslations('crm.pipeline.moveToasts');
+  const locale = useLocale();
   const stageLabel = useStatusLabels('pipelineStage');
+  const { data: stages } = usePipelineStages();
+
+  const labelForStage = useCallback(
+    (stageId: string) => {
+      if (isStaticPipelineStageId(stageId)) return stageLabel(stageId);
+      const stage = stages?.find((s) => s.id === stageId);
+      if (!stage) return stageId;
+      return locale === 'ar' ? stage.name_ar : (stage.name || stage.name_ar);
+    },
+    [locale, stageLabel, stages],
+  );
 
   const runMoveStage = useCallback(
     async (
@@ -246,8 +260,8 @@ export function useMoveLeadStageWithToasts() {
       fromStageId: string | null,
       extras?: RunMoveStageExtras,
     ): Promise<void> => {
-      const fromLabel = fromStageId ? stageLabel(fromStageId as PipelineStageId) : null;
-      const toLabel = stageLabel(toStageId as PipelineStageId);
+      const fromLabel = fromStageId ? labelForStage(fromStageId) : null;
+      const toLabel = labelForStage(toStageId);
 
       try {
         const res = await moveStage.mutateAsync({
@@ -287,7 +301,7 @@ export function useMoveLeadStageWithToasts() {
         }
       }
     },
-    [moveStage, t, stageLabel],
+    [moveStage, t, labelForStage],
   );
 
   return { moveStage, runMoveStage };
