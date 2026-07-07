@@ -19,9 +19,12 @@ import { notify } from '@/lib/notifications/notify';
 import {
   PIPELINE_STAGE_IDS,
   PIPELINE_STAGE_LABELS_AR,
-  STAGE_DEFAULT_WIN_PROBABILITY,
-  type PipelineStageId,
 } from '@/lib/constants/statuses';
+import {
+  getStageDefaultWinProbability,
+  isCrmPipelineStageId,
+  isStaticPipelineStageId,
+} from '@/lib/crm/pipeline-stages';
 
 // ────────────────────────────────────────────────────────────────────────────
 // POST /api/crm/leads/[id]/move-stage
@@ -31,7 +34,7 @@ import {
 //
 // Body:
 //   {
-//     to_stage_id:  PipelineStageId,                // required
+//     to_stage_id:  string,                         // required; fixed stg_* or custom ps_*
 //     attachment?:  { type: 'contract'|'invoice', id: string },
 //     lost_reason?: string,
 //     reopen_reason?: string,                       // required when reopening
@@ -58,8 +61,6 @@ import {
 //   - NOTIFY (only on stg_contract_signed → manager;  reopen → original assignee)
 //   - logActivity audit row
 // ────────────────────────────────────────────────────────────────────────────
-
-const VALID_STAGES = new Set<string>(Object.values(PIPELINE_STAGE_IDS));
 
 interface AttachmentInput {
   type: 'contract' | 'invoice';
@@ -101,7 +102,24 @@ export async function POST(
 
     const toStage = typeof body.to_stage_id === 'string' ? body.to_stage_id.trim() : '';
     if (!toStage) return apiValidationError(t('crm.toStageIdRequired'));
-    if (!VALID_STAGES.has(toStage)) return apiValidationError(t('crm.toStageIdUnknown', { stage: toStage }));
+
+    const { data: targetStage, error: targetStageErr } = await supabase
+      .from('pyra_sales_pipeline_stages')
+      .select('id, name_ar')
+      .eq('id', toStage)
+      .maybeSingle();
+    if (targetStageErr) {
+      logError({
+        error: targetStageErr,
+        request,
+        user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+        metadata: { lead_id: id, action: 'move-stage', stage: 'target_stage_fetch' },
+      });
+      return apiServerError();
+    }
+    if (!targetStage || !isCrmPipelineStageId(targetStage.id)) {
+      return apiValidationError(t('crm.toStageIdUnknown', { stage: toStage }));
+    }
 
     // Direct moves to closed_won are never allowed via this endpoint —
     // the approval workflow owns that transition.
@@ -127,9 +145,9 @@ export async function POST(
     }
     if (!leadBefore) return apiNotFound(t('crm.leadNotFound'));
 
-    const fromStage = leadBefore.stage_id as PipelineStageId | null;
-    const toStageTyped = toStage as PipelineStageId;
-    if (fromStage === toStageTyped) {
+    const fromStage = typeof leadBefore.stage_id === 'string' ? leadBefore.stage_id : null;
+    const toStageId = targetStage.id;
+    if (fromStage === toStageId) {
       return apiValidationError(t('crm.leadAlreadyAtStage'));
     }
 
@@ -149,7 +167,7 @@ export async function POST(
     // ── Attachment guard for contract_signed
     let attachment: AttachmentInput | null = null;
     let attachmentLabel: string | null = null;
-    if (toStageTyped === PIPELINE_STAGE_IDS.CONTRACT_SIGNED) {
+    if (toStageId === PIPELINE_STAGE_IDS.CONTRACT_SIGNED) {
       if (!isAttachment(body.attachment)) {
         return apiValidationError(t('crm.attachmentRequiredForSignedStage'));
       }
@@ -197,7 +215,7 @@ export async function POST(
 
     // ── lost_reason guard
     let lostReason: string | null = null;
-    if (toStageTyped === PIPELINE_STAGE_IDS.CLOSED_LOST) {
+    if (toStageId === PIPELINE_STAGE_IDS.CLOSED_LOST) {
       const lr = typeof body.lost_reason === 'string' ? body.lost_reason.trim() : '';
       if (!lr) return apiValidationError(t('crm.lostReasonRequired'));
       lostReason = lr;
@@ -205,11 +223,12 @@ export async function POST(
 
     // ── Compute updates
     const updates: Record<string, unknown> = {
-      stage_id: toStageTyped,
+      stage_id: toStageId,
       updated_at: new Date().toISOString(),
     };
-    if (!leadBefore.win_probability_overridden) {
-      updates.win_probability = STAGE_DEFAULT_WIN_PROBABILITY[toStageTyped];
+    const defaultWinProbability = getStageDefaultWinProbability(toStageId);
+    if (!leadBefore.win_probability_overridden && defaultWinProbability !== null) {
+      updates.win_probability = defaultWinProbability;
     }
     if (lostReason !== null) updates.lost_reason = lostReason;
 
@@ -224,7 +243,7 @@ export async function POST(
       updates.is_converted = false;
       updates.converted_at = null;
       updates.win_probability_overridden = false;
-      updates.win_probability = STAGE_DEFAULT_WIN_PROBABILITY[toStageTyped];
+      updates.win_probability = defaultWinProbability ?? 0;
     }
 
     const { data: lead, error: updErr } = await supabase
@@ -251,9 +270,13 @@ export async function POST(
     // source. The UI side already reads labels via useStatusLabels('pipelineStage');
     // do NOT migrate PIPELINE_STAGE_LABELS_AR out of lib/constants without
     // preserving this write path, or this route breaks.
-    const fromLabel = fromStage ? PIPELINE_STAGE_LABELS_AR[fromStage] ?? fromStage : null;
-    const toLabel = PIPELINE_STAGE_LABELS_AR[toStageTyped];
-    const isContractSigned = toStageTyped === PIPELINE_STAGE_IDS.CONTRACT_SIGNED;
+    const fromLabel = fromStage && isStaticPipelineStageId(fromStage)
+      ? PIPELINE_STAGE_LABELS_AR[fromStage]
+      : fromStage;
+    const toLabel = isStaticPipelineStageId(toStageId)
+      ? PIPELINE_STAGE_LABELS_AR[toStageId]
+      : (targetStage.name_ar ?? toStageId);
+    const isContractSigned = toStageId === PIPELINE_STAGE_IDS.CONTRACT_SIGNED;
     const activityType: 'closed_won_pending' | 'stage_change' = isContractSigned
       ? 'closed_won_pending'
       : 'stage_change';
@@ -274,7 +297,7 @@ export async function POST(
     const activityMetadata: ActivityMetadata = {
       from_stage: fromStage,
       from_stage_label: fromLabel,
-      to_stage: toStageTyped,
+      to_stage: toStageId,
       to_stage_label: toLabel,
       changed_by: auth.pyraUser.username,
     };
@@ -343,7 +366,7 @@ export async function POST(
       auth.pyraUser.display_name,
       `lead_${ACTIVITY_ACTIONS.UPDATE}_stage`,
       `/dashboard/crm/leads/${id}`,
-      { lead_id: id, from_stage: fromStage, to_stage: toStageTyped, attachment, reopen: isReopen },
+      { lead_id: id, from_stage: fromStage, to_stage: toStageId, attachment, reopen: isReopen },
       request.headers.get('x-forwarded-for') || undefined,
     );
 

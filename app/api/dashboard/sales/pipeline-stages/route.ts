@@ -5,6 +5,7 @@ import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { PIPELINE_STAGE_FIELDS } from '@/lib/supabase/fields';
 import { generateId } from '@/lib/utils/id';
 import { logActivity } from '@/lib/api/activity';
+import { isCrmPipelineStageId } from '@/lib/crm/pipeline-stages';
 
 export async function GET() {
   try {
@@ -19,7 +20,7 @@ export async function GET() {
       .order('sort_order');
 
     if (error) return apiServerError(error.message);
-    return apiSuccess(data);
+    return apiSuccess((data ?? []).filter((stage) => isCrmPipelineStageId(stage.id)));
 
   } catch (err) {
     console.error('[GET /api/dashboard/sales/pipeline-stages] error:', err);
@@ -102,7 +103,7 @@ export async function PUT(request: NextRequest) {
       .select(PIPELINE_STAGE_FIELDS)
       .order('sort_order');
 
-    return apiSuccess(data);
+    return apiSuccess((data ?? []).filter((stage) => isCrmPipelineStageId(stage.id)));
 
   } catch (err) {
     console.error('[PUT /api/dashboard/sales/pipeline-stages] error:', err);

@@ -12,9 +12,11 @@ import { notify } from '@/lib/notifications/notify';
 import { phoneMatchKey } from '@/lib/utils/phone';
 import {
   PIPELINE_STAGE_IDS,
-  STAGE_DEFAULT_WIN_PROBABILITY,
-  type PipelineStageId,
 } from '@/lib/constants/statuses';
+import {
+  getStageDefaultWinProbability,
+  isCrmPipelineStageId,
+} from '@/lib/crm/pipeline-stages';
 
 const LEAD_FIELDS = [
   'id', 'name', 'phone', 'email', 'company',
@@ -194,9 +196,9 @@ export async function GET(request: NextRequest) {
 // (Same modal also calls /api/crm/leads/lookup on phone-blur for pre-submit
 // awareness — see Q-API-001 resolution.)
 //
-// Per Q-BIZ-001 the win_probability is auto-defaulted from the lead's
-// initial stage via STAGE_DEFAULT_WIN_PROBABILITY. Manual override flips
-// win_probability_overridden = true (handled in PATCH).
+// Per Q-BIZ-001 the win_probability is auto-defaulted for fixed CRM stages.
+// Custom stages created from settings have no configured default, so they use
+// the caller's explicit win_probability or the DB-safe neutral fallback.
 // ────────────────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   const t = await getTranslations('api');
@@ -215,17 +217,29 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceRoleClient();
 
     // ── Stage validation + win_probability default (Q-BIZ-001) ──
-    const requestedStage = (body.stage_id as string | undefined) || PIPELINE_STAGE_IDS.NEW_INQUIRY;
-    const stageId = (requestedStage in STAGE_DEFAULT_WIN_PROBABILITY)
-      ? (requestedStage as PipelineStageId)
-      : PIPELINE_STAGE_IDS.NEW_INQUIRY;
+    const requestedStage = typeof body.stage_id === 'string' ? body.stage_id.trim() : '';
+    let stageId = PIPELINE_STAGE_IDS.NEW_INQUIRY;
+    if (requestedStage) {
+      const { data: requestedStageRow, error: stageErr } = await supabase
+        .from('pyra_sales_pipeline_stages')
+        .select('id')
+        .eq('id', requestedStage)
+        .maybeSingle();
+      if (stageErr) {
+        console.error('POST /api/crm/leads stage lookup error:', stageErr.message);
+        return apiServerError();
+      }
+      if (requestedStageRow && isCrmPipelineStageId(requestedStageRow.id)) {
+        stageId = requestedStageRow.id;
+      }
+    }
 
     const winProbBody = body.win_probability;
     const explicitWinProb =
       typeof winProbBody === 'number' && winProbBody >= 0 && winProbBody <= 100
         ? Math.round(winProbBody)
         : null;
-    const winProbability = explicitWinProb ?? STAGE_DEFAULT_WIN_PROBABILITY[stageId];
+    const winProbability = explicitWinProb ?? getStageDefaultWinProbability(stageId) ?? 0;
 
     // assigned_to gate: creating leads for yourself is free (leads.create), but
     // assigning a NEW lead to another user is a manager/admin action — require
