@@ -27,86 +27,87 @@
 15. [pyra_file_versions](#pyra_file_versions) — File version history
 16. [pyra_login_attempts](#pyra_login_attempts) — Login attempt tracking
 17. [pyra_notifications](#pyra_notifications) — Internal team notifications
-18. [pyra_project_files](#pyra_project_files) — Files linked to projects
-19. [pyra_projects](#pyra_projects) — Project management
-20. [pyra_quote_items](#pyra_quote_items) — Quote line items
-21. [pyra_quotes](#pyra_quotes) — Financial quotes/invoices
-22. [pyra_reviews](#pyra_reviews) — File review comments
-23. [pyra_sessions](#pyra_sessions) — User sessions (cookie-based)
-24. [pyra_settings](#pyra_settings) — System settings (key-value)
-25. [pyra_share_links](#pyra_share_links) — Public file share links
-26. [pyra_team_members](#pyra_team_members) — Team membership
-27. [pyra_teams](#pyra_teams) — Teams/departments
-28. [pyra_trash](#pyra_trash) — Soft-deleted files (30-day retention)
-29. [pyra_users](#pyra_users) — Employee/admin accounts
-30. [pyra_boards](#pyra_boards) — Kanban boards
-31. [pyra_board_columns](#pyra_board_columns) — Kanban board columns
-32. [pyra_board_labels](#pyra_board_labels) — Board label definitions
-33. [pyra_tasks](#pyra_tasks) — Task cards
-34. [pyra_task_assignees](#pyra_task_assignees) — Task–user assignments
-35. [pyra_task_labels](#pyra_task_labels) — Task–label junction
-36. [pyra_task_checklist](#pyra_task_checklist) — Task checklist items
-37. [pyra_task_comments](#pyra_task_comments) — Task comments
-38. [pyra_task_attachments](#pyra_task_attachments) — Task file attachments
-39. [pyra_task_activity](#pyra_task_activity) — Task activity log
-40. [pyra_timesheets](#pyra_timesheets) — Employee time tracking
-41. [pyra_announcements](#pyra_announcements) — Company announcements
-42. [pyra_announcement_reads](#pyra_announcement_reads) — Announcement read tracking
-43. [pyra_leave_requests](#pyra_leave_requests) — Leave/vacation requests
-44. [pyra_leave_balances](#pyra_leave_balances) — Annual leave balances
-45. [pyra_roles](#pyra_roles) — User role definitions with permissions
-46. [pyra_invoices](#pyra_invoices) — Invoice management
-47. [pyra_invoice_items](#pyra_invoice_items) — Line items for invoices
-48. [pyra_payments](#pyra_payments) — Payment records
-49. [pyra_expenses](#pyra_expenses) — Expense tracking
-50. [pyra_expense_categories](#pyra_expense_categories) — Expense categories
-51. [pyra_subscriptions](#pyra_subscriptions) — Subscription management
-52. [pyra_contracts](#pyra_contracts) — Contract management
-53. [pyra_contract_milestones](#pyra_contract_milestones) — Contract milestones
-54. [pyra_cards](#pyra_cards) — Company payment cards
-55. [pyra_recurring_invoices](#pyra_recurring_invoices) — Recurring invoice templates
-56. [pyra_revenue_targets](#pyra_revenue_targets) — Revenue goals
-57. [pyra_automation_rules](#pyra_automation_rules) — Automation workflow rules
-58. [pyra_automation_log](#pyra_automation_log) — Automation execution logs
-59. [pyra_webhooks](#pyra_webhooks) — Webhook configurations
-60. [pyra_webhook_deliveries](#pyra_webhook_deliveries) — Webhook delivery logs
-61. [pyra_kb_articles](#pyra_kb_articles) — Knowledge base articles
-62. [pyra_kb_categories](#pyra_kb_categories) — Knowledge base categories
-63. [pyra_script_reviews](#pyra_script_reviews) — Script review submissions
-64. [pyra_script_review_replies](#pyra_script_review_replies) — Replies to script reviews
-65. [pyra_file_tags](#pyra_file_tags) — File tags
-66. [pyra_client_branding](#pyra_client_branding) — Client portal branding
-67. [pyra_stripe_payments](#pyra_stripe_payments) — Stripe payment records
-68. [pyra_api_keys](#pyra_api_keys) — API key management
-69. [pyra_approvals](#pyra_approvals) — Approval workflows
+18. [pyra_push_subscriptions](#pyra_push_subscriptions) — Internal Web Push subscriptions
+19. [pyra_project_files](#pyra_project_files) — Files linked to projects
+20. [pyra_projects](#pyra_projects) — Project management
+21. [pyra_quote_items](#pyra_quote_items) — Quote line items
+22. [pyra_quotes](#pyra_quotes) — Financial quotes/invoices
+23. [pyra_reviews](#pyra_reviews) — File review comments
+24. [pyra_sessions](#pyra_sessions) — User sessions (cookie-based)
+25. [pyra_settings](#pyra_settings) — System settings (key-value)
+26. [pyra_share_links](#pyra_share_links) — Public file share links
+27. [pyra_team_members](#pyra_team_members) — Team membership
+28. [pyra_teams](#pyra_teams) — Teams/departments
+29. [pyra_trash](#pyra_trash) — Soft-deleted files (30-day retention)
+30. [pyra_users](#pyra_users) — Employee/admin accounts
+31. [pyra_boards](#pyra_boards) — Kanban boards
+32. [pyra_board_columns](#pyra_board_columns) — Kanban board columns
+33. [pyra_board_labels](#pyra_board_labels) — Board label definitions
+34. [pyra_tasks](#pyra_tasks) — Task cards
+35. [pyra_task_assignees](#pyra_task_assignees) — Task–user assignments
+36. [pyra_task_labels](#pyra_task_labels) — Task–label junction
+37. [pyra_task_checklist](#pyra_task_checklist) — Task checklist items
+38. [pyra_task_comments](#pyra_task_comments) — Task comments
+39. [pyra_task_attachments](#pyra_task_attachments) — Task file attachments
+40. [pyra_task_activity](#pyra_task_activity) — Task activity log
+41. [pyra_timesheets](#pyra_timesheets) — Employee time tracking
+42. [pyra_announcements](#pyra_announcements) — Company announcements
+43. [pyra_announcement_reads](#pyra_announcement_reads) — Announcement read tracking
+44. [pyra_leave_requests](#pyra_leave_requests) — Leave/vacation requests
+45. [pyra_leave_balances](#pyra_leave_balances) — Annual leave balances
+46. [pyra_roles](#pyra_roles) — User role definitions with permissions
+47. [pyra_invoices](#pyra_invoices) — Invoice management
+48. [pyra_invoice_items](#pyra_invoice_items) — Line items for invoices
+49. [pyra_payments](#pyra_payments) — Payment records
+50. [pyra_expenses](#pyra_expenses) — Expense tracking
+51. [pyra_expense_categories](#pyra_expense_categories) — Expense categories
+52. [pyra_subscriptions](#pyra_subscriptions) — Subscription management
+53. [pyra_contracts](#pyra_contracts) — Contract management
+54. [pyra_contract_milestones](#pyra_contract_milestones) — Contract milestones
+55. [pyra_cards](#pyra_cards) — Company payment cards
+56. [pyra_recurring_invoices](#pyra_recurring_invoices) — Recurring invoice templates
+57. [pyra_revenue_targets](#pyra_revenue_targets) — Revenue goals
+58. [pyra_automation_rules](#pyra_automation_rules) — Automation workflow rules
+59. [pyra_automation_log](#pyra_automation_log) — Automation execution logs
+60. [pyra_webhooks](#pyra_webhooks) — Webhook configurations
+61. [pyra_webhook_deliveries](#pyra_webhook_deliveries) — Webhook delivery logs
+62. [pyra_kb_articles](#pyra_kb_articles) — Knowledge base articles
+63. [pyra_kb_categories](#pyra_kb_categories) — Knowledge base categories
+64. [pyra_script_reviews](#pyra_script_reviews) — Script review submissions
+65. [pyra_script_review_replies](#pyra_script_review_replies) — Replies to script reviews
+66. [pyra_file_tags](#pyra_file_tags) — File tags
+67. [pyra_client_branding](#pyra_client_branding) — Client portal branding
+68. [pyra_stripe_payments](#pyra_stripe_payments) — Stripe payment records
+69. [pyra_api_keys](#pyra_api_keys) — API key management
+70. [pyra_approvals](#pyra_approvals) — Approval workflows
 
 ### ERP Migration Tables (002_erp_features.sql)
 
-70. [pyra_leave_types](#pyra_leave_types) — Custom leave type definitions
-71. [pyra_leave_balances_v2](#pyra_leave_balances_v2) — Dynamic leave balances (per type/year)
-72. [pyra_work_schedules](#pyra_work_schedules) — Work schedule definitions
-73. [pyra_attendance](#pyra_attendance) — Daily clock-in/out records
-74. [pyra_timesheet_periods](#pyra_timesheet_periods) — Timesheet submission periods
-75. [pyra_employee_payments](#pyra_employee_payments) — Employee payment ledger
-76. [pyra_payroll_runs](#pyra_payroll_runs) — Monthly payroll runs
-77. [pyra_payroll_items](#pyra_payroll_items) — Per-employee payroll line items
-78. [pyra_evaluation_periods](#pyra_evaluation_periods) — Performance evaluation periods
-79. [pyra_evaluation_criteria](#pyra_evaluation_criteria) — Evaluation scoring criteria
-80. [pyra_evaluations](#pyra_evaluations) — Individual evaluations
-81. [pyra_evaluation_scores](#pyra_evaluation_scores) — Per-criteria scores
-82. [pyra_kpi_targets](#pyra_kpi_targets) — KPI targets per employee
-83. [pyra_content_pipeline](#pyra_content_pipeline) — Content production pipeline
-84. [pyra_pipeline_stages](#pyra_pipeline_stages) — Pipeline stage tracking
+71. [pyra_leave_types](#pyra_leave_types) — Custom leave type definitions
+72. [pyra_leave_balances_v2](#pyra_leave_balances_v2) — Dynamic leave balances (per type/year)
+73. [pyra_work_schedules](#pyra_work_schedules) — Work schedule definitions
+74. [pyra_attendance](#pyra_attendance) — Daily clock-in/out records
+75. [pyra_timesheet_periods](#pyra_timesheet_periods) — Timesheet submission periods
+76. [pyra_employee_payments](#pyra_employee_payments) — Employee payment ledger
+77. [pyra_payroll_runs](#pyra_payroll_runs) — Monthly payroll runs
+78. [pyra_payroll_items](#pyra_payroll_items) — Per-employee payroll line items
+79. [pyra_evaluation_periods](#pyra_evaluation_periods) — Performance evaluation periods
+80. [pyra_evaluation_criteria](#pyra_evaluation_criteria) — Evaluation scoring criteria
+81. [pyra_evaluations](#pyra_evaluations) — Individual evaluations
+82. [pyra_evaluation_scores](#pyra_evaluation_scores) — Per-criteria scores
+83. [pyra_kpi_targets](#pyra_kpi_targets) — KPI targets per employee
+84. [pyra_content_pipeline](#pyra_content_pipeline) — Content production pipeline
+85. [pyra_pipeline_stages](#pyra_pipeline_stages) — Pipeline stage tracking
 
 ### Employee Documents Vault (021_pyra_employee_documents.sql)
 
-85. [pyra_document_types](#pyra_document_types) — Configurable HR document-type catalogue
-86. [pyra_employee_documents](#pyra_employee_documents) — Per-employee HR document store (private bucket, signed URLs)
+86. [pyra_document_types](#pyra_document_types) — Configurable HR document-type catalogue
+87. [pyra_employee_documents](#pyra_employee_documents) — Per-employee HR document store (private bucket, signed URLs)
 
 ### Employee Onboarding (024_pyra_onboarding.sql)
 
-87. [pyra_onboarding](#pyra_onboarding) — New-hire onboarding workflow records
-88. [pyra_onboarding_tasks](#pyra_onboarding_tasks) — Per-onboarding checklist tasks
+88. [pyra_onboarding](#pyra_onboarding) — New-hire onboarding workflow records
+89. [pyra_onboarding_tasks](#pyra_onboarding_tasks) — Per-onboarding checklist tasks
 
 ---
 
@@ -448,6 +449,31 @@ The helper enforces correct column names, auto-skips self-notifications, and is 
 
 ---
 
+## pyra_push_subscriptions
+
+Internal Web Push subscriptions for dashboard users. Client portal push is out of scope.
+
+| Column | Type | Nullable | Default | Notes |
+|--------|------|----------|---------|-------|
+| **id** | varchar(20) | NOT NULL | — | Prefix `ps_` |
+| username | varchar | NOT NULL | FK → pyra_users(username) | Dashboard user who owns this browser subscription |
+| endpoint | text | NOT NULL | — | Unique browser push endpoint |
+| p256dh | text | NOT NULL | — | Browser public encryption key, stored for future payload encryption |
+| auth | text | NOT NULL | — | Browser auth secret, stored for future payload encryption |
+| user_agent | text | YES | NULL | Device/browser hint |
+| expiration_time | timestamptz | YES | NULL | Browser-provided expiration, when available |
+| last_seen_at | timestamptz | NO | `now()` | Updated when the browser registers again |
+| last_success_at | timestamptz | YES | NULL | Last successful push-service delivery |
+| last_failure_at | timestamptz | YES | NULL | Last failed push-service delivery |
+| failure_count | integer | NO | `0` | Reserved for retry/health metrics |
+| disabled_at | timestamptz | YES | NULL | Soft-disabled when user unsubscribes or endpoint is gone |
+| created_at | timestamptz | NO | `now()` | — |
+| updated_at | timestamptz | NO | `now()` | Trigger-maintained |
+
+**Dispatch path:** `lib/notifications/notify.ts` inserts the normal bell notification first, then sends a best-effort no-payload Web Push. The service worker fetches the latest `/api/notifications` row when the browser wakes up, so push failures never break the parent workflow.
+
+---
+
 ## pyra_project_files
 
 Files associated with projects. Links storage files to project context.
@@ -766,6 +792,7 @@ All `varchar` IDs use the format: `{prefix}_{unix_timestamp}_{random}`
 | `fp` | pyra_file_permissions_archived *(legacy, no longer used)* |
 | `fv` | pyra_file_versions |
 | `n` | pyra_notifications |
+| `ps` | pyra_push_subscriptions |
 | `pf` | pyra_project_files |
 | `rv` | pyra_reviews |
 | `sl` | pyra_share_links |

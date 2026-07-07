@@ -139,6 +139,23 @@ export interface PyraNotification {
   created_at: string;
 }
 
+export interface PyraPushSubscription {
+  id: string;
+  username: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  user_agent: string | null;
+  expiration_time: string | null;
+  last_seen_at: string;
+  last_success_at: string | null;
+  last_failure_at: string | null;
+  failure_count: number;
+  disabled_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface PyraShareLink {
   id: string;
   file_path: string;

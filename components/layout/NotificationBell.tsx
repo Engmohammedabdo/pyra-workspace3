@@ -3,10 +3,13 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Bell,
+  BellOff,
+  BellRing,
   CheckCheck,
   Volume2,
   VolumeX,
@@ -17,6 +20,7 @@ import {
   CheckSquare,
   Clock,
   Briefcase,
+  Loader2,
   MessageSquare,
   type LucideIcon,
 } from 'lucide-react';
@@ -27,6 +31,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useNotifications, requestNotificationPermission } from '@/hooks/useNotifications';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useRealtime } from '@/hooks/useRealtime';
 import { formatRelativeDate, dubaiDayKey } from '@/lib/utils/format';
 import {
@@ -136,6 +141,12 @@ export function NotificationBell({ username }: NotificationBellProps) {
   const t = useTranslations('nav.bell');
   const { notifications, unreadCount, loading, refresh, markRead, markAllRead } =
     useNotifications();
+  const {
+    state: pushState,
+    isBusy: pushBusy,
+    enable: enablePush,
+    disable: disablePush,
+  } = usePushNotifications();
 
   // Subscribe to realtime for instant updates
   const handleNewNotification = useCallback(() => {
@@ -149,6 +160,32 @@ export function NotificationBell({ username }: NotificationBellProps) {
     const next = !soundOn;
     setSoundOn(next);
     setNotificationSoundEnabled(next);
+  };
+  const pushEnabled = pushState === 'enabled';
+  const pushTitle =
+    pushState === 'enabled' ? t('disablePush') :
+    pushState === 'unsupported' ? t('pushUnsupported') :
+    pushState === 'blocked' ? t('pushBlocked') :
+    pushState === 'config-missing' ? t('pushConfigMissing') :
+    t('enablePush');
+
+  const togglePush = async () => {
+    if (pushState === 'unsupported' || pushState === 'blocked' || pushState === 'config-missing') {
+      toast.info(pushTitle);
+      return;
+    }
+
+    try {
+      if (pushEnabled) {
+        await disablePush();
+        toast.success(t('pushDisabledToast'));
+      } else {
+        await enablePush();
+        toast.success(t('pushEnabledToast'));
+      }
+    } catch {
+      toast.error(t('pushErrorToast'));
+    }
   };
 
   const handleNotificationClick = (notification: { id: string; type: string; target_path: string; is_read: boolean }) => {
@@ -198,6 +235,23 @@ export function NotificationBell({ username }: NotificationBellProps) {
         <div className="flex items-center justify-between border-b p-3">
           <h4 className="text-sm font-semibold">{t('title')}</h4>
           <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={togglePush}
+              disabled={pushBusy || pushState === 'loading'}
+              title={pushTitle}
+              aria-label={pushTitle}
+            >
+              {pushBusy ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : pushEnabled ? (
+                <BellRing className="h-3.5 w-3.5 text-orange-500" />
+              ) : (
+                <BellOff className="h-3.5 w-3.5 text-muted-foreground" />
+              )}
+            </Button>
             <Button
               variant="ghost"
               size="icon"

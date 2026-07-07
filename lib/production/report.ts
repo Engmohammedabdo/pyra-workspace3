@@ -25,11 +25,37 @@ export interface EmployeeReport {
   tasks: TaskJourney[];
 }
 
+export interface ProductivityReport {
+  month: string;
+  employees: EmployeeReport[];
+}
+
+export interface ProductivityTrendPoint extends EmployeeProductivity {
+  month: string;
+}
+
+export interface ProductivityTrends {
+  months: ProductivityTrendPoint[];
+}
+
+interface UserRow {
+  username: string;
+  display_name: string | null;
+  work_schedule_id: string | null;
+  hire_date: string | null;
+}
+
+interface LoadedProductivityJourneys {
+  userList: string[];
+  users: UserRow[];
+  journeysByUser: Map<string, TaskJourney[]>;
+  allJourneys: TaskJourney[];
+}
+
 /**
  * Expected work days in the month UP TO todayKey, given a schedule's work_days.
  * `hireDateKey` (YYYY-MM-DD), when provided, excludes days before the employee
- * was hired — same pro-ration doctrine as `hireProrationFactor` in
- * lib/payroll/calculate-item.ts (don't count pre-hire days as absences).
+ * was hired, matching the payroll pro-ration doctrine.
  */
 function countExpectedWorkDays(
   workDays: number[],
@@ -50,17 +76,20 @@ function countExpectedWorkDays(
   return expected;
 }
 
-export interface ProductivityReport {
-  month: string;
-  employees: EmployeeReport[];
+function shiftMonth(monthKey: string, delta: number): string {
+  const [year, month] = monthKey.split('-').map(Number);
+  const d = new Date(year, month - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-export async function computeProductivity(
+export function lastNMonthKeys(count: number, anchorMonth = dubaiDayKey().slice(0, 7)): string[] {
+  return Array.from({ length: count }, (_, i) => shiftMonth(anchorMonth, i - count + 1));
+}
+
+async function loadProductivityJourneys(
   supabase: SupabaseClient,
-  monthKey: string,
   usernames?: string[],
-): Promise<ProductivityReport> {
-  // 1. pipeline boards → per-board review/done columns
+): Promise<LoadedProductivityJourneys> {
   const { data: boards } = await supabase
     .from('pyra_boards')
     .select('id, pyra_board_columns(id, column_type, is_done_column)')
@@ -78,14 +107,15 @@ export async function computeProductivity(
     const done = cols.find((c) => c.is_done_column);
     if (review && done) boardCols.set(b.id, { review: review.id, done: done.id });
   }
-  if (boardCols.size === 0) return { month: monthKey, employees: [] };
 
-  // 2. tasks on those boards + assignees
+  if (boardCols.size === 0) {
+    return { userList: [], users: [], journeysByUser: new Map(), allJourneys: [] };
+  }
+
   const { data: tasks } = await supabase
     .from('pyra_tasks')
-    .select('id, title, board_id, due_date, created_at, pyra_task_assignees(username)')
-    .in('board_id', [...boardCols.keys()])
-    .eq('is_archived', false);
+    .select('id, title, board_id, due_date, created_at, is_archived, pyra_task_assignees(username)')
+    .in('board_id', [...boardCols.keys()]);
 
   const taskInputs: ProductionTaskInput[] = [];
   for (const t of tasks || []) {
@@ -104,11 +134,11 @@ export async function computeProductivity(
         created_at: t.created_at,
         review_column_id: cols.review,
         done_column_id: cols.done,
+        is_archived: t.is_archived,
       });
     }
   }
 
-  // 3. stage events for those tasks
   const taskIds = [...new Set(taskInputs.map((t) => t.id))];
   let events: StageEvent[] = [];
   if (taskIds.length) {
@@ -120,24 +150,49 @@ export async function computeProductivity(
     events = (data as StageEvent[]) || [];
   }
 
-  // 4. group per employee
-  const byUser = new Map<string, ProductionTaskInput[]>();
+  const taskInputsByUser = new Map<string, ProductionTaskInput[]>();
   for (const t of taskInputs) {
-    const arr = byUser.get(t.assignee) || [];
+    const arr = taskInputsByUser.get(t.assignee) || [];
     arr.push(t);
-    byUser.set(t.assignee, arr);
+    taskInputsByUser.set(t.assignee, arr);
   }
-  const userList = usernames?.length ? usernames : [...byUser.keys()];
-  if (!userList.length) return { month: monthKey, employees: [] };
 
-  // 5. display names + schedules + month attendance
+  const userList = usernames?.length ? usernames : [...taskInputsByUser.keys()];
+  if (!userList.length) {
+    return { userList: [], users: [], journeysByUser: new Map(), allJourneys: [] };
+  }
+
   const { data: users } = await supabase
     .from('pyra_users')
     .select('username, display_name, work_schedule_id, hire_date')
     .in('username', userList);
 
+  const journeysByUser = new Map<string, TaskJourney[]>();
+  for (const username of userList) {
+    const journeys = (taskInputsByUser.get(username) || [])
+      .map((t) => buildTaskJourney(t, events))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+    journeysByUser.set(username, journeys);
+  }
+
+  return {
+    userList,
+    users: (users as UserRow[]) || [],
+    journeysByUser,
+    allJourneys: [...journeysByUser.values()].flat(),
+  };
+}
+
+export async function computeProductivity(
+  supabase: SupabaseClient,
+  monthKey: string,
+  usernames?: string[],
+): Promise<ProductivityReport> {
+  const loaded = await loadProductivityJourneys(supabase, usernames);
+  if (!loaded.userList.length) return { month: monthKey, employees: [] };
+
   const scheduleIds = [
-    ...new Set((users || []).map((u) => u.work_schedule_id).filter(Boolean)),
+    ...new Set(loaded.users.map((u) => u.work_schedule_id).filter(Boolean)),
   ] as string[];
   const { data: schedules } = scheduleIds.length
     ? await supabase
@@ -151,17 +206,15 @@ export async function computeProductivity(
   const { data: att } = await supabase
     .from('pyra_attendance')
     .select('username, status, total_hours')
-    .in('username', userList)
+    .in('username', loaded.userList)
     .gte('date', `${monthKey}-01`)
     .lte('date', `${monthKey}-${String(lastDay).padStart(2, '0')}`);
 
   const todayKey = dubaiDayKey();
-  const employees: EmployeeReport[] = userList.map((username) => {
-    const journeys = (byUser.get(username) || [])
-      .map((t) => buildTaskJourney(t, events))
-      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const employees: EmployeeReport[] = loaded.userList.map((username) => {
+    const journeys = loaded.journeysByUser.get(username) || [];
     const rows = (att || []).filter((r) => r.username === username);
-    const user = users?.find((u) => u.username === username);
+    const user = loaded.users.find((u) => u.username === username);
     const workDays =
       ((schedules || []).find((s) => s.id === user?.work_schedule_id)
         ?.work_days as number[]) || [...DEFAULT_WORK_DAYS];
@@ -185,4 +238,19 @@ export async function computeProductivity(
   });
 
   return { month: monthKey, employees };
+}
+
+export async function computeProductivityTrends(
+  supabase: SupabaseClient,
+  months = 6,
+  usernames?: string[],
+): Promise<ProductivityTrends> {
+  const loaded = await loadProductivityJourneys(supabase, usernames);
+  const todayKey = dubaiDayKey();
+  return {
+    months: lastNMonthKeys(months).map((month) => ({
+      month,
+      ...summarizeEmployee(loaded.allJourneys, month, todayKey),
+    })),
+  };
 }

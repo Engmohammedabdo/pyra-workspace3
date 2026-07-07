@@ -17,6 +17,7 @@ export interface ProductionTaskInput {
   created_at: string;      // UTC ISO
   review_column_id: string;
   done_column_id: string;
+  is_archived?: boolean | null;
 }
 
 export interface TaskJourney {
@@ -35,6 +36,7 @@ export interface TaskJourney {
   /** whole days late (>0 only when on_time === false) */
   delay_days: number | null;
   days_to_first_submission: number | null;
+  is_archived?: boolean | null;
 }
 
 export interface EmployeeProductivity {
@@ -118,6 +120,7 @@ export function buildTaskJourney(
     days_to_first_submission: firstSubmitted
       ? Math.max(0, Math.round(((Date.parse(firstSubmitted) - Date.parse(task.created_at)) / DAY) * 10) / 10)
       : null,
+    is_archived: task.is_archived ?? false,
   };
 }
 
@@ -155,7 +158,7 @@ export function summarizeEmployee(
     ),
     avg_review_wait_hours: avg(activeJourneys.flatMap((j) => j.review_wait_hours)),
     open_overdue: journeys.filter(
-      (j) => !j.first_submitted_at && !j.delivered_at && j.due_date && j.due_date < todayKey,
+      (j) => !j.is_archived && !j.first_submitted_at && !j.delivered_at && j.due_date && j.due_date < todayKey,
     ).length,
   };
 }

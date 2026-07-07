@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateId } from '@/lib/utils/id';
+import { sendWebPushToUser, sendWebPushToUsers } from '@/lib/notifications/web-push';
 
 /**
  * Centralized notification creator.
@@ -142,6 +143,8 @@ export async function notify(
 
     if (error) {
       console.error('[notify] insert failed:', error.message, { to: input.to, type: input.type });
+    } else {
+      void sendWebPushToUser(input.to.trim());
     }
   } catch (err) {
     console.error('[notify] threw:', err);
@@ -186,6 +189,8 @@ export async function notifyBatch(
     const { error } = await supabase.from('pyra_notifications').insert(rows);
     if (error) {
       console.error('[notifyBatch] insert failed:', error.message, { count: rows.length });
+    } else {
+      void sendWebPushToUsers(rows.map((row) => row.recipient_username));
     }
   } catch (err) {
     console.error('[notifyBatch] threw:', err);
@@ -225,6 +230,8 @@ export async function notifyMany(
     const { error } = await supabase.from('pyra_notifications').insert(rows);
     if (error) {
       console.error('[notifyMany] insert failed:', error.message, { count: rows.length });
+    } else {
+      void sendWebPushToUsers(rows.map((row) => row.recipient_username));
     }
   } catch (err) {
     console.error('[notifyMany] threw:', err);
