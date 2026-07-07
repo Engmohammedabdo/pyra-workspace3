@@ -50,7 +50,7 @@ export function useNotifications(): UseNotificationsReturn {
           playNotificationSound();
           const newest = json.data.find((n: Notification) => !n.is_read);
           if (newest) {
-            showDesktopNotification(newest.title, newest.message || '', 'pyra-dashboard');
+            void showDesktopNotification(newest.title, newest.message || '', 'pyra-dashboard');
           }
         }
         prevUnreadRef.current = newCount;
@@ -163,7 +163,7 @@ export function usePortalNotifications() {
               setUnreadCount(prev => prev + 1);
 
               // Show desktop notification
-              showDesktopNotification(
+              void showDesktopNotification(
                 newNotification.title || 'إشعار جديد',
                 newNotification.message
               );
@@ -214,11 +214,19 @@ export function requestNotificationPermission(): Promise<NotificationPermission>
 }
 
 /** Show a desktop notification if permission is granted */
-function showDesktopNotification(title: string, body: string, tag = 'pyra-portal') {
+async function showDesktopNotification(title: string, body: string, tag = 'pyra-portal') {
   if (typeof window === 'undefined' || !('Notification' in window)) return;
   if (Notification.permission !== 'granted') return;
   // Don't show if the page is focused
   if (document.hasFocus()) return;
+  if (tag === 'pyra-dashboard' && 'serviceWorker' in navigator && 'PushManager' in window) {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      if (await registration.pushManager.getSubscription()) return;
+    } catch {
+      // Fall back to the Notification API when push-subscription lookup fails.
+    }
+  }
 
   try {
     const notification = new Notification(title, {

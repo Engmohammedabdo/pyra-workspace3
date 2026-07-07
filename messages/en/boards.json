@@ -43,6 +43,9 @@
       }
     },
     "view": {
+      "card": {
+        "needsRevision": "Needs changes"
+      },
       "column": {
         "emptyDropzone": "Drag a task here or press +",
         "quickAddPlaceholder": "Task title...",

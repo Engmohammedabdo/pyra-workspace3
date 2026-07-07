@@ -116,6 +116,7 @@ interface Task {
     created_at: string;
   }[];
   completion_percentage?: number;
+  needs_revision?: boolean;
 }
 
 interface Column {
@@ -222,6 +223,7 @@ function TaskCard({
   isPipeline?: boolean;
 }) {
   const locale = useLocale();
+  const t = useTranslations('boards.view.card');
   const {
     attributes,
     listeners,
@@ -292,6 +294,12 @@ function TaskCard({
                 <span className="text-[10px] text-muted-foreground/50 font-mono tabular-nums">#{task.task_number}</span>
               )}
               <p className="text-sm font-medium line-clamp-2">{task.title}</p>
+              {task.needs_revision && (
+                <Badge className="mt-1 h-5 gap-1 border-0 bg-red-500/10 px-1.5 text-[10px] font-semibold text-red-600 dark:text-red-400">
+                  <AlertTriangle className="h-3 w-3" />
+                  {t('needsRevision')}
+                </Badge>
+              )}
             </div>
           </div>
 
@@ -1197,6 +1205,7 @@ function PipelineView({
   onTaskClick: (task: Task) => void;
 }) {
   const t = useTranslations('boards.view.pipeline');
+  const tCard = useTranslations('boards.view.card');
   const locale = useLocale();
   const totalTasks = tasks.length;
   const doneTasks = tasks.filter(t => {
@@ -1268,6 +1277,12 @@ function PipelineView({
                       dir={locale === 'ar' ? 'rtl' : undefined}
                     >
                       <p className="text-sm font-medium line-clamp-2">{task.title}</p>
+                      {task.needs_revision && (
+                        <Badge className="mt-1 h-5 gap-1 border-0 bg-red-500/10 px-1.5 text-[10px] font-semibold text-red-600 dark:text-red-400">
+                          <AlertTriangle className="h-3 w-3" />
+                          {tCard('needsRevision')}
+                        </Badge>
+                      )}
                       <div className="flex items-center gap-2 mt-1.5 text-[10px] text-muted-foreground">
                         {task.due_date && (
                           <span className="flex items-center gap-0.5">

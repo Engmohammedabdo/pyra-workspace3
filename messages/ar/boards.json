@@ -43,6 +43,9 @@
       }
     },
     "view": {
+      "card": {
+        "needsRevision": "مطلوب تعديل"
+      },
       "column": {
         "emptyDropzone": "اسحب مهمة هنا أو اضغط +",
         "quickAddPlaceholder": "عنوان المهمة...",

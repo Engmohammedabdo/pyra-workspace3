@@ -20,6 +20,10 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const unreadOnly = searchParams.get('unread_only') === 'true';
+    const limitParam = Number(searchParams.get('limit') || '50');
+    const limit = Number.isInteger(limitParam)
+      ? Math.min(50, Math.max(1, limitParam))
+      : 50;
 
     const supabase = await createServerSupabaseClient();
 
@@ -29,7 +33,7 @@ export async function GET(request: NextRequest) {
       .select('id, type, title, message, source_username, source_display_name, target_path, is_read, created_at', { count: 'exact' })
       .eq('recipient_username', auth.pyraUser.username)
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(limit);
 
     if (unreadOnly) {
       query = query.eq('is_read', false);

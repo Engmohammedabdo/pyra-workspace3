@@ -46,7 +46,33 @@ export async function GET(
       .order('position');
 
     if (error) return apiServerError(error.message);
-    return apiSuccess(data);
+
+    const tasks = data || [];
+    const taskIds = tasks.map((task) => task.id).filter(Boolean);
+    if (taskIds.length === 0) return apiSuccess(tasks);
+
+    const { data: stageActions, error: activityError } = await supabase
+      .from('pyra_task_activity')
+      .select('task_id, action, created_at')
+      .in('task_id', taskIds)
+      .in('action', ['stage_rejected', 'stage_advanced', 'stage_approved'])
+      .order('created_at', { ascending: false });
+
+    if (activityError) return apiServerError(activityError.message);
+
+    const latestStageActionByTask = new Map<string, string>();
+    for (const action of stageActions || []) {
+      if (!latestStageActionByTask.has(action.task_id)) {
+        latestStageActionByTask.set(action.task_id, action.action);
+      }
+    }
+
+    const tasksWithRevisionState = tasks.map((task) => ({
+      ...task,
+      needs_revision: latestStageActionByTask.get(task.id) === 'stage_rejected',
+    }));
+
+    return apiSuccess(tasksWithRevisionState);
 
   } catch (err) {
     console.error('[GET /api/boards/[id]/tasks] error:', err);

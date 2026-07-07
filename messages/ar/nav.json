@@ -59,6 +59,14 @@
     "bell": {
       "title": "الإشعارات", "today": "اليوم", "yesterday": "أمس",
       "muteSound": "كتم صوت الإشعارات", "unmuteSound": "تفعيل صوت الإشعارات",
+      "enablePush": "تفعيل إشعارات الجهاز",
+      "disablePush": "إيقاف إشعارات الجهاز",
+      "pushUnsupported": "المتصفح لا يدعم إشعارات الجهاز",
+      "pushBlocked": "إذن إشعارات الجهاز مرفوض من المتصفح",
+      "pushConfigMissing": "إعداد Web Push غير مكتمل",
+      "pushEnabledToast": "تم تفعيل إشعارات الجهاز",
+      "pushDisabledToast": "تم إيقاف إشعارات الجهاز",
+      "pushErrorToast": "فشل تحديث إشعارات الجهاز",
       "markAllRead": "تعليم الكل كمقروء", "empty": "لا توجد إشعارات", "viewAll": "عرض كل الإشعارات",
       "unreadAria": "{count} إشعار جديد"
     },

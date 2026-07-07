@@ -838,6 +838,24 @@
         "subtitle": "Deliveries, on-time rate, review rounds, and attendance — per production employee",
         "monthPickerAria": "Select month"
       },
+      "export": {
+        "pdf": "PDF",
+        "excel": "Excel"
+      },
+      "trends": {
+        "title": "Last 6 Months Trend",
+        "deliveryDelta": "Deliveries: {value}",
+        "onTimeDelta": "On-time: {value}%",
+        "series": {
+          "deliveries": "Deliveries",
+          "onTime": "On-time",
+          "rounds": "Review rounds"
+        },
+        "empty": {
+          "title": "Not Enough Trend Data",
+          "description": "Trends will appear once production data exists across prior months"
+        }
+      },
       "empty": {
         "title": "No Production Data",
         "description": "No tasks on the production board for this month yet"

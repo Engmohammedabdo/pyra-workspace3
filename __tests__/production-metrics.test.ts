@@ -5,6 +5,7 @@ import {
   type ProductionTaskInput,
   type StageEvent,
 } from '@/lib/production/metrics';
+import { lastNMonthKeys } from '@/lib/production/report';
 
 const TASK: ProductionTaskInput = {
   id: 't1', title: 'فيديو تجريبي', assignee: 'wael.hany',
@@ -117,5 +118,24 @@ describe('summarizeEmployee', () => {
     );
     const s = summarizeEmployee([openOverdue], '2026-07', '2026-07-20');
     expect(s.open_overdue).toBe(1);
+  });
+
+  it('does not count archived tasks as open overdue', () => {
+    const archivedOverdue = buildTaskJourney(
+      { ...TASK, id: 't5', due_date: '2026-07-01', is_archived: true },
+      [],
+    );
+    const s = summarizeEmployee([archivedOverdue], '2026-07', '2026-07-20');
+    expect(s.open_overdue).toBe(0);
+  });
+});
+
+describe('lastNMonthKeys', () => {
+  it('returns oldest-to-newest month keys through the anchor month', () => {
+    expect(lastNMonthKeys(4, '2026-07')).toEqual(['2026-04', '2026-05', '2026-06', '2026-07']);
+  });
+
+  it('crosses year boundaries', () => {
+    expect(lastNMonthKeys(3, '2026-01')).toEqual(['2025-11', '2025-12', '2026-01']);
   });
 });

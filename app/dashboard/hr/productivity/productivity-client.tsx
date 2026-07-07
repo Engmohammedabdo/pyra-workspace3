@@ -2,14 +2,16 @@
 
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { useProductivityReport } from '@/hooks/useProductivity';
+import { useProductivityReport, useProductivityTrends } from '@/hooks/useProductivity';
 import type { EmployeeReport } from '@/lib/production/report';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
+import { ProductivityTrendChart } from '@/components/hr/productivity/ProductivityTrendChart';
 import { formatDate, dubaiDayKey } from '@/lib/utils/format';
-import { BarChart3, ChevronDown, Clock, PackageCheck, RefreshCcw, Timer } from 'lucide-react';
+import { BarChart3, ChevronDown, Clock, FileSpreadsheet, FileText, PackageCheck, RefreshCcw, Timer } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import type { Locale } from '@/lib/i18n/config';
 
@@ -150,6 +152,8 @@ export function ProductivityClient() {
   const t = useTranslations('hr.productivity');
   const [month, setMonth] = useState(dubaiDayKey().slice(0, 7));
   const { data, isLoading } = useProductivityReport(month);
+  const { data: trends, isLoading: isTrendsLoading } = useProductivityTrends(6);
+  const exportBase = `/api/hr/productivity/export?month=${encodeURIComponent(month)}`;
 
   return (
     <div className="space-y-4 p-4 md:p-6">
@@ -163,14 +167,30 @@ export function ProductivityClient() {
             {t('page.subtitle')}
           </p>
         </div>
-        <input
-          type="month"
-          value={month}
-          onChange={(e) => setMonth(e.target.value)}
-          className="h-10 rounded-md border bg-background px-3 text-sm"
-          aria-label={t('page.monthPickerAria')}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <a href={`${exportBase}&format=pdf`}>
+              <FileText className="size-4" aria-hidden />
+              {t('export.pdf')}
+            </a>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <a href={`${exportBase}&format=xlsx`}>
+              <FileSpreadsheet className="size-4" aria-hidden />
+              {t('export.excel')}
+            </a>
+          </Button>
+          <input
+            type="month"
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+            className="h-9 rounded-md border bg-background px-3 text-sm"
+            aria-label={t('page.monthPickerAria')}
+          />
+        </div>
       </div>
+
+      <ProductivityTrendChart trends={trends} isLoading={isTrendsLoading} />
 
       {isLoading ? (
         <div className="space-y-3">
