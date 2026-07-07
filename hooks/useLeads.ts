@@ -345,9 +345,8 @@ export function useLinkClient() {
 // Reuses the existing (Phase-12-surviving) bulk endpoint. The server gates on
 // sales_leads.manage AND scopes non-admins to their OWN leads; the pipeline
 // selection UI itself is admin-gated (leads.assign). The endpoint caps at 50
-// ids/request and logs a per-lead `transfer` activity (metadata.bulk=true).
-// NOTE: unlike the per-lead PATCH path, the bulk endpoint does NOT emit a
-// new-owner notification (documented divergence — see CRM-PROGRESS).
+// ids/request, requires leads.assign, logs a per-lead `assignment_changed`
+// activity (metadata.bulk=true), and notifies the new owner in batch.
 export interface BulkAssignInput {
   lead_ids: string[];
   assigned_to: string;
