@@ -68,14 +68,37 @@ fi
 
 # ─── 2. Verify pg_dump is available ────────────────────────────────────────
 
+# Windows (Git Bash) fallback: before giving up, probe the portable
+# client-tools location (%LOCALAPPDATA%\Programs\pgsql\bin — see
+# docs/MIGRATIONS.md §14) and the standard installer locations
+# (C:\Program Files\PostgreSQL\<ver>\bin). Covers shells whose PATH
+# predates the install. cygpath converts C:\… to /c/… — a raw Windows
+# path can't go on $PATH because its drive colon breaks the ':' separator.
+if ! command -v pg_dump >/dev/null 2>&1; then
+  CANDIDATES=()
+  if [ -n "${LOCALAPPDATA:-}" ] && command -v cygpath >/dev/null 2>&1; then
+    CANDIDATES+=("$(cygpath -u "$LOCALAPPDATA")/Programs/pgsql/bin")
+  fi
+  CANDIDATES+=("/c/Program Files/PostgreSQL"/*/bin)
+  for CANDIDATE in "${CANDIDATES[@]}"; do
+    if [ -x "${CANDIDATE}/pg_dump.exe" ] || [ -x "${CANDIDATE}/pg_dump" ]; then
+      export PATH="${CANDIDATE}:${PATH}"
+      break
+    fi
+  done
+fi
+
 if ! command -v pg_dump >/dev/null 2>&1; then
   echo "❌ pg_dump not found on PATH." >&2
   echo "" >&2
   echo "   Install instructions (per docs/MIGRATIONS.md §14):" >&2
   echo "     macOS:   brew install libpq && brew link --force libpq" >&2
   echo "     Linux:   apt install postgresql-client  (or distro equivalent)" >&2
-  echo "     Windows: install PostgreSQL for Windows from postgresql.org," >&2
-  echo "              then add C:\\Program Files\\PostgreSQL\\<ver>\\bin to PATH." >&2
+  echo "     Windows: EITHER extract the EDB binaries zip (client tools only," >&2
+  echo "              no server, no admin rights) to %LOCALAPPDATA%\\Programs\\pgsql" >&2
+  echo "              — see docs/MIGRATIONS.md §14 — OR install PostgreSQL for" >&2
+  echo "              Windows from postgresql.org and add" >&2
+  echo "              C:\\Program Files\\PostgreSQL\\<ver>\\bin to PATH." >&2
   echo "              Use Git Bash (not PowerShell) when running this script." >&2
   exit 1
 fi
