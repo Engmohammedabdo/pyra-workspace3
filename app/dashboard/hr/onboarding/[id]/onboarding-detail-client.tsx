@@ -32,7 +32,7 @@ import {
 } from '@/lib/constants/onboarding';
 import { OnboardingChecklist } from '@/components/hr/onboarding/OnboardingChecklist';
 import { OnboardingDocuments } from '@/components/hr/onboarding/OnboardingDocuments';
-import { formatDate } from '@/lib/utils/format';
+import { formatCurrency, formatDate } from '@/lib/utils/format';
 import type { OfferData } from '@/types/database';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -94,6 +94,9 @@ export default function OnboardingDetailClient({ id }: { id: string }) {
 
   const isInProgress = onboarding.status === ONBOARDING_STATUS.IN_PROGRESS;
   const offerData = onboarding.offer_data as OfferData | null | undefined;
+  // Salary figures are denominated in the offer's currency (multi-currency
+  // payroll doctrine) — AED is only a fallback for pre-currency records.
+  const offerCurrency = offerData?.currency || 'AED';
   const employeeName =
     offerData?.nameAr ||
     offerData?.nameEn ||
@@ -222,7 +225,7 @@ export default function OnboardingDetailClient({ id }: { id: string }) {
               [
                 'الراتب الأساسي',
                 offerData.basic
-                  ? `${Number(offerData.basic).toLocaleString('ar-AE')} د.إ`
+                  ? formatCurrency(Number(offerData.basic), offerCurrency)
                   : undefined,
               ],
               [
@@ -235,7 +238,7 @@ export default function OnboardingDetailClient({ id }: { id: string }) {
                     Number(offerData.communication || 0) +
                     Number(offerData.other || 0);
                   return total > 0
-                    ? `${total.toLocaleString('ar-AE')} د.إ`
+                    ? formatCurrency(total, offerCurrency)
                     : undefined;
                 })(),
               ],

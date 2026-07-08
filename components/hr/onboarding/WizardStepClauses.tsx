@@ -25,6 +25,8 @@ export function StepClauses({
   data: FormData;
   onChange: OnChange;
 }) {
+  const currency = data.currency || 'AED';
+
   const addClause = () =>
     onChange({
       customClauses: [...data.customClauses, { title: '', body: '' }],
@@ -188,7 +190,7 @@ export function StepClauses({
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="القيمة التقديرية (د.إ)">
+              <Field label={`القيمة التقديرية (${currency})`}>
                 <Input
                   className="h-11"
                   placeholder="0"
