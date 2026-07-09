@@ -103,11 +103,13 @@ export async function GET(request: NextRequest) {
 
     // Parallel fetch for lookup tables — small tables, single-pass join
     const [{ data: types }, { data: users }] = await Promise.all([
-      supabase.from('pyra_document_types').select('id, name_ar'),
+      supabase.from('pyra_document_types').select('id, name, name_ar'),
       supabase.from('pyra_users').select('username, display_name'),
     ]);
 
-    const typeMap = new Map((types ?? []).map((t) => [t.id, t.name_ar]));
+    // type_name (English) added alongside type_name_ar (additive — i18n Phase 5.7)
+    // so bilingual UI can render the locale-appropriate document-type name.
+    const typeMap = new Map((types ?? []).map((t) => [t.id, t]));
     const userMap = new Map((users ?? []).map((u) => [u.username, u.display_name]));
 
     // Per-row signed URL (private bucket — urls expire after SIGNED_URL_TTL)
@@ -118,9 +120,11 @@ export async function GET(request: NextRequest) {
         const { data: urlData } = await supabase.storage
           .from(DOC_BUCKET)
           .createSignedUrl(storage_path, SIGNED_URL_TTL);
+        const type = typeMap.get(row.type_id);
         return {
           ...rest,
-          type_name_ar: typeMap.get(row.type_id) ?? row.type_id,
+          type_name_ar: type?.name_ar ?? row.type_id,
+          type_name: type?.name ?? row.type_id,
           employee_display_name:
             userMap.get(row.employee_username) ?? row.employee_username,
           signed_url: urlData?.signedUrl ?? '',

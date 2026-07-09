@@ -906,6 +906,209 @@
         "onTimeDisclaimer": "On-time is measured on the first review submission (decision locked 2026-07-03) — review wait time and rounds are separate figures.",
         "derivedDisclaimer": "Figures are derived from the task stage-history log — no stored counters."
       }
+    },
+    "documents": {
+      "title": "Employee Documents",
+      "subtitle": "Manage employee official documents and certificates",
+      "settingsButton": "Settings",
+      "uploadButton": "Upload Document",
+      "typeFallback": "—",
+      "filters": {
+        "allEmployees": "All Employees",
+        "allTypes": "All Types",
+        "allDocuments": "All Documents",
+        "expiringOption": "Expiring Soon",
+        "expiredOption": "Expired"
+      },
+      "columns": {
+        "employee": "Employee",
+        "type": "Document Type",
+        "label": "Label",
+        "expiry": "Expiry Date",
+        "uploadedBy": "Uploaded By"
+      },
+      "empty": {
+        "title": "No Documents",
+        "description": "Upload the first document by clicking \"{uploadLabel}\"",
+        "actionLabel": "Upload Document"
+      },
+      "userTab": {
+        "documentCount": "{count} documents",
+        "empty": {
+          "title": "No Documents",
+          "description": "No documents have been uploaded for this employee yet"
+        },
+        "expiresOn": "Expires {date}",
+        "noExpiry": "No expiry date"
+      },
+      "settings": {
+        "title": "Document Types",
+        "subtitle": "Manage the document and certificate types used in employee files",
+        "addButton": "Add Type",
+        "listTitle": "Document Types ({count})",
+        "empty": {
+          "title": "No Document Types",
+          "description": "Add document types to start managing employee files",
+          "actionLabel": "Add Document Type"
+        },
+        "toasts": {
+          "missingNames": "Please fill in the Arabic and English names",
+          "updateSuccess": "Document type updated",
+          "createSuccess": "Document type created",
+          "saveFailed": "Save failed",
+          "deleteSuccess": "Document type deleted",
+          "deleteFailed": "Delete failed"
+        },
+        "typeDialog": {
+          "editTitle": "Edit Document Type",
+          "createTitle": "Add New Document Type",
+          "nameEnLabel": "Name (English) *",
+          "nameArLabel": "Name (Arabic) *",
+          "sortOrderLabel": "Sort Order",
+          "requiresExpiryLabel": "Requires Expiry Date",
+          "requiresExpiryHint": "e.g. Passport, Residence Visa, Driving License",
+          "saving": "Saving...",
+          "update": "Update",
+          "create": "Create"
+        },
+        "deleteDialog": {
+          "title": "Confirm Deletion",
+          "confirmText": "Are you sure you want to delete this type? It will be deactivated and no longer appear in the system.",
+          "cancel": "Cancel",
+          "delete": "Delete"
+        }
+      },
+      "docTypeRow": {
+        "requiresExpiryBadge": "Requires Expiry Date",
+        "noExpiryBadge": "No Expiry",
+        "sortOrderLabel": "Order: {order}"
+      },
+      "rowActions": {
+        "optionsAria": "Options",
+        "download": "Download",
+        "edit": "Edit",
+        "delete": "Delete",
+        "toasts": {
+          "downloadUnavailable": "Download link unavailable",
+          "updateSuccess": "Document updated",
+          "updateFailed": "Update failed",
+          "deleteSuccess": "Document deleted",
+          "deleteFailed": "Delete failed"
+        },
+        "editDialog": {
+          "title": "Edit Document",
+          "typeLabel": "Document Type",
+          "labelLabel": "Label",
+          "expiryLabel": "Expiry Date",
+          "notesLabel": "Notes",
+          "cancel": "Cancel",
+          "saving": "Saving...",
+          "save": "Save"
+        },
+        "deleteDialog": {
+          "title": "Confirm Deletion",
+          "confirmText": "Are you sure you want to delete this document? This action cannot be undone.",
+          "cancel": "Cancel",
+          "delete": "Delete"
+        }
+      },
+      "uploadDialog": {
+        "title": "Upload Employee Document",
+        "employeeLabel": "Employee *",
+        "employeePlaceholder": "Select an employee",
+        "typeLabel": "Document Type *",
+        "typePlaceholder": "Select document type",
+        "labelLabel": "Label",
+        "labelPlaceholder": "e.g. Passport 2024",
+        "expiryLabel": "Expiry Date",
+        "notesLabel": "Notes",
+        "notesPlaceholder": "Optional notes...",
+        "fileLabel": "File *",
+        "cancel": "Cancel",
+        "uploading": "Uploading...",
+        "submit": "Upload Document",
+        "toasts": {
+          "fileTypeUnsupported": "Unsupported file type. Accepted types: PDF, JPEG, PNG, WebP",
+          "fileTooLarge": "File size exceeds {max} MB",
+          "employeeRequired": "Please select the employee",
+          "typeRequired": "Please select the document type",
+          "fileRequired": "Please select a file",
+          "expiryRequired": "This type requires an expiry date",
+          "uploadSuccess": "Document uploaded successfully",
+          "uploadFailed": "Upload failed"
+        }
+      }
+    },
+    "myDocuments": {
+      "title": "My Documents",
+      "subtitle": "Your official documents uploaded by HR (read-only)",
+      "alertBanner": "You have <b>{count}</b> {count, plural, one {document that needs} other {documents that need}} renewal or is expiring soon — contact HR",
+      "empty": {
+        "title": "No Documents",
+        "description": "No documents have been uploaded for your account yet, contact HR"
+      },
+      "typeFallback": "—",
+      "expiresOn": "Expires: {date}",
+      "download": "Download",
+      "toasts": {
+        "downloadUnavailable": "Download link unavailable, contact HR"
+      }
+    },
+    "workSchedules": {
+      "title": "Work Schedules",
+      "subtitle": "Manage weekly work schedules and assign them to employees",
+      "addButton": "Add Schedule",
+      "listTitle": "Work Schedules ({count})",
+      "timeRangeLabel": "{start} – {end}",
+      "dailyHoursLabel": "{hours} hours/day",
+      "breakLabel": "{minutes} min break",
+      "defaultBadge": "Default",
+      "empty": {
+        "title": "No Work Schedules",
+        "description": "Add the first work schedule to start assigning it to employees",
+        "actionLabel": "Add Work Schedule"
+      },
+      "toasts": {
+        "missingNames": "Please fill in the Arabic and English names",
+        "updateSuccess": "Work schedule updated",
+        "createSuccess": "Work schedule created",
+        "saveFailed": "Save failed",
+        "deleteSuccess": "Work schedule deleted",
+        "deleteFailed": "Delete failed"
+      },
+      "deleteDialog": {
+        "title": "Confirm Deletion",
+        "description": "Are you sure you want to delete this schedule? This action cannot be undone. A schedule assigned to employees or the default schedule cannot be deleted.",
+        "cancel": "Cancel",
+        "delete": "Delete"
+      },
+      "dayNamesFull": {
+        "sun": "Sunday",
+        "mon": "Monday",
+        "tue": "Tuesday",
+        "wed": "Wednesday",
+        "thu": "Thursday",
+        "fri": "Friday",
+        "sat": "Saturday"
+      },
+      "dialog": {
+        "editTitle": "Edit Work Schedule",
+        "createTitle": "Add New Work Schedule",
+        "nameEnLabel": "Name (English) *",
+        "nameArLabel": "Name (Arabic) *",
+        "workDaysLabel": "Work Days",
+        "startTimeLabel": "Start Time",
+        "endTimeLabel": "End Time",
+        "breakMinutesLabel": "Break (minutes)",
+        "dailyHoursLabel": "Daily Hours",
+        "overtimeMultiplierLabel": "Overtime Multiplier",
+        "weekendMultiplierLabel": "Weekend Work Multiplier",
+        "defaultToggleLabel": "Default Schedule",
+        "defaultToggleHint": "Applied to employees who have not been assigned a specific schedule",
+        "saving": "Saving...",
+        "update": "Update",
+        "create": "Create"
+      }
     }
   }
 }

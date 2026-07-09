@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import { MoreHorizontal, Download, Pencil, Trash2, Loader2 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -18,10 +19,13 @@ import { toast } from 'sonner';
 import { useUpdateEmployeeDocument, useDeleteEmployeeDocument } from '@/hooks/useEmployeeDocuments';
 import { useDocumentTypes } from '@/hooks/useDocumentTypes';
 import type { PyraEmployeeDocument } from '@/types/database';
+import type { Locale } from '@/lib/i18n/config';
 
 interface Props { doc: PyraEmployeeDocument }
 
 export function DocumentRowActions({ doc }: Props) {
+  const t = useTranslations('hr.documents.rowActions');
+  const locale = useLocale() as Locale;
   const { data: docTypes = [] } = useDocumentTypes();
   const updateMut = useUpdateEmployeeDocument();
   const deleteMut = useDeleteEmployeeDocument();
@@ -44,7 +48,7 @@ export function DocumentRowActions({ doc }: Props) {
   }
 
   function handleDownload() {
-    if (!doc.signed_url) { toast.error('رابط التحميل غير متاح'); return; }
+    if (!doc.signed_url) { toast.error(t('toasts.downloadUnavailable')); return; }
     window.open(doc.signed_url, '_blank', 'noopener,noreferrer');
   }
 
@@ -57,25 +61,25 @@ export function DocumentRowActions({ doc }: Props) {
         expiry_date: expiryDate || null,
         notes: notes || null,
       } as Parameters<typeof updateMut.mutateAsync>[0]);
-      toast.success('تم تحديث الوثيقة');
+      toast.success(t('toasts.updateSuccess'));
       setEditOpen(false);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'فشل التحديث');
+      toast.error(err instanceof Error ? err.message : t('toasts.updateFailed'));
     }
   }
 
   async function handleDelete() {
     try {
       await deleteMut.mutateAsync(doc.id);
-      toast.success('تم حذف الوثيقة');
+      toast.success(t('toasts.deleteSuccess'));
       setDeleteOpen(false);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'فشل الحذف');
+      toast.error(err instanceof Error ? err.message : t('toasts.deleteFailed'));
     }
   }
 
-  const activeTypes = docTypes.filter((t) => t.is_active);
-  const selectedType = docTypes.find((t) => t.id === typeId);
+  const activeTypes = docTypes.filter((dt) => dt.is_active);
+  const selectedType = docTypes.find((dt) => dt.id === typeId);
   const requiresExpiry = selectedType?.requires_expiry ?? false;
 
   return (
@@ -84,24 +88,24 @@ export function DocumentRowActions({ doc }: Props) {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="h-8 w-8">
             <MoreHorizontal className="h-4 w-4" />
-            <span className="sr-only">خيارات</span>
+            <span className="sr-only">{t('optionsAria')}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={handleDownload}>
             <Download className="h-4 w-4 me-2" />
-            تحميل
+            {t('download')}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={openEdit}>
             <Pencil className="h-4 w-4 me-2" />
-            تعديل
+            {t('edit')}
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => setDeleteOpen(true)}
             className="text-red-600 dark:text-red-400"
           >
             <Trash2 className="h-4 w-4 me-2" />
-            حذف
+            {t('delete')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -110,31 +114,33 @@ export function DocumentRowActions({ doc }: Props) {
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>تعديل الوثيقة</DialogTitle>
+            <DialogTitle>{t('editDialog.title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">نوع الوثيقة</label>
+              <label className="text-sm font-medium">{t('editDialog.typeLabel')}</label>
               <Select value={typeId} onValueChange={(v) => { setTypeId(v); setExpiryDate(''); }}>
                 <SelectTrigger className="h-11">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {activeTypes.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name_ar}</SelectItem>
+                  {activeTypes.map((dt) => (
+                    <SelectItem key={dt.id} value={dt.id}>
+                      {locale === 'ar' ? dt.name_ar : (dt.name || dt.name_ar)}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">التسمية</label>
+              <label className="text-sm font-medium">{t('editDialog.labelLabel')}</label>
               <Input className="h-11" value={label} onChange={(e) => setLabel(e.target.value)} />
             </div>
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">
-                تاريخ الانتهاء {requiresExpiry && <span className="text-red-500">*</span>}
+                {t('editDialog.expiryLabel')} {requiresExpiry && <span className="text-red-500">*</span>}
               </label>
               <Input
                 type="date"
@@ -145,13 +151,13 @@ export function DocumentRowActions({ doc }: Props) {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">ملاحظات</label>
+              <label className="text-sm font-medium">{t('editDialog.notesLabel')}</label>
               <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
 
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setEditOpen(false)}>
-                إلغاء
+                {t('editDialog.cancel')}
               </Button>
               <Button
                 className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
@@ -159,8 +165,8 @@ export function DocumentRowActions({ doc }: Props) {
                 disabled={updateMut.isPending || (requiresExpiry && !expiryDate)}
               >
                 {updateMut.isPending ? (
-                  <><Loader2 className="h-4 w-4 me-2 animate-spin" /> جاري الحفظ...</>
-                ) : 'حفظ'}
+                  <><Loader2 className="h-4 w-4 me-2 animate-spin" /> {t('editDialog.saving')}</>
+                ) : t('editDialog.save')}
               </Button>
             </div>
           </div>
@@ -171,15 +177,15 @@ export function DocumentRowActions({ doc }: Props) {
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>تأكيد الحذف</DialogTitle>
+            <DialogTitle>{t('deleteDialog.title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <p className="text-sm text-muted-foreground">
-              هل أنت متأكد من حذف هذه الوثيقة؟ لا يمكن التراجع عن هذا الإجراء.
+              {t('deleteDialog.confirmText')}
             </p>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setDeleteOpen(false)}>
-                إلغاء
+                {t('deleteDialog.cancel')}
               </Button>
               <Button
                 variant="destructive"
@@ -191,7 +197,7 @@ export function DocumentRowActions({ doc }: Props) {
                 ) : (
                   <Trash2 className="h-4 w-4 me-2" />
                 )}
-                حذف
+                {t('deleteDialog.delete')}
               </Button>
             </div>
           </div>

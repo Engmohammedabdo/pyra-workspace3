@@ -1,6 +1,7 @@
 'use client';
 
 import type { Dispatch, SetStateAction } from 'react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -11,7 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Loader2 } from 'lucide-react';
-import { DAY_LABELS, ALL_DAYS, type ScheduleForm } from './schedule-form';
+import { ALL_DAYS, DAY_KEY_BY_INDEX, type ScheduleForm } from './schedule-form';
 
 interface WorkScheduleDialogProps {
   open: boolean;
@@ -32,6 +33,8 @@ export function WorkScheduleDialog({
   onSave,
   saving,
 }: WorkScheduleDialogProps) {
+  const t = useTranslations('hr.workSchedules');
+
   const toggleDay = (day: number) => {
     setForm((prev) => {
       const exists = prev.work_days.includes(day);
@@ -47,14 +50,14 @@ export function WorkScheduleDialog({
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {editingId ? 'تعديل جدول العمل' : 'إضافة جدول عمل جديد'}
+            {editingId ? t('dialog.editTitle') : t('dialog.createTitle')}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-5 mt-2">
           {/* Name fields */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">الاسم (إنجليزي) *</label>
+              <label className="text-sm font-medium">{t('dialog.nameEnLabel')}</label>
               <Input
                 value={form.name}
                 onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
@@ -63,18 +66,18 @@ export function WorkScheduleDialog({
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">الاسم (عربي) *</label>
+              <label className="text-sm font-medium">{t('dialog.nameArLabel')}</label>
               <Input
                 value={form.name_ar}
                 onChange={(e) => setForm((p) => ({ ...p, name_ar: e.target.value }))}
-                placeholder="الأسبوع العادي"
+                placeholder="الأسبوع العادي" // i18n-exempt: Arabic example placeholder for name_ar data field
               />
             </div>
           </div>
 
           {/* Work days */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">أيام العمل</label>
+            <label className="text-sm font-medium">{t('dialog.workDaysLabel')}</label>
             <div className="flex flex-wrap gap-2">
               {ALL_DAYS.map((day) => {
                 const active = form.work_days.includes(day);
@@ -89,7 +92,7 @@ export function WorkScheduleDialog({
                         : 'bg-background text-muted-foreground border-border hover:border-orange-400 hover:text-orange-600 dark:hover:text-orange-400'
                     }`}
                   >
-                    {DAY_LABELS[day]}
+                    {t(`dayNamesFull.${DAY_KEY_BY_INDEX[day]}`)}
                   </button>
                 );
               })}
@@ -99,7 +102,7 @@ export function WorkScheduleDialog({
           {/* Time fields */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">وقت البداية</label>
+              <label className="text-sm font-medium">{t('dialog.startTimeLabel')}</label>
               <Input
                 type="time"
                 value={form.start_time}
@@ -108,7 +111,7 @@ export function WorkScheduleDialog({
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">وقت النهاية</label>
+              <label className="text-sm font-medium">{t('dialog.endTimeLabel')}</label>
               <Input
                 type="time"
                 value={form.end_time}
@@ -121,7 +124,7 @@ export function WorkScheduleDialog({
           {/* Numeric fields */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">الاستراحة (دقيقة)</label>
+              <label className="text-sm font-medium">{t('dialog.breakMinutesLabel')}</label>
               <Input
                 type="number"
                 min={0}
@@ -131,7 +134,7 @@ export function WorkScheduleDialog({
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">ساعات اليوم</label>
+              <label className="text-sm font-medium">{t('dialog.dailyHoursLabel')}</label>
               <Input
                 type="number"
                 min={0}
@@ -142,7 +145,7 @@ export function WorkScheduleDialog({
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">معامل الإضافي</label>
+              <label className="text-sm font-medium">{t('dialog.overtimeMultiplierLabel')}</label>
               <Input
                 type="number"
                 min={1}
@@ -155,7 +158,7 @@ export function WorkScheduleDialog({
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">معامل عمل نهاية الأسبوع</label>
+            <label className="text-sm font-medium">{t('dialog.weekendMultiplierLabel')}</label>
             <Input
               type="number"
               min={1}
@@ -170,9 +173,9 @@ export function WorkScheduleDialog({
           {/* Default toggle */}
           <div className="flex items-center justify-between py-2 border rounded-lg px-3 bg-muted/30 dark:bg-muted/20">
             <div>
-              <p className="text-sm font-medium">جدول افتراضي</p>
+              <p className="text-sm font-medium">{t('dialog.defaultToggleLabel')}</p>
               <p className="text-xs text-muted-foreground">
-                يُطبَّق على الموظفين الذين لم يُعيَّن لهم جدول محدد
+                {t('dialog.defaultToggleHint')}
               </p>
             </div>
             <Switch
@@ -189,12 +192,12 @@ export function WorkScheduleDialog({
             {saving ? (
               <>
                 <Loader2 className="h-4 w-4 me-2 animate-spin" />
-                جاري الحفظ...
+                {t('dialog.saving')}
               </>
             ) : editingId ? (
-              'تحديث'
+              t('dialog.update')
             ) : (
-              'إنشاء'
+              t('dialog.create')
             )}
           </Button>
         </div>

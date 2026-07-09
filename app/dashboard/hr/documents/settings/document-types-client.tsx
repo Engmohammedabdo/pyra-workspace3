@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +40,7 @@ const EMPTY_FORM: DocTypeForm = {
 };
 
 export default function DocumentTypesClient() {
+  const t = useTranslations('hr.documents.settings');
   const { data: docTypes = [], isLoading } = useDocumentTypes();
   const createMut = useCreateDocumentType();
   const updateMut = useUpdateDocumentType();
@@ -71,22 +73,22 @@ export default function DocumentTypesClient() {
 
   const handleSave = async () => {
     if (!form.name.trim() || !form.name_ar.trim()) {
-      toast.error('يرجى ملء الاسم بالعربي والإنجليزي');
+      toast.error(t('toasts.missingNames'));
       return;
     }
     try {
       if (editingId) {
         await updateMut.mutateAsync({ id: editingId, ...form });
-        toast.success('تم تحديث نوع الوثيقة');
+        toast.success(t('toasts.updateSuccess'));
       } else {
         await createMut.mutateAsync(form);
-        toast.success('تم إنشاء نوع الوثيقة');
+        toast.success(t('toasts.createSuccess'));
       }
       setShowDialog(false);
       setEditingId(null);
       setForm(EMPTY_FORM);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'فشل الحفظ';
+      const msg = err instanceof Error ? err.message : t('toasts.saveFailed');
       toast.error(msg);
     }
   };
@@ -95,10 +97,10 @@ export default function DocumentTypesClient() {
     if (!deleteId) return;
     try {
       await deleteMut.mutateAsync(deleteId);
-      toast.success('تم حذف نوع الوثيقة');
+      toast.success(t('toasts.deleteSuccess'));
       setDeleteId(null);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'فشل الحذف';
+      const msg = err instanceof Error ? err.message : t('toasts.deleteFailed');
       toast.error(msg);
     }
   };
@@ -121,9 +123,9 @@ export default function DocumentTypesClient() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">أنواع الوثائق</h1>
+          <h1 className="text-2xl font-bold">{t('title')}</h1>
           <p className="text-sm text-muted-foreground">
-            إدارة أنواع الوثائق والشهادات المستخدمة في ملفات الموظفين
+            {t('subtitle')}
           </p>
         </div>
         <Button
@@ -131,7 +133,7 @@ export default function DocumentTypesClient() {
           className="bg-orange-500 hover:bg-orange-600 text-white"
         >
           <Plus className="h-4 w-4 me-2" />
-          إضافة نوع
+          {t('addButton')}
         </Button>
       </div>
 
@@ -139,16 +141,16 @@ export default function DocumentTypesClient() {
       {docTypes.length === 0 ? (
         <EmptyState
           icon={FileText}
-          title="لا توجد أنواع وثائق"
-          description="أضف أنواع الوثائق لبدء إدارة ملفات الموظفين"
-          actionLabel="إضافة نوع وثيقة"
+          title={t('empty.title')}
+          description={t('empty.description')}
+          actionLabel={t('empty.actionLabel')}
           onAction={openCreate}
         />
       ) : (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
-              أنواع الوثائق ({docTypes.length})
+              {t('listTitle', { count: docTypes.length })}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -171,32 +173,32 @@ export default function DocumentTypesClient() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {editingId ? 'تعديل نوع الوثيقة' : 'إضافة نوع وثيقة جديد'}
+              {editingId ? t('typeDialog.editTitle') : t('typeDialog.createTitle')}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">الاسم (إنجليزي) *</label>
+                <label className="text-sm font-medium">{t('typeDialog.nameEnLabel')}</label>
                 <Input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Passport"
+                  placeholder="Passport" // i18n-exempt: example value for a bilingual DB-persisted name field, not UI chrome (board-template precedent)
                   dir="ltr"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">الاسم (عربي) *</label>
+                <label className="text-sm font-medium">{t('typeDialog.nameArLabel')}</label>
                 <Input
                   value={form.name_ar}
                   onChange={(e) => setForm({ ...form, name_ar: e.target.value })}
-                  placeholder="جواز السفر"
+                  placeholder="جواز السفر" // i18n-exempt: example value for a bilingual DB-persisted name field, not UI chrome (board-template precedent)
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">الترتيب</label>
+              <label className="text-sm font-medium">{t('typeDialog.sortOrderLabel')}</label>
               <Input
                 type="number"
                 min={0}
@@ -210,9 +212,9 @@ export default function DocumentTypesClient() {
 
             <div className="flex items-center justify-between py-2 border rounded-lg px-3 bg-muted/30 dark:bg-muted/20">
               <div>
-                <p className="text-sm font-medium">يتطلب تاريخ انتهاء</p>
+                <p className="text-sm font-medium">{t('typeDialog.requiresExpiryLabel')}</p>
                 <p className="text-xs text-muted-foreground">
-                  مثل: جواز السفر، الإقامة، رخصة القيادة
+                  {t('typeDialog.requiresExpiryHint')}
                 </p>
               </div>
               <Switch
@@ -229,12 +231,12 @@ export default function DocumentTypesClient() {
               {saving ? (
                 <>
                   <Loader2 className="h-4 w-4 me-2 animate-spin" />
-                  جاري الحفظ...
+                  {t('typeDialog.saving')}
                 </>
               ) : editingId ? (
-                'تحديث'
+                t('typeDialog.update')
               ) : (
-                'إنشاء'
+                t('typeDialog.create')
               )}
             </Button>
           </div>
@@ -245,15 +247,15 @@ export default function DocumentTypesClient() {
       <Dialog open={!!deleteId} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>تأكيد الحذف</DialogTitle>
+            <DialogTitle>{t('deleteDialog.title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <p className="text-sm text-muted-foreground">
-              هل أنت متأكد من حذف هذا النوع؟ سيتم إلغاء تفعيله ولن يظهر في النظام.
+              {t('deleteDialog.confirmText')}
             </p>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setDeleteId(null)}>
-                إلغاء
+                {t('deleteDialog.cancel')}
               </Button>
               <Button
                 variant="destructive"
@@ -265,7 +267,7 @@ export default function DocumentTypesClient() {
                 ) : (
                   <Trash2 className="h-4 w-4 me-2" />
                 )}
-                حذف
+                {t('deleteDialog.delete')}
               </Button>
             </div>
           </div>

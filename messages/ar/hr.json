@@ -906,6 +906,209 @@
         "onTimeDisclaimer": "الالتزام يُقاس على أول رفع للمراجعة (قرار مقفول 2026-07-03) — وقت انتظار المراجعة والجولات أرقام منفصلة.",
         "derivedDisclaimer": "الأرقام مشتقة من سجل حركة المهام — لا عدادات مخزنة."
       }
+    },
+    "documents": {
+      "title": "وثائق الموظفين",
+      "subtitle": "إدارة الوثائق والشهادات الرسمية للموظفين",
+      "settingsButton": "الإعدادات",
+      "uploadButton": "رفع وثيقة",
+      "typeFallback": "—",
+      "filters": {
+        "allEmployees": "كل الموظفين",
+        "allTypes": "كل الأنواع",
+        "allDocuments": "كل الوثائق",
+        "expiringOption": "تنتهي قريباً",
+        "expiredOption": "منتهية الصلاحية"
+      },
+      "columns": {
+        "employee": "الموظف",
+        "type": "نوع الوثيقة",
+        "label": "التسمية",
+        "expiry": "تاريخ الانتهاء",
+        "uploadedBy": "رُفعت بواسطة"
+      },
+      "empty": {
+        "title": "لا توجد وثائق",
+        "description": "ارفع أول وثيقة بالضغط على \"{uploadLabel}\"",
+        "actionLabel": "رفع وثيقة"
+      },
+      "userTab": {
+        "documentCount": "{count} وثيقة",
+        "empty": {
+          "title": "لا توجد وثائق",
+          "description": "لم يتم رفع أي وثائق لهذا الموظف بعد"
+        },
+        "expiresOn": "تنتهي {date}",
+        "noExpiry": "بدون تاريخ انتهاء"
+      },
+      "settings": {
+        "title": "أنواع الوثائق",
+        "subtitle": "إدارة أنواع الوثائق والشهادات المستخدمة في ملفات الموظفين",
+        "addButton": "إضافة نوع",
+        "listTitle": "أنواع الوثائق ({count})",
+        "empty": {
+          "title": "لا توجد أنواع وثائق",
+          "description": "أضف أنواع الوثائق لبدء إدارة ملفات الموظفين",
+          "actionLabel": "إضافة نوع وثيقة"
+        },
+        "toasts": {
+          "missingNames": "يرجى ملء الاسم بالعربي والإنجليزي",
+          "updateSuccess": "تم تحديث نوع الوثيقة",
+          "createSuccess": "تم إنشاء نوع الوثيقة",
+          "saveFailed": "فشل الحفظ",
+          "deleteSuccess": "تم حذف نوع الوثيقة",
+          "deleteFailed": "فشل الحذف"
+        },
+        "typeDialog": {
+          "editTitle": "تعديل نوع الوثيقة",
+          "createTitle": "إضافة نوع وثيقة جديد",
+          "nameEnLabel": "الاسم (إنجليزي) *",
+          "nameArLabel": "الاسم (عربي) *",
+          "sortOrderLabel": "الترتيب",
+          "requiresExpiryLabel": "يتطلب تاريخ انتهاء",
+          "requiresExpiryHint": "مثل: جواز السفر، الإقامة، رخصة القيادة",
+          "saving": "جاري الحفظ...",
+          "update": "تحديث",
+          "create": "إنشاء"
+        },
+        "deleteDialog": {
+          "title": "تأكيد الحذف",
+          "confirmText": "هل أنت متأكد من حذف هذا النوع؟ سيتم إلغاء تفعيله ولن يظهر في النظام.",
+          "cancel": "إلغاء",
+          "delete": "حذف"
+        }
+      },
+      "docTypeRow": {
+        "requiresExpiryBadge": "يتطلب تاريخ انتهاء",
+        "noExpiryBadge": "بدون انتهاء",
+        "sortOrderLabel": "ترتيب: {order}"
+      },
+      "rowActions": {
+        "optionsAria": "خيارات",
+        "download": "تحميل",
+        "edit": "تعديل",
+        "delete": "حذف",
+        "toasts": {
+          "downloadUnavailable": "رابط التحميل غير متاح",
+          "updateSuccess": "تم تحديث الوثيقة",
+          "updateFailed": "فشل التحديث",
+          "deleteSuccess": "تم حذف الوثيقة",
+          "deleteFailed": "فشل الحذف"
+        },
+        "editDialog": {
+          "title": "تعديل الوثيقة",
+          "typeLabel": "نوع الوثيقة",
+          "labelLabel": "التسمية",
+          "expiryLabel": "تاريخ الانتهاء",
+          "notesLabel": "ملاحظات",
+          "cancel": "إلغاء",
+          "saving": "جاري الحفظ...",
+          "save": "حفظ"
+        },
+        "deleteDialog": {
+          "title": "تأكيد الحذف",
+          "confirmText": "هل أنت متأكد من حذف هذه الوثيقة؟ لا يمكن التراجع عن هذا الإجراء.",
+          "cancel": "إلغاء",
+          "delete": "حذف"
+        }
+      },
+      "uploadDialog": {
+        "title": "رفع وثيقة موظف",
+        "employeeLabel": "الموظف *",
+        "employeePlaceholder": "اختر موظفاً",
+        "typeLabel": "نوع الوثيقة *",
+        "typePlaceholder": "اختر نوع الوثيقة",
+        "labelLabel": "التسمية",
+        "labelPlaceholder": "مثال: جواز سفر 2024",
+        "expiryLabel": "تاريخ الانتهاء",
+        "notesLabel": "ملاحظات",
+        "notesPlaceholder": "ملاحظات اختيارية...",
+        "fileLabel": "الملف *",
+        "cancel": "إلغاء",
+        "uploading": "جاري الرفع...",
+        "submit": "رفع وثيقة",
+        "toasts": {
+          "fileTypeUnsupported": "نوع الملف غير مدعوم. الأنواع المقبولة: PDF، JPEG، PNG، WebP",
+          "fileTooLarge": "حجم الملف يتجاوز {max} ميجابايت",
+          "employeeRequired": "يرجى اختيار الموظف",
+          "typeRequired": "يرجى اختيار نوع الوثيقة",
+          "fileRequired": "يرجى اختيار ملف",
+          "expiryRequired": "هذا النوع يتطلب تاريخ انتهاء",
+          "uploadSuccess": "تم رفع الوثيقة بنجاح",
+          "uploadFailed": "فشل الرفع"
+        }
+      }
+    },
+    "myDocuments": {
+      "title": "وثائقي",
+      "subtitle": "وثائقك الرسمية المرفوعة من قِبل الموارد البشرية (للقراءة فقط)",
+      "alertBanner": "لديك <b>{count}</b> {count, plural, one {وثيقة تحتاج} other {وثائق تحتاج}} إلى تجديد أو تنتهي قريباً — تواصل مع الموارد البشرية",
+      "empty": {
+        "title": "لا توجد وثائق",
+        "description": "لم يتم رفع أي وثائق لحسابك بعد، تواصل مع الموارد البشرية"
+      },
+      "typeFallback": "—",
+      "expiresOn": "تنتهي: {date}",
+      "download": "تحميل",
+      "toasts": {
+        "downloadUnavailable": "رابط التحميل غير متاح، تواصل مع الموارد البشرية"
+      }
+    },
+    "workSchedules": {
+      "title": "جداول العمل",
+      "subtitle": "إدارة جداول العمل الأسبوعية وتعيينها للموظفين",
+      "addButton": "إضافة جدول",
+      "listTitle": "جداول العمل ({count})",
+      "timeRangeLabel": "{start} – {end}",
+      "dailyHoursLabel": "{hours} ساعات/يوم",
+      "breakLabel": "استراحة {minutes} دقيقة",
+      "defaultBadge": "افتراضي",
+      "empty": {
+        "title": "لا توجد جداول عمل",
+        "description": "أضف جدول العمل الأول لتتمكن من تعيينه للموظفين",
+        "actionLabel": "إضافة جدول عمل"
+      },
+      "toasts": {
+        "missingNames": "يرجى ملء الاسم بالعربي والإنجليزي",
+        "updateSuccess": "تم تحديث جدول العمل",
+        "createSuccess": "تم إنشاء جدول العمل",
+        "saveFailed": "فشل الحفظ",
+        "deleteSuccess": "تم حذف جدول العمل",
+        "deleteFailed": "فشل الحذف"
+      },
+      "deleteDialog": {
+        "title": "تأكيد الحذف",
+        "description": "هل أنت متأكد من حذف هذا الجدول؟ لا يمكن التراجع عن هذه العملية. لا يمكن حذف جدول مُعيَّن لموظفين أو الجدول الافتراضي.",
+        "cancel": "إلغاء",
+        "delete": "حذف"
+      },
+      "dayNamesFull": {
+        "sun": "الأحد",
+        "mon": "الإثنين",
+        "tue": "الثلاثاء",
+        "wed": "الأربعاء",
+        "thu": "الخميس",
+        "fri": "الجمعة",
+        "sat": "السبت"
+      },
+      "dialog": {
+        "editTitle": "تعديل جدول العمل",
+        "createTitle": "إضافة جدول عمل جديد",
+        "nameEnLabel": "الاسم (إنجليزي) *",
+        "nameArLabel": "الاسم (عربي) *",
+        "workDaysLabel": "أيام العمل",
+        "startTimeLabel": "وقت البداية",
+        "endTimeLabel": "وقت النهاية",
+        "breakMinutesLabel": "الاستراحة (دقيقة)",
+        "dailyHoursLabel": "ساعات اليوم",
+        "overtimeMultiplierLabel": "معامل الإضافي",
+        "weekendMultiplierLabel": "معامل عمل نهاية الأسبوع",
+        "defaultToggleLabel": "جدول افتراضي",
+        "defaultToggleHint": "يُطبَّق على الموظفين الذين لم يُعيَّن لهم جدول محدد",
+        "saving": "جاري الحفظ...",
+        "update": "تحديث",
+        "create": "إنشاء"
+      }
     }
   }
 }

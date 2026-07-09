@@ -1,15 +1,9 @@
 import { DEFAULT_WORK_DAYS } from '@/lib/constants/auth';
 
-// Day labels indexed by 0=Sunday .. 6=Saturday (matches pyra_work_schedules.work_days)
-export const DAY_LABELS: Record<number, string> = {
-  0: 'الأحد',
-  1: 'الإثنين',
-  2: 'الثلاثاء',
-  3: 'الأربعاء',
-  4: 'الخميس',
-  5: 'الجمعة',
-  6: 'السبت',
-};
+// Day keys indexed by 0=Sunday .. 6=Saturday (matches pyra_work_schedules.work_days).
+// Resolve the label at render sites via t('workSchedules.dayNamesFull.' + DAY_KEY_BY_INDEX[i])
+// — this is a pure helper (no hooks), so labels can't be resolved here.
+export const DAY_KEY_BY_INDEX = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
 export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 

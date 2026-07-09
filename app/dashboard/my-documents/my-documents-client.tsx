@@ -1,7 +1,9 @@
 'use client';
 
+import { useTranslations, useLocale } from 'next-intl';
 import { useMyDocuments } from '@/hooks/useMyDocuments';
 import { classifyExpiry, EXPIRY_BADGE } from '@/lib/hr/document-expiry';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import { dubaiDayKey, formatDate } from '@/lib/utils/format';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +16,7 @@ import {
   Download,
   AlertTriangle,
 } from 'lucide-react';
+import type { Locale } from '@/lib/i18n/config';
 
 // ── helpers ──────────────────────────────────────────────────────────────
 
@@ -36,6 +39,9 @@ function DocSkeleton() {
 // ── main component ────────────────────────────────────────────────────────
 
 export default function MyDocumentsClient() {
+  const t = useTranslations('hr.myDocuments');
+  const locale = useLocale() as Locale;
+  const expiryStatusLabel = useStatusLabels('documentExpiry');
   const { data, isLoading } = useMyDocuments();
   const documents = data?.documents ?? [];
   const today = dubaiDayKey();
@@ -48,7 +54,7 @@ export default function MyDocumentsClient() {
 
   function handleDownload(signedUrl: string | undefined) {
     if (!signedUrl) {
-      toast.error('رابط التنزيل غير متاح، تواصل مع الموارد البشرية');
+      toast.error(t('toasts.downloadUnavailable'));
       return;
     }
     window.open(signedUrl, '_blank', 'noopener,noreferrer');
@@ -58,9 +64,9 @@ export default function MyDocumentsClient() {
     <div className="space-y-6">
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">وثائقي</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          وثائقك الرسمية المرفوعة من قِبل الموارد البشرية (للقراءة فقط)
+          {t('subtitle')}
         </p>
       </div>
 
@@ -70,9 +76,10 @@ export default function MyDocumentsClient() {
           <CardContent className="py-3 flex items-center gap-3">
             <AlertTriangle className="size-5 text-orange-500 shrink-0" aria-hidden />
             <p className="text-sm text-orange-700 dark:text-orange-300">
-              لديك{' '}
-              <span className="font-bold">{alertDocs.length}</span>{' '}
-              {alertDocs.length === 1 ? 'وثيقة تحتاج' : 'وثائق تحتاج'} إلى تجديد أو تنتهي قريباً — تواصل مع الموارد البشرية
+              {t.rich('alertBanner', {
+                count: alertDocs.length,
+                b: (chunks) => <span className="font-bold">{chunks}</span>,
+              })}
             </p>
           </CardContent>
         </Card>
@@ -91,8 +98,8 @@ export default function MyDocumentsClient() {
       {!isLoading && documents.length === 0 && (
         <EmptyState
           icon={FileText}
-          title="لا توجد وثائق"
-          description="لم يتم رفع أي وثائق لحسابك بعد، تواصل مع الموارد البشرية"
+          title={t('empty.title')}
+          description={t('empty.description')}
         />
       )}
 
@@ -114,7 +121,7 @@ export default function MyDocumentsClient() {
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-foreground truncate">
-                          {doc.type_name_ar ?? 'وثيقة'}
+                          {(locale === 'ar' ? doc.type_name_ar : (doc.type_name || doc.type_name_ar)) ?? t('typeFallback')}
                         </p>
                         {doc.label && (
                           <p className="text-xs text-muted-foreground truncate mt-0.5">
@@ -126,11 +133,11 @@ export default function MyDocumentsClient() {
                             variant="outline"
                             className={`text-[11px] border-0 ${badge.className}`}
                           >
-                            {badge.labelAr}
+                            {expiryStatusLabel(tier)}
                           </Badge>
                           {doc.expiry_date && (
                             <span className="text-[11px] text-muted-foreground">
-                              تنتهي: {formatDate(doc.expiry_date)}
+                              {t('expiresOn', { date: formatDate(doc.expiry_date, undefined, locale) })}
                             </span>
                           )}
                         </div>
@@ -145,7 +152,7 @@ export default function MyDocumentsClient() {
                       onClick={() => handleDownload(doc.signed_url)}
                     >
                       <Download className="size-4" aria-hidden />
-                      <span className="hidden sm:inline">تحميل</span>
+                      <span className="hidden sm:inline">{t('download')}</span>
                     </Button>
                   </div>
                 </CardContent>

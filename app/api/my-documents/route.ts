@@ -59,9 +59,11 @@ export async function GET(request: NextRequest) {
     // Parallel fetch for document types lookup (small table, single-pass join)
     const { data: types } = await supabase
       .from('pyra_document_types')
-      .select('id, name_ar');
+      .select('id, name, name_ar');
 
-    const typeMap = new Map((types ?? []).map((t) => [t.id, t.name_ar]));
+    // type_name (English) added alongside type_name_ar (additive — i18n Phase 5.7)
+    // so bilingual UI can render the locale-appropriate document-type name.
+    const typeMap = new Map((types ?? []).map((t) => [t.id, t]));
 
     // Per-row signed URL (private bucket — urls expire after SIGNED_URL_TTL)
     // Gap #3 Phase 3a: storage_path is stripped from the response (signed_url only)
@@ -71,9 +73,11 @@ export async function GET(request: NextRequest) {
         const { data: urlData } = await supabase.storage
           .from(DOC_BUCKET)
           .createSignedUrl(storage_path, SIGNED_URL_TTL);
+        const type = typeMap.get(row.type_id);
         return {
           ...rest,
-          type_name_ar: typeMap.get(row.type_id) ?? row.type_id,
+          type_name_ar: type?.name_ar ?? row.type_id,
+          type_name: type?.name ?? row.type_id,
           signed_url: urlData?.signedUrl ?? '',
         };
       }),

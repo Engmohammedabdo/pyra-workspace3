@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -15,9 +16,11 @@ import { toast } from 'sonner';
 import { useDocumentTypes } from '@/hooks/useDocumentTypes';
 import { useUploadEmployeeDocument } from '@/hooks/useEmployeeDocuments';
 import type { User } from '@/hooks/useUsers';
+import type { Locale } from '@/lib/i18n/config';
 
 const ALLOWED_MIME = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
 const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
+const MAX_SIZE_MB = MAX_SIZE / (1024 * 1024);
 
 interface Props {
   open: boolean;
@@ -28,6 +31,8 @@ interface Props {
 }
 
 export function UploadDocumentDialog({ open, onClose, employees, defaultEmployeeUsername }: Props) {
+  const t = useTranslations('hr.documents.uploadDialog');
+  const locale = useLocale() as Locale;
   const { data: docTypes = [] } = useDocumentTypes();
   const uploadMut = useUploadEmployeeDocument();
 
@@ -39,7 +44,7 @@ export function UploadDocumentDialog({ open, onClose, employees, defaultEmployee
   const [file, setFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const selectedType = docTypes.find((t) => t.id === typeId);
+  const selectedType = docTypes.find((dt) => dt.id === typeId);
   const requiresExpiry = selectedType?.requires_expiry ?? false;
 
   function reset() {
@@ -57,12 +62,12 @@ export function UploadDocumentDialog({ open, onClose, employees, defaultEmployee
     const f = e.target.files?.[0];
     if (!f) return;
     if (!ALLOWED_MIME.includes(f.type)) {
-      toast.error('نوع الملف غير مدعوم. الأنواع المقبولة: PDF، JPEG، PNG، WebP');
+      toast.error(t('toasts.fileTypeUnsupported'));
       e.target.value = '';
       return;
     }
     if (f.size > MAX_SIZE) {
-      toast.error('حجم الملف يتجاوز 20 ميجابايت');
+      toast.error(t('toasts.fileTooLarge', { max: MAX_SIZE_MB }));
       e.target.value = '';
       return;
     }
@@ -71,10 +76,10 @@ export function UploadDocumentDialog({ open, onClose, employees, defaultEmployee
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!employeeUsername) { toast.error('يرجى اختيار الموظف'); return; }
-    if (!typeId) { toast.error('يرجى اختيار نوع الوثيقة'); return; }
-    if (!file) { toast.error('يرجى اختيار ملف'); return; }
-    if (requiresExpiry && !expiryDate) { toast.error('هذا النوع يتطلب تاريخ انتهاء'); return; }
+    if (!employeeUsername) { toast.error(t('toasts.employeeRequired')); return; }
+    if (!typeId) { toast.error(t('toasts.typeRequired')); return; }
+    if (!file) { toast.error(t('toasts.fileRequired')); return; }
+    if (requiresExpiry && !expiryDate) { toast.error(t('toasts.expiryRequired')); return; }
 
     uploadMut.mutate(
       { file, employee_username: employeeUsername, type_id: typeId,
@@ -82,11 +87,11 @@ export function UploadDocumentDialog({ open, onClose, employees, defaultEmployee
         notes: notes || undefined },
       {
         onSuccess: () => {
-          toast.success('تم رفع الوثيقة بنجاح');
+          toast.success(t('toasts.uploadSuccess'));
           reset();
           onClose();
         },
-        onError: (err: Error) => toast.error(err.message || 'فشل الرفع'),
+        onError: (err: Error) => toast.error(err.message || t('toasts.uploadFailed')),
       },
     );
   }
@@ -95,26 +100,26 @@ export function UploadDocumentDialog({ open, onClose, employees, defaultEmployee
     if (!v) { reset(); onClose(); }
   }
 
-  const activeTypes = docTypes.filter((t) => t.is_active);
+  const activeTypes = docTypes.filter((dt) => dt.is_active);
   const isPending = uploadMut.isPending;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>رفع وثيقة موظف</DialogTitle>
+          <DialogTitle>{t('title')}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           {/* Employee */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">الموظف *</label>
+            <label className="text-sm font-medium">{t('employeeLabel')}</label>
             <Select
               value={employeeUsername}
               onValueChange={setEmployeeUsername}
               disabled={!!defaultEmployeeUsername}
             >
               <SelectTrigger className="h-11">
-                <SelectValue placeholder="اختر موظفاً" />
+                <SelectValue placeholder={t('employeePlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {employees.map((u) => (
@@ -128,16 +133,16 @@ export function UploadDocumentDialog({ open, onClose, employees, defaultEmployee
 
           {/* Type */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">نوع الوثيقة *</label>
+            <label className="text-sm font-medium">{t('typeLabel')}</label>
             <Select value={typeId} onValueChange={(v) => { setTypeId(v); setExpiryDate(''); }}>
               <SelectTrigger className="h-11">
-                <SelectValue placeholder="اختر نوع الوثيقة" />
+                <SelectValue placeholder={t('typePlaceholder')} />
               </SelectTrigger>
               <SelectContent>
-                {activeTypes.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name_ar}
-                    {t.requires_expiry && ' *'}
+                {activeTypes.map((dt) => (
+                  <SelectItem key={dt.id} value={dt.id}>
+                    {locale === 'ar' ? dt.name_ar : (dt.name || dt.name_ar)}
+                    {dt.requires_expiry && ' *'}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -146,10 +151,10 @@ export function UploadDocumentDialog({ open, onClose, employees, defaultEmployee
 
           {/* Label */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">التسمية</label>
+            <label className="text-sm font-medium">{t('labelLabel')}</label>
             <Input
               className="h-11"
-              placeholder="مثال: جواز سفر 2024"
+              placeholder={t('labelPlaceholder')}
               value={label}
               onChange={(e) => setLabel(e.target.value)}
             />
@@ -158,7 +163,7 @@ export function UploadDocumentDialog({ open, onClose, employees, defaultEmployee
           {/* Expiry date */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">
-              تاريخ الانتهاء {requiresExpiry && <span className="text-red-500">*</span>}
+              {t('expiryLabel')} {requiresExpiry && <span className="text-red-500">*</span>}
             </label>
             <Input
               type="date"
@@ -171,9 +176,9 @@ export function UploadDocumentDialog({ open, onClose, employees, defaultEmployee
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">ملاحظات</label>
+            <label className="text-sm font-medium">{t('notesLabel')}</label>
             <Textarea
-              placeholder="ملاحظات اختيارية..."
+              placeholder={t('notesPlaceholder')}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
@@ -182,7 +187,7 @@ export function UploadDocumentDialog({ open, onClose, employees, defaultEmployee
 
           {/* File */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">الملف *</label>
+            <label className="text-sm font-medium">{t('fileLabel')}</label>
             <Input
               ref={fileRef}
               type="file"
@@ -203,7 +208,7 @@ export function UploadDocumentDialog({ open, onClose, employees, defaultEmployee
               onClick={() => { reset(); onClose(); }}
               disabled={isPending}
             >
-              إلغاء
+              {t('cancel')}
             </Button>
             <Button
               type="submit"
@@ -211,9 +216,9 @@ export function UploadDocumentDialog({ open, onClose, employees, defaultEmployee
               className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
             >
               {isPending ? (
-                <><Loader2 className="h-4 w-4 me-2 animate-spin" /> جاري الرفع...</>
+                <><Loader2 className="h-4 w-4 me-2 animate-spin" /> {t('uploading')}</>
               ) : (
-                <><Upload className="h-4 w-4 me-2" /> رفع الوثيقة</>
+                <><Upload className="h-4 w-4 me-2" /> {t('submit')}</>
               )}
             </Button>
           </div>

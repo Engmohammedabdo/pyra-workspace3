@@ -278,6 +278,7 @@ export interface PyraEmployeeDocument {
   metadata: Record<string, unknown>;
   // joined / derived (not columns):
   type_name_ar?: string;
+  type_name?: string;
   employee_display_name?: string;
   signed_url?: string;
 }

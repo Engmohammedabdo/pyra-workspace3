@@ -13,10 +13,13 @@ export function classifyExpiry(expiryDate: string | null, todayKey: string): Exp
   return 'ok';
 }
 
-export const EXPIRY_BADGE: Record<ExpiryTier, { labelAr: string; className: string }> = {
-  expired:     { labelAr: 'منتهية',        className: 'bg-red-500/10 text-red-600 dark:text-red-400' },
-  expiring_7:  { labelAr: 'تنتهي خلال أيام', className: 'bg-orange-500/10 text-orange-600 dark:text-orange-400' },
-  expiring_30: { labelAr: 'تنتهي قريباً',    className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' },
-  ok:          { labelAr: 'سارية',          className: 'bg-green-500/10 text-green-600 dark:text-green-400' },
-  none:        { labelAr: 'دائمة',          className: 'bg-gray-500/10 text-gray-500 dark:text-gray-400' },
+// Labels moved to the `documentExpiry` status entity (messages/{ar,en}/statuses.json)
+// — resolve via useStatusLabels('documentExpiry') at render sites. This constant
+// now carries only the (locale-invariant) visual className per tier.
+export const EXPIRY_BADGE: Record<ExpiryTier, { className: string }> = {
+  expired:     { className: 'bg-red-500/10 text-red-600 dark:text-red-400' },
+  expiring_7:  { className: 'bg-orange-500/10 text-orange-600 dark:text-orange-400' },
+  expiring_30: { className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' },
+  ok:          { className: 'bg-green-500/10 text-green-600 dark:text-green-400' },
+  none:        { className: 'bg-gray-500/10 text-gray-500 dark:text-gray-400' },
 };

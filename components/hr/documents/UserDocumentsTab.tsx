@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import { FileText, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,13 +11,18 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useEmployeeDocumentsByUser } from '@/hooks/useEmployeeDocuments';
 import { useUsers } from '@/hooks/useUsers';
 import { classifyExpiry, EXPIRY_BADGE } from '@/lib/hr/document-expiry';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import { dubaiDayKey, formatDate } from '@/lib/utils/format';
 import { DocumentRowActions } from '@/components/hr/documents/DocumentRowActions';
 import { UploadDocumentDialog } from '@/components/hr/documents/UploadDocumentDialog';
+import type { Locale } from '@/lib/i18n/config';
 
 interface Props { username: string }
 
 export function UserDocumentsTab({ username }: Props) {
+  const t = useTranslations('hr.documents');
+  const locale = useLocale() as Locale;
+  const expiryStatusLabel = useStatusLabels('documentExpiry');
   const todayKey = dubaiDayKey();
   const [uploadOpen, setUploadOpen] = useState(false);
 
@@ -45,7 +51,7 @@ export function UserDocumentsTab({ username }: Props) {
       {/* Header row */}
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">
-          {docs.length > 0 ? `${docs.length} وثيقة` : ''}
+          {docs.length > 0 ? t('userTab.documentCount', { count: docs.length }) : ''}
         </span>
         <Button
           size="sm"
@@ -53,7 +59,7 @@ export function UserDocumentsTab({ username }: Props) {
           onClick={() => setUploadOpen(true)}
         >
           <Upload className="h-3.5 w-3.5" />
-          رفع وثيقة
+          {t('uploadButton')}
         </Button>
       </div>
 
@@ -61,8 +67,8 @@ export function UserDocumentsTab({ username }: Props) {
       {docs.length === 0 ? (
         <EmptyState
           icon={FileText}
-          title="لا توجد وثائق"
-          description="لم يتم رفع أي وثائق لهذا الموظف بعد"
+          title={t('userTab.empty.title')}
+          description={t('userTab.empty.description')}
         />
       ) : (
         <div className="space-y-2">
@@ -76,7 +82,7 @@ export function UserDocumentsTab({ username }: Props) {
                     <FileText className="h-4 w-4 text-orange-500 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">
-                        {doc.type_name_ar ?? '—'}
+                        {(locale === 'ar' ? doc.type_name_ar : (doc.type_name || doc.type_name_ar)) ?? t('typeFallback')}
                         {doc.label ? (
                           <span className="text-muted-foreground font-normal ms-2">
                             {doc.label}
@@ -85,8 +91,8 @@ export function UserDocumentsTab({ username }: Props) {
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {doc.expiry_date
-                          ? `ينتهي ${formatDate(doc.expiry_date)}`
-                          : 'بدون تاريخ انتهاء'}
+                          ? t('userTab.expiresOn', { date: formatDate(doc.expiry_date, undefined, locale) })
+                          : t('userTab.noExpiry')}
                       </p>
                     </div>
                   </div>
@@ -96,7 +102,7 @@ export function UserDocumentsTab({ username }: Props) {
                       variant="secondary"
                       className={`text-[10px] border-0 ${badge.className}`}
                     >
-                      {badge.labelAr}
+                      {expiryStatusLabel(tier)}
                     </Badge>
                     <DocumentRowActions doc={doc} />
                   </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,9 +27,10 @@ import {
 } from '@/hooks/useWorkSchedules';
 import type { PyraWorkSchedule } from '@/types/database';
 import { WorkScheduleDialog } from '@/components/hr/work-schedules/WorkScheduleDialog';
-import { DAY_LABELS, ALL_DAYS, EMPTY_FORM, type ScheduleForm } from '@/components/hr/work-schedules/schedule-form';
+import { ALL_DAYS, DAY_KEY_BY_INDEX, EMPTY_FORM, type ScheduleForm } from '@/components/hr/work-schedules/schedule-form';
 
 export default function WorkSchedulesClient() {
+  const t = useTranslations('hr.workSchedules');
   const { data: schedules = [], isLoading } = useWorkSchedules();
   const createMut = useCreateWorkSchedule();
   const updateMut = useUpdateWorkSchedule();
@@ -67,22 +69,22 @@ export default function WorkSchedulesClient() {
 
   const handleSave = async () => {
     if (!form.name.trim() || !form.name_ar.trim()) {
-      toast.error('يرجى ملء الاسم بالعربي والإنجليزي');
+      toast.error(t('toasts.missingNames'));
       return;
     }
     try {
       if (editingId) {
         await updateMut.mutateAsync({ id: editingId, ...form });
-        toast.success('تم تحديث جدول العمل');
+        toast.success(t('toasts.updateSuccess'));
       } else {
         await createMut.mutateAsync(form);
-        toast.success('تم إنشاء جدول العمل');
+        toast.success(t('toasts.createSuccess'));
       }
       setShowDialog(false);
       setEditingId(null);
       setForm(EMPTY_FORM);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'فشل الحفظ';
+      const msg = err instanceof Error ? err.message : t('toasts.saveFailed');
       toast.error(msg);
     }
   };
@@ -91,10 +93,10 @@ export default function WorkSchedulesClient() {
     if (!deleteId) return;
     try {
       await deleteMut.mutateAsync(deleteId);
-      toast.success('تم حذف جدول العمل');
+      toast.success(t('toasts.deleteSuccess'));
       setDeleteId(null);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'فشل الحذف';
+      const msg = err instanceof Error ? err.message : t('toasts.deleteFailed');
       toast.error(msg);
     }
   };
@@ -119,15 +121,15 @@ export default function WorkSchedulesClient() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Clock className="h-6 w-6 text-orange-500" aria-hidden />
-            جداول العمل
+            {t('title')}
           </h1>
           <p className="text-sm text-muted-foreground">
-            إدارة جداول العمل الأسبوعية وتعيينها للموظفين
+            {t('subtitle')}
           </p>
         </div>
         <Button onClick={openCreate} className="bg-orange-500 hover:bg-orange-600 text-white">
           <Plus className="h-4 w-4 me-2" />
-          إضافة جدول
+          {t('addButton')}
         </Button>
       </div>
 
@@ -135,15 +137,15 @@ export default function WorkSchedulesClient() {
       {schedules.length === 0 ? (
         <EmptyState
           icon={Clock}
-          title="لا توجد جداول عمل"
-          description="أضف جدول العمل الأول لتتمكن من تعيينه للموظفين"
-          actionLabel="إضافة جدول عمل"
+          title={t('empty.title')}
+          description={t('empty.description')}
+          actionLabel={t('empty.actionLabel')}
           onAction={openCreate}
         />
       ) : (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">جداول العمل ({schedules.length})</CardTitle>
+            <CardTitle className="text-base">{t('listTitle', { count: schedules.length })}</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y">
@@ -163,16 +165,16 @@ export default function WorkSchedulesClient() {
                         <span className="text-xs text-muted-foreground">({s.name})</span>
                         {s.is_default && (
                           <Badge className="text-[10px] bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-300 dark:border-orange-700/60">
-                            افتراضي
+                            {t('defaultBadge')}
                           </Badge>
                         )}
                       </div>
                       {/* Time & hours */}
-                      <p className="text-xs text-muted-foreground" dir="ltr">
-                        {s.start_time} – {s.end_time}
+                      <p className="text-xs text-muted-foreground">
+                        <span dir="ltr">{t('timeRangeLabel', { start: s.start_time, end: s.end_time })}</span>
                         {' · '}
-                        {s.daily_hours} ساعات/يوم
-                        {s.break_minutes > 0 && ` · استراحة ${s.break_minutes} دقيقة`}
+                        {t('dailyHoursLabel', { hours: s.daily_hours })}
+                        {s.break_minutes > 0 && ` · ${t('breakLabel', { minutes: s.break_minutes })}`}
                       </p>
                       {/* Work days chips */}
                       <div className="flex flex-wrap gap-1">
@@ -187,7 +189,7 @@ export default function WorkSchedulesClient() {
                                   : 'inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground'
                               }
                             >
-                              {DAY_LABELS[day]}
+                              {t(`dayNamesFull.${DAY_KEY_BY_INDEX[day]}`)}
                             </span>
                           );
                         })}
@@ -231,14 +233,13 @@ export default function WorkSchedulesClient() {
       <AlertDialog open={!!deleteId} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogTitle>{t('deleteDialog.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              هل أنت متأكد من حذف هذا الجدول؟ لا يمكن التراجع عن هذه العملية.
-              لا يمكن حذف جدول مُعيَّن لموظفين أو الجدول الافتراضي.
+              {t('deleteDialog.description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogCancel>{t('deleteDialog.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={deleting}
@@ -249,7 +250,7 @@ export default function WorkSchedulesClient() {
               ) : (
                 <Trash2 className="h-4 w-4 me-2" />
               )}
-              حذف
+              {t('deleteDialog.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

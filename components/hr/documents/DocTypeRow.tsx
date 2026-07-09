@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FileText, Calendar, Pencil, Trash2 } from 'lucide-react';
@@ -12,6 +13,7 @@ interface DocTypeRowProps {
 }
 
 export function DocTypeRow({ docType: dt, onEdit, onDelete }: DocTypeRowProps) {
+  const t = useTranslations('hr.documents.docTypeRow');
   return (
     <div className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
       <div className="flex items-center gap-3">
@@ -19,6 +21,8 @@ export function DocTypeRow({ docType: dt, onEdit, onDelete }: DocTypeRowProps) {
           <FileText className="h-4 w-4 text-orange-500" />
         </div>
         <div>
+          {/* Dual display (name_ar + (name)) is intentional regardless of
+              locale — admin catalog-management UX exemption (locked). */}
           <div className="flex items-center gap-2">
             <p className="text-sm font-medium">{dt.name_ar}</p>
             <span className="text-xs text-muted-foreground">({dt.name})</span>
@@ -30,15 +34,15 @@ export function DocTypeRow({ docType: dt, onEdit, onDelete }: DocTypeRowProps) {
                 className="text-[10px] border-amber-400 text-amber-600 dark:text-amber-400"
               >
                 <Calendar className="h-2.5 w-2.5 me-1" />
-                يتطلب تاريخ انتهاء
+                {t('requiresExpiryBadge')}
               </Badge>
             ) : (
               <Badge variant="secondary" className="text-[10px]">
-                بدون انتهاء
+                {t('noExpiryBadge')}
               </Badge>
             )}
             <span className="text-[10px] text-muted-foreground">
-              ترتيب: {dt.sort_order}
+              {t('sortOrderLabel', { order: dt.sort_order })}
             </span>
           </div>
         </div>
