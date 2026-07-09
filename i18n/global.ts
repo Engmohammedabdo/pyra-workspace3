@@ -9,10 +9,15 @@ import type api from '../messages/ar/api.json';
 import type crm from '../messages/ar/crm.json';
 import type finance from '../messages/ar/finance.json';
 import type hr from '../messages/ar/hr.json';
+import type settings from '../messages/ar/settings.json';
+import type admin from '../messages/ar/admin.json';
+import type users from '../messages/ar/users.json';
+import type rbac from '../messages/ar/rbac.json';
 
 type Messages = typeof common & typeof nav & typeof auth & typeof statuses
   & typeof mywork & typeof boards & typeof calendar & typeof api
-  & typeof crm & typeof finance & typeof hr;
+  & typeof crm & typeof finance & typeof hr
+  & typeof settings & typeof admin & typeof users & typeof rbac;
 
 declare module 'next-intl' {
   interface AppConfig {

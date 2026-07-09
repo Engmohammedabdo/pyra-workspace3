@@ -6,12 +6,14 @@ import type { Locale } from './config';
  * so splitting a namespace across two files would silently drop keys.
  * Grows per phase: Phase 1 adds 'nav', 'auth', 'statuses'. Phase 2 adds
  * 'mywork', 'boards', 'calendar', 'api'. Phase 3 adds 'crm'. Phase 4 adds
- * 'finance'. Phase 5 adds 'hr'.
+ * 'finance'. Phase 5 adds 'hr'. Phase 6a adds 'settings', 'admin', 'users',
+ * 'rbac'.
  */
 export const NAMESPACE_FILES = [
   'common', 'nav', 'auth', 'statuses',
   'mywork', 'boards', 'calendar', 'api',
   'crm', 'finance', 'hr',
+  'settings', 'admin', 'users', 'rbac',
 ] as const;
 
 type Messages = Record<string, unknown>;

@@ -1,5 +1,6 @@
 {
   "common": {
+    "all": "All",
     "language": { "label": "Language", "ar": "العربية", "en": "English", "switchTo": "Switch to {language}", "updateFailed": "Could not change language — please try again" },
     "actions": { "save": "Save", "cancel": "Cancel", "confirm": "Confirm", "close": "Close", "retry": "Try Again", "search": "Search...", "clearSearch": "Clear search" },
     "table": { "selectedCount": "{count} selected", "clearSelection": "Clear selection", "selectAll": "Select all", "selectRow": "Select row" },

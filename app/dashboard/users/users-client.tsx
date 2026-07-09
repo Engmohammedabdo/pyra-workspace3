@@ -51,6 +51,7 @@ import { formatDate } from '@/lib/utils/format';
 import { usePermission } from '@/hooks/usePermission';
 import { cn } from '@/lib/utils/cn';
 import { getRoleColorClasses, PERMISSION_MODULES } from '@/lib/auth/rbac';
+import { useRbacLabels } from '@/lib/i18n/rbac-labels';
 import { useWorkSchedules } from '@/hooks/useWorkSchedules';
 
 interface PyraRole {
@@ -99,6 +100,10 @@ interface RoleOption {
 
 export default function UsersClient() {
   const canManage = usePermission('users.manage');
+  // Phase 6a Task 1 — labelAr was stripped from PERMISSION_MODULES; this
+  // resolver reads messages/{ar,en}/rbac.json instead. Only the 2 read
+  // sites below were touched (mechanical swap, not a full page migration).
+  const { moduleLabel, permissionLabel } = useRbacLabels();
   const queryClient = useQueryClient();
 
   // React Query hooks
@@ -669,7 +674,7 @@ export default function UsersClient() {
                       <div key={module.key} className="border border-border/40 rounded-lg p-3 space-y-2">
                         <div className="flex items-center gap-2">
                           <div className="flex-1">
-                            <h4 className="text-sm font-medium">{module.labelAr}</h4>
+                            <h4 className="text-sm font-medium">{moduleLabel(module.key)}</h4>
                             <p className="text-xs text-muted-foreground">{module.label}</p>
                           </div>
                           <Button
@@ -706,7 +711,7 @@ export default function UsersClient() {
                                 }}
                                 className="rounded border-border"
                               />
-                              <span className="flex-1">{perm.labelAr || perm.label}</span>
+                              <span className="flex-1">{permissionLabel(perm.key)}</span>
                               <code className="text-[10px] text-muted-foreground">{perm.key}</code>
                             </label>
                           ))}

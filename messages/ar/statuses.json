@@ -46,6 +46,9 @@
     "evaluationForm": { "draft": "مسودة", "submitted": "مقدم", "acknowledged": "معترف به" },
     "evaluationPeriod": { "draft": "مسودة", "active": "نشط", "closed": "مغلق" },
     "evaluationType": { "manager": "تقييم المدير", "self": "تقييم ذاتي", "peer": "تقييم الأقران", "360": "تقييم 360°" },
-    "evaluationCriteriaCategory": { "technical": "تقنية", "communication": "تواصل", "leadership": "قيادة", "productivity": "إنتاجية", "teamwork": "عمل جماعي", "creativity": "إبداع", "other": "أخرى" }
+    "evaluationCriteriaCategory": { "technical": "تقنية", "communication": "تواصل", "leadership": "قيادة", "productivity": "إنتاجية", "teamwork": "عمل جماعي", "creativity": "إبداع", "other": "أخرى" },
+    "errorSeverity": { "error": "خطأ", "warning": "تحذير", "info": "معلومة" },
+    "errorEnvironment": { "production": "إنتاج", "development": "تطوير" },
+    "resolvedState": { "resolved": "محلول", "unresolved": "غير محلول" }
   }
 }

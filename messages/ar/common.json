@@ -1,5 +1,6 @@
 {
   "common": {
+    "all": "الكل",
     "language": { "label": "اللغة", "ar": "العربية", "en": "English", "switchTo": "التبديل إلى {language}", "updateFailed": "تعذر تغيير اللغة — حاول مرة أخرى" },
     "actions": { "save": "حفظ", "cancel": "إلغاء", "confirm": "تأكيد", "close": "إغلاق", "retry": "إعادة المحاولة", "search": "بحث...", "clearSearch": "مسح البحث" },
     "table": { "selectedCount": "{count} محدد", "clearSelection": "إلغاء التحديد", "selectAll": "تحديد الكل", "selectRow": "تحديد الصف" },

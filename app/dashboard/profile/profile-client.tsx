@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { getRoleColorClasses, PERMISSION_MODULES } from '@/lib/auth/rbac';
+import { useRbacLabels } from '@/lib/i18n/rbac-labels';
 import { formatRelativeDate } from '@/lib/utils/format';
 import {
   UserCircle, Shield, Activity, Lock, Camera,
@@ -27,6 +28,10 @@ interface ProfileClientProps {
 
 export default function ProfileClient({ session }: ProfileClientProps) {
   const queryClient = useQueryClient();
+  // Phase 6a Task 1 — labelAr was stripped from PERMISSION_MODULES; this
+  // resolver reads messages/{ar,en}/rbac.json instead. Only the 2 read
+  // sites below were touched (mechanical swap, not a full page migration).
+  const { moduleLabel, permissionLabel } = useRbacLabels();
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingBank, setSavingBank] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
@@ -338,7 +343,7 @@ export default function ProfileClient({ session }: ProfileClientProps) {
                   return (
                     <Card key={mod.key} className={`transition-opacity ${hasAny ? '' : 'opacity-40'}`}>
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">{mod.labelAr}</CardTitle>
+                        <CardTitle className="text-sm">{moduleLabel(mod.key)}</CardTitle>
                       </CardHeader>
                       <CardContent className="pt-0">
                         <div className="space-y-1">
@@ -354,7 +359,7 @@ export default function ProfileClient({ session }: ProfileClientProps) {
                                 ) : (
                                   <X className="h-3.5 w-3.5 text-red-400 shrink-0" />
                                 )}
-                                <span className={has ? '' : 'text-muted-foreground'}>{perm.labelAr}</span>
+                                <span className={has ? '' : 'text-muted-foreground'}>{permissionLabel(perm.key)}</span>
                               </div>
                             );
                           })}

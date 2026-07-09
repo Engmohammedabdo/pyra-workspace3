@@ -16,7 +16,9 @@ export type StatusEntity =
   | 'timesheet' | 'timesheetPeriod' | 'onboarding' | 'documentExpiry'
   | 'employmentType' | 'workLocation' | 'paymentSourceType'
   | 'evaluationForm' | 'evaluationPeriod' | 'evaluationType'
-  | 'evaluationCriteriaCategory';
+  | 'evaluationCriteriaCategory'
+  // Phase 6a — Admin/RBAC/Settings (error-logs)
+  | 'errorSeverity' | 'errorEnvironment' | 'resolvedState';
 
 /**
  * Locale-aware status label lookup. Falls back to the raw status value when

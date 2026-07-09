@@ -46,6 +46,9 @@
     "evaluationForm": { "draft": "Draft", "submitted": "Submitted", "acknowledged": "Acknowledged" },
     "evaluationPeriod": { "draft": "Draft", "active": "Active", "closed": "Closed" },
     "evaluationType": { "manager": "Manager Review", "self": "Self Review", "peer": "Peer Review", "360": "360° Review" },
-    "evaluationCriteriaCategory": { "technical": "Technical", "communication": "Communication", "leadership": "Leadership", "productivity": "Productivity", "teamwork": "Teamwork", "creativity": "Creativity", "other": "Other" }
+    "evaluationCriteriaCategory": { "technical": "Technical", "communication": "Communication", "leadership": "Leadership", "productivity": "Productivity", "teamwork": "Teamwork", "creativity": "Creativity", "other": "Other" },
+    "errorSeverity": { "error": "Error", "warning": "Warning", "info": "Info" },
+    "errorEnvironment": { "production": "Production", "development": "Development" },
+    "resolvedState": { "resolved": "Resolved", "unresolved": "Unresolved" }
   }
 }

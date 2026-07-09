@@ -47,6 +47,7 @@ import {
   UserMinus,
 } from 'lucide-react';
 import { PERMISSION_MODULES, ROLE_COLORS, getRoleColorClasses } from '@/lib/auth/rbac';
+import { useRbacLabels } from '@/lib/i18n/rbac-labels';
 import { usePermission } from '@/hooks/usePermission';
 import { motion } from 'framer-motion';
 import type { PyraRole } from '@/types/database';
@@ -79,6 +80,10 @@ export default function RolesClient() {
   const queryClient = useQueryClient();
   const { data: allUsers = [] } = useUsers() as { data: any[] };
   const canManage = usePermission('roles.manage');
+  // Phase 6a Task 1 — labelAr was stripped from PERMISSION_MODULES; this
+  // resolver reads messages/{ar,en}/rbac.json instead. Only the 2 read
+  // sites below were touched (mechanical swap, not a full page migration).
+  const { moduleLabel, permissionLabel } = useRbacLabels();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<PyraRole | null>(null);
@@ -491,7 +496,7 @@ export default function RolesClient() {
                               onCheckedChange={() => toggleModuleAll(mod.key)}
                               onClick={e => e.stopPropagation()}
                             />
-                            <span className="font-medium">{mod.labelAr}</span>
+                            <span className="font-medium">{moduleLabel(mod.key)}</span>
                             {checkedCount > 0 && (
                               <Badge variant="secondary" className="text-[10px]">{checkedCount}/{mod.permissions.length}</Badge>
                             )}
@@ -506,7 +511,7 @@ export default function RolesClient() {
                                   checked={formData.permissions.includes(perm.key)}
                                   onCheckedChange={() => togglePermission(perm.key)}
                                 />
-                                <span>{perm.labelAr}</span>
+                                <span>{permissionLabel(perm.key)}</span>
                                 <span className="text-[10px] text-muted-foreground ms-auto font-mono" dir="ltr">{perm.key}</span>
                               </label>
                             ))}
