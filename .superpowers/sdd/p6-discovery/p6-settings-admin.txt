@@ -1,0 +1,575 @@
+═══════════════════════════════════════════════════════════════════════════
+P6 DISCOVERY CENSUS — SETTINGS + ADMIN SURFACES
+Scope: app/dashboard/settings/**, components/settings/**,
+       app/dashboard/admin/**, app/api/settings/**, app/api/admin/**,
+       app/api/observability/**
+Generated: 2026-07-09 (read-only census — no source files modified)
+═══════════════════════════════════════════════════════════════════════════
+
+## FILE INVENTORY (16 files, 3797 total lines)
+
+app/dashboard/settings/page.tsx                                    11 lines
+app/dashboard/settings/settings-client.tsx                       1075 lines  *** >300 (split candidate) ***
+components/settings/agent-whatsapp-settings/dialog.tsx            350 lines  *** >300 (split candidate, borderline) ***
+components/settings/agent-whatsapp-settings/list.tsx               179 lines
+components/settings/agent-whatsapp-settings/section.tsx            230 lines
+app/dashboard/admin/error-logs/error-logs-client.tsx               638 lines  *** >300 (split candidate) ***
+app/dashboard/admin/error-logs/page.tsx                             17 lines
+app/api/settings/agent-whatsapp-settings/[id]/route.ts             170 lines
+app/api/settings/agent-whatsapp-settings/route.ts                  214 lines
+app/api/settings/api-keys/[id]/route.ts                            104 lines
+app/api/settings/api-keys/route.ts                                 100 lines
+app/api/settings/business-entities/route.ts                        125 lines
+app/api/settings/route.ts                                          214 lines
+app/api/admin/error-logs/[id]/route.ts                             163 lines
+app/api/admin/error-logs/route.ts                                  119 lines  (0 Arabic — clean)
+app/api/observability/log-client-error/route.ts                     88 lines
+
+Total files: 16
+Files with Arabic: 15  (only app/api/admin/error-logs/route.ts has none)
+Total Arabic-bearing lines: 275
+
+## CLASS BREAKDOWN (275 total)
+(ui)           225   — labels/buttons/toasts/empty-states/dialog text/config catalogs
+(status)         19   — status/enum label maps + duplicated severity/env/resolved badges
+(a)              28   — API response messages (apiError/apiValidationError/apiNotFound/apiServerError)
+(internal)        3   — Arabic inside code comments
+(data)            0   — none in-scope (business-entities name_ar is a WRITE path only, no render site in-scope)
+(notification)    0   — none (no notify()/WhatsApp send calls in this scope)
+(pdf)             0   — none
+
+═══════════════════════════════════════════════════════════════════════════
+FILE-BY-FILE CENSUS (verbatim strings, file:line, CLASS)
+═══════════════════════════════════════════════════════════════════════════
+
+────────────────────────────────────────────────────────────────
+app/dashboard/settings/page.tsx  (1 Arabic line / 11 total)
+────────────────────────────────────────────────────────────────
+page.tsx:5  title: 'الإعدادات | Pyra Workspace',  [ui]  (metadata title)
+
+────────────────────────────────────────────────────────────────
+app/dashboard/settings/settings-client.tsx  (143 Arabic lines / 1075 total)
+*** LARGEST FILE IN SCOPE — known 1000+ line split debt (CLAUDE.md) ***
+────────────────────────────────────────────────────────────────
+-- SETTING_LABELS catalog (keyed object — GOOD shape, label+description+placeholder per key) --
+settings-client.tsx:46  company_name: { label: 'اسم الشركة', description: 'يظهر في الفواتير والعروض والمستندات الرسمية', ... placeholder: 'مثال: بيراميديا إكس' }  [ui]
+settings-client.tsx:47  company_logo: { label: 'رابط الشعار', description: 'رابط مباشر لصورة الشعار بصيغة PNG أو SVG', ... }  [ui]
+settings-client.tsx:49  quote_prefix: { label: 'بادئة عرض السعر', description: 'يظهر قبل رقم العرض — مثال: QT-0001', ... }  [ui]
+settings-client.tsx:50  quote_expiry_days: { label: 'صلاحية عرض السعر (أيام)', description: 'المدة الافتراضية قبل انتهاء صلاحية العرض', ... }  [ui]
+settings-client.tsx:51  vat_rate: { label: 'نسبة الضريبة (%)', description: 'ضريبة القيمة المضافة — تُطبق تلقائياً على الفواتير والعروض', ... }  [ui]
+settings-client.tsx:53  invoice_prefix: { label: 'بادئة الفاتورة', description: 'يظهر قبل رقم الفاتورة — مثال: INV-0001', ... }  [ui]
+settings-client.tsx:54  payment_terms_days: { label: 'مدة الدفع (أيام)', description: 'يُستخدم لحساب تاريخ الاستحقاق تلقائياً', ... }  [ui]
+settings-client.tsx:55  default_currency: { label: 'العملة الافتراضية', description: 'العملات المدعومة: AED, USD, EUR, SAR, GBP', ... }  [ui]
+settings-client.tsx:56  default_early_payment_discount_percent: { label: 'خصم الدفع المبكر (%)', description: 'خصم يُمنح للعميل عند الدفع قبل الموعد', ... }  [ui]
+settings-client.tsx:57  default_early_payment_discount_days: { label: 'أيام الدفع المبكر', description: 'عدد الأيام المطلوبة للاستفادة من الخصم', ... }  [ui]
+settings-client.tsx:58  credit_note_prefix: { label: 'بادئة الإشعار الدائن', description: 'يظهر قبل رقم الإشعار — مثال: CN-0001', ... }  [ui]
+settings-client.tsx:59  po_prefix: { label: 'بادئة أمر الشراء', description: 'يظهر قبل رقم أمر الشراء — مثال: PO-0001', ... }  [ui]
+settings-client.tsx:61  bank_name: { label: 'اسم البنك', description: 'يظهر في بيانات التحويل على الفواتير', ... placeholder: 'مثال: بنك أبوظبي الأول' }  [ui]
+settings-client.tsx:62  bank_account_name: { label: 'اسم صاحب الحساب', description: 'الاسم المسجل في البنك', ... }  [ui]
+settings-client.tsx:63  bank_account_no: { label: 'رقم الحساب', description: 'رقم الحساب البنكي', ... }  [ui]
+settings-client.tsx:64  bank_iban: { label: 'IBAN', description: 'رقم الحساب الدولي (International Bank Account Number)', ... }  [ui]
+settings-client.tsx:66  max_upload_size_mb: { label: 'أقصى حجم رفع (MB)', description: 'الحد الأقصى لحجم الملف الواحد', ... }  [ui]
+settings-client.tsx:67  max_storage_gb: { label: 'أقصى مساحة تخزين (GB)', description: 'المساحة الكلية المتاحة لجميع الملفات', ... }  [ui]
+settings-client.tsx:68  kpi_storage_warning_percent: { label: 'نسبة تنبيه التخزين (%)', description: 'يظهر تنبيه عند تجاوز هذه النسبة من المساحة', ... }  [ui]
+settings-client.tsx:70  portal_enabled: { label: 'تفعيل بورتال العملاء', description: 'عند التعطيل، لن يتمكن العملاء من تسجيل الدخول', ... }  [ui]
+settings-client.tsx:71  portal_welcome_message: { label: 'رسالة الترحيب', description: 'تظهر للعميل في صفحة البورتال الرئيسية', ... placeholder: 'مرحباً بك في بوابة العملاء' }  [ui]
+settings-client.tsx:73  dunning_enabled: { label: 'تفعيل نظام التحصيل', description: 'تذكيرات تلقائية بالبريد للفواتير المتأخرة', ... }  [ui]
+settings-client.tsx:74  late_penalty_rate: { label: 'نسبة غرامة التأخير (%)', description: 'تُضاف تلقائياً على الفواتير المتأخرة', ... }  [ui]
+settings-client.tsx:75  late_penalty_grace_days: { label: 'أيام السماح', description: 'فترة سماح بعد تاريخ الاستحقاق', ... }  [ui]
+settings-client.tsx:76  dunning_reminder_interval_days: { label: 'الفترة بين التذكيرات (أيام)', description: 'المدة بين كل تذكير تحصيل وآخر', ... }  [ui]
+settings-client.tsx:78  expense_approval_required: { label: 'اعتماد المصروفات', description: 'عند التفعيل، تحتاج المصروفات الجديدة موافقة مدير', ... }  [ui]
+settings-client.tsx:80  commission_rate: { label: 'نسبة العمولة الافتراضية (%)', description: 'تُستخدم إذا لم يكن للموظف نسبة خاصة', ... }  [ui]
+settings-client.tsx:81  commission_trigger: { label: 'توقيت الاحتساب', description: 'payment = عند الدفع، invoice = عند إصدار الفاتورة', ... }  [ui]
+settings-client.tsx:82  commission_auto_calculate: { label: 'احتساب تلقائي', description: 'حساب العمولات تلقائياً عند تسجيل الدفع (يدوي + Stripe)', ... }  [ui]
+settings-client.tsx:84  stripe_enabled: { label: 'تفعيل الدفع الإلكتروني', description: 'تمكين أو تعطيل الدفع عبر Stripe', ... }  [ui]
+settings-client.tsx:85  stripe_publishable_key: { label: 'Publishable Key', description: 'المفتاح العام — يبدأ بـ pk_live_ أو pk_test_', ... }  [ui]
+settings-client.tsx:86  stripe_secret_key: { label: 'Secret Key', description: 'المفتاح السري — لا تشاركه مع أحد', ... }  [ui]
+settings-client.tsx:87  stripe_webhook_secret: { label: 'Webhook Secret', description: 'سر التحقق من إشعارات Stripe', ... }  [ui]
+settings-client.tsx:89  auto_version_on_upload: { label: 'تفعيل الإصدارات التلقائية', description: 'عند الرفع، يُنشئ إصداراً جديداً بدلاً من الاستبدال', ... }  [ui]
+settings-client.tsx:90  max_versions_per_file: { label: 'أقصى عدد إصدارات لكل ملف', description: 'الإصدارات الأقدم تُحذف تلقائياً عند تجاوز الحد', ... }  [ui]
+settings-client.tsx:91  trash_auto_purge_days: { label: 'مدة حذف سلة المهملات (أيام)', description: 'الملفات المحذوفة تُزال نهائياً بعد هذه المدة', ... }  [ui]
+settings-client.tsx:92  allow_public_shares: { label: 'السماح بروابط مشاركة عامة', description: 'عند التعطيل، لا يمكن إنشاء روابط مشاركة خارجية', ... }  [ui]
+settings-client.tsx:93  share_default_expiry_hours: { label: 'انتهاء صلاحية الرابط (ساعات)', description: 'المدة الافتراضية لصلاحية رابط المشاركة', ... }  [ui]
+settings-client.tsx:95  board_default_template: { label: 'القالب الافتراضي', description: 'القالب المستخدم عند إنشاء لوحة جديدة', ... }  [ui]
+settings-client.tsx:96  board_auto_create_with_project: { label: 'إنشاء لوحة تلقائياً مع المشروع', description: 'عند إنشاء مشروع جديد، تُنشأ لوحة مهام تلقائياً', ... }  [ui]
+settings-client.tsx:97  board_require_due_date: { label: 'إلزام تاريخ الاستحقاق', description: 'لا يمكن إنشاء مهمة بدون تاريخ استحقاق', ... }  [ui]
+settings-client.tsx:98  board_enable_time_tracking: { label: 'تفعيل تتبع الوقت', description: 'إظهار حقول الساعات المقدرة والفعلية في المهام', ... }  [ui]
+settings-client.tsx:99  board_overdue_notification: { label: 'إشعار المهام المتأخرة', description: 'إرسال إشعار تلقائي عند تأخر المهمة', ... }  [ui]
+settings-client.tsx:100 board_notify_on_assign: { label: 'إشعار عند التعيين', description: 'إرسال إشعار للعضو عند تعيينه على مهمة', ... }  [ui]
+settings-client.tsx:101 board_notify_on_comment: { label: 'إشعار عند التعليق', description: 'إرسال إشعار عند إضافة تعليق على مهمة معينة', ... }  [ui]
+settings-client.tsx:102 board_client_portal_visible: { label: 'عرض للعملاء في البورتال', description: 'السماح للعملاء بمشاهدة لوحات مشاريعهم (قراءة فقط)', ... }  [ui]
+settings-client.tsx:103 board_max_attachments_mb: { label: 'أقصى حجم مرفقات المهمة (MB)', description: 'الحد الأقصى لحجم المرفقات لكل مهمة', ... }  [ui]
+settings-client.tsx:104 board_done_auto_archive_days: { label: 'أرشفة تلقائية (أيام)', description: 'أرشفة المهام المكتملة تلقائياً بعد هذه المدة (0 = معطّل)', ... }  [ui]
+settings-client.tsx:106 session_timeout_minutes: { label: 'مهلة الجلسة (دقائق)', description: 'يتم تسجيل الخروج تلقائياً بعد فترة عدم النشاط', ... }  [ui]
+settings-client.tsx:107 max_failed_logins: { label: 'أقصى محاولات دخول فاشلة', description: 'يتم قفل الحساب بعد هذا العدد من المحاولات', ... }  [ui]
+settings-client.tsx:108 lockout_duration_minutes: { label: 'مدة القفل (دقائق)', description: 'مدة قفل الحساب بعد تجاوز المحاولات المسموحة', ... }  [ui]
+settings-client.tsx:110 smtp_host: { label: 'خادم البريد (SMTP Host)', description: 'عنوان خادم البريد الصادر', ... }  [ui]
+settings-client.tsx:111 smtp_port: { label: 'المنفذ (Port)', description: 'عادة 587 (TLS) أو 465 (SSL)', ... }  [ui]
+settings-client.tsx:112 smtp_user: { label: 'اسم المستخدم', description: 'البريد الإلكتروني أو اسم المستخدم للمصادقة', ... }  [ui]
+settings-client.tsx:113 smtp_pass: { label: 'كلمة المرور', description: 'كلمة مرور البريد أو App Password', ... placeholder: '••••••••' }  [ui]
+settings-client.tsx:114 smtp_from: { label: 'البريد المرسل', description: 'عنوان البريد الذي يظهر كمرسل للإشعارات', ... }  [ui]
+
+-- GROUPS array (label + tip per group card) --
+settings-client.tsx:131 { key: 'company', label: 'معلومات الشركة', ... tip: 'هذه البيانات تظهر في رأس الفواتير والعروض والمستندات الرسمية. تأكد من دقتها.' }  [ui]
+settings-client.tsx:133 { key: 'bank', label: 'البيانات البنكية', ... tip: 'تظهر في ذيل الفواتير لتسهيل التحويل البنكي. تأكد من صحة رقم IBAN.' }  [ui]
+settings-client.tsx:135 { key: 'portal', label: 'بورتال العملاء', ... tip: 'البورتال يتيح للعملاء متابعة مشاريعهم وفواتيرهم. يمكنك تعطيله مؤقتاً عند الحاجة.' }  [ui]
+settings-client.tsx:137 { key: 'boards', label: 'لوحات العمل', ... tip: 'إعدادات لوحات المهام والمشاريع. تتحكم في القوالب الافتراضية والإشعارات وتتبع الوقت.' }  [ui]
+settings-client.tsx:140 { key: 'quotes', label: 'عروض الأسعار', ... tip: 'البادئة ونسبة الضريبة تُطبق تلقائياً عند إنشاء عرض سعر جديد.' }  [ui]
+settings-client.tsx:142 { key: 'invoices', label: 'الفواتير والمستندات', ... tip: 'هذه الإعدادات تتحكم في الترقيم التلقائي ومدة الدفع والخصومات لجميع المستندات المالية.' }  [ui]
+settings-client.tsx:144 { key: 'dunning', label: 'التحصيل والتذكيرات', ... tip: 'نظام التحصيل يرسل تذكيرات تلقائية بالبريد للفواتير المتأخرة ويطبق غرامات التأخير.' }  [ui]
+settings-client.tsx:146 { key: 'expenses', label: 'المصروفات', ... tip: 'عند تفعيل الاعتماد، المصروفات الجديدة تكون بحالة "معلّقة" حتى يوافق عليها المدير.' }  [ui]
+settings-client.tsx:148 { key: 'commissions', label: 'العمولات', ... tip: 'العمولات تُحسب تلقائياً عند تسجيل الدفع. يمكن تخصيص نسبة لكل موظف من ملفه الشخصي.' }  [ui]
+settings-client.tsx:151 { key: 'storage', label: 'التخزين', ... tip: 'حدود التخزين تحمي من الاستهلاك المفرط. نسبة التنبيه تظهر إشعاراً في لوحة التحكم.' }  [ui]
+settings-client.tsx:153 { key: 'stripe', label: 'الدفع الإلكتروني', ... tip: 'احصل على المفاتيح من dashboard.stripe.com. استخدم مفاتيح test_ أثناء التجربة.' }  [ui]
+settings-client.tsx:155 { key: 'files', label: 'إدارة الملفات', ... tip: 'إعدادات الإصدارات والمشاركة وسلة المهملات. تؤثر على جميع الملفات في النظام.' }  [ui]
+settings-client.tsx:157 { key: 'security', label: 'الأمان', ... tip: 'إعدادات حماية الحسابات — مهلة الجلسة وقفل المحاولات الفاشلة. تُطبق على جميع المستخدمين.' }  [ui]
+settings-client.tsx:159 { key: 'email', label: 'البريد الإلكتروني', ... tip: 'إعدادات SMTP لإرسال الإشعارات والتذكيرات. إذا لم تُعبأ، يستخدم النظام الإعدادات الافتراضية.' }  [ui]
+
+-- CATEGORIES array --
+settings-client.tsx:164 { key: 'business', label: 'الشركة والأعمال', icon: Building2 }  [ui]
+settings-client.tsx:165 { key: 'finance', label: 'المالية والفوترة', icon: Receipt }  [ui]
+settings-client.tsx:166 { key: 'system', label: 'النظام والتقنية', icon: HardDrive }  [ui]
+
+-- SUB_SETTINGS array (links out to other settings pages — OUT of this scope) --
+settings-client.tsx:171 { href: '/dashboard/sales/settings', label: 'إعدادات المبيعات', ... description: 'مراحل Pipeline والتصنيفات وأرقام WhatsApp' }  [ui]
+settings-client.tsx:172 { href: '/dashboard/leave/settings', label: 'إعدادات الإجازات', ... description: 'أنواع الإجازات والأرصدة والترحيل' }  [ui]
+settings-client.tsx:173 { href: '/dashboard/evaluations/settings', label: 'إعدادات التقييم', ... description: 'معايير التقييم والأوزان والفئات' }  [ui]
+
+-- TABS array --
+settings-client.tsx:178 { key: 'general', label: 'عام', icon: Settings }  [ui]
+settings-client.tsx:179 { key: 'api-keys', label: 'مفاتيح API', icon: Key }  [ui]
+settings-client.tsx:180 { key: 'agent-whatsapp', label: 'إعدادات WhatsApp للفريق', icon: MessageCircle }  [ui]
+settings-client.tsx:181 { key: 'modules', label: 'إعدادات الأنظمة', icon: Sparkles }  [ui]
+
+-- Body strings --
+settings-client.tsx:372  title={`${completion}% مكتمل`}  [ui]  (completion-% title attr)
+settings-client.tsx:408  <span>{currentGroup?.label || 'اختر القسم'}</span>  [ui]
+settings-client.tsx:494  placeholder="ابحث في الإعدادات..."  [ui]
+settings-client.tsx:502  مسح  [ui]  (clear-search button)
+settings-client.tsx:513  title="لا توجد نتائج"  [ui]  (EmptyState)
+settings-client.tsx:514  description={`لم يتم العثور على إعدادات تطابق "${searchQuery}"`}  [ui]
+settings-client.tsx:519  title={`نتائج البحث (${searchResults.length})`}  [ui]
+settings-client.tsx:616  { value: '*', label: 'الكل' },  [ui]  (AVAILABLE_PERMISSIONS catalog — dup of "الكل" seen elsewhere, see hazards)
+settings-client.tsx:654  toast.success('تم إنشاء مفتاح API بنجاح');  [ui]
+settings-client.tsx:659  onError: (err) => { console.error(err); toast.error('فشل إنشاء المفتاح'); }  [ui]
+settings-client.tsx:664  onError: (err) => { console.error(err); toast.error('فشل تحديث حالة المفتاح'); }  [ui]
+settings-client.tsx:669  onSuccess: () => { toast.success('تم حذف المفتاح'); refetchApiKeys(); }  [ui]
+settings-client.tsx:670  onError: (err) => { console.error(err); toast.error('فشل حذف المفتاح'); }  [ui]
+settings-client.tsx:685  if (!newKeyName.trim()) { toast.error('يرجى إدخال اسم المفتاح'); return; }  [ui]
+settings-client.tsx:686  if (newKeyPermissions.length === 0) { toast.error('يرجى اختيار صلاحية واحدة على الأقل'); return; }  [ui]
+settings-client.tsx:697  toast.success('تم نسخ المفتاح');  [ui]
+settings-client.tsx:699  } catch { toast.error('فشل نسخ المفتاح'); }  [ui]
+settings-client.tsx:706  toast.success(key.is_active ? 'تم تعطيل المفتاح' : 'تم تفعيل المفتاح');  [ui]
+settings-client.tsx:740  <p className="font-medium">كيف تستخدم مفاتيح API؟</p>  [ui]
+settings-client.tsx:741  <p>أنشئ مفتاح API لربط النظام مع أنظمتك الخارجية مثل n8n أو Telegram bot. أرسل المفتاح في هيدر <code ...>x-api-key</code> مع كل طلب.</p>  [ui]
+settings-client.tsx:746  <SectionCard icon={Shield} title="مفاتيح API الخارجية" ... />  [ui]
+settings-client.tsx:751  {apiKeys.length > 0 ? `${apiKeys.length} مفتاح مسجّل` : 'لم يتم إنشاء أي مفاتيح بعد'}  [ui]
+settings-client.tsx:760  مفتاح جديد  [ui]  (button)
+settings-client.tsx:769  هذا المفتاح لن يظهر مرة أخرى — احفظه الآن  [ui]
+settings-client.tsx:785  <h4 className="font-semibold text-sm">إنشاء مفتاح API جديد</h4>  [ui]
+settings-client.tsx:787  <FormLabel htmlFor="api-key-name" required>اسم المفتاح</FormLabel>  [ui]
+settings-client.tsx:790  placeholder="مثال: تكامل نظام المحاسبة"  [ui]
+settings-client.tsx:797  <Label>الصلاحيات</Label>  [ui]
+settings-client.tsx:816  {creatingKey ? 'جارٍ الإنشاء...' : 'إنشاء المفتاح'}  [ui]
+settings-client.tsx:821  إلغاء  [ui]
+settings-client.tsx:835  title="لا توجد مفاتيح API"  [ui]  (EmptyState)
+settings-client.tsx:836  description="أنشئ مفتاح API للتكامل مع أنظمتك الخارجية مثل n8n أو Telegram"  [ui]
+settings-client.tsx:852  {!key.is_active && <Badge variant="secondary" className="text-xs">معطّل</Badge>}  [status]  (inline active/inactive badge — not sourced from lib/constants/statuses.ts)
+settings-client.tsx:863  aria-label={key.is_active ? 'تعطيل المفتاح' : 'تفعيل المفتاح'}  [ui]
+settings-client.tsx:870  aria-label="حذف المفتاح"  [ui]
+settings-client.tsx:879  {perm === '*' ? 'الكل (*)' : perm}  [ui]  (dup of "الكل" pattern)
+settings-client.tsx:884  <span>أُنشئ: {formatDate(key.created_at)}</span>  [ui]  (uses LOCAL formatDate() — see hazards)
+settings-client.tsx:885  <span>آخر استخدام: {formatDate(key.last_used_at)}</span>  [ui]
+settings-client.tsx:897  <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>  [ui]
+settings-client.tsx:899  هل أنت متأكد من حذف المفتاح &quot;{deleteTargetKey?.name}&quot;؟ لا يمكن التراجع عن هذا الإجراء.  [ui]
+settings-client.tsx:903  <AlertDialogCancel>إلغاء</AlertDialogCancel>  [ui]
+settings-client.tsx:905  حذف  [ui]  (button)
+settings-client.tsx:924  كل نظام فرعي له صفحة إعدادات خاصة. اضغط على البطاقة للانتقال مباشرة.  [ui]
+settings-client.tsx:979  toast.success('تم حفظ الإعدادات بنجاح');  [ui]
+settings-client.tsx:981  } catch (err) { console.error(err); toast.error('حدث خطأ أثناء الحفظ'); } finally { setSaving(false); }  [ui]
+settings-client.tsx:1010 <h1 className="text-xl font-bold">الإعدادات</h1>  [ui]
+settings-client.tsx:1011 <p className="text-sm text-muted-foreground">تخصيص النظام والتكوين العام</p>  [ui]
+settings-client.tsx:1021 {saving ? 'جارٍ الحفظ...' : saved ? 'تم الحفظ!' : 'حفظ الإعدادات'}  [ui]
+settings-client.tsx:1069 {saving ? 'جارٍ الحفظ...' : saved ? 'تم الحفظ!' : 'حفظ الإعدادات'}  [ui]  (DUPLICATE of line 1021 — same ternary repeated twice in file, sticky footer + inline button)
+
+────────────────────────────────────────────────────────────────
+components/settings/agent-whatsapp-settings/dialog.tsx  (26 Arabic lines / 350 total)
+────────────────────────────────────────────────────────────────
+dialog.tsx:65   /** mutation pending — disable submit + cancel; show "جارٍ الحفظ..." */  [internal]  (JSDoc comment, example string)
+dialog.tsx:136  toast.error('اختر الموظف');  [ui]
+dialog.tsx:140  toast.error('اسم Instance مطلوب');  [ui]
+dialog.tsx:144  toast.error('رقم WhatsApp المستلم مطلوب');  [ui]
+dialog.tsx:178  {isEdit ? 'تعديل إعداد WhatsApp' : 'إضافة إعداد WhatsApp'}  [ui]  (dialog title)
+dialog.tsx:181  اربط الموظف بـ Evolution Instance ورقم WhatsApp يستقبل التذكيرات.  [ui]  (dialog description)
+dialog.tsx:188  <Label htmlFor="agent-select">الموظف</Label>  [ui]
+dialog.tsx:195  <SelectValue placeholder="اختر الموظف" />  [ui]
+dialog.tsx:210  لا يمكن تعديل الموظف. للتغيير، احذف الإعداد وأنشئه من جديد.  [ui]
+dialog.tsx:233  Instance اللي ترسل منه الرسالة. ممكن تكتب اسم لم يُنشأ بعد —  [ui]
+dialog.tsx:234  التحقق يحدث عند تشغيل الـ Cron.  [ui]
+dialog.tsx:239  <Label htmlFor="recipient-phone">رقم WhatsApp المستلم</Label>  [ui]
+dialog.tsx:249  بدون + أو مسافات — أرقام فقط (مع كود الدولة).  [ui]
+dialog.tsx:257  تفعيل  [ui]  (Switch label)
+dialog.tsx:260  عند التفعيل، الـ Cron يبدأ يستخدم هذا الإعداد فوراً.  [ui]
+dialog.tsx:272  <Label htmlFor="notes">ملاحظات (اختياري)</Label>  [ui]
+dialog.tsx:290  إلغاء  [ui]  (button)
+dialog.tsx:298  ? 'جارٍ الحفظ...'  [ui]
+dialog.tsx:300  ? 'حفظ التعديلات'  [ui]
+dialog.tsx:301  : 'إنشاء الإعداد'}  [ui]
+dialog.tsx:330  <AlertDialogTitle>حذف إعداد WhatsApp</AlertDialogTitle>  [ui]
+dialog.tsx:332  هل تريد حذف إعداد WhatsApp للموظف <strong>{displayName}</strong>؟ لن  [ui]
+dialog.tsx:333  يتلقى تذكيرات المتابعة على WhatsApp بعد الحذف (التنبيه داخل التطبيق  [ui]
+dialog.tsx:334  يبقى يعمل).  [ui]
+dialog.tsx:338  <AlertDialogCancel disabled={deleting}>إلغاء</AlertDialogCancel>  [ui]
+dialog.tsx:344  حذف نهائي  [ui]  (button)
+
+────────────────────────────────────────────────────────────────
+components/settings/agent-whatsapp-settings/list.tsx  (9 Arabic lines / 179 total)
+────────────────────────────────────────────────────────────────
+list.tsx:57   title="لا توجد إعدادات حتى الآن"  [ui]  (EmptyState)
+list.tsx:58   description="ابدأ بربط أول موظف برقم WhatsApp المستلم — الـ Cron سيستخدم هذا الإعداد على الفور بمجرد تفعيله."  [ui]
+list.tsx:96   {!row.is_active && <Badge variant="secondary">معطّل</Badge>}  [status]  (inline active/inactive badge, same pattern as settings-client.tsx:852)
+list.tsx:106  aria-label={row.is_active ? 'تعطيل' : 'تفعيل'}  [ui]
+list.tsx:115  aria-label="تعديل"  [ui]
+list.tsx:124  aria-label="حذف"  [ui]
+list.tsx:147  <AlertCircle .../> غير موجود  [ui]  (instance-not-found inline warning)
+list.tsx:161  * dialog ("بدون + أو مسافات") already conveys the format.  [internal]  (code comment quoting UI string — cross-reference to dialog.tsx:249)
+list.tsx:164  الرقم المستلم:{' '}  [ui]
+
+────────────────────────────────────────────────────────────────
+components/settings/agent-whatsapp-settings/section.tsx  (14 Arabic lines / 230 total)
+────────────────────────────────────────────────────────────────
+section.tsx:116  toast.success('تم التحديث');  [ui]
+section.tsx:125  toast.success('تم الإنشاء');  [ui]
+section.tsx:131  // ("استخدم تعديل بدلاً من إضافة") and 422 validation messages  [internal]  (code comment quoting API message — cross-reference app/api/settings/agent-whatsapp-settings/route.ts:187)
+section.tsx:133  toast.error(err instanceof Error ? err.message : 'حدث خطأ');  [ui]  (fallback string; primary message flows from API [a] class)
+section.tsx:140  toast.success(row.is_active ? 'تم التعطيل' : 'تم التفعيل');  [ui]
+section.tsx:142  toast.error(err instanceof Error ? err.message : 'فشل التحديث');  [ui]
+section.tsx:150  toast.success('تم الحذف');  [ui]
+section.tsx:153  toast.error(err instanceof Error ? err.message : 'فشل الحذف');  [ui]
+section.tsx:169  <p className="font-medium">إلى أين يصل تنبيه المتابعة لكل موظف؟</p>  [ui]
+section.tsx:171  اربط كل عضو في الفريق بـ Evolution Instance + رقم WhatsApp المستلم.  [ui]
+section.tsx:172  الـ Cron يقرأ من هنا ويرسل تذكير المتابعة على واتساب الموظف. Instance  [ui]
+section.tsx:173  واحد ممكن يخدم عدة موظفين، كل واحد على رقمه الخاص.  [ui]
+section.tsx:186  <h3 className="font-bold text-sm flex-1">إعدادات WhatsApp للفريق</h3>  [ui]
+section.tsx:195  إضافة إعداد  [ui]  (button)
+
+────────────────────────────────────────────────────────────────
+app/dashboard/admin/error-logs/error-logs-client.tsx  (53 Arabic lines / 638 total)
+────────────────────────────────────────────────────────────────
+error-logs-client.tsx:116  <Bug .../> سجل الأخطاء  [ui]  (page heading)
+error-logs-client.tsx:119  الأخطاء التي يلتقطها مُجمِّع الـ observability من الـ APIs والمهام المجدولة و  [ui]
+error-logs-client.tsx:120  حدود الأخطاء (Phase 14.1). فلتر "غير محلولة" نشط افتراضياً.  [ui]  *** developer-internal "Phase 14.1" reference in USER-FACING copy — CLAUDE.md Phase 13 lock #2 forbids "Phase X" language in shipped UI; pre-existing violation, flag for cleanup ***
+error-logs-client.tsx:136  تحديث  [ui]  (refresh button)
+error-logs-client.tsx:144  <label ...>حالة الحل</label>  [ui]
+error-logs-client.tsx:152  { key: 'unresolved', label: 'غير محلولة' },  [status]  (resolved-state filter)
+error-logs-client.tsx:153  { key: 'resolved', label: 'محلولة' },  [status]
+error-logs-client.tsx:154  { key: 'all', label: 'الكل' },  [status]  (dup "الكل" #1 of 4 in this file)
+error-logs-client.tsx:159  <label ...>الخطورة</label>  [ui]
+error-logs-client.tsx:167  { key: 'all', label: 'الكل' },  [status]  (dup "الكل" #2)
+error-logs-client.tsx:168  { key: 'error', label: 'خطأ' },  [status]  (dup of severity meta line 596)
+error-logs-client.tsx:169  { key: 'warning', label: 'تحذير' },  [status]  (dup of severity meta line 601)
+error-logs-client.tsx:170  { key: 'info', label: 'معلومة' },  [status]  (dup of severity meta line 606)
+error-logs-client.tsx:177  <label ...>البيئة</label>  [ui]
+error-logs-client.tsx:185  { key: 'all', label: 'الكل' },  [status]  (dup "الكل" #3)
+error-logs-client.tsx:186  { key: 'production', label: 'إنتاج' },  [status]  (dup of badge line 626)
+error-logs-client.tsx:187  { key: 'development', label: 'تطوير' },  [status]  (dup of badge line 635)
+error-logs-client.tsx:192  <label ...>الفترة</label>  [ui]
+error-logs-client.tsx:200  { key: '7d', label: 'آخر 7 أيام' },  [ui]  (date-range filter, not entity status)
+error-logs-client.tsx:201  { key: '30d', label: 'آخر 30 يوم' },  [ui]
+error-logs-client.tsx:202  { key: 'all', label: 'الكل' },  [ui]  (dup "الكل" #4)
+error-logs-client.tsx:207  <label ...>المستخدم (username)</label>  [ui]
+error-logs-client.tsx:214  placeholder="مثال: ahmed.s"  [ui]
+error-logs-client.tsx:221  {total} {total === 1 ? 'سجل' : 'سجل'} · صفحة {page} من {totalPages}  [ui]  *** degenerate ternary — both branches identical, see hazards ***
+error-logs-client.tsx:228  إعادة تعيين الفلاتر  [ui]  (button)
+error-logs-client.tsx:245  ? 'لا توجد أخطاء غير محلولة'  [ui]  (EmptyState title, conditional)
+error-logs-client.tsx:246  : 'لا توجد أخطاء مطابقة'  [ui]
+error-logs-client.tsx:250  ? 'كل ما تم التقاطه تم تحديده كمحلول. وسّع الفلاتر إن أردت رؤية المحلولة أو السجلات الأقدم.'  [ui]
+error-logs-client.tsx:251  : 'استخدم زر "إعادة تعيين الفلاتر" أو وسّع الفترة الزمنية.'  [ui]
+error-logs-client.tsx:274  السابق  [ui]  (pagination prev)
+error-logs-client.tsx:277  صفحة {page} من {totalPages}  [ui]  (dup pattern of line 221)
+error-logs-client.tsx:287  التالي  [ui]  (pagination next)
+error-logs-client.tsx:346  محلول  [status]  (resolved badge — masc. form; filter label line 153 uses fem. "محلولة" — gender-agreement mismatch)
+error-logs-client.tsx:402  toast.success('تم تحديد الخطأ كمحلول');  [ui]
+error-logs-client.tsx:406  const msg = err instanceof Error ? err.message : 'فشل تحديد الخطأ';  [ui]
+error-logs-client.tsx:441  محلول  [status]  (DUPLICATE of line 346, in detail Sheet header)
+error-logs-client.tsx:450  <Section title="النوع">  [ui]
+error-logs-client.tsx:468  <Section title="السياق">  [ui]
+error-logs-client.tsx:471  <Row label="المسار">  [ui]
+error-logs-client.tsx:476  <Row label="المستخدم">  [ui]
+error-logs-client.tsx:486  <Section title="بيانات إضافية (مُعقّمة من الـ PII)">  [ui]
+error-logs-client.tsx:494  <Section title="تفاصيل الحل">  [ui]
+error-logs-client.tsx:496  <Row label="بواسطة">@{log.resolved_by ?? 'غير معروف'}</Row>  [ui]
+error-logs-client.tsx:497  <Row label="بتاريخ">  [ui]
+error-logs-client.tsx:503  <Row label="ملاحظات">  [ui]
+error-logs-client.tsx:510  <Section title="تحديد كمحلول">  [ui]
+error-logs-client.tsx:514  placeholder="ملاحظات اختيارية (مثلاً: سبب الخطأ، التصحيح، رقم الـ commit)…"  [ui]
+error-logs-client.tsx:529  تأكيد الحل  [ui]  (button)
+error-logs-client.tsx:596  label: 'خطأ',  [status]  (severity-meta function — 3rd definition site of severity labels)
+error-logs-client.tsx:601  label: 'تحذير',  [status]
+error-logs-client.tsx:606  label: 'معلومة',  [status]
+error-logs-client.tsx:626  إنتاج  [status]  (environment badge text — dup of line 186)
+error-logs-client.tsx:635  تطوير  [status]  (environment badge text — dup of line 187)
+
+────────────────────────────────────────────────────────────────
+app/dashboard/admin/error-logs/page.tsx  (1 Arabic line / 17 total)
+────────────────────────────────────────────────────────────────
+page.tsx:5  title: 'سجل الأخطاء | Pyra Workspace',  [ui]  (metadata title)
+
+────────────────────────────────────────────────────────────────
+app/api/settings/agent-whatsapp-settings/[id]/route.ts  (7 Arabic lines / 170 total)
+────────────────────────────────────────────────────────────────
+[id]/route.ts:51   if (!body) return apiValidationError('JSON body مطلوب');  [a]
+[id]/route.ts:55   'لا يمكن تعديل agent_username — احذف الإعداد وأنشئه من جديد',  [a]
+[id]/route.ts:62   if (!v) return apiValidationError('sender_instance_name لا يمكن أن يكون فارغ');  [a]
+[id]/route.ts:67   if (!v) return apiValidationError('recipient_phone لا يمكن أن يكون فارغ');  [a]
+[id]/route.ts:79   return apiValidationError('لا توجد حقول صالحة للتعديل');  [a]
+[id]/route.ts:93   if (!data) return apiNotFound('الإعداد غير موجود');  [a]
+[id]/route.ts:141  if (!existing) return apiNotFound('الإعداد غير موجود');  [a]  (dup of line 93 — same string, both in this file)
+
+────────────────────────────────────────────────────────────────
+app/api/settings/agent-whatsapp-settings/route.ts  (4 Arabic lines / 214 total)
+────────────────────────────────────────────────────────────────
+route.ts:134  if (!body) return apiValidationError('JSON body مطلوب');  [a]  (dup of [id]/route.ts:51 — same string)
+route.ts:145  'agent_username و sender_instance_name و recipient_phone مطلوبة',  [a]
+route.ts:165  return apiValidationError(`الموظف "${agentUsername}" غير موجود`);  [a]
+route.ts:187  'هذا الموظف لديه إعداد بالفعل — استخدم تعديل بدلاً من إضافة',  [a]  (referenced by section.tsx:131 comment)
+
+────────────────────────────────────────────────────────────────
+app/api/settings/api-keys/[id]/route.ts  (2 Arabic lines / 104 total)
+────────────────────────────────────────────────────────────────
+[id]/route.ts:38  if (error || !data) return apiNotFound('مفتاح API غير موجود');  [a]
+[id]/route.ts:80  if (!existing) return apiNotFound('مفتاح API غير موجود');  [a]  (dup of line 38)
+
+────────────────────────────────────────────────────────────────
+app/api/settings/api-keys/route.ts  (2 Arabic lines / 100 total)
+────────────────────────────────────────────────────────────────
+route.ts:54  return apiError('اسم المفتاح مطلوب', 422);  [a]
+route.ts:57  return apiError('الصلاحيات مطلوبة', 422);  [a]
+
+────────────────────────────────────────────────────────────────
+app/api/settings/business-entities/route.ts  (3 Arabic lines / 125 total)
+────────────────────────────────────────────────────────────────
+route.ts:39   if (!name_en || !name_ar) return apiValidationError('الاسم بالعربي والإنجليزي مطلوب');  [a]
+route.ts:81   if (!id) return apiValidationError('ID مطلوب');  [a]
+route.ts:114  if (!id) return apiValidationError('ID مطلوب');  [a]  (dup of line 81)
+NOTE: this route writes pyra_business_entities.name_en/name_ar — bilingual DB row pair.
+No render site for these entities exists within this scan scope (consumed by
+invoice/quote PDF + entity picker, both out of scope). Flagged as a hazard below.
+
+────────────────────────────────────────────────────────────────
+app/api/settings/route.ts  (3 Arabic lines / 214 total)
+────────────────────────────────────────────────────────────────
+route.ts:158  return apiValidationError('يجب تقديم إعدادات للتحديث');  [a]
+route.ts:165  `مفاتيح غير مسموح بها: ${invalidKeys.join(', ')}`  [a]
+route.ts:196  return apiServerError(`فشل تحديث الإعدادات: ${errors.join(', ')}`);  [a]
+
+────────────────────────────────────────────────────────────────
+app/api/admin/error-logs/[id]/route.ts  (6 Arabic lines / 163 total)
+────────────────────────────────────────────────────────────────
+[id]/route.ts:54   return apiValidationError('معرّف السجل غير صالح');  [a]
+[id]/route.ts:58   if (!body) return apiValidationError('JSON body مطلوب');  [a]  (dup of settings-side "JSON body مطلوب" strings)
+[id]/route.ts:63   return apiValidationError('يجب أن يكون resolved = true');  [a]
+[id]/route.ts:69   return apiValidationError('resolved_notes يجب أن تكون نص');  [a]
+[id]/route.ts:98   if (!existing) return apiNotFound('السجل غير موجود');  [a]
+[id]/route.ts:101  return apiValidationError('السجل محلول بالفعل');  [a]
+
+────────────────────────────────────────────────────────────────
+app/api/admin/error-logs/route.ts  (0 Arabic lines / 119 total) — CLEAN, nothing to migrate
+────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────
+app/api/observability/log-client-error/route.ts  (1 Arabic line / 88 total)
+────────────────────────────────────────────────────────────────
+route.ts:52  return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });  [a]  (raw NextResponse.json, NOT apiError() helper — inconsistent with rest of codebase's api response pattern)
+
+═══════════════════════════════════════════════════════════════════════════
+HAZARDS
+═══════════════════════════════════════════════════════════════════════════
+
+H1. SEVERITY/ENVIRONMENT/RESOLVED-STATE LABELS DEFINED IN 3+ PLACES
+    app/dashboard/admin/error-logs/error-logs-client.tsx defines the SAME
+    enum labels redundantly across the file:
+      - Filter dropdown option arrays: lines 152-154 (resolved), 167-170
+        (severity), 185-187 (environment)
+      - A severity-meta object/function around lines 590-610 (label: 'خطأ'
+        line 596, 'تحذير' line 601, 'معلومة' line 606) used for detail-panel
+        badge rendering
+      - Standalone inline badge text at lines 626 ('إنتاج') and 635
+        ('تطوير') for environment, and 346 / 441 ('محلول') for resolved
+        state — the LATTER TWO have a GENDER MISMATCH vs the filter's
+        'محلولة' (fem.) at line 153 vs badge's 'محلول' (masc.).
+    For the i18n migration this is the single biggest catalog-reuse target
+    in this surface — collapse to one keyed catalog (e.g.
+    `errorLogs.severity.{error,warning,info}`,
+    `errorLogs.environment.{production,development}`,
+    `errorLogs.resolved.{resolved,unresolved,all}`) consumed by both the
+    filter UI and the badge/meta renderers. Fix the gender mismatch while
+    unifying.
+
+H2. "الكل" ("All") literal duplicated 4x in error-logs-client.tsx alone
+    (lines 154, 167, 185, 202) plus again in settings-client.tsx (line 616,
+    879 "الكل (*)"). Strong candidate for a shared `common.all` catalog key
+    rather than 6 independent literal copies.
+
+H3. LOCAL formatDate() SHADOWS THE SHARED lib/utils/format HELPER
+    settings-client.tsx:728-730 declares its OWN `formatDate` arrow fn
+    inside `ApiKeysSection()`:
+      const formatDate = (dateStr: string | null) => {
+        ...
+        return new Date(dateStr).toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      }
+    Hardcodes locale 'ar-SA' (not the CLDR-standard 'ar' used by the shared
+    `formatDate()` in lib/utils/format.ts, and not locale-parameterized at
+    all). Called at lines 884-885. This is a DIFFERENT function from the
+    shared helper of the same name — must be either deleted in favor of the
+    shared helper (which already takes a trailing locale param) or
+    explicitly parameterized during the i18n pass. Contrast with
+    error-logs-client.tsx, which correctly imports the SHARED
+    `formatDate`/`formatRelativeDate` from `@/lib/utils/format` (line 47)
+    and calls them with an explicit format string + locale-ready shape
+    (lines 351, 352, 430, 431, 499) — that file is the good pattern; the
+    settings-client.tsx local shadow is the bad one.
+
+H4. toLocaleDateString('ar-SA', …) hardcoded locale
+    settings-client.tsx:730 — see H3. This is the ONLY raw
+    toLocaleString/toLocaleDateString call in the whole scope; every other
+    date rendering already goes through the shared `formatDate`/
+    `formatRelativeDate` helpers (error-logs-client.tsx). No
+    `formatCurrency` calls exist anywhere in this scope (no money fields
+    on these surfaces).
+
+H5. NO hardcoded dir="rtl" anywhere in scope (good). error-logs-client.tsx
+    uses `dir="auto"` on two message-render spans (lines 337, 427) for
+    user/error text of unknown language — this is CORRECT defensive
+    practice, not a hazard, noted for completeness only.
+
+H6. settings-client.tsx SETTING_LABELS `dir?: 'ltr'` per-field override
+    (lines 47, 49, 53, 55, 58, 59, 61 area, 63, 64, 81, 85-87, 110-114) is
+    a FIELD-VALUE-TYPE direction hint (numeric/URL/key inputs forced LTR
+    regardless of UI locale) — NOT a page/layout dir hazard. Leave as-is;
+    it is orthogonal to the `<html dir>` i18n mechanism and should still
+    be forced ltr even once the page renders in English.
+
+H7. DUPLICATE STRING LITERALS ACROSS FILES (same Arabic error text,
+    independently authored — no shared constant):
+      - 'JSON body مطلوب' — appears in
+        app/api/settings/agent-whatsapp-settings/[id]/route.ts:51,
+        app/api/settings/agent-whatsapp-settings/route.ts:134, and
+        app/api/admin/error-logs/[id]/route.ts:58 (3 independent copies)
+      - 'الإعداد غير موجود' — [id]/route.ts:93 AND :141 (same file, 2x)
+      - 'مفتاح API غير موجود' — api-keys/[id]/route.ts:38 AND :80 (same
+        file, 2x)
+      - 'ID مطلوب' — business-entities/route.ts:81 AND :114 (same file,
+        2x)
+      - 'جارٍ الحفظ...' pattern appears in settings-client.tsx (1021,
+        1069 — same file, 2x) AND dialog.tsx:298 (independent copy)
+      - 'محلول'/gender-mismatched 'محلولة' — see H1
+    These are exactly the kind of near-identical API validation strings
+    the `api` shared namespace (per CLAUDE.md i18n rules —
+    `getTranslations('api')`) is meant to consolidate.
+
+H8. app/dashboard/admin/error-logs/error-logs-client.tsx:120 contains
+    developer-internal process language in SHIPPED user-facing copy:
+    "...حدود الأخطاء (Phase 14.1). فلتر..." — literally names a phase
+    number inside the page's descriptive subtitle. This directly
+    contradicts the locked CLAUDE.md rule (Phase 13 decision #2: "NEVER
+    ship production UI with 'Phase X' ... developer-internal references").
+    Pre-existing violation predating that lock's enforcement sweep — flag
+    for cleanup independent of/alongside the i18n migration (the phase
+    reference should not be translated, it should be removed).
+
+H9. DEGENERATE TERNARY / non-functional pluralization
+    error-logs-client.tsx:221 — `{total === 1 ? 'سجل' : 'سجل'}` — both
+    ternary branches are the IDENTICAL string ("سجل" / "record"), i.e. no
+    actual singular/plural distinction is implemented today. Per the
+    CLAUDE.md i18n rule ("CLDR plural categories key on n mod 100"), this
+    is a clean slot to introduce a proper ICU `plural` message during
+    migration rather than preserve the dead ternary shape.
+
+H10. BILINGUAL DB ROW PATTERN — pyra_business_entities.name_en/name_ar
+    app/api/settings/business-entities/route.ts (GET/POST/PATCH/DELETE)
+    reads/writes both `name_en` and `name_ar` columns as a bilingual pair
+    (POST body destructure at line 37; validation at line 39). This is a
+    genuine "bilingual DB row" hazard per the census brief, BUT the render
+    site for these entities (business-entity picker on invoice/quote
+    forms, PDF header logo+name) is OUTSIDE this scan's scope
+    (app/dashboard/settings/** + app/dashboard/admin/** + the listed API
+    dirs) — no component in-scope actually displays name_en/name_ar side
+    by side. Flagging for cross-reference when the finance/invoices
+    surface is censused — the write API lives here, the read/render does
+    not.
+
+H11. RAW NextResponse.json() BYPASSES apiError() HELPER
+    app/api/observability/log-client-error/route.ts:52 —
+    `return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });`
+    Every other API route in scope uses `apiError`/`apiValidationError`/
+    `apiNotFound`/`apiServerError` from `@/lib/api/response`. This one
+    route hand-rolls the JSON envelope, which will need special handling
+    (different response shape) whenever the `api` translation namespace
+    is wired into `apiError()` et al. — a plain find/replace over
+    `apiError(...)` call sites will miss this line.
+
+H12. FILES >300 LINES (split candidates per CLAUDE.md "<300 lines" rule)
+      - app/dashboard/settings/settings-client.tsx — 1075 lines (already
+        flagged as known debt in CLAUDE.md: "ApiKeysSection",
+        "ModuleSettingsTab" called out by name as extraction candidates in
+        Phase 11 Refinement backlog)
+      - app/dashboard/admin/error-logs/error-logs-client.tsx — 638 lines
+        (filters panel, list, detail Sheet, and severity/environment meta
+        helpers are all in one file — natural split points along those
+        seams)
+      - components/settings/agent-whatsapp-settings/dialog.tsx — 350
+        lines (borderline; contains both the create/edit form dialog AND
+        a separate delete-confirmation AlertDialog in the same file —
+        splittable)
+    None of these need to be split AS PART OF the i18n pass, but a
+    same-file split (as the settings-client migration will already be
+    touching every line) is worth considering opportunistically.
+
+H13. NO raw fetch()/useState-as-data-layer violations found in this scope.
+    All 5 client components use the mandated React Query pattern
+    (`useQuery`/`useMutation` + `fetchAPI`/`mutateAPI` from
+    `@/hooks/api-helpers`, or the dedicated `useErrorLogs` hook). No
+    remediation needed on that axis for this surface — a clean bill of
+    health, unusual for a settings surface this old.
+
+H14. NO JSON-array-catalog risk found. All Arabic-bearing config
+    structures in scope (SETTING_LABELS, GROUPS, CATEGORIES, SUB_SETTINGS,
+    TABS, AVAILABLE_PERMISSIONS in settings-client.tsx; the filter option
+    arrays in error-logs-client.tsx) are TypeScript arrays of OBJECT
+    LITERALS (each keyed by `key`/`value`), not bare arrays of strings.
+    When these get lifted into next-intl message JSON, they must be
+    re-shaped from "TS array of {key,label}" into "keyed JSON object"
+    (per the CLAUDE.md rule: "Catalogs must NEVER contain JSON arrays —
+    use keyed objects instead") — the TS-side array-of-objects shape can
+    stay as the iteration order source, with `.label` swapped for a
+    `t('settings.groups.company.label')`-style lookup keyed by `.key`.
+
+H15. NO MONTH_NAMES_AR / ARABIC_MONTHS imports in this scope.
+
+═══════════════════════════════════════════════════════════════════════════
+CATALOG-REUSE OPPORTUNITIES
+═══════════════════════════════════════════════════════════════════════════
+- "الكل" (All) — 6 occurrences across 2 files (H2) → `common.all`
+- "إلغاء" (Cancel) — settings-client.tsx:821,903; dialog.tsx:290,338 →
+  almost certainly already covered by an existing `common.cancel` catalog
+  key elsewhere in the codebase (not visible in this scope, but this is
+  exactly the kind of generic action word the `common` namespace is for).
+- "حذف" (Delete) — settings-client.tsx:905; list.tsx:124 (aria-label) →
+  `common.delete`
+- "غير موجود" / "...غير موجود" (Not found) pattern — repeated 5x across
+  the API route files (H7) → `api.notFound` with an entity-name
+  interpolation, e.g. `t('api.notFound', { entity: t('settings.apiKey') })`
+- "JSON body مطلوب" — 3x (H7) → single `api.jsonBodyRequired` key
+- "ID مطلوب" — business-entities route, 2x in-file → `api.idRequired`
+- Severity/environment/resolved labels (H1) → dedicated
+  `errorLogs.severity.*` / `errorLogs.environment.*` /
+  `errorLogs.resolved.*` catalog, consumed by both filter UI and badge
+  renderers (kills the 3-way duplication in one move).
+- "جارٍ الحفظ..." / "جارٍ الإنشاء..." (saving/creating ellipsis pattern) —
+  settings-client.tsx (2x) + dialog.tsx (1x) → generic
+  `common.savingEllipsis` / a shared busy-state label.
+
+═══════════════════════════════════════════════════════════════════════════
+END OF CENSUS
+═══════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,329 @@
+P6 DISCOVERY CENSUS — MODULE GUIDE CONTENT
+============================================
+Scope: lib/config/module-guide.ts, app/dashboard/guide/**, components/ui/page-guide.tsx
+(+ adjacent render dependency: components/dashboard/guide/module-card.tsx — discovered
+during read, in the guide page's render chain, not originally in scope list but must be
+touched by any migration since it renders guide.tips/guide.description verbatim)
+
+Read in full: lib/config/module-guide.ts (1184 lines), app/dashboard/guide/page.tsx
+(262 lines), components/ui/page-guide.tsx (122 lines), components/dashboard/guide/
+module-card.tsx (65 lines). All counts below are exact (scripted, not eyeballed).
+
+
+1. EXACT TYPESCRIPT SHAPE (lib/config/module-guide.ts, lines 11-24)
+---------------------------------------------------------------------
+export interface ModuleGuide {
+  /** Sidebar href / route key */
+  href: string;
+  /** Arabic short description (1 line, for tooltip) */
+  description: string;
+  /** English short description */
+  descriptionEn: string;
+  /** Arabic goal / purpose (1-2 sentences) */
+  goal: string;
+  /** Quick usage tips in Arabic */
+  tips: string[];
+  /** Search keywords */
+  keywords: string[];
+}
+
+export const MODULE_GUIDES: Record<string, ModuleGuide> = { ... };
+
+Keyed by route-path STRING LITERAL (e.g. '/dashboard/finance/contracts') — the object
+key duplicates the `href` field value. Two helper functions consume the map:
+- getModuleGuide(pathname) — exact match then walks up path segments for a prefix
+  match (lines 1153-1166). Pure route lookup, no i18n involvement.
+- searchModuleGuides(query?) — lines 1171-1183, see §7 below.
+
+
+2. ENTRY COUNT
+---------------------------------------------------------------------
+78 entries (scripted count of top-level `'/dashboard...': {` keys — verified 4 ways:
+href: lines = 78, description: lines = 78, descriptionEn: lines = 78, goal: lines = 78,
+tips: [ lines = 78, keywords: [ lines = 78 — all fields present on every entry, no
+optional/missing fields anywhere in the file).
+
+3 entries reuse the SAME href value as their sibling (lead-detail tab walkthroughs
+share `/dashboard/crm/pipeline` as href but have distinct object keys
+'/dashboard/crm/leads/[id]?tab=tasks' etc. — lines 993, 1011, 1026) and 2 entries
+point href at '/dashboard/admin/error-logs' as a pseudo-entry landing page (backup-
+procedure line 1112, security-checklist line 1129 — these are the Phase 17-documented
+"pseudo-entries", CLAUDE.md §Phase 17 decision 3). Object-key ≠ href in these 5 cases;
+the object key is still the correct i18n lookup key candidate (it's what
+MODULE_GUIDES[href-ish-key] and getModuleGuide's pathname match against).
+
+
+3. FIELD-BY-FIELD: TRANSLATABLE vs STRUCTURAL, ARRAY HAZARD
+---------------------------------------------------------------------
+| Field         | Type     | Translatable? | Notes |
+|---------------|----------|----------------|-------|
+| href          | string   | NO (structural)| route path, doubles as object key |
+| description   | string   | YES (Arabic)   | 78 strings, 1 line each |
+| descriptionEn | string   | ALREADY EN     | 78 strings — hand-authored English already exists; this is NOT the AR source needing translation, it's the pre-existing EN twin. Currently consumed directly (unconditionally) by page-guide.tsx:66 and module-card.tsx:30 regardless of active locale — see §6 hazard. |
+| goal          | string   | YES (Arabic)   | 78 strings, 1-2 sentences each, NO existing English twin — net-new translation work |
+| tips          | string[] | YES (Arabic)   | **ARRAY HAZARD** — 398 items total across 78 entries (min 3, max 10 per entry, avg 5.10). NO existing English twin. |
+| keywords      | string[] | PARTIAL/mixed  | **ARRAY HAZARD** — 499 items total across 78 entries (min 3, max 12 per entry, avg 6.40). Already a MIX of Arabic terms and English terms in the same array (e.g. line 39: `['dashboard', 'الرئيسية', 'إحصائيات', 'ملخص']`). Not 1:1 translatable — see §7. |
+
+ARRAY HAZARD detail: per CLAUDE.md i18n rules ("Catalogs must NEVER contain JSON
+arrays — arrays poison next-intl's type inference. Use keyed objects instead") AND
+per `lib/i18n/messages.ts` deepMerge doc comment (line 23: "Arrays are replaced
+wholesale, not merged") — if tips/keywords were naively dumped into a next-intl
+JSON catalog as `string[]`, they would (a) poison next-intl's typed-key inference
+(the same problem the `calendar.dayNames` object-not-array fix already solved
+elsewhere per CLAUDE.md), AND (b) break the "EN merged over AR, missing EN key
+renders Arabic" per-leaf fallback guarantee — a partially-translated EN tips array
+would wholesale-replace the whole AR tips array in deepMerge, not fall back item-
+by-item. Any plan MUST key both arrays as index-keyed objects, e.g.:
+
+  tips: { "0": "...", "1": "...", "2": "..." }
+  keywords: { "0": "...", "1": "..." }
+
+so each index is an independent leaf that deepMerge can fall back on individually.
+Consumers (page-guide.tsx, module-card.tsx, searchModuleGuides) currently do
+`.map()`/`.some()`/`.length` over real arrays — the migration must either (a) keep
+a runtime `string[]` shape by doing `Object.values(keyedObject)` after i18n lookup,
+or (b) refactor consumers to iterate `Object.entries()`. Recommend (a) — preserves
+every existing `.map((tip, i) => ...)` call site untouched.
+
+
+4. ESTIMATED TOTAL TRANSLATABLE STRING COUNT
+---------------------------------------------------------------------
+Raw content strings across 78 entries:
+  description   78
+  descriptionEn 78  (already English — reusable as EN catalog seed, not fresh work)
+  goal          78
+  tips         398
+  keywords     499
+  ---------------
+  TOTAL        1131 individual string values in the ModuleGuide data structure
+
+Net-new AR→EN translation effort (excludes descriptionEn, which already has a
+hand-authored EN value that can seed the EN catalog verbatim):
+  description   78  (EN seed already exists via descriptionEn — cheap, just wire it)
+  goal          78  (no EN twin — fresh translation)
+  tips         398  (no EN twin — fresh translation)
+  keywords     499  (NOT 1:1 translation — augmentation, see §7)
+  ---------------
+  ~554 Arabic free-text strings (description+goal+tips) need EN authoring/wiring;
+  keywords (499 items) need a keyed-object move + EN keyword augmentation, not
+  per-item translation.
+
+Plus 7 SECTIONS entries in app/dashboard/guide/page.tsx (title/titleEn pairs,
+already bilingual — just need moving into the catalog, see §5) and 5 UI-chrome
+strings in guide/page.tsx + 2 in module-card.tsx with NO EN twin (see §5, §8).
+
+
+5. app/dashboard/guide/page.tsx — RENDERING + ARABIC UI CHROME
+---------------------------------------------------------------------
+Rendering shape:
+- `SECTIONS` (lines 21-167): a hardcoded array of 7 groups (main/work/sales/hr/
+  self_service/finance/admin), each `{ key, title, titleEn, icon, color, bgColor,
+  hrefs: string[] }`. `hrefs` arrays are pure route-path lists (structural, mirror
+  the sidebar's navGroup structure per an inline comment at line 78/99). title/
+  titleEn are ALREADY bilingual twin fields (same dual-field pattern as ModuleGuide.
+  description/descriptionEn) — 7×2 = 14 strings, no new translation needed, just a
+  catalog migration.
+- Search box (lines 201-210): free-text query, filtered via `searchModuleGuides()`.
+  When query is non-empty, renders a flat grid of ModuleCard using
+  `filteredGuides` (bypasses SECTIONS grouping entirely).
+- When query is empty: iterates SECTIONS, maps each `section.hrefs` through
+  `MODULE_GUIDES[href]` (line 229) and filters `Boolean` — any href present in a
+  SECTIONS.hrefs array but ABSENT from MODULE_GUIDES silently disappears (no error).
+  This is a pre-existing referential-integrity coupling between the two files that
+  a migration must not break (e.g. if a guide entry key changes shape, SECTIONS.
+  hrefs must be updated in lockstep — they must stay byte-identical strings).
+- `totalModules = Object.keys(MODULE_GUIDES).length` (line 177) — used in the
+  Arabic subtitle interpolation (see below).
+
+Arabic UI chrome WITHOUT an existing English twin (file:line):
+- page.tsx:193 — `<h1>دليل الاستخدام</h1>` (page title, "User Guide")
+- page.tsx:194-196 — subtitle template literal:
+  `شرح لجميع وحدات النظام وطريقة استخدامها — {totalModules} وحدة`
+  (count-interpolated: "... — {N} وحدة" / "... — N modules"; per CLAUDE.md's
+  established plural convention this stays a flat interpolation key, not forced
+  ICU categories, mirroring the `monthsLabel` precedent)
+- page.tsx:205 — search input placeholder:
+  `ابحث في الوحدات... (مثال: فواتير، ملفات، تقارير)`
+  ("Search modules... (e.g. invoices, files, reports)")
+- page.tsx:214-218 — results-count / empty-state block:
+  - non-empty: template `تم العثور على ${filteredGuides.length} نتيجة` (count-
+    interpolated, same convention as above)
+  - empty: literal `لا توجد نتائج — جرّب كلمة بحث مختلفة` ("No results — try a
+    different search term")
+- page.tsx:244 — `<p>{section.titleEn}</p>` — renders titleEn as a fixed secondary
+  caption UNDER the Arabic title regardless of active locale (same "always show
+  the English twin as a subtitle" pattern as page-guide.tsx:66 — see §6 hazard;
+  this is presentational, not itself untranslated, but the pattern needs a locale-
+  aware decision in the plan: today EN shows as permanent secondary caption in
+  BOTH locales, which may or may not be the desired end-state once real i18n
+  switching exists).
+
+No `next-intl` import anywhere in guide/page.tsx — this page has ZERO existing
+i18n wiring (unlike page-guide.tsx, see §6).
+
+ADJACENT FILE (render dependency, not in original scope list, but load-bearing):
+components/dashboard/guide/module-card.tsx (65 lines) — renders guide.description,
+guide.descriptionEn, guide.goal, guide.tips verbatim (no i18n), PLUS 2 of its own
+hardcoded Arabic UI-chrome strings with no next-intl and no English twin:
+- module-card.tsx:44 — `<span>نصائح الاستخدام</span>` ("Usage tips" — expanded-tips
+  section heading; NOTE this duplicates the exact same string that page-guide.tsx
+  already sources via `t('tips')` from common.guide.tips — a migration should reuse
+  that existing key, not create a duplicate)
+- module-card.tsx:59 — count-interpolated collapsed-state hint:
+  `انقر لعرض {guide.tips.length} نصائح استخدام` ("Click to view N usage tips")
+
+
+6. components/ui/page-guide.tsx — RENDERING + ARABIC UI CHROME
+---------------------------------------------------------------------
+IMPORTANT FINDING: this file's OWN chrome is ALREADY MIGRATED to next-intl (shipped
+in an earlier phase — presumably Phase 0/1 shell work). Confirmed via
+`useTranslations('common.guide')` (line 29) and verified the keys exist in both
+messages/ar/common.json and messages/en/common.json under `common.guide`:
+  aria: "دليل الاستخدام" / "User guide"
+  help: "مساعدة" / "Help"
+  title: "دليل الاستخدام" / "User Guide"
+  goal: "الهدف" / "Goal"
+  tips: "نصائح الاستخدام" / "Usage tips"
+  viewAll: "عرض دليل جميع الوحدات" / "View all module guides"
+All 6 chrome labels (aria-label, button text, popover header title, "Goal" section
+label, "Tips" section label, footer "view all" link) render via `t(...)` — lines 47,
+50, 65, 76, 86, 116. ZERO remaining hardcoded Arabic UI-chrome strings in this file.
+
+What's NOT locale-aware in this file (the DATA payload, not the chrome):
+- page-guide.tsx:66 — `<p>{guide.descriptionEn}</p>` — ALWAYS renders the English
+  descriptionEn field as the popover-header subtitle, REGARDLESS of active locale.
+  This is a genuine locale hazard: an Arabic-locale user sees an English subtitle
+  under the (currently Arabic-only, post-migration would-be-localized) title. The
+  plan must decide: swap this to a locale-conditional description/descriptionEn
+  pick, or intentionally keep it English-always (e.g. as a technical/dev label) —
+  either way it's a decision point, not an oversight to silently fix.
+- page-guide.tsx:78 — `<p>{guide.goal}</p>` — always renders the raw Arabic `goal`
+  string from MODULE_GUIDES, no locale branching at all today.
+- page-guide.tsx:89-101 — `guide.tips.map(...)` — always renders raw Arabic `tips`
+  array items, no locale branching.
+
+So: chrome = done (Phase-something already shipped it); DATA = 100% untranslated
+and not locale-branched anywhere it's consumed (page-guide.tsx popover, guide/
+page.tsx grid via ModuleCard, and searchModuleGuides' search-matching).
+
+
+7. keywords[] CONSUMPTION — SEARCH BEHAVIOR (searchModuleGuides, lines 1171-1183)
+---------------------------------------------------------------------
+  export function searchModuleGuides(query?: string): ModuleGuide[] {
+    const all = Object.values(MODULE_GUIDES);
+    if (!query || query.trim() === '') return all;
+    const q = query.toLowerCase();
+    return all.filter(
+      (m) =>
+        m.description.includes(q) ||
+        m.descriptionEn.toLowerCase().includes(q) ||
+        m.goal.includes(q) ||
+        m.keywords.some((k) => k.includes(q))
+    );
+  }
+
+Consumed by app/dashboard/guide/page.tsx:174 (the search box) — this is the ONLY
+call site in the codebase (grep-confirmed no other importer of searchModuleGuides).
+
+Hazards in the search logic itself (relevant to the migration plan, not just the
+data):
+- `q = query.toLowerCase()` is applied to the query, but `m.description`,
+  `m.goal`, and each keyword `k` are compared via `.includes(q)` WITHOUT
+  `.toLowerCase()` on the Arabic-bearing side (only `descriptionEn` gets
+  `.toLowerCase()`). Arabic has no case concept so this is harmless for Arabic
+  text, but for the ENGLISH keywords already mixed into `keywords[]` (e.g.
+  'dashboard', 'kanban', 'pipeline') an uppercase query like "Dashboard" WILL
+  match today only because `q` itself is lowercased and English keyword strings
+  in the source are already lowercase by convention — a case-SENSITIVE keyword
+  entered in Title Case in the data would silently stop matching. Not a bug to
+  fix in this census, but worth the plan noting since post-migration EN keywords
+  will multiply.
+- Spec §14 risk (per task prompt): "the plan must keep Arabic keywords AND add
+  English keywords." Current `keywords[]` arrays ALREADY do this informally and
+  inconsistently — some entries mix EN+AR in one array (e.g. '/dashboard' line 39:
+  `['dashboard', 'الرئيسية', 'إحصائيات', 'ملخص']`), others are EN-heavy (e.g.
+  '/dashboard/roles' line 793: `['roles', 'أدوار', 'صلاحيات', 'RBAC', 'permissions',
+  'wildcard', 'BASE_EMPLOYEE']` — 4 of 7 items are English/technical terms already).
+  This means the migration is NOT starting from a clean Arabic-only keyword corpus
+  — it must first classify each of the 499 existing keyword items as
+  Arabic-searchable vs English-searchable vs technical-literal (e.g. 'RBAC',
+  'BASE_EMPLOYEE', 'API' are code/config terms, not language-translatable at all)
+  before deciding what an "EN keyword set" even adds on top. Recommend the plan
+  treat `keywords` as a SINGLE flat locale-agnostic search corpus (not something
+  that needs an AR variant and an EN variant at all) rather than forcing it
+  through the description/goal/tips translation model — the search function
+  already searches across ALL keywords regardless of locale; keying it per-locale
+  would require running search over BOTH locale keyword sets to preserve current
+  find-by-Arabic-or-English behavior, which is extra complexity for a field that's
+  already functioning as a mixed-language index rather than display copy.
+
+
+8. BILINGUAL / LOCALE HAZARDS — SUMMARY
+---------------------------------------------------------------------
+(a) ARRAY HAZARD (tips[], keywords[]) — see §3. Must become index-keyed objects
+    in any next-intl catalog; runtime consumers need `Object.values()` shimming
+    or a refactor to `Object.entries()`.
+(b) descriptionEn is currently used as an UNCONDITIONAL English display value in
+    2 render sites (page-guide.tsx:66, module-card.tsx:30) regardless of active
+    locale — a genuine pre-existing locale bug/design-decision that predates this
+    census and must be explicitly resolved (not silently preserved) by the plan.
+(c) `guide/page.tsx` has ZERO existing next-intl wiring — no `useTranslations`/
+    `getTranslations` import at all. It is a full-file migration, not an
+    incremental one.
+(d) `page-guide.tsx` is a HYBRID — its own chrome is migrated (Phase-something
+    already shipped `common.guide.*`), but the DATA it renders (goal/tips from
+    MODULE_GUIDES) is not. A partial re-migration, not a green-field one.
+(e) `module-card.tsx` duplicates a string ("نصائح الاستخدام") that already exists
+    as `common.guide.tips` — the plan should de-duplicate onto the existing key
+    rather than minting a second key with identical English/Arabic values.
+(f) Referential coupling: `SECTIONS[].hrefs` (guide/page.tsx) must stay
+    byte-identical to `MODULE_GUIDES` object keys/hrefs, or entries silently
+    vanish from the grouped view (no error, no warning — `.filter(Boolean)`
+    swallows the mismatch). Any key-renaming during migration (e.g. switching
+    object keys to sanitized identifiers for the i18n catalog) must be mirrored
+    in SECTIONS.hrefs in the same commit.
+(g) `getModuleGuide()` prefix-matching (module-guide.ts:1153-1166) walks the
+    PATHNAME (a URL, not the catalog key) — this logic is entirely
+    locale-independent and structural; no hazard, just noting it must keep using
+    `href`/object-key route strings, never a translated display string.
+(h) File-size: module-guide.ts is 1184 lines — by far the largest single file
+    touched in the whole i18n effort to date (guide/page.tsx 262, page-guide.tsx
+    122, module-card.tsx 65 — all under the 300-line CLAUDE.md convention target
+    except module-guide.ts itself, which is a pure data file, not a component, so
+    the 300-line component-split rule doesn't strictly apply — but the SIZE is
+    still the reason this census/plan phase exists rather than a quick inline fix).
+(i) Precedent pattern exists and should be followed: `components/layout/
+    nav-config.ts` (233 lines) already solved an identical "static TS config with
+    embedded Arabic display strings" problem for the sidebar. Its pattern: the
+    config file keeps ONLY structural fields (href, icon, permission, badgeKey)
+    plus a typed `key` field; `NavItemKey = keyof typeof nav.nav.items` derives a
+    literal-string union straight from the AR catalog import
+    (`import type nav from '@/messages/ar/nav.json'`), and render sites call
+    `t(\`items.${item.key}\`)`. `messages/ar/nav.json`'s `nav.groups.*` shape is
+    confirmed to be pure keyed objects (`{ title, description }`), NO arrays
+    anywhere in that file — module-guide would be the FIRST namespace in the
+    project needing the keyed-object-for-arrays workaround, since nav.json never
+    needed one.
+(j) `lib/i18n/messages.ts` NAMESPACE_FILES (line 11-15) is currently:
+    ['common','nav','auth','statuses','mywork','boards','calendar','api','crm',
+    'finance','hr'] — tracked through "Phase 5 adds 'hr'". A module-guide
+    namespace would be net-new (e.g. 'guide' — but note `common.guide.*` already
+    exists for the popover chrome, so the plan must decide: extend `common.json`'s
+    existing `guide` key, or add a distinct new namespace file+entry to avoid
+    `common.json` ballooning by ~1100 string values for what is fundamentally a
+    different (per-module reference content) concern than shared UI chrome).
+
+
+SUMMARY OF KEY NUMBERS (for quick reference)
+---------------------------------------------------------------------
+Entries:            78
+description:        78 strings (Arabic; EN twin exists via descriptionEn)
+descriptionEn:       78 strings (pre-existing English — reusable, not fresh work)
+goal:                78 strings (Arabic only, no EN twin)
+tips:               398 strings across 78 arrays (min 3 / max 10 / avg 5.10) — ARRAY HAZARD
+keywords:           499 strings across 78 arrays (min 3 / max 12 / avg 6.40) — ARRAY HAZARD, mixed AR+EN already
+Total raw strings: 1131
+Net-new AR->EN translation burden (excl. keywords, excl. descriptionEn reuse): ~476 (goal 78 + tips 398)
+SECTIONS (guide/page.tsx): 7 groups x (title+titleEn) = already bilingual, needs catalog move only
+UI chrome without EN twin: 5 strings in guide/page.tsx (h1, subtitle, placeholder, results-count, empty-state) + 2 in module-card.tsx
+UI chrome already migrated: 6 keys in common.guide.* (page-guide.tsx) — reuse, don't duplicate

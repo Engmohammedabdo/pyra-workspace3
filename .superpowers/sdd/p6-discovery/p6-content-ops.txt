@@ -1,0 +1,816 @@
+P6 DISCOVERY CENSUS — CONTENT-OPS SURFACES
+(content-pipeline, script-reviews, reviews, automations, integrations, storage, knowledge-base)
+Generated: 2026-07-09 | Scope per task brief | Read-only census, no source modified.
+
+================================================================================
+0. SCOPED DIRS — EXISTENCE CHECK
+================================================================================
+app/dashboard/content-pipeline/   EXISTS
+app/dashboard/script-reviews/     EXISTS
+app/dashboard/reviews/            EXISTS
+app/dashboard/automations/        EXISTS
+app/dashboard/integrations/       EXISTS
+app/dashboard/storage/            EXISTS
+app/dashboard/knowledge-base/     EXISTS
+
+components/<any of the 7 module names>/   DOES NOT EXIST — no dedicated component
+  subdirectory for any of these 7 modules. All markup is inline in the page.tsx /
+  *-client.tsx files (only shared components/ui/* primitives are imported).
+
+app/api/automations/**            EXISTS
+app/api/reviews/**                EXISTS
+app/api/scripts/**                EXISTS  (only scripts/reviews/* — no other scripts/* routes)
+app/api/kb/**                     EXISTS
+app/api/integrations/**           DOES NOT EXIST as such — the /dashboard/integrations/*
+                                   pages actually call app/api/webhooks/** (7 route files).
+                                   Included below under a SUBSTITUTION note.
+app/api/storage/**                DOES NOT EXIST as such — the /dashboard/storage page
+                                   calls app/api/dashboard/storage-stats (stats) and the
+                                   storage report also has app/api/reports/storage (unused
+                                   by this page but same domain — included for completeness).
+app/api/dashboard/content-pipeline/**  EXISTS — the real backing API for the
+                                   content-pipeline dashboard page (route + [id] +
+                                   [id]/stages).
+
+Portal counterparts discovered but OUT OF SCOPE for this census (belong to a portal-pages
+census, not content-ops dashboard): app/api/portal/kb/**, app/api/portal/scripts/**.
+
+================================================================================
+1. FILE INVENTORY (38 in-scope files + 7 substituted webhooks files = 45 total)
+================================================================================
+Line counts (files >300 lines flagged ⚠ FLAG-SIZE):
+  853  app/dashboard/content-pipeline/content-pipeline-client.tsx        ⚠ FLAG-SIZE
+  539  app/dashboard/knowledge-base/knowledge-base-client.tsx            ⚠ FLAG-SIZE
+  308  app/dashboard/storage/storage-client.tsx                         ⚠ FLAG-SIZE (barely)
+  343  app/dashboard/script-reviews/script-reviews-client.tsx
+  290  app/dashboard/automations/log/page.tsx
+  289  app/dashboard/integrations/page.tsx
+  269  app/dashboard/automations/automations-client.tsx
+  226  app/dashboard/integrations/new/page.tsx
+  215  app/api/webhooks/[id]/route.ts
+  185  app/api/dashboard/content-pipeline/route.ts
+  177  app/api/dashboard/content-pipeline/[id]/route.ts
+  174  app/api/dashboard/content-pipeline/[id]/stages/route.ts
+  173  app/api/webhooks/route.ts
+  167  app/dashboard/reviews/reviews-client.tsx
+  164  app/dashboard/integrations/[id]/page.tsx
+  159  app/api/automations/route.ts
+  157  app/dashboard/knowledge-base/new/page.tsx
+  130  app/api/scripts/reviews/replies/route.ts
+  129  app/api/dashboard/storage-stats/route.ts
+  126  app/api/webhooks/process-retries/route.ts
+  124  app/api/kb/articles/[id]/route.ts
+  120  app/api/reviews/route.ts
+  118  app/api/reviews/[id]/route.ts
+  115  app/api/kb/articles/route.ts
+  113  app/dashboard/automations/[id]/page.tsx
+  108  app/api/webhooks/[id]/deliveries/[did]/retry/route.ts
+  105  app/api/reports/storage/route.ts
+  104  app/dashboard/knowledge-base/[id]/page.tsx
+  98   app/api/kb/categories/[id]/route.ts
+  83   app/dashboard/automations/new/page.tsx
+  83   app/api/kb/categories/route.ts
+  78   app/api/webhooks/[id]/test/route.ts
+  74   app/api/webhooks/[id]/deliveries/route.ts
+  73   app/api/automations/[id]/toggle/route.ts
+  71   app/api/automations/log/route.ts
+  71   app/api/webhooks/[id]/toggle/route.ts
+  46   app/api/scripts/reviews/route.ts
+  20   app/api/automations/templates/route.ts
+  11   each of the 6 thin page.tsx server wrappers (metadata + requirePermission)
+
+================================================================================
+2. ARABIC CENSUS — file:line  <verbatim string>  [CLASS]
+================================================================================
+
+--- app/dashboard/content-pipeline/content-pipeline-client.tsx (55 lines) ---
+106:  scripting: 'كتابة السكريبت',                                          [status]
+107:  review: 'المراجعة',                                                    [status]
+108:  revision: 'التعديل',                                                   [status]
+109:  filming: 'التصوير',                                                    [status]
+110:  editing: 'المونتاج',                                                   [status]
+111:  client_review: 'مراجعة العميل',                                        [status]
+112:  delivery: 'التسليم',                                                   [status]
+136:  video: { label: 'فيديو', ... }                                        [data]
+137:  reel: { label: 'ريلز', ... }                                          [data]
+138:  podcast: { label: 'بودكاست', ... }                                    [data]
+139:  article: { label: 'مقال', ... }                                       [data]
+140:  social_post: { label: 'منشور', ... }                                  [data]
+152:  pending: { label: 'معلّق', ... }                                      [status]
+153:  in_progress: { label: 'قيد التنفيذ', ... }                            [status]
+154:  completed: { label: 'مكتمل', ... }                                    [status]
+155:  skipped: { label: 'تم تخطيه', ... }                                   [status]
+210:      toast.success('تم إنشاء المحتوى بنجاح');                          [notification]
+215:    onError: (err) => toast.error(...'فشل إنشاء المحتوى'),               [notification]
+236:      toast.error('عنوان المحتوى مطلوب');                                [notification]
+278:        throw new Error(json.error || 'فشل');                           [notification]
+292:      const actionLabels = { start: 'بدء', complete: 'إكمال', skip: 'تخطي' }; [status]
+293:      toast.success(`تم ${actionLabels[action]} المرحلة بنجاح`);          [notification]
+296:      toast.error(...'فشل تحديث المرحلة');                               [notification]
+347:        <h1 ...>خط إنتاج المحتوى</h1>                                    [ui]
+352:              <SelectValue placeholder="نوع المحتوى" />                  [ui]
+355:              <SelectItem value="all">الكل</SelectItem>                  [ui]
+367:              <SelectValue placeholder="المشروع" />                     [ui]
+370:              <SelectItem value="all">كل المشاريع</SelectItem>           [ui]
+384:          إنشاء محتوى جديد                                              [ui]
+393:        title="لا يوجد محتوى في خط الإنتاج"                              [ui]
+394:        description="أنشئ أول محتوى لبدء تتبع مراحل الإنتاج"             [ui]
+395:        actionLabel="إنشاء محتوى جديد"                                   [ui]
+427:        <EmptyState ... title="لا يوجد عناصر" .../>                      [ui]
+448:            <DialogTitle>إنشاء محتوى جديد</DialogTitle>                  [ui]
+452:              <Label>العنوان *</Label>                                   [ui]
+456:                placeholder="عنوان المحتوى"                              [ui]
+461:              <Label>نوع المحتوى</Label>                                 [ui]
+476:              <Label>المشروع</Label>                                    [ui]
+479:                  <SelectValue placeholder="اختياري" />                  [ui]
+482:                  <SelectItem value="none">بدون مشروع</SelectItem>       [ui]
+492:              <Label>المسؤول</Label>                                    [ui]
+495:                  <SelectValue placeholder="اختياري" />                  [ui]
+498:                  <SelectItem value="none">غير محدد</SelectItem>         [ui]
+508:              <Label>الموعد النهائي</Label>                              [ui]
+517:              <Label>ملاحظات</Label>                                    [ui]
+521:                placeholder="ملاحظات إضافية..."                          [ui]
+528:                إلغاء                                                   [ui]
+536:                إنشاء                                                   [ui]
+591:                    <span>التقدم</span>                                 [ui]
+614:                    مراحل الإنتاج                                       [ui]
+678:                بدأ: {formatDate(stage.started_at, 'dd/MM HH:mm')}       [ui]  (FLAG formatDate — see §4)
+684:                اكتمل: {formatDate(stage.completed_at, 'dd/MM HH:mm')}   [ui]  (FLAG formatDate)
+713:                                  بدء                                    [ui]
+730:                                  إكمال                                 [ui]
+749:                                  تخطي                                  [ui]
+File subtotal: ui32 status12 data5 notification6
+
+--- app/dashboard/content-pipeline/page.tsx (1 line) ---
+5:  title: 'خط إنتاج المحتوى | Pyra',                                       [ui]
+
+--- app/dashboard/script-reviews/page.tsx (1 line) ---
+5:  title: 'مراجعة السكريبتات | Pyra',                                      [ui]
+
+--- app/dashboard/script-reviews/script-reviews-client.tsx (24 lines) ---
+25:    label: 'معتمد',            (STATUS_CONFIG.approved)                  [status]
+30:    label: 'مطلوب تعديل',       (STATUS_CONFIG.revision_requested)        [status]
+35:    label: 'بانتظار المراجعة',  (STATUS_CONFIG.pending)                   [status]
+77:      toast.success('تم إرسال الرد');                                    [notification]
+82:    onError: () => toast.error('فشل في إرسال الرد'),                      [notification]
+137:                تعليق العميل:                                           [ui]
+158:          {showReplies ? 'إخفاء المحادثة' : 'عرض المحادثة والرد'}        [ui]
+196:            {reply.sender_type === 'admin' ? 'الإدارة' : 'العميل'}       [ui]
+211:                لا توجد ردود بعد                                        [ui]
+220:                placeholder="اكتب ردك هنا..."                            [ui]
+236:                رد                                                      [ui]
+275:            <h1 ...>مراجعات السكريبتات</h1>                              [ui]
+277:              حالة اعتماد سكريبتات إتمام من العميل                       [ui]
+283:            {approvedCount} معتمد                                       [ui]
+286:            {revisionCount} تعديل                                       [ui]
+295:            تحديث                                                       [ui]
+304:            <SelectValue placeholder="الحالة" />                        [ui]
+307:            <SelectItem value="all">جميع الحالات</SelectItem>            [ui]
+308:            <SelectItem value="pending">بانتظار المراجعة</SelectItem>    [status]
+309:            <SelectItem value="approved">معتمد</SelectItem>              [status]
+310:            <SelectItem value="revision_requested">مطلوب تعديل</SelectItem> [status]
+325:          title="لا توجد مراجعات"                                       [ui]
+327:            ? 'لم يقم العميل بمراجعة أي سكريبت بعد'                      [ui]
+328:            : 'لا توجد مراجعات بهذه الحالة'}                             [ui]
+File subtotal: ui16 status6 notification2
+
+--- app/dashboard/reviews/page.tsx (1 line) ---
+5:  title: 'المراجعات | Pyra',                                              [ui]
+
+--- app/dashboard/reviews/reviews-client.tsx (17 lines) — ⚠ RAW FETCH/useState (see §4) ---
+70:      toast.success(review.resolved ? 'تم إلغاء الحل' : 'تم تحديد كمحلول'); [notification]
+71:    } catch (err) { ... toast.error('حدث خطأ'); }                         [notification]
+82:      toast.success('تم حذف المراجعة');                                   [notification]
+84:    } catch (err) { ... toast.error('حدث خطأ'); }                         [notification]
+97:        <h1 ...>المراجعات</h1>                                            [ui]
+98:        <p ...>مراجعات وتعليقات الملفات</p>                               [ui]
+104:        placeholder="فلترة حسب مسار الملف..."                            [ui]
+113:          title="لا توجد مراجعات"                                        [ui]
+114:          description="لم يتم إضافة أي مراجعات أو تعليقات على الملفات بعد" [ui]
+130:      {r.type === 'approval' ? 'موافقة' : 'تعليق'}                       [data]
+132:      <Badge ...>محلول</Badge>          (resolved=true)                   [status]
+135:      title={... 'إلغاء الحل' : 'تحديد كمحلول'} aria-label={...}          [a]
+138:      aria-label="حذف"                                                   [a]
+157:          <DialogTitle>حذف المراجعة</DialogTitle>                        [ui]
+158:          <p ...>هل أنت متأكد من حذف هذه المراجعة؟</p>                    [ui]
+160:            <Button ...>إلغاء</Button>                                   [ui]
+161:            {saving ? 'جارٍ الحذف...' : 'حذف'}                           [ui]
+File subtotal: ui9 status1 data1 a2 notification4
+
+--- app/dashboard/automations/page.tsx (1 line) ---
+5:  title: 'الأتمتة | Pyra',                                                [ui]
+
+--- app/dashboard/automations/automations-client.tsx (32 lines) ---
+41-49: TRIGGER_EVENT_LABELS record (9 entries: file_uploaded/project_status_changed/    [data]
+       quote_signed/invoice_overdue/client_comment/approval_status_changed/
+       invoice_paid/project_created/client_created) — DUPLICATE, see §5 hazard.
+79:        toast.error(json.error || 'فشل في تغيير الحالة');                [notification]
+82:      toast.success(json.data?.is_enabled ? 'تم تفعيل القاعدة' : 'تم تعطيل القاعدة'); [notification]
+85:      toast.error('حدث خطأ');                                            [notification]
+99:        toast.error(json.error || 'فشل في حذف القاعدة');                 [notification]
+104:      toast.success('تم حذف القاعدة');                                  [notification]
+107:      toast.error('حدث خطأ');                                           [notification]
+120:            ... الأتمتة                                                 [ui]
+122:          <p ...>إدارة قواعد الأتمتة والتشغيل التلقائي</p>               [ui]
+127:              ... سجل التنفيذ                                           [ui]
+132:              ... إضافة قاعدة                                           [ui]
+162:          title="لا توجد قواعد أتمتة"                                    [ui]
+163:          description="أنشئ قاعدة جديدة لأتمتة المهام المتكررة وتوفير الوقت" [ui]
+164:          actionLabel="إضافة قاعدة"                                     [ui]
+193:                    {rule.is_enabled ? 'مفعّل' : 'معطّل'}                 [status]
+203:                    {rule.execution_count} تنفيذ                        [ui]
+217:                    ... تعديل                                           [ui]
+227:                        ... تعطيل                                       [ui]
+231:                        ... تفعيل                                       [ui]
+241:                    ... حذف                                             [ui]
+254:            <DialogTitle>حذف قاعدة الأتمتة</DialogTitle>                 [ui]
+257:            هل أنت متأكد من حذف القاعدة ...                              [ui]
+260:            <Button ...>إلغاء</Button>                                  [ui]
+262:              {deleting ? 'جارٍ الحذف...' : 'حذف'}                       [ui]
+File subtotal: ui16 status1 data9(9 lines 41-49) notification6
+
+--- app/dashboard/automations/log/page.tsx (33 lines) — ⚠ RAW FETCH/useState ---
+36-44: TRIGGER_EVENT_LABELS record (9 entries, near-duplicate of above)      [data]
+48:  success: { label: 'ناجح', ... }                                        [status]
+49:  partial_failure: { label: 'جزئي', ... }                                [status]
+50:  failed: { label: 'فشل', ... }                                          [status]
+82:      toast.error('حدث خطأ في تحميل سجل التنفيذ');                       [notification]
+102:            <Button ... aria-label="رجوع">                              [a]
+108:              ... سجل تنفيذ الأتمتة                                     [ui]
+110:            <p ...>عرض جميع سجلات تنفيذ قواعد الأتمتة</p>                [ui]
+122:            <SelectItem value="all">جميع الحالات</SelectItem>            [ui]
+123:            <SelectItem value="success">ناجح</SelectItem>                [status]
+124:            <SelectItem value="partial_failure">جزئي</SelectItem>        [status]
+125:            <SelectItem value="failed">فشل</SelectItem>                  [status]
+129:          {total} سجل                                                   [ui]
+141:                  <th ...>التاريخ</th>                                  [ui]
+142:                  <th ...>اسم القاعدة</th>                               [ui]
+143:                  <th ...>حدث التشغيل</th>                               [ui]
+144:                  <th ...>الحالة</th>                                    [ui]
+145:                  <th ...>الإجراءات</th>                                 [ui]
+160:                      <EmptyState ... title="لا توجد سجلات تنفيذ" />     [ui]
+210:                                    بيانات الحدث:                        [ui]
+225:                                    الإجراءات المنفذة:                   [ui]
+241:                                      رسالة الخطأ:                       [ui]
+268:            aria-label="الصفحة السابقة"                                 [a]
+275:            صفحة {page} من {totalPages}                                 [ui]
+280:            aria-label="الصفحة التالية"                                 [a]
+File subtotal: ui14 status6(3 def+3 SelectItem) data9 a3 notification1
+
+--- app/dashboard/automations/new/page.tsx (10 lines) ---
+34:      toast.success('تم إنشاء القاعدة بنجاح');                            [notification]
+37:    onError: () => toast.error('حدث خطأ'),                                [notification]
+49:    toast.success('تم تحميل القالب');                                    [notification]
+54:      toast.error('يجب ملء الحقول المطلوبة');                            [notification]
+63:        <Link ... aria-label="العودة إلى الأتمتة">                       [a]
+64:          <h1>قاعدة أتمتة جديدة</h1><p>إنشاء قاعدة أتمتة</p>              [ui]
+67:        ... من قالب                                                      [ui]
+68:        ... يدوي                                                         [ui]
+76:            <Button ...>إلغاء</Button>                                   [ui]
+77:            ... حفظ القاعدة                                              [ui]
+File subtotal: ui5 a1 notification4
+
+--- app/dashboard/automations/[id]/page.tsx (22 lines) — ⚠ RAW FETCH/useState ---
+22-30: TRIGGER_EVENT_LABELS (9 entries, 3rd near-duplicate)                  [data]
+34:  success: { label: 'ناجح', ... }   (2nd copy of STATUS_CONFIG)           [status]
+35:  partial_failure: { label: 'جزئي', ... }                                [status]
+36:  failed: { label: 'فشل', ... }                                          [status]
+77:    toast.success('تم حفظ التعديلات');                                   [notification]
+87:          <Link ... aria-label="العودة إلى الأتمتة">                     [a]
+88:          <h1 ...>تعديل {rule.name}</h1>                                 [ui]
+93:          <Input ... placeholder="اسم القاعدة" />                        [ui]
+94:          <Textarea ... placeholder="الوصف" />                           [ui]
+96:            <SelectTrigger><SelectValue placeholder="حدث التشغيل" /></SelectTrigger> [ui]
+99:          ... <Label>تفعيل</Label>                                       [ui]
+103:        <CardTitle>الشروط</CardTitle>                                    [ui]
+107:        <CardTitle>الإجراءات</CardTitle>                                 [ui]
+110:      ...>{saving ? ... : <Save />} حفظ</Button>                         [ui]
+File subtotal: ui8 status3 data9 a1 notification1
+
+--- app/dashboard/integrations/new/page.tsx (34 lines) ---
+21-33: AVAILABLE_EVENTS array of {value,label} (13 entries) — ⚠ ARRAY-SHAPED,  [data]
+       DUPLICATE of integrations/[id]/page.tsx and near-superset of the
+       9-entry TRIGGER_EVENT_LABELS above (see §5 hazard).
+68:      toast.success('تم إنشاء الـ Webhook بنجاح');                        [notification]
+71:    onError: () => toast.error('حدث خطأ في إنشاء الـ Webhook'),            [notification]
+78:      toast.error('اسم الـ Webhook مطلوب');                               [notification]
+82:      toast.error('رابط الـ Webhook مطلوب');                             [notification]
+86:      toast.error('يجب اختيار حدث واحد على الأقل');                       [notification]
+104:          <Button ... aria-label="رجوع">                                [a]
+110:            ... إضافة Webhook جديد                                      [ui]
+112:          <p ...>إنشاء نقطة تكامل خارجية جديدة</p>                       [ui]
+119:          <CardTitle>المعلومات الأساسية</CardTitle>                     [ui]
+123:            <Label>اسم الـ Webhook *</Label>                            [ui]
+127:              placeholder="مثال: إشعار Slack، تحديث CRM"                 [ui]
+132:            <Label>رابط الـ Webhook (URL) *</Label>                     [ui]
+140:              سيتم إرسال طلب POST مع توقيع HMAC-SHA256 في الهيدر         [ui]
+150:            <Label ...>تفعيل الـ Webhook فورًا</Label>                   [ui]
+158:          <CardTitle>الأحداث *</CardTitle>                              [ui]
+160:            {... ? 'إلغاء الكل' : 'تحديد الكل'}                          [ui]
+165:            اختر الأحداث التي سيتم إرسال إشعار عند حدوثها                [ui]
+199:              <p>سيتم توليد مفتاح سري (Secret) تلقائيًا بعد الإنشاء.</p>  [ui]
+200:              <p>يمكنك استخدام المفتاح للتحقق ... HMAC-SHA256.</p>       [ui]
+209:          <Button variant="outline">إلغاء</Button>                      [ui]
+221:          إنشاء Webhook                                                 [ui]
+File subtotal: ui15 data13(13 lines 21-33) a1 notification5
+
+--- app/dashboard/integrations/page.tsx (36 lines) ---
+37-49: EVENT_LABELS record (13 entries: file_uploaded/project_status_changed/         [data]
+       quote_signed/invoice_paid/invoice_overdue/client_comment/
+       approval_status_changed/project_created/client_created/expense_created/
+       invoice_created/invoice_sent/subscription_created) — DUPLICATE, see §5.
+82:        toast.error(json.error || 'فشل في تغيير الحالة');                 [notification]
+85:      toast.success(json.data?.is_enabled ? 'تم تفعيل الـ Webhook' : 'تم تعطيل الـ Webhook'); [notification]
+88:      toast.error('حدث خطأ');                                            [notification]
+102:        toast.error(json.error || 'فشل في حذف الـ Webhook');             [notification]
+107:      toast.success('تم حذف الـ Webhook');                              [notification]
+110:      toast.error('حدث خطأ');                                           [notification]
+131:            ... التكاملات                                               [ui]
+133:          <p ...>إدارة Webhooks والتكاملات الخارجية</p>                  [ui]
+137:            ... إضافة Webhook                                           [ui]
+167:            <p>لا توجد Webhooks</p>                                     [ui]
+168:            <p ...>أنشئ Webhook جديد للبدء في التكامل مع الأنظمة الخارجية</p> [ui]
+171:                ... إضافة Webhook                                       [ui]
+200:                    {webhook.is_enabled ? 'مفعّل' : 'معطّل'}             [status]
+221:                    {... `${rate}% نجاح` : 'لا توجد بيانات'}             [ui]
+225:                      آخر تسليم: {formatRelativeDate(...)}               [ui]
+237:                    ... تفاصيل                                          [ui]
+247:                        ... تعطيل                                       [ui]
+251:                        ... تفعيل                                       [ui]
+261:                    ... حذف                                             [ui]
+274:            <DialogTitle>حذف الـ Webhook</DialogTitle>                  [ui]
+277:            هل أنت متأكد من حذف الـ Webhook ...                          [ui]
+280:            <Button ...>إلغاء</Button>                                  [ui]
+282:              {deleting ? 'جارٍ الحذف...' : 'حذف'}                       [ui]
+File subtotal: ui16 status1 data13(13 lines 37-49) notification6
+
+--- app/dashboard/integrations/[id]/page.tsx (32 lines) — ⚠ RAW FETCH/useState (fully) ---
+18-30: AVAILABLE_EVENTS array (13 entries) — ⚠ ARRAY-SHAPED, 2nd copy of the  [data]
+       13-entry integrations/new/page.tsx array.
+56:        setError(json.error || 'فشل في تحميل الـ Webhook');               [notification]
+65:      setError('حدث خطأ في الاتصال');                                    [notification]
+95:      toast.success('تم حفظ التعديلات');                                 [notification]
+97:    } catch { toast.error('حدث خطأ'); }                                  [notification]
+105:      if (json.data?.success) toast.success('تم إرسال الاختبار بنجاح');  [notification]
+106:      else toast.error('فشل الاختبار');                                  [notification]
+108:    } catch { toast.error('حدث خطأ'); }                                  [notification]
+118:      if (!res.ok) { toast.error('فشل إعادة التوليد'); ... }             [notification]
+119:      toast.success('تم إعادة توليد المفتاح');                          [notification]
+121:    } catch { toast.error('حدث خطأ'); }                                  [notification]
+128:      toast.success('تمت إعادة المحاولة');                              [notification]
+130:    } catch { toast.error('حدث خطأ'); }                                 [notification]
+137:      <h1 ...>خطأ</h1>                                                  [ui]
+138:      <Button ...>العودة</Button>                                       [ui]
+146:          <Link ... aria-label="العودة إلى التكاملات">                  [a]
+148:            ... تفاصيل الـ Webhook                                      [ui]
+153:          <Button ...>...اختبار</Button>                                [ui]
+154:          <Badge ...>{webhook.is_enabled ? 'مفعّل' : 'معطّل'}</Badge>     [status]
+161:      أنشئ بواسطة {..} في {formatDate(...)} — آخر تحديث: {formatRelativeDate(...)} [ui]
+File subtotal: ui5 status1 data13(13 lines 18-30) a1 notification12
+
+--- app/dashboard/storage/page.tsx (1 line) ---
+5:  title: 'التخزين | Pyra Workspace',                                      [ui]
+
+--- app/dashboard/storage/storage-client.tsx (22 lines) — ⚠ FLAG toLocaleString('ar-SA') hardcoded (see §4) ---
+52:      toast.success((data as any).message || `تم فهرسة ${...} ملف`);      [notification]
+55:    onError: () => toast.error('حدث خطأ أثناء إعادة الفهرسة'),            [notification]
+63:            ... التخزين                                                  [ui]
+65:          <p ...>إحصائيات استخدام مساحة التخزين</p>                       [ui]
+84:        title="فشل في تحميل إحصائيات التخزين"                             [ui]
+85:        description="حدث خطأ أثناء تحميل البيانات، حاول تحديث الصفحة"     [ui]
+96:            ... التخزين                                                  [ui]
+98:          <p ...>إحصائيات استخدام مساحة التخزين</p>                       [ui]
+108:          {... 'جارٍ الفهرسة...' : 'إعادة فهرسة الملفات'}                 [ui]
+121:                <p ...>إجمالي التخزين المستخدم</p>                       [ui]
+134:                <p ...>إجمالي الملفات</p>                                 [ui]
+147:                <p ...>عدد المجلدات</p>                                  [ui]
+162:              التوزيع حسب النوع                                          [ui]
+206:              <EmptyState ... title="لا توجد بيانات" .../>               [ui]
+216:              أكبر المجلدات                                              [ui]
+248:              <EmptyState ... title="لا توجد بيانات" .../>               [ui]
+259:            أكبر الملفات                                                 [ui]
+268:                  <th ...>الملف</th>                                    [ui]
+269:                  <th ...>المسار</th>                                    [ui]
+270:                  <th ...>النوع</th>                                    [ui]
+271:                  <th ...>الحجم</th>                                    [ui]
+297:                      <EmptyState ... title="لا توجد ملفات" .../>        [ui]
+File subtotal: ui20 notification2
+
+--- app/dashboard/knowledge-base/page.tsx (1 line) ---
+5:  title: 'قاعدة المعرفة | Pyra',                                          [ui]
+
+--- app/dashboard/knowledge-base/knowledge-base-client.tsx (54 lines) ---
+64:  { value: 'book', label: 'كتاب' },                                       [data]
+65:  { value: 'file-text', label: 'مستند' },                                 [data]
+66:  { value: 'help-circle', label: 'مساعدة' },                              [data]
+67:  { value: 'settings', label: 'إعدادات' },                                [data]
+68:  { value: 'zap', label: 'سريع' },                                        [data]
+69:  { value: 'shield', label: 'أمان' },                                     [data]
+70:  { value: 'credit-card', label: 'دفع' },                                 [data]
+71:  { value: 'users', label: 'مستخدمون' },                                  [data]
+72:  { value: 'globe', label: 'عام' },                                       [data]
+73:  { value: 'code', label: 'تقنية' },                                      [data]
+   (ICON_OPTIONS, array-shaped — 10 lines, ⚠ ARRAY-SHAPED, see §5)
+137:      toast.error('حدث خطأ في تحميل المقالات');                          [notification]
+179:      toast.error('اسم التصنيف مطلوب');                                  [notification]
+207:      toast.success(editingCat ? 'تم تحديث التصنيف' : 'تم إنشاء التصنيف'); [notification]
+211:      toast.error('حدث خطأ');                                            [notification]
+228:      toast.success('تم حذف التصنيف');                                   [notification]
+234:      toast.error('حدث خطأ');                                            [notification]
+253:            ... قاعدة المعرفة                                            [ui]
+255:          <p ...>إدارة التصنيفات والمقالات</p>                           [ui]
+260:              ... مقالة جديدة                                            [ui]
+266:            ... تصنيف جديد                                               [ui]
+282:          التصنيفات                                                     [ui]
+293:          المقالات                                                      [ui]
+307:            <EmptyState ... title="لا توجد تصنيفات" description="أضف تصنيفًا جديدًا للبدء" /> [ui]
+321:                          {cat.is_public ? 'عام' : 'خاص'}                [status]
+330:                        {articleCounts[cat.id] || 0} مقالة               [ui]
+333:                        <Button ... aria-label="تعديل">                  [a]
+341:                          aria-label="حذف"                               [a]
+364:                placeholder="بحث في المقالات..."                        [ui]
+372:                <SelectValue placeholder="جميع التصنيفات" />             [ui]
+375:                <SelectItem value="all">جميع التصنيفات</SelectItem>      [ui]
+390:                      <th ...>العنوان</th>                              [ui]
+391:                      <th ...>التصنيف</th>                               [ui]
+392:                      <th ...>الكاتب</th>                                [ui]
+393:                      <th ...>المشاهدات</th>                             [ui]
+394:                      <th ...>الحالة</th>                                [ui]
+395:                      <th ...>التاريخ</th>                               [ui]
+410:                          <EmptyState ... title="لا توجد مقالات" description="أنشئ مقالة جديدة للبدء" /> [ui]
+431:                                <>... عام</>          (is_public true)    [status]
+433:                                <>... خاص</>          (is_public false)   [status]
+455:            <DialogTitle>{editingCat ? 'تعديل التصنيف' : 'تصنيف جديد'}</DialogTitle> [ui]
+459:              <FormLabel required>اسم التصنيف</FormLabel>                [ui]
+463:                placeholder="مثال: الأسئلة الشائعة"                      [ui]
+467:              <Label>الوصف</Label>                                       [ui]
+471:                placeholder="وصف مختصر للتصنيف..."                       [ui]
+477:                <Label>الأيقونة</Label>                                  [ui]
+480:                    <SelectValue placeholder="اختر أيقونة" />            [ui]
+490:                <Label>الترتيب</Label>                                   [ui]
+508:              <Label ...>عام (ظاهر في بوابة العملاء)</Label>             [ui]
+512:            <Button ...>إلغاء</Button>                                  [ui]
+514:              {savingCat ? 'جارٍ الحفظ...' : editingCat ? 'تحديث' : 'إنشاء'} [ui]
+524:            <DialogTitle>حذف التصنيف</DialogTitle>                      [ui]
+527:            هل أنت متأكد من حذف هذا التصنيف؟ سيتم حذف جميع المقالات المرتبطة به. لا يمكن التراجع عن هذا الإجراء. [ui]
+530:            <Button ...>إلغاء</Button>                                  [ui]
+532:              {deletingCat ? 'جارٍ الحذف...' : 'حذف'}                    [ui]
+File subtotal: ui33 status3 data10(lines 64-73) a2 notification6
+
+--- app/dashboard/knowledge-base/new/page.tsx (22 lines) ---
+43:      toast.success('تم إنشاء المقالة');                                  [notification]
+46:    onError: () => toast.error('حدث خطأ'),                                [notification]
+50:    if (!categoryId) { toast.error('يرجى اختيار التصنيف'); ... }          [notification]
+51:    if (!title.trim()) { toast.error('عنوان المقالة مطلوب'); ... }        [notification]
+52:    if (!content.trim()) { toast.error('محتوى المقالة مطلوب'); ... }      [notification]
+65:          <Button ... aria-label="رجوع">                                [a]
+68:          <h1 ...>مقالة جديدة</h1>                                       [ui]
+69:          <p ...>إنشاء مقالة جديدة في قاعدة المعرفة</p>                   [ui]
+76:            <CardHeader><CardTitle ...>محتوى المقالة</CardTitle></CardHeader> [ui]
+79:                <Label>العنوان *</Label>                                 [ui]
+80:                <Input ... placeholder="عنوان المقالة" />                [ui]
+84:                  <Label>المحتوى * (Markdown)</Label>                    [ui]
+86:                    {... 'تحرير' ... 'معاينة'}                            [ui]
+93:                        {content || '*لا يوجد محتوى للمعاينة*'}           [ui]
+101:                    placeholder="اكتب المحتوى باستخدام Markdown..."       [ui]
+109:                <Label>المقتطف</Label>                                  [ui]
+113:                  placeholder="وصف مختصر يظهر في قائمة المقالات..."      [ui]
+123:            <CardHeader><CardTitle ...>الإعدادات</CardTitle></CardHeader> [ui]
+126:                <Label>التصنيف *</Label>                                [ui]
+129:                    <SelectValue placeholder={... 'جارٍ التحميل...' : 'اختر التصنيف'} /> [ui]
+146:                <Label ...>عام (ظاهر في بوابة العملاء)</Label>           [ui]
+149:                {... 'جارٍ الحفظ...' ... 'حفظ المقالة'}                   [ui]
+File subtotal: ui16 a1 notification5
+
+--- app/dashboard/knowledge-base/[id]/page.tsx (10 lines) — ⚠ RAW FETCH/useState (mixed) ---
+57:    if (...) { toast.error('بيانات مطلوبة مفقودة'); return; }             [notification]
+65:      if (...) toast.error('فشل الحفظ');                                  [notification]
+66:      else { toast.success('تم تحديث المقالة'); ... }                    [notification]
+73:    toast.success('تم حذف المقالة');                                     [notification]
+84:          <Link ... aria-label="العودة إلى قاعدة المعرفة">                [a]
+85:          <h1 ...>تعديل المقالة</h1>                                     [ui]
+87:        <Button ...>... حذف</Button>                                     [ui]
+97:          <DialogHeader><DialogTitle>حذف المقالة</DialogTitle></DialogHeader> [ui]
+98:          <p ...>هل أنت متأكد من حذف {article.title}؟</p>                 [ui]
+99:          <Button ...>إلغاء</Button><Button ...>حذف</Button>              [ui]
+File subtotal: ui5 a1 notification4
+
+--- API ROUTES (all remaining Arabic = apiError/apiValidationError/apiNotFound/
+    apiServerError response-message strings → [notification], EXCEPT the
+    storage-stats server-computed category labels → [data]) ---
+
+app/api/automations/log/route.ts        — 0 Arabic lines
+app/api/automations/route.ts            — 0 Arabic lines
+app/api/automations/templates/route.ts  — 0 Arabic lines
+app/api/automations/[id]/route.ts       — 0 Arabic lines
+app/api/automations/[id]/toggle/route.ts — 0 Arabic lines
+
+app/api/reviews/route.ts (3 lines):
+75:      return apiValidationError('مسار الملف مطلوب');                     [notification]
+83:      return apiValidationError('نوع المراجعة يجب أن يكون comment أو approval'); [notification]
+86:      return apiValidationError('نص المراجعة مطلوب');                    [notification]
+
+app/api/reviews/[id]/route.ts (4 lines):
+31:      return apiValidationError('حالة الحل مطلوبة (true أو false)');     [notification]
+44:      return apiNotFound('المراجعة غير موجودة');                        [notification]
+90:      return apiNotFound('المراجعة غير موجودة');                        [notification]
+98:      return apiForbidden('لا يمكنك حذف هذه المراجعة');                  [notification]
+
+app/api/scripts/reviews/route.ts        — 0 Arabic lines
+
+app/api/scripts/reviews/replies/route.ts (7 lines):
+23:    if (!reviewId) return apiValidationError('review_id مطلوب');         [notification]
+59:    if (!review_id) return apiValidationError('review_id مطلوب');        [notification]
+60:    if (!message?.trim()) return apiValidationError('الرد مطلوب');       [notification]
+62:      return apiValidationError('الرد طويل جداً (الحد الأقصى 5000 حرف)'); [notification]
+75:      return apiValidationError('المراجعة غير موجودة');                 [notification]
+101:      title: 'رد جديد على مراجعة السكريبت',   (pyra_client_notifications insert) [notification]
+102:      message: `${..} رد على ملاحظاتك في سكريبت فيديو #${..} (النسخة ${..})`,   [notification]
+       ⚠ NOTE: this is a raw insert into pyra_client_notifications, NOT the
+       central notify()/notifyMany() helper — the CLAUDE.md notify() doctrine
+       covers pyra_notifications only; pyra_client_notifications (portal) is a
+       separate table with its own ad-hoc insert pattern. Out of i18n-census
+       scope to fix, flagged for awareness since the string content class is
+       identical (persisted notification text, stays Arabic until Phase 8).
+
+app/api/kb/articles/route.ts (3 lines):
+72:      return apiError('التصنيف مطلوب');                                 [notification]
+75:      return apiError('عنوان المقالة مطلوب');                            [notification]
+78:      return apiError('محتوى المقالة مطلوب');                            [notification]
+
+app/api/kb/articles/[id]/route.ts (2 lines):
+33:      if (...) return apiNotFound('المقالة غير موجودة');                [notification]
+83:      if (...) return apiNotFound('المقالة غير موجودة');                [notification]
+
+app/api/kb/categories/route.ts (1 line):
+49:      return apiError('اسم التصنيف مطلوب');                             [notification]
+
+app/api/kb/categories/[id]/route.ts (2 lines):
+29:        return apiError('اسم التصنيف مطلوب');                          [notification]
+48:      if (...) return apiNotFound('التصنيف غير موجود');                 [notification]
+
+app/api/dashboard/content-pipeline/route.ts (5 lines):
+62:      return apiServerError('فشل في جلب عناصر خط الإنتاج');             [notification]
+113:      return apiValidationError('عنوان المحتوى مطلوب');                 [notification]
+118:      return apiValidationError('نوع المحتوى غير صالح');                [notification]
+147:      return apiServerError('فشل في إنشاء عنصر خط الإنتاج');           [notification]
+175:      return apiServerError('فشل في إنشاء مراحل خط الإنتاج');          [notification]
+
+app/api/dashboard/content-pipeline/[id]/route.ts (6 lines):
+35:      return apiNotFound('عنصر خط الإنتاج غير موجود');                 [notification]
+81:      return apiValidationError('نوع المحتوى غير صالح');                [notification]
+94:      return apiNotFound('عنصر خط الإنتاج غير موجود');                 [notification]
+117:      return apiServerError('فشل في تحديث عنصر خط الإنتاج');          [notification]
+147:      return apiNotFound('عنصر خط الإنتاج غير موجود');                 [notification]
+158:      return apiServerError('فشل في حذف عنصر خط الإنتاج');            [notification]
+
+app/api/dashboard/content-pipeline/[id]/stages/route.ts (8 lines):
+38:      return apiValidationError('معرّف المرحلة مطلوب');                 [notification]
+43:      return apiValidationError('الإجراء غير صالح. الإجراءات المسموحة: start, complete, skip'); [notification]
+57:      return apiNotFound('عنصر خط الإنتاج غير موجود');                 [notification]
+69:      return apiNotFound('المرحلة غير موجودة');                        [notification]
+74:      return apiValidationError('لا يمكن بدء مرحلة ليست في حالة "معلقة"'); [notification]
+77:      return apiValidationError('لا يمكن إكمال مرحلة ليست قيد التنفيذ'); [notification]
+80:      return apiValidationError('لا يمكن تخطي مرحلة مكتملة أو تم تخطيها بالفعل'); [notification]
+109:      return apiServerError('فشل في تحديث المرحلة');                   [notification]
+
+app/api/dashboard/storage-stats/route.ts (10 lines):
+27:      return apiServerError('فشل في جلب إحصائيات التخزين');            [notification]
+60:      'image/': 'صور',                                                  [data]
+61:      'video/': 'فيديو',                                                [data]
+62:      'audio/': 'صوت',                                                  [data]
+64:      'text/': 'نصوص',                                                  [data]
+69:      let category = 'أخرى';        (default fallback)                  [data]
+77:        category = 'جداول';                                             [data]
+79:        category = 'مستندات';                                           [data]
+81:        category = 'أرشيف';                                             [data]
+92:      const topFolder = ... || 'جذر';                                   [data]
+       ⚠ NOTE: these are server-computed, hardcoded-Arabic category/folder
+       labels returned as DATA in the JSON payload (not passed through any
+       i18n layer) — EN-locale clients would still see Arabic. See §4 hazard.
+
+app/api/reports/storage/route.ts        — 0 Arabic lines
+       (route exists in the storage domain but is NOT called by the
+       /dashboard/storage page in this scope — included for completeness,
+       confirmed 0 Arabic content.)
+
+--- SUBSTITUTED: app/api/webhooks/** (real backing API for /dashboard/integrations/*,
+    since app/api/integrations/** does not exist) ---
+
+app/api/webhooks/process-retries/route.ts — 0 Arabic lines (internal/cron-style route,
+    not directly called by the integrations UI pages in scope)
+
+app/api/webhooks/route.ts (4 lines):
+109:      return apiValidationError('اسم الـ Webhook مطلوب');               [notification]
+113:      return apiValidationError('رابط الـ Webhook مطلوب');              [notification]
+120:      return apiValidationError('رابط الـ Webhook غير صالح');           [notification]
+124:      return apiValidationError('يجب اختيار حدث واحد على الأقل');       [notification]
+
+app/api/webhooks/[id]/route.ts (7 lines):
+36:      return apiNotFound('الـ Webhook غير موجود');                     [notification]
+89:      return apiNotFound('الـ Webhook غير موجود');                     [notification]
+99:        return apiValidationError('اسم الـ Webhook لا يمكن أن يكون فارغًا'); [notification]
+106:        return apiValidationError('رابط الـ Webhook لا يمكن أن يكون فارغًا'); [notification]
+111:        return apiValidationError('رابط الـ Webhook غير صالح');         [notification]
+118:        return apiValidationError('يجب اختيار حدث واحد على الأقل');     [notification]
+185:      return apiNotFound('الـ Webhook غير موجود');                     [notification]
+
+app/api/webhooks/[id]/deliveries/route.ts (1 line):
+34:      return apiNotFound('الـ Webhook غير موجود');                     [notification]
+
+app/api/webhooks/[id]/deliveries/[did]/retry/route.ts (4 lines):
+35:      return apiNotFound('الـ Webhook غير موجود');                     [notification]
+47:      return apiNotFound('التسليم غير موجود');                          [notification]
+52:      return apiError('لا يمكن إعادة المحاولة — الحالة ليست فاشلة أو قيد الإعادة', 400); [notification]
+56:      return apiError('تم الوصول للحد الأقصى من المحاولات', 400);       [notification]
+
+app/api/webhooks/[id]/test/route.ts (1 line):
+34:      return apiNotFound('الـ Webhook غير موجود');                     [notification]
+
+app/api/webhooks/[id]/toggle/route.ts (1 line):
+33:      return apiNotFound('الـ Webhook غير موجود');                     [notification]
+
+================================================================================
+3. COUNTS
+================================================================================
+Total files scanned:                       45  (38 in original scope + 7 substituted
+                                                 app/api/webhooks/** files)
+Files containing Arabic:                   37
+Files with ZERO Arabic:                     8
+  (app/api/automations/log, route, templates, [id], [id]/toggle — 5;
+   app/api/scripts/reviews/route.ts — 1;
+   app/api/reports/storage/route.ts — 1;
+   app/api/webhooks/process-retries/route.ts — 1)
+
+Total Arabic lines:                       478
+
+Breakdown by CLASS:
+  [ui]           216   (45.2%)
+  [notification] 124   (25.9%)
+  [data]           91   (19.0%)
+  [status]         34   (7.1%)
+  [a]              13   (2.7%)
+  [pdf]             0
+  [internal]        0
+  ------------------------
+  TOTAL           478
+
+================================================================================
+4. HAZARDS
+================================================================================
+
+H1 — RAW fetch()/useState instead of React Query (CLAUDE.md mandate violation).
+  Confirmed in 7 files (some fully raw, some mixed with fetchAPI/mutateAPI):
+  - app/dashboard/reviews/reviews-client.tsx — 100% raw fetch + useState/useEffect,
+    NO React Query at all (lines 50, 62, 78; useState block lines 31-37; useEffect 40, 56).
+  - app/dashboard/automations/log/page.tsx — raw fetch line 77; useState/useEffect block
+    lines 59-91.
+  - app/dashboard/automations/[id]/page.tsx — raw fetch lines 56, 75; useState block
+    lines 43-52; useEffect line 70.
+  - app/dashboard/integrations/page.tsx — MIXED: fetchAPI for the list query (line 61)
+    but raw fetch for toggle (line 79) and delete (line 99).
+  - app/dashboard/integrations/[id]/page.tsx — 100% raw fetch (lines 53, 74, 88, 103,
+    113, 127); useState block lines 36-49; useEffect line 83.
+  - app/dashboard/knowledge-base/[id]/page.tsx — MIXED: fetchAPI for categories query
+    (line 31) but raw fetch for GET/PATCH/DELETE (lines 39, 60, 72); useEffect line 37.
+  - app/dashboard/content-pipeline/content-pipeline-client.tsx — mostly React Query but
+    ONE raw fetch at line 271 for the stage-action mutation.
+  This matters for the i18n plan because these are the exact files that will be
+  re-touched during migration (every toast/label moves to useTranslations) — worth
+  deciding whether to fix the raw-fetch violation in the same pass or explicitly defer.
+
+H2 — Duplicated/drifted "shadow" label maps for webhook trigger events (5-6 copies,
+  2 different shapes, inconsistent content):
+  - 9-entry RECORD form (`TRIGGER_EVENT_LABELS` / unnamed const), IDENTICAL content,
+    appears 3×: automations-client.tsx:41-49, automations/log/page.tsx:36-44,
+    automations/[id]/page.tsx:22-30.
+  - 13-entry ARRAY form (`AVAILABLE_EVENTS`, `{value,label}[]`), IDENTICAL content,
+    appears 2×: integrations/new/page.tsx:20-33, integrations/[id]/page.tsx:17-30.
+  - 13-entry RECORD form (`EVENT_LABELS`), IDENTICAL content to the array form above
+    (just a different shape), appears 1×: integrations/page.tsx:36-49.
+  The 13-entry set is a strict superset of the 9-entry set (adds expense_created,
+  invoice_created, invoice_sent, subscription_created) — i.e. automations pages and
+  integrations pages have DRIFTED apart on what the full webhook-event catalogue is.
+  Reuse/consolidation opportunity for the i18n plan: extract ONE canonical
+  `WEBHOOK_EVENT_LABELS` (or equivalent EN/AR message catalogue) used by all 5 sites —
+  this should probably happen in code BEFORE or DURING the i18n pass, not after,
+  otherwise the migration will just duplicate the drift across 5 message-key sets.
+
+H3 — Duplicated STATUS_CONFIG (success/partial_failure/failed) for automation-log rows,
+  IDENTICAL content, appears 2×: automations/log/page.tsx:48-50, automations/[id]/page.tsx:34-36.
+  Same consolidation opportunity as H2.
+
+H4 — Dead/unused status-label map already in lib/constants/statuses.ts:
+  `CONTENT_PIPELINE_STATUS_LABELS` (lines 302-308, values pending/in_progress/review/
+  approved/published) is NEVER imported by content-pipeline-client.tsx or the API route.
+  The real UI uses ITS OWN local maps with a DIFFERENT value set:
+  `STAGE_LABELS` (7 production-stage keys: scripting/review/revision/filming/editing/
+  client_review/delivery, content-pipeline-client.tsx:106-112) and
+  `STAGE_STATUS_LABELS` (pending/in_progress/completed/skipped, lines 152-155) — these
+  describe per-STAGE status, not the 5-value item-level status the statuses.ts constant
+  assumes. Only `CONTENT_PIPELINE_STATUS.PENDING`/`.IN_PROGRESS` (the bare VALUE
+  constants, not the labels) are actually consumed, in
+  app/api/dashboard/content-pipeline/route.ts:155. Verified via grep:
+  CONTENT_PIPELINE_STATUS_LABELS only appears in its own definition file, a status-
+  labels test, and a planning doc — zero real call sites. Flag for the plan phase: either
+  retire this dead constant or reconcile it with the real stage-status shape before
+  wiring content-pipeline into `useStatusLabels()`.
+
+H5 — Reuse opportunity: script-reviews' local STATUS_CONFIG (script-reviews-client.tsx:
+  24-38, values approved/revision_requested/pending) has the exact same VALUE SET as
+  the existing `FILE_APPROVAL_STATUS` enum in lib/constants/statuses.ts:207-211
+  (PENDING/APPROVED/REVISION_REQUESTED) — but statuses.ts has no
+  `FILE_APPROVAL_STATUS_LABELS` Arabic map to reuse (only the bare value constants
+  exist). A future migration could either (a) add a `script_review` entity key to the
+  `useStatusLabels()` registry in lib/i18n/status-labels.ts, or (b) if this really is
+  the same domain concept as file-approval, add `FILE_APPROVAL_STATUS_LABELS` once and
+  share it. Neither entity currently appears in lib/i18n/status-labels.ts (checked —
+  no `content_pipeline`, `script_review`, `automation`, or `webhook` entity keys exist
+  there yet, confirming none of these 7 modules have been touched by any prior i18n phase).
+
+H6 — Hardcoded `dir="rtl"` on sub-elements (5 occurrences), which will force RTL layout
+  even when the app is rendered in EN locale (breaks the "app renders in whichever
+  locale the user picked" contract established by Phases 0-5):
+  - content-pipeline-client.tsx:399 (kanban board wrapper)
+  - content-pipeline-client.tsx:446 (create dialog)
+  - content-pipeline-client.tsx:545 (detail dialog)
+  - script-reviews-client.tsx:222 (reply textarea)
+  - script-reviews-client.tsx:267 (page root wrapper)
+
+H7 — Hardcoded Arabic-locale digit formatting via `.toLocaleString('ar-SA')` (2
+  occurrences, storage-client.tsx:135, :148) — forces Arabic-Indic numeral rendering
+  regardless of the active locale, violating the CLAUDE.md rule "Currency/number
+  formatting is locale-stable... do not localize digits" applied in reverse (here it's
+  file-count digits, not currency, but the same digit-locale-stability concern applies —
+  an EN-locale user would still see Arabic-Indic digits for total-files/total-folders).
+
+H8 — Server-computed, hardcoded-Arabic DATA strings returned in a JSON payload with no
+  i18n path at all: app/api/dashboard/storage-stats/route.ts:60-92 builds file-type
+  category labels ('صور'/'فيديو'/'صوت'/'نصوص'/'أخرى'/'جداول'/'مستندات'/'أرشيف') and a
+  folder fallback ('جذر') server-side and ships them as data — the client
+  (storage-client.tsx) renders these directly in chart legends/tooltips. This can't be
+  fixed by a message-catalog swap alone; the route itself needs either to return a
+  locale-stable KEY (e.g. 'image'/'video'/'docs'/'root') and let the client map it
+  through `useTranslations`, or accept a locale param and localize server-side (matching
+  the "CRM AI-insight `message` alongside legacy `message_ar`" pattern already
+  established elsewhere in the codebase per CLAUDE.md).
+
+H9 — JSON-array-shaped label sets (would need reshaping into keyed objects for a
+  next-intl catalog per the CLAUDE.md rule "Catalogs must NEVER contain JSON arrays"):
+  - `AVAILABLE_EVENTS: {value,label}[]` — integrations/new/page.tsx:20-33,
+    integrations/[id]/page.tsx:17-30 (same array, 2 copies — see H2)
+  - `ICON_OPTIONS: {value,label}[]` — knowledge-base-client.tsx:64-73
+  These are runtime option-lists (used to build `<Select>` items), not yet next-intl
+  catalogs — flagged here so the plan phase reshapes them into keyed objects (e.g.
+  `{ file_uploaded: {...}, ... }`) at the same time they're extracted per H2, rather
+  than twice.
+
+H10 — No bilingual (`_ar`/`_en`) DB columns anywhere in this scope — confirmed via grep
+  (no `name_ar`, `title_ar`, `label_ar`, etc.). HOWEVER: Knowledge Base articles
+  (`pyra_kb_articles.title/content/excerpt`, written via app/api/kb/articles/route.ts)
+  are 100% free-text Arabic CONTENT authored by admins and shown to portal clients too
+  (`is_public` flag) — this is genuinely non-translatable user-generated content, same
+  category as the already-documented "board-template seeded Arabic DB data" precedent
+  in CLAUDE.md (i18n §"Board-template SEEDED column/label names... remain Arabic DB
+  data"). Flag for the plan: KB article body content is OUT of scope for string
+  extraction — only the surrounding UI chrome (labels, buttons, table headers) is
+  migratable.
+
+H11 — `formatDate`/`formatRelativeDate`/`formatFileSize` call sites in this scope never
+  pass an explicit locale (all rely on the `'ar'` default per CLAUDE.md's
+  "Dates: ... take a trailing locale param (default 'ar')" contract). Not a bug today,
+  but every one of these 9 call sites (content-pipeline-client.tsx:577,678,684,822;
+  script-reviews-client.tsx:119,199; reviews-client.tsx:144; automations-client.tsx:206;
+  automations/log/page.tsx:186; integrations/page.tsx:225; integrations/[id]/page.tsx:161;
+  knowledge-base-client.tsx:438) will need a locale param threaded through once these
+  pages go bilingual — noted as required follow-through work, not a defect.
+
+================================================================================
+5. REUSE OPPORTUNITIES (summary)
+================================================================================
+- `lib/i18n/status-labels.ts` has NO entity keys yet for content_pipeline, script_review,
+  automation, or webhook — this whole module group is a clean slate for the
+  `useStatusLabels(entity)` pattern (Phase 2+ convention per CLAUDE.md).
+- H2/H3 above: consolidate the 5-6 duplicated webhook-event / automation-log-status
+  label maps into ONE canonical source before/during message-catalog extraction —
+  otherwise the i18n migration will bake in the existing drift as 5 separate,
+  inconsistent EN translations.
+- `api` namespace (per CLAUDE.md: "shared server-response-message namespace for API
+  route handlers") is the natural home for ALL 61 [notification]-class API-route
+  strings censused above (apiError/apiValidationError/apiNotFound/apiServerError
+  arguments) — none of them are entity-specific enough to need their own namespace.
+- Generic client-side fallback strings repeated verbatim across many files —
+  'حدث خطأ' (bare generic error toast) appears ~15+ times across this scope alone
+  (automations-client, automations/log, automations/[id], automations/new,
+  integrations/page, integrations/new, integrations/[id] ×4, knowledge-base-client
+  ×2) — a single shared `api.common.genericError` (or similar) key would collapse all
+  of these into one catalog entry instead of N near-identical ones.
+- 'إلغاء' (Cancel) and 'حذف' (Delete) button labels are repeated verbatim in nearly
+  every dialog across all 7 modules — strong candidate for a shared `common.cancel` /
+  `common.delete` catalog key (if not already established by an earlier i18n phase —
+  not verified here, out of this census's scope to confirm against the `common`
+  namespace's current contents).
+- is_enabled boolean-state label pair 'مفعّل'/'معطّل' appears 4× (automations-client:193,
+  integrations/page.tsx:200, integrations/[id]/page.tsx:154, plus the same pattern
+  implicit in the is_public 'عام'/'خاص' pair in knowledge-base-client.tsx ×2) — a shared
+  boolean-status badge/label pattern (or component) would reduce this to one message key.

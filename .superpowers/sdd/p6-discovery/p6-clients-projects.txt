@@ -1,0 +1,1489 @@
+================================================================================
+PHASE 6 i18n DISCOVERY CENSUS — CLIENTS / PROJECTS / FILES / TEAMS
+================================================================================
+Scope:
+  app/dashboard/{clients,projects,files,teams}/**
+  components/{clients,projects,files}/**   (files preview is SHARED w/ portal)
+  app/api/{clients,projects,files,teams}/**
+
+Method: full .ts/.tsx read of every file in scope; grep [؀-ۿ] per file, counts
+cross-verified against per-file grep -count (all totals reconciled exactly).
+
+CLASS legend:
+  ui           = UI text (JSX labels/buttons/toasts/placeholders/aria/titles)
+  a            = API response message (validation/not-found/forbidden/server-error text)
+  data         = persisted / auto-generated DB content (not a message)
+  status       = enum/label map (shadow status/type/action-label dictionaries)
+  notification = notify()-style / client-notification insert content
+  pdf          = CSV/PDF export content (headers, export-only labels)
+  internal     = log/comment (Arabic in code comments or console.*)
+  — internal: 0 lines found anywhere in scope (verified via grep on
+    `^\s*//.*[Arabic]` and `console\.(log|error|warn).*[Arabic]` — clean).
+
+================================================================================
+FILE INVENTORY (73 files scanned; 69 contain Arabic, 4 are Arabic-free)
+================================================================================
+app/dashboard/clients/page.tsx                                   1
+app/dashboard/clients/clients-client.tsx                        85
+app/dashboard/clients/[id]/client-detail-client.tsx             134  *** 1381 LOC — >300 LOC hazard ***
+app/dashboard/projects/page.tsx                                   1
+app/dashboard/projects/projects-client.tsx                       68  (449 LOC — >300 LOC hazard)
+app/dashboard/projects/[id]/page.tsx                               7
+app/dashboard/projects/[id]/project-board-embed.tsx               16  (374 LOC — >300 LOC hazard)
+app/dashboard/files/page.tsx                                       3
+app/dashboard/files/[...path]/page.tsx                             3
+app/dashboard/files/loading.tsx                                    0  (no Arabic)
+app/dashboard/teams/page.tsx                                       1
+app/dashboard/teams/teams-client.tsx                              41
+components/clients/BrandingEditor.tsx                             27  (383 LOC — >300 LOC hazard)
+components/clients/ClientExportButton.tsx                          4
+components/clients/ClientNotesTab.tsx                             29  (463 LOC — >300 LOC hazard)
+components/clients/ClientTagsManager.tsx                          12  (455 LOC — >300 LOC hazard)
+components/clients/TagFilterSelect.tsx                              4
+components/projects/project-kanban.tsx                              9  (340 LOC — >300 LOC hazard)
+components/files/file-breadcrumbs.tsx                               1
+components/files/pdf-viewer.tsx                                    6
+components/files/docx-viewer.tsx                                   3
+components/files/upload-progress.tsx                                4
+components/files/file-drop-zone.tsx                                 2
+components/files/bulk-actions-bar.tsx                              39  (307 LOC — >300 LOC hazard)
+components/files/file-context-menu.tsx                             46  (505 LOC — >300 LOC hazard) — SHARED dashboard+portal
+components/files/file-explorer.tsx                                 26  (666 LOC — >300 LOC hazard) — SHARED dashboard+portal
+components/files/file-grid.tsx                                      3  (210 LOC)
+components/files/file-hover-preview.tsx                              0  (no Arabic; 130 LOC)
+components/files/file-icon.tsx                                      0  (no Arabic; 110 LOC)
+components/files/file-list.tsx                                     6  (203 LOC)
+components/files/file-permissions-dialog.tsx                      26  (312 LOC — >300 LOC hazard)
+components/files/file-preview.tsx                                  54  (1480 LOC — >300 LOC hazard, LARGEST) — SHARED dashboard+portal
+components/files/file-tags.tsx                                    12  (209 LOC)
+components/files/file-toolbar.tsx                                 30  (405 LOC — >300 LOC hazard)
+components/files/version-history.tsx                               23  (284 LOC)
+app/api/clients/route.ts                                            8
+app/api/clients/[id]/route.ts                                     13
+app/api/clients/export/route.ts                                   23
+app/api/clients/tags/route.ts                                       4
+app/api/clients/[id]/activate-portal/route.ts                      6
+app/api/clients/[id]/activity/route.ts                              1
+app/api/clients/[id]/branding/route.ts                              0  (no Arabic)
+app/api/clients/[id]/financials/route.ts                            1
+app/api/clients/[id]/notes/route.ts                                 3
+app/api/clients/[id]/tags/route.ts                                  4
+app/api/clients/[id]/branding/upload/route.ts                       6
+app/api/clients/[id]/notes/[noteId]/route.ts                        4
+app/api/projects/route.ts                                          5
+app/api/projects/[id]/route.ts                                    12
+app/api/projects/[id]/files/route.ts                               17
+app/api/projects/[id]/files/sync/route.ts                          9
+app/api/projects/[id]/files/visibility/route.ts                    6
+app/api/files/route.ts                                            10
+app/api/files/[...path]/route.ts                                  10
+app/api/files/copy-batch/route.ts                                  5
+app/api/files/delete-batch/route.ts                                 6
+app/api/files/download-batch/route.ts                               5
+app/api/files/folders/route.ts                                      3
+app/api/files/move-batch/route.ts                                  13
+app/api/files/reindex/route.ts                                      2
+app/api/files/search/route.ts                                       3
+app/api/files/tag-batch/route.ts                                    3
+app/api/files/tags/route.ts                                        9
+app/api/files/upload-complete/route.ts                             13
+app/api/files/upload-url/route.ts                                   6
+app/api/files/versions/route.ts                                     1
+app/api/files/download/[...path]/route.ts                           3
+app/api/files/signed-url/[...path]/route.ts                         2
+app/api/files/versions/[id]/route.ts                                1
+app/api/files/versions/[id]/restore/route.ts                        3
+app/api/teams/route.ts                                              1
+app/api/teams/[id]/route.ts                                        3
+app/api/teams/[id]/members/route.ts                                 6
+--------------------------------------------------------------------------------
+TOTAL FILES SCANNED:        73
+FILES WITH ARABIC:          69
+FILES WITH ZERO ARABIC:      4  (files/loading.tsx, file-hover-preview.tsx,
+                                  file-icon.tsx, api/clients/[id]/branding/route.ts)
+TOTAL ARABIC LINES:        956
+BY CLASS: ui=610  a=200  status=121  pdf=17  data=6  notification=2  internal=0
+================================================================================
+
+
+================================================================================
+CENSUS BY FILE
+================================================================================
+
+--- app/dashboard/clients/page.tsx ---
+app/dashboard/clients/page.tsx:5  title: 'العملاء | Pyra Workspace',  [ui]
+
+--- app/dashboard/clients/clients-client.tsx ---
+app/dashboard/clients/clients-client.tsx:77  manual: 'يدوي',  [status]   (SOURCE_LABELS map #1 of 4 — see HAZARDS)
+app/dashboard/clients/clients-client.tsx:78  referral: 'إحالة',  [status]
+app/dashboard/clients/clients-client.tsx:79  website: 'موقع إلكتروني',  [status]
+app/dashboard/clients/clients-client.tsx:80  social: 'تواصل اجتماعي',  [status]
+app/dashboard/clients/clients-client.tsx:151  toast.error('اسم العميل مطلوب')  [ui]
+app/dashboard/clients/clients-client.tsx:152  toast.error('البريد الإلكتروني مطلوب')  [ui]
+app/dashboard/clients/clients-client.tsx:153  toast.error('اسم الشركة مطلوب')  [ui]
+app/dashboard/clients/clients-client.tsx:155  toast.error(`كلمة المرور يجب أن تكون ${PASSWORD_MIN_LENGTH} أحرف على الأقل`)  [ui]
+app/dashboard/clients/clients-client.tsx:171  toast.success('تم إنشاء العميل بنجاح')  [ui]
+app/dashboard/clients/clients-client.tsx:173  toast.error(err.message || 'حدث خطأ')  [ui]
+app/dashboard/clients/clients-client.tsx:196  toast.success('تم تحديث العميل')  [ui]
+app/dashboard/clients/clients-client.tsx:198  toast.error(err.message || 'حدث خطأ')  [ui]
+app/dashboard/clients/clients-client.tsx:212  toast.success('تم حذف العميل')  [ui]
+app/dashboard/clients/clients-client.tsx:216  toast.error('حدث خطأ')  [ui]
+app/dashboard/clients/clients-client.tsx:263  العملاء (h1 heading)  [ui]
+app/dashboard/clients/clients-client.tsx:265  إدارة حسابات العملاء وعلاقاتهم  [ui]
+app/dashboard/clients/clients-client.tsx:278  إضافة عميل  [ui]
+app/dashboard/clients/clients-client.tsx:289  placeholder="بحث عن عميل..."  [ui]
+app/dashboard/clients/clients-client.tsx:296  placeholder="ترتيب حسب"  [ui]
+app/dashboard/clients/clients-client.tsx:299  SelectItem value="created_at">تاريخ الإنشاء  [ui]
+app/dashboard/clients/clients-client.tsx:300  SelectItem value="name">الاسم  [ui]
+app/dashboard/clients/clients-client.tsx:301  SelectItem value="company">الشركة  [ui]
+app/dashboard/clients/clients-client.tsx:332  th>العميل  [ui]
+app/dashboard/clients/clients-client.tsx:333  th>الشركة  [ui]
+app/dashboard/clients/clients-client.tsx:334  th>التصنيفات  [ui]
+app/dashboard/clients/clients-client.tsx:335  th>المشاريع  [ui]
+app/dashboard/clients/clients-client.tsx:336  th>الفواتير  [ui]
+app/dashboard/clients/clients-client.tsx:337  th>الحالة  [ui]
+app/dashboard/clients/clients-client.tsx:355  title="لا يوجد عملاء"  [ui]
+app/dashboard/clients/clients-client.tsx:356  description="أضف عميل جديد للبدء في إدارة الحسابات"  [ui]
+app/dashboard/clients/clients-client.tsx:417  معلق: {formatCurrency(...)}  [ui]   (formatCurrency — money hazard, see HAZARDS)
+app/dashboard/clients/clients-client.tsx:427  {c.is_active ? 'نشط' : 'معطل'}  [status]  (inline client-status duplicate — CLIENT_STATUS_LABELS already centralized, uses "معطل" not "غير نشط")
+app/dashboard/clients/clients-client.tsx:434  aria-label="المزيد"  [ui]
+app/dashboard/clients/clients-client.tsx:441  عرض التفاصيل  [ui]
+app/dashboard/clients/clients-client.tsx:446  تعديل  [ui]
+app/dashboard/clients/clients-client.tsx:454  حذف  [ui]
+app/dashboard/clients/clients-client.tsx:493  title="لا يوجد عملاء"  [ui]
+app/dashboard/clients/clients-client.tsx:494  description="أضف عميل جديد للبدء في إدارة الحسابات"  [ui]
+app/dashboard/clients/clients-client.tsx:528  {c.is_active ? 'نشط' : 'معطل'}  [status]  (same inline dup as :427)
+app/dashboard/clients/clients-client.tsx:553  {c.projects_count} مشاريع  [ui]
+app/dashboard/clients/clients-client.tsx:576  إضافة عميل جديد  [ui]
+app/dashboard/clients/clients-client.tsx:580  معلومات أساسية  [ui]
+app/dashboard/clients/clients-client.tsx:583  الاسم (FormLabel)  [ui]
+app/dashboard/clients/clients-client.tsx:587  الشركة (FormLabel)  [ui]
+app/dashboard/clients/clients-client.tsx:593  معلومات التواصل  [ui]
+app/dashboard/clients/clients-client.tsx:596  البريد الإلكتروني (FormLabel)  [ui]
+app/dashboard/clients/clients-client.tsx:600  الهاتف (FormLabel)  [ui]
+app/dashboard/clients/clients-client.tsx:606  تفاصيل إضافية  [ui]
+app/dashboard/clients/clients-client.tsx:609  المصدر (FormLabel)  [ui]
+app/dashboard/clients/clients-client.tsx:613  SelectItem value="manual">يدوي  [ui]  (literal dup of SOURCE_LABELS.manual @77)
+app/dashboard/clients/clients-client.tsx:614  SelectItem value="referral">إحالة  [ui]  (dup of @78)
+app/dashboard/clients/clients-client.tsx:615  SelectItem value="website">موقع إلكتروني  [ui]  (dup of @79)
+app/dashboard/clients/clients-client.tsx:616  SelectItem value="social">تواصل اجتماعي  [ui]  (dup of @80)
+app/dashboard/clients/clients-client.tsx:621  العنوان (FormLabel)  [ui]
+app/dashboard/clients/clients-client.tsx:622  placeholder="العنوان (اختياري)"  [ui]
+app/dashboard/clients/clients-client.tsx:627  بوابة العميل  [ui]
+app/dashboard/clients/clients-client.tsx:631  إنشاء حساب بورتال  [ui]
+app/dashboard/clients/clients-client.tsx:632  يتيح للعميل الدخول على البورتال ومتابعة مشاريعه وفواتيره  [ui]
+app/dashboard/clients/clients-client.tsx:638  كلمة مرور البورتال (FormLabel)  [ui]
+app/dashboard/clients/clients-client.tsx:639  placeholder={`${PASSWORD_MIN_LENGTH} أحرف على الأقل`}  [ui]
+app/dashboard/clients/clients-client.tsx:646  إلغاء  [ui]
+app/dashboard/clients/clients-client.tsx:648  {saving ? 'جارٍ الحفظ...' : 'إنشاء'}  [ui]
+app/dashboard/clients/clients-client.tsx:658  تعديل العميل — {selected?.name}  [ui]
+app/dashboard/clients/clients-client.tsx:662  معلومات أساسية  [ui]
+app/dashboard/clients/clients-client.tsx:665  الاسم (FormLabel)  [ui]
+app/dashboard/clients/clients-client.tsx:669  الشركة (FormLabel)  [ui]
+app/dashboard/clients/clients-client.tsx:675  معلومات التواصل  [ui]
+app/dashboard/clients/clients-client.tsx:678  البريد (FormLabel)  [ui]
+app/dashboard/clients/clients-client.tsx:682  الهاتف (FormLabel)  [ui]
+app/dashboard/clients/clients-client.tsx:688  تفاصيل إضافية  [ui]
+app/dashboard/clients/clients-client.tsx:691  المصدر (FormLabel)  [ui]
+app/dashboard/clients/clients-client.tsx:695  SelectItem value="manual">يدوي  [ui]  (3rd occurrence of same source label)
+app/dashboard/clients/clients-client.tsx:696  SelectItem value="referral">إحالة  [ui]
+app/dashboard/clients/clients-client.tsx:697  SelectItem value="website">موقع إلكتروني  [ui]
+app/dashboard/clients/clients-client.tsx:698  SelectItem value="social">تواصل اجتماعي  [ui]
+app/dashboard/clients/clients-client.tsx:705  حساب نشط (Label)  [ui]
+app/dashboard/clients/clients-client.tsx:710  العنوان (FormLabel)  [ui]
+app/dashboard/clients/clients-client.tsx:711  placeholder="العنوان الكامل (اختياري)"  [ui]
+app/dashboard/clients/clients-client.tsx:716  إلغاء  [ui]
+app/dashboard/clients/clients-client.tsx:718  {saving ? 'جارٍ الحفظ...' : 'حفظ التغييرات'}  [ui]
+app/dashboard/clients/clients-client.tsx:728  حذف العميل  [ui]
+app/dashboard/clients/clients-client.tsx:731  هل أنت متأكد من حذف العميل <strong>{selected?.name}</strong>؟  [ui]
+app/dashboard/clients/clients-client.tsx:732  سيتم التحقق من وجود سجلات مرتبطة.  [ui]
+app/dashboard/clients/clients-client.tsx:735  إلغاء  [ui]
+app/dashboard/clients/clients-client.tsx:737  {saving ? 'جارٍ الحذف...' : 'حذف'}  [ui]
+
+--- app/dashboard/clients/[id]/client-detail-client.tsx  (1381 LOC — split candidate) ---
+app/dashboard/clients/[id]/client-detail-client.tsx:121  manual: 'يدوي',  [status]  (SOURCE_LABELS map #2 of 4)
+app/dashboard/clients/[id]/client-detail-client.tsx:122  referral: 'إحالة',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:123  website: 'موقع إلكتروني',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:124  social: 'تواصل اجتماعي',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:128  active: { label: 'نشط' },  [status]  (local PROJECT status map — project-status shadow map #1 of 3)
+app/dashboard/clients/[id]/client-detail-client.tsx:129  in_progress: { label: 'قيد التنفيذ' },  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:130  review: { label: 'مراجعة' },  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:131  completed: { label: 'مكتمل' },  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:132  archived: { label: 'مؤرشف' },  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:136  draft: { label: 'مسودة' },  [status]  (local INVOICE status map — duplicates centralized INVOICE_STATUS_LABELS, MISSING partially_paid)
+app/dashboard/clients/[id]/client-detail-client.tsx:137  sent: { label: 'مرسلة' },  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:138  paid: { label: 'مدفوعة' },  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:139  overdue: { label: 'متأخرة' },  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:140  cancelled: { label: 'ملغاة' },  [status]  (NOTE: centralized INVOICE_STATUS_LABELS uses 'ملغية' not 'ملغاة' — spelling drift!)
+app/dashboard/clients/[id]/client-detail-client.tsx:144  draft: { label: 'مسودة' },  [status]  (local QUOTE status map — duplicates centralized QUOTE_STATUS_LABELS, uses different key set: accepted/rejected vs signed/viewed/invoiced)
+app/dashboard/clients/[id]/client-detail-client.tsx:145  sent: { label: 'مرسل' },  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:146  accepted: { label: 'مقبول' },  [status]  (centralized QUOTE_STATUS has no "accepted" state at all — semantic drift, not just label dup)
+app/dashboard/clients/[id]/client-detail-client.tsx:147  rejected: { label: 'مرفوض' },  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:148  expired: { label: 'منتهي' },  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:165  client_created: 'تم إنشاء الحساب',  [status]  (ACTION_LABELS — 45-entry cross-module activity-log dictionary; see HAZARDS)
+app/dashboard/clients/[id]/client-detail-client.tsx:166  client_updated: 'تم تحديث البيانات',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:167  update_client: 'تم تحديث بيانات العميل',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:168  client_deleted: 'تم حذف العميل',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:169  client_note_added: 'تمت إضافة ملاحظة',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:170  client_note_deleted: 'تم حذف ملاحظة',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:172  project_created: 'تم إنشاء مشروع',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:173  project_updated: 'تم تحديث مشروع',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:174  project_deleted: 'تم حذف مشروع',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:175  project_files_synced: 'تمت مزامنة ملفات المشروع',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:177  invoice_created: 'تم إنشاء فاتورة',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:178  invoice_updated: 'تم تحديث فاتورة',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:179  invoice_deleted: 'تم حذف فاتورة',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:180  invoice_sent: 'تم إرسال فاتورة',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:181  invoice_paid: 'تم دفع فاتورة',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:183  quote_created: 'تم إنشاء عرض سعر',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:184  create_quote: 'تم إنشاء عرض سعر',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:185  quote_updated: 'تم تحديث عرض سعر',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:186  quote_deleted: 'تم حذف عرض سعر',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:187  delete_quote: 'تم حذف عرض سعر',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:188  quote_sent: 'تم إرسال عرض سعر',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:189  quote_accepted: 'تم قبول عرض سعر',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:190  quote_rejected: 'تم رفض عرض سعر',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:192  upload: 'تم رفع ملف',  [status]  (overlaps file-preview.tsx ACTION_LABELS @1096 — see HAZARDS)
+app/dashboard/clients/[id]/client-detail-client.tsx:193  download: 'تم تحميل ملف',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:194  rename: 'تم إعادة تسمية ملف',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:195  move: 'تم نقل ملف',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:196  delete: 'تم حذف ملف',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:197  restore: 'تم استعادة ملف',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:198  share: 'تم مشاركة ملف',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:199  copy: 'تم نسخ ملف',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:201  portal_login: 'تسجيل دخول للبوابة',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:202  portal_download: 'تحميل ملف من البوابة',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:203  portal_preview: 'معاينة ملف من البوابة',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:204  portal_view: 'عرض صفحة في البوابة',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:206  create_expense: 'تم إنشاء مصروف',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:207  expense_created: 'تم إنشاء مصروف',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:208  create_subscription: 'تم إنشاء اشتراك',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:209  contract_created: 'تم إنشاء عقد',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:210  contract_updated: 'تم تحديث عقد',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:211  payment_received: 'تم استلام دفعة',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:213  review_added: 'تمت إضافة مراجعة',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:214  review_updated: 'تم تحديث مراجعة',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:216  settings_updated: 'تم تحديث الإعدادات',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:217  branding_updated: 'تم تحديث الهوية البصرية',  [status]
+app/dashboard/clients/[id]/client-detail-client.tsx:335  toast.error('فشل في تحميل بيانات العميل')  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:357  toast.error('فشل في تحميل المشاريع')  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:374  toast.error('فشل في تحميل الفواتير')  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:391  toast.error('فشل في تحميل عروض الأسعار')  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:406  toast.error('فشل في تحميل سجل النشاط')  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:450  client.is_active ? 'تم تعطيل الحساب' : 'تم تفعيل الحساب'  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:453  toast.error('حدث خطأ')  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:463  toast.error(`كلمة المرور مطلوبة (${PASSWORD_MIN_LENGTH} أحرف على الأقل)`)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:481  toast.success('تم تفعيل حساب البورتال بنجاح')  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:483  toast.error('حدث خطأ')  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:530  title="العميل غير موجود"  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:531  description="لم يتم العثور على العميل المطلوب"  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:532  actionLabel="العودة للعملاء"  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:558  العملاء (breadcrumb link)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:580  {client.is_active ? 'نشط' : 'غير نشط'}  [status]  (3rd inline client-status dup)
+app/dashboard/clients/[id]/client-detail-client.tsx:590  {client.has_portal ? 'بورتال مفعّل' : 'بدون بورتال'}  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:655  تعديل  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:673  {client.is_active ? 'تعطيل' : 'تفعيل'}  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:683  تفعيل البورتال  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:702  المشاريع (tab)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:705  ({client.active_projects_count} نشط)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:726  إجمالي الفواتير  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:756  مبالغ معلقة  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:775  آخر نشاط  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:791  نظرة عامة (tab)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:795  المشاريع (tab)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:799  الفواتير (tab)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:803  عروض الأسعار (tab)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:807  الملاحظات (tab)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:811  النشاط (tab)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:815  الهوية البصرية (tab)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:827  معلومات التواصل  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:834  label="البريد الإلكتروني"  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:840  label="الهاتف"  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:846  label="الشركة"  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:851  label="العنوان"  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:856  label="المصدر"  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:865  label="تاريخ الإنشاء"  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:870  label="آخر دخول"  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:886  آخر النشاطات  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:892  لا يوجد نشاط حديث  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:943  title="لا توجد مشاريع"  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:944  description="لا يوجد مشاريع مرتبطة بهذا العميل حالياً"  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:954  اسم المشروع (th)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:956  th>الحالة  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:958  الموعد النهائي (th)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:961  تاريخ الإنشاء (th)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1034  title="لا توجد فواتير"  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1035  description="لم يتم إنشاء فواتير لهذا العميل بعد"  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1045  رقم الفاتورة (th)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1048  المبلغ (th)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1050  th>الحالة  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1052  تاريخ الاستحقاق (th)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1055  تاريخ الإنشاء (th)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1134  title="لا توجد عروض أسعار"  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1135  description="لم يتم إنشاء عروض أسعار لهذا العميل بعد"  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1145  رقم العرض (th)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1148  المبلغ (th)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1150  th>الحالة  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1152  تاريخ الإنشاء (th)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1226  title="لا يوجد نشاط"  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1227  description="لم يتم تسجيل أي نشاط لهذا العميل بعد"  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1265  {'الحقول المحدثة: '}  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1309  تفعيل حساب البورتال (DialogTitle)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1314  سيتم إنشاء حساب بورتال للعميل <strong>{client.name}</strong> باستخدام  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1315  البريد الإلكتروني <span dir="ltr">{client.email}</span>  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1318  كلمة مرور البورتال (Label)  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1322  placeholder={`${PASSWORD_MIN_LENGTH} أحرف على الأقل`}  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1332  إلغاء  [ui]
+app/dashboard/clients/[id]/client-detail-client.tsx:1344  تفعيل البورتال  [ui]
+  ^^ ALSO: line 1305 `<DialogContent dir="rtl">` — hardcoded dir hazard (see HAZARDS)
+
+--- app/dashboard/projects/page.tsx ---
+app/dashboard/projects/page.tsx:5  title: 'المشاريع | Pyra Workspace',  [ui]
+
+--- app/dashboard/projects/[id]/page.tsx ---
+app/dashboard/projects/[id]/page.tsx:48  toast.error('فشل في التحديث')  [ui]
+app/dashboard/projects/[id]/page.tsx:64  المشروع غير موجود  [ui]
+app/dashboard/projects/[id]/page.tsx:66  الرجوع للمشاريع  [ui]
+app/dashboard/projects/[id]/page.tsx:74  aria-label="العودة إلى المشاريع"  [ui]
+app/dashboard/projects/[id]/page.tsx:80  TabsTrigger value="tasks">المهام  [ui]
+app/dashboard/projects/[id]/page.tsx:81  TabsTrigger value="files">الملفات  [ui]
+app/dashboard/projects/[id]/page.tsx:82  TabsTrigger value="comments">التعليقات  [ui]
+  ^^ ALSO: line 78 `<Tabs defaultValue="tasks" dir="rtl">` — hardcoded dir hazard (see HAZARDS)
+
+--- app/dashboard/projects/projects-client.tsx  (449 LOC) ---
+app/dashboard/projects/projects-client.tsx:54  active: { label: 'نشط', variant: 'default' },  [status]  (STATUS_CONFIG — project-status shadow map #2 of 3)
+app/dashboard/projects/projects-client.tsx:55  in_progress: { label: 'قيد التنفيذ', variant: 'default' },  [status]
+app/dashboard/projects/projects-client.tsx:56  review: { label: 'مراجعة', variant: 'outline' },  [status]
+app/dashboard/projects/projects-client.tsx:57  completed: { label: 'مكتمل', variant: 'secondary' },  [status]
+app/dashboard/projects/projects-client.tsx:58  archived: { label: 'مؤرشف', variant: 'secondary' },  [status]
+app/dashboard/projects/projects-client.tsx:108  toast.success('تم إنشاء المشروع بنجاح')  [ui]
+app/dashboard/projects/projects-client.tsx:111  toast.error('حدث خطأ')  [ui]
+app/dashboard/projects/projects-client.tsx:118  toast.success('تم تحديث المشروع')  [ui]
+app/dashboard/projects/projects-client.tsx:121  toast.error('حدث خطأ')  [ui]
+app/dashboard/projects/projects-client.tsx:134  toast.success(ids.length > 1 ? `تم حذف ${ids.length} مشاريع` : 'تم حذف المشروع')  [ui]
+app/dashboard/projects/projects-client.tsx:137  toast.error('حدث خطأ')  [ui]
+app/dashboard/projects/projects-client.tsx:143  toast.success('تم تحديث حالة المشروع')  [ui]
+app/dashboard/projects/projects-client.tsx:146  toast.error('حدث خطأ')  [ui]
+app/dashboard/projects/projects-client.tsx:150  toast.error('اسم المشروع مطلوب')  [ui]
+app/dashboard/projects/projects-client.tsx:216  header: 'المشروع',  [ui]
+app/dashboard/projects/projects-client.tsx:228  {p.unread_team_comments} جديد  [ui]
+app/dashboard/projects/projects-client.tsx:242  header: 'العميل', render: p.client_company  [ui]
+app/dashboard/projects/projects-client.tsx:245  header: 'الملفات',  [ui]
+app/dashboard/projects/projects-client.tsx:256  header: 'الموافقات',  [ui]
+app/dashboard/projects/projects-client.tsx:268  header: 'الحالة',  [ui]
+app/dashboard/projects/projects-client.tsx:275  {overdue && <Badge>متأخر</Badge>}  [ui]
+app/dashboard/projects/projects-client.tsx:282  header: 'الموعد النهائي',  [ui]
+app/dashboard/projects/projects-client.tsx:294  header: 'تاريخ الإنشاء', render: formatDate(p.created_at)  [ui]  (formatDate — see HAZARDS)
+app/dashboard/projects/projects-client.tsx:302  aria-label="المزيد"  [ui]
+app/dashboard/projects/projects-client.tsx:304  عرض التفاصيل  [ui]
+app/dashboard/projects/projects-client.tsx:305  تعديل  [ui]
+app/dashboard/projects/projects-client.tsx:306  حذف  [ui]
+app/dashboard/projects/projects-client.tsx:318  المشاريع (h1)  [ui]
+app/dashboard/projects/projects-client.tsx:319  إدارة مشاريع العملاء  [ui]
+app/dashboard/projects/projects-client.tsx:323  مشروع جديد  [ui]
+app/dashboard/projects/projects-client.tsx:329  placeholder="بحث عن مشروع..."  [ui]
+app/dashboard/projects/projects-client.tsx:333  SelectItem value="all">جميع الحالات  [ui]
+app/dashboard/projects/projects-client.tsx:334  SelectItem value="active">نشط  [ui]  (literal dup of STATUS_CONFIG.active @54)
+app/dashboard/projects/projects-client.tsx:335  SelectItem value="in_progress">قيد التنفيذ  [ui]  (dup of @55)
+app/dashboard/projects/projects-client.tsx:336  SelectItem value="review">مراجعة  [ui]  (dup of @56)
+app/dashboard/projects/projects-client.tsx:337  SelectItem value="overdue">متأخر  [ui]
+app/dashboard/projects/projects-client.tsx:338  SelectItem value="completed">مكتمل  [ui]  (dup of @57)
+app/dashboard/projects/projects-client.tsx:339  SelectItem value="archived">مؤرشف  [ui]  (dup of @58)
+app/dashboard/projects/projects-client.tsx:355  emptyState title:'لا توجد مشاريع' description:'أنشئ مشروعاً جديداً للبدء'  [ui]
+app/dashboard/projects/projects-client.tsx:362  bulkActions label:'حذف المحدد'  [ui]
+app/dashboard/projects/projects-client.tsx:369  مشروع جديد (DialogTitle)  [ui]
+app/dashboard/projects/projects-client.tsx:371  اسم المشروع (FormLabel)  [ui]
+app/dashboard/projects/projects-client.tsx:372  الوصف (FormLabel)  [ui]
+app/dashboard/projects/projects-client.tsx:374  شركة العميل (FormLabel)  [ui]
+app/dashboard/projects/projects-client.tsx:376  placeholder="اختر شركة..."  [ui]
+app/dashboard/projects/projects-client.tsx:381  تاريخ البدء (FormLabel)  [ui]
+app/dashboard/projects/projects-client.tsx:382  الموعد النهائي (FormLabel)  [ui]
+app/dashboard/projects/projects-client.tsx:386  إلغاء  [ui]
+app/dashboard/projects/projects-client.tsx:387  {saving ? 'جارٍ الحفظ...' : 'إنشاء'}  [ui]
+app/dashboard/projects/projects-client.tsx:395  تعديل — {selected?.name}  [ui]
+app/dashboard/projects/projects-client.tsx:397  اسم المشروع (FormLabel)  [ui]
+app/dashboard/projects/projects-client.tsx:398  الوصف (FormLabel)  [ui]
+app/dashboard/projects/projects-client.tsx:400  الحالة (FormLabel)  [ui]
+app/dashboard/projects/projects-client.tsx:404  SelectItem value="active">نشط  [ui]  (3rd occurrence)
+app/dashboard/projects/projects-client.tsx:405  SelectItem value="in_progress">قيد التنفيذ  [ui]
+app/dashboard/projects/projects-client.tsx:406  SelectItem value="review">مراجعة  [ui]
+app/dashboard/projects/projects-client.tsx:407  SelectItem value="completed">مكتمل  [ui]
+app/dashboard/projects/projects-client.tsx:408  SelectItem value="archived">مؤرشف  [ui]
+app/dashboard/projects/projects-client.tsx:413  شركة العميل (FormLabel)  [ui]
+app/dashboard/projects/projects-client.tsx:420  تاريخ البدء (FormLabel)  [ui]
+app/dashboard/projects/projects-client.tsx:421  الموعد النهائي (FormLabel)  [ui]
+app/dashboard/projects/projects-client.tsx:425  إلغاء  [ui]
+app/dashboard/projects/projects-client.tsx:426  {saving ? 'جارٍ الحفظ...' : 'حفظ التغييرات'}  [ui]
+app/dashboard/projects/projects-client.tsx:434  حذف المشروع (DialogTitle)  [ui]
+app/dashboard/projects/projects-client.tsx:437  هل أنت متأكد من حذف ${bulkDeleteIds.length} مشاريع؟ سيتم حذف جميع الملفات والتعليقات المرتبطة.  [ui]
+app/dashboard/projects/projects-client.tsx:438  هل أنت متأكد من حذف المشروع <strong>{selected?.name}</strong>؟ سيتم حذف جميع الملفات والتعليقات المرتبطة.  [ui]
+app/dashboard/projects/projects-client.tsx:442  إلغاء  [ui]
+app/dashboard/projects/projects-client.tsx:443  {saving ? 'جارٍ الحذف...' : 'حذف'}  [ui]
+
+--- app/dashboard/projects/[id]/project-board-embed.tsx  (374 LOC) ---
+app/dashboard/projects/[id]/project-board-embed.tsx:121  name: 'مهام المشروع',  [ui]  (default board-name literal POSTed to board-create API — hardcoded Arabic seed value)
+app/dashboard/projects/[id]/project-board-embed.tsx:125  toast.success('تم إنشاء لوحة المهام')  [ui]
+app/dashboard/projects/[id]/project-board-embed.tsx:128  toast.error('فشل في إنشاء اللوحة')  [ui]
+app/dashboard/projects/[id]/project-board-embed.tsx:140  toast.success('تم إضافة المهمة')  [ui]
+app/dashboard/projects/[id]/project-board-embed.tsx:142  toast.error('فشل في إضافة المهمة')  [ui]
+app/dashboard/projects/[id]/project-board-embed.tsx:165  title="لا توجد لوحة مهام"  [ui]
+app/dashboard/projects/[id]/project-board-embed.tsx:166  description="أنشئ لوحة عمل لهذا المشروع لتوزيع المهام وتتبع التقدم"  [ui]
+app/dashboard/projects/[id]/project-board-embed.tsx:167  actions label: creating?'جاري الإنشاء...':'إنشاء لوحة مهام'  [ui]
+app/dashboard/projects/[id]/project-board-embed.tsx:209  مهمة مكتملة  [ui]
+app/dashboard/projects/[id]/project-board-embed.tsx:214  {overdueTasks} متأخرة  [ui]
+app/dashboard/projects/[id]/project-board-embed.tsx:221  فتح اللوحة كاملة  [ui]
+app/dashboard/projects/[id]/project-board-embed.tsx:252  aria-label="إضافة مهمة"  [ui]
+app/dashboard/projects/[id]/project-board-embed.tsx:266  placeholder="عنوان المهمة..."  [ui]
+app/dashboard/projects/[id]/project-board-embed.tsx:276  إضافة  [ui]
+app/dashboard/projects/[id]/project-board-embed.tsx:279  إلغاء  [ui]
+app/dashboard/projects/[id]/project-board-embed.tsx:365  فارغ  [ui]
+
+--- app/dashboard/files/page.tsx ---
+app/dashboard/files/page.tsx:5  title: 'الملفات | Pyra Workspace',  [ui]
+app/dashboard/files/page.tsx:14  مدير الملفات (h1)  [ui]
+app/dashboard/files/page.tsx:16  تصفح وإدارة ملفات المشاريع  [ui]
+
+--- app/dashboard/files/[...path]/page.tsx ---
+app/dashboard/files/[...path]/page.tsx:9  const folderName = path[path.length-1] || 'الملفات'  [ui]  (fallback string)
+app/dashboard/files/[...path]/page.tsx:23  مدير الملفات (h1)  [ui]
+app/dashboard/files/[...path]/page.tsx:25  تصفح وإدارة ملفات المشاريع  [ui]
+
+--- app/dashboard/teams/page.tsx ---
+app/dashboard/teams/page.tsx:5  title: 'الفرق | Pyra Workspace',  [ui]
+
+--- app/dashboard/teams/teams-client.tsx ---
+app/dashboard/teams/teams-client.tsx:69  toast.success('تم إنشاء الفريق بنجاح')  [ui]
+app/dashboard/teams/teams-client.tsx:70  toast.error('حدث خطأ')  [ui]
+app/dashboard/teams/teams-client.tsx:75  toast.success('تم تحديث الفريق')  [ui]
+app/dashboard/teams/teams-client.tsx:76  toast.error('حدث خطأ')  [ui]
+app/dashboard/teams/teams-client.tsx:81  toast.success('تم حذف الفريق')  [ui]
+app/dashboard/teams/teams-client.tsx:82  toast.error('حدث خطأ')  [ui]
+app/dashboard/teams/teams-client.tsx:88  toast.success('تمت إضافة العضو')  [ui]
+app/dashboard/teams/teams-client.tsx:89  toast.error('حدث خطأ')  [ui]
+app/dashboard/teams/teams-client.tsx:95  toast.success('تم إزالة العضو')  [ui]
+app/dashboard/teams/teams-client.tsx:96  toast.error('حدث خطأ')  [ui]
+app/dashboard/teams/teams-client.tsx:102  toast.error('اسم الفريق مطلوب')  [ui]
+app/dashboard/teams/teams-client.tsx:120  الفرق (h1)  [ui]
+app/dashboard/teams/teams-client.tsx:121  إدارة فرق العمل والأعضاء  [ui]
+app/dashboard/teams/teams-client.tsx:124  فريق جديد  [ui]
+app/dashboard/teams/teams-client.tsx:134  th>الفريق  [ui]
+app/dashboard/teams/teams-client.tsx:135  th>الوصف  [ui]
+app/dashboard/teams/teams-client.tsx:136  th>تاريخ الإنشاء  [ui]
+app/dashboard/teams/teams-client.tsx:144  لا توجد فرق  [ui]
+app/dashboard/teams/teams-client.tsx:157  aria-label="المزيد"  [ui]
+app/dashboard/teams/teams-client.tsx:159  الأعضاء  [ui]
+app/dashboard/teams/teams-client.tsx:160  تعديل  [ui]
+app/dashboard/teams/teams-client.tsx:161  حذف  [ui]
+app/dashboard/teams/teams-client.tsx:175  فريق جديد (DialogTitle)  [ui]
+app/dashboard/teams/teams-client.tsx:177  اسم الفريق (FormLabel)  [ui]
+app/dashboard/teams/teams-client.tsx:178  الوصف (FormLabel)  [ui]
+app/dashboard/teams/teams-client.tsx:181  إلغاء  [ui]
+app/dashboard/teams/teams-client.tsx:182  {saving ? 'جارٍ الحفظ...' : 'إنشاء'}  [ui]
+app/dashboard/teams/teams-client.tsx:189  تعديل — {selected?.name}  [ui]
+app/dashboard/teams/teams-client.tsx:191  اسم الفريق (FormLabel)  [ui]
+app/dashboard/teams/teams-client.tsx:192  الوصف (FormLabel)  [ui]
+app/dashboard/teams/teams-client.tsx:195  إلغاء  [ui]
+app/dashboard/teams/teams-client.tsx:196  {saving ? 'جارٍ الحفظ...' : 'حفظ'}  [ui]
+app/dashboard/teams/teams-client.tsx:203  أعضاء — {selected?.name}  [ui]
+app/dashboard/teams/teams-client.tsx:207  placeholder="اختر مستخدم..."  [ui]
+app/dashboard/teams/teams-client.tsx:210  إضافة  [ui]
+app/dashboard/teams/teams-client.tsx:222  aria-label="إزالة"  [ui]
+app/dashboard/teams/teams-client.tsx:224  لا يوجد أعضاء بعد  [ui]
+app/dashboard/teams/teams-client.tsx:232  حذف الفريق (DialogTitle)  [ui]
+app/dashboard/teams/teams-client.tsx:233  هل أنت متأكد من حذف الفريق <strong>{selected?.name}</strong>؟  [ui]
+app/dashboard/teams/teams-client.tsx:235  إلغاء  [ui]
+app/dashboard/teams/teams-client.tsx:236  {saving ? 'جارٍ الحذف...' : 'حذف'}  [ui]
+
+--- components/clients/TagFilterSelect.tsx ---
+components/clients/TagFilterSelect.tsx:70  const displayLabel = selectedTag ? selectedTag.name : 'الكل'  [ui]
+components/clients/TagFilterSelect.tsx:77  التصنيفات  [ui]
+components/clients/TagFilterSelect.tsx:139  الكل  [ui]
+components/clients/TagFilterSelect.tsx:172  محدد  [ui]
+
+--- components/clients/BrandingEditor.tsx  (383 LOC) ---
+components/clients/BrandingEditor.tsx:43  toast.error('الرجاء اختيار ملف صورة')  [ui]
+components/clients/BrandingEditor.tsx:47  toast.error('حجم الملف يجب أن يكون أقل من 5 ميجابايت')  [ui]
+components/clients/BrandingEditor.tsx:65  toast.error(json.error || 'فشل في رفع الملف')  [ui]
+components/clients/BrandingEditor.tsx:72  toast.success('تم رفع الملف بنجاح')  [ui]
+components/clients/BrandingEditor.tsx:75  toast.error('فشل في رفع الملف')  [ui]
+components/clients/BrandingEditor.tsx:120  تغيير  [ui]
+components/clients/BrandingEditor.tsx:130  حذف  [ui]
+components/clients/BrandingEditor.tsx:153  {uploading ? 'جارٍ الرفع...' : 'اسحب الملف هنا أو انقر للاختيار'}  [ui]
+components/clients/BrandingEditor.tsx:155  PNG, JPG, SVG — حد أقصى 5 MB  [ui]
+components/clients/BrandingEditor.tsx:169  placeholder="أو أدخل رابط الصورة مباشرة"  [ui]
+components/clients/BrandingEditor.tsx:198  toast.error('فشل في تحميل إعدادات العلامة التجارية')  [ui]
+components/clients/BrandingEditor.tsx:219  toast.success('تم حفظ إعدادات العلامة التجارية')  [ui]
+components/clients/BrandingEditor.tsx:221  toast.error('فشل في الحفظ')  [ui]
+components/clients/BrandingEditor.tsx:231  جارٍ التحميل...  [ui]
+components/clients/BrandingEditor.tsx:241  العلامة التجارية  [ui]
+components/clients/BrandingEditor.tsx:248  اللون الأساسي (Label)  [ui]
+components/clients/BrandingEditor.tsx:269  اللون الثانوي (Label)  [ui]
+components/clients/BrandingEditor.tsx:293  اسم الشركة (العرض) (Label)  [ui]
+components/clients/BrandingEditor.tsx:299  placeholder="اسم الشركة المعروض في البورتال"  [ui]
+components/clients/BrandingEditor.tsx:306  label="الشعار (Logo)"  [ui]
+components/clients/BrandingEditor.tsx:314  label="الأيقونة (Favicon)"  [ui]
+components/clients/BrandingEditor.tsx:325  label="خلفية صفحة الدخول"  [ui]
+components/clients/BrandingEditor.tsx:335  معاينة  [ui]
+components/clients/BrandingEditor.tsx:349  {companyName || 'اسم الشركة'}  [ui]
+components/clients/BrandingEditor.tsx:357  زر أساسي  [ui]
+components/clients/BrandingEditor.tsx:363  زر ثانوي  [ui]
+components/clients/BrandingEditor.tsx:378  حفظ التغييرات  [ui]
+
+--- components/clients/ClientExportButton.tsx ---
+components/clients/ClientExportButton.tsx:28  toast.error('فشل في تصدير البيانات')  [ui]
+components/clients/ClientExportButton.tsx:40  toast.success('تم تصدير البيانات بنجاح')  [ui]
+components/clients/ClientExportButton.tsx:42  toast.error('فشل في تصدير البيانات')  [ui]
+components/clients/ClientExportButton.tsx:55  تصدير CSV  [ui]
+
+--- components/clients/ClientTagsManager.tsx  (455 LOC) ---
+components/clients/ClientTagsManager.tsx:142  toast.error('فشل في تحميل التصنيفات')  [ui]
+components/clients/ClientTagsManager.tsx:180  toast.error('فشل في تحديث التصنيفات')  [ui]
+components/clients/ClientTagsManager.tsx:228  toast.success('تم إنشاء التصنيف')  [ui]
+components/clients/ClientTagsManager.tsx:230  toast.error('فشل في إنشاء التصنيف')  [ui]
+components/clients/ClientTagsManager.tsx:293  إضافة تصنيف  [ui]
+components/clients/ClientTagsManager.tsx:309  placeholder="بحث عن تصنيف..."  [ui]
+components/clients/ClientTagsManager.tsx:322  {searchQuery ? 'لا توجد نتائج' : 'لا توجد تصنيفات'}  [ui]
+components/clients/ClientTagsManager.tsx:377  إنشاء تصنيف جديد  [ui]
+components/clients/ClientTagsManager.tsx:388  placeholder="اسم التصنيف..."  [ui]
+components/clients/ClientTagsManager.tsx:397  اللون  [ui]
+components/clients/ClientTagsManager.tsx:430  إنشاء  [ui]
+components/clients/ClientTagsManager.tsx:443  إلغاء  [ui]
+
+--- components/clients/ClientNotesTab.tsx  (463 LOC) ---
+components/clients/ClientNotesTab.tsx:70  toast.error('فشل في تحميل الملاحظات')  [ui]
+components/clients/ClientNotesTab.tsx:94  toast.success('تمت إضافة الملاحظة')  [ui]
+components/clients/ClientNotesTab.tsx:96  toast.error('فشل في إضافة الملاحظة')  [ui]
+components/clients/ClientNotesTab.tsx:128  toast.success('تم تحديث الملاحظة')  [ui]
+components/clients/ClientNotesTab.tsx:130  toast.error('فشل في تحديث الملاحظة')  [ui]
+components/clients/ClientNotesTab.tsx:155  toast.success(newPinned ? 'تم تثبيت الملاحظة' : 'تم إلغاء التثبيت')  [ui]
+components/clients/ClientNotesTab.tsx:157  toast.error('فشل في تحديث الملاحظة')  [ui]
+components/clients/ClientNotesTab.tsx:170  toast.success('تم حذف الملاحظة')  [ui]
+components/clients/ClientNotesTab.tsx:172  toast.error('فشل في حذف الملاحظة')  [ui]
+components/clients/ClientNotesTab.tsx:208  إضافة ملاحظة  [ui]
+components/clients/ClientNotesTab.tsx:225  placeholder="اكتب ملاحظتك هنا..."  [ui]
+components/clients/ClientNotesTab.tsx:241  حفظ  [ui]
+components/clients/ClientNotesTab.tsx:253  إلغاء  [ui]
+components/clients/ClientNotesTab.tsx:265  title="لا توجد ملاحظات"  [ui]
+components/clients/ClientNotesTab.tsx:266  description="أضف ملاحظات لتوثيق المحادثات والقرارات المهمة"  [ui]
+components/clients/ClientNotesTab.tsx:267  actionLabel={canEdit ? 'إضافة ملاحظة' : undefined}  [ui]
+components/clients/ClientNotesTab.tsx:302  مثبّتة  [ui]
+components/clients/ClientNotesTab.tsx:328  حفظ  [ui]
+components/clients/ClientNotesTab.tsx:337  إلغاء  [ui]
+components/clients/ClientNotesTab.tsx:351  بواسطة{' '}  [ui]
+components/clients/ClientNotesTab.tsx:365  title="تعديل"  [ui]
+components/clients/ClientNotesTab.tsx:366  aria-label="تعديل"  [ui]
+components/clients/ClientNotesTab.tsx:383  title={note.is_pinned ? 'إلغاء التثبيت' : 'تثبيت'}  [ui]
+components/clients/ClientNotesTab.tsx:384  aria-label={note.is_pinned ? 'إلغاء التثبيت' : 'تثبيت'}  [ui]
+components/clients/ClientNotesTab.tsx:399  حذف؟  [ui]
+components/clients/ClientNotesTab.tsx:407  aria-label="تأكيد"  [ui]
+components/clients/ClientNotesTab.tsx:421  aria-label="إلغاء"  [ui]
+components/clients/ClientNotesTab.tsx:432  title="حذف"  [ui]
+components/clients/ClientNotesTab.tsx:433  aria-label="حذف"  [ui]
+
+--- components/projects/project-kanban.tsx  (340 LOC) ---
+components/projects/project-kanban.tsx:65  { id: 'active', label: 'نشط', ... },  [status]  (PROJECT_STATUSES array — project-status shadow map #3 of 3)
+components/projects/project-kanban.tsx:66  { id: 'in_progress', label: 'قيد التنفيذ', ... },  [status]
+components/projects/project-kanban.tsx:67  { id: 'review', label: 'مراجعة', ... },  [status]
+components/projects/project-kanban.tsx:68  { id: 'completed', label: 'مكتمل', ... },  [status]
+components/projects/project-kanban.tsx:69  { id: 'archived', label: 'مؤرشف', ... },  [status]
+components/projects/project-kanban.tsx:173  اسحب مشروعاً هنا  [ui]
+components/projects/project-kanban.tsx:264  aria-label="المزيد"  [ui]
+components/projects/project-kanban.tsx:271  تعديل  [ui]
+components/projects/project-kanban.tsx:279  حذف  [ui]
+
+--- components/files/file-breadcrumbs.tsx ---
+components/files/file-breadcrumbs.tsx:27  الملفات  [ui]
+
+--- components/files/file-drop-zone.tsx ---
+components/files/file-drop-zone.tsx:147  أفلت الملفات هنا للرفع  [ui]
+components/files/file-drop-zone.tsx:148  يمكنك رفع عدة ملفات في نفس الوقت  [ui]
+
+--- components/files/version-history.tsx ---
+components/files/version-history.tsx:68  toast.error('فشل تحميل تاريخ النسخ')  [ui]
+components/files/version-history.tsx:85  toast.success(`تم استعادة النسخة ${version.version_number}`)  [ui]
+components/files/version-history.tsx:89  toast.error('فشل استعادة النسخة')  [ui]
+components/files/version-history.tsx:100  toast.success('تم حذف النسخة')  [ui]
+components/files/version-history.tsx:103  toast.error('فشل حذف النسخة')  [ui]
+components/files/version-history.tsx:121  toast.error('فشل تحميل النسخة')  [ui]
+components/files/version-history.tsx:135  تاريخ النسخ (SheetTitle)  [ui]
+components/files/version-history.tsx:141  {versions.length} نسخة  [ui]
+components/files/version-history.tsx:158  title="لا توجد نسخ سابقة"  [ui]
+components/files/version-history.tsx:159  description="تُحفظ النسخ تلقائياً عند رفع ملف بنفس الاسم"  [ui]
+components/files/version-history.tsx:180  أحدث نسخة  [ui]
+components/files/version-history.tsx:204  استعادة  [ui]
+components/files/version-history.tsx:214  تحميل  [ui]
+components/files/version-history.tsx:238  استعادة النسخة  [ui]
+components/files/version-history.tsx:242  هل تريد استعادة <strong>النسخة {confirmRestore?.version_number}</strong>؟  [ui]
+components/files/version-history.tsx:244  سيتم حفظ الملف الحالي كنسخة جديدة تلقائياً.  [ui]
+components/files/version-history.tsx:247  إلغاء  [ui]
+components/files/version-history.tsx:252  استعادة  [ui]
+components/files/version-history.tsx:263  حذف النسخة  [ui]
+components/files/version-history.tsx:267  هل أنت متأكد من حذف <strong>النسخة {confirmDelete?.version_number}</strong>؟  [ui]
+components/files/version-history.tsx:269  لا يمكن التراجع عن هذا الإجراء.  [ui]
+components/files/version-history.tsx:272  إلغاء  [ui]
+components/files/version-history.tsx:277  حذف  [ui]
+
+--- components/files/docx-viewer.tsx ---
+components/files/docx-viewer.tsx:86  جاري تحويل ملف Word...  [ui]
+components/files/docx-viewer.tsx:95  فشل في معاينة ملف Word  [ui]
+components/files/docx-viewer.tsx:96  حاول تحميل الملف لعرضه محلياً  [ui]
+  ^^ line 104 `dir={direction}` — content-based RTL detection, NOT a hazard (verified: computed via detectDirection-equivalent per rendered content)
+
+--- components/files/file-context-menu.tsx  (505 LOC) — SHARED dashboard+portal ---
+components/files/file-context-menu.tsx:115  toast.success('تم إنشاء الرابط ونسخه')  [ui]
+components/files/file-context-menu.tsx:126  toast.error('حدث خطأ')  [ui]
+components/files/file-context-menu.tsx:135  toast.success('تم إلغاء الرابط')  [ui]
+components/files/file-context-menu.tsx:138  toast.error('حدث خطأ')  [ui]
+components/files/file-context-menu.tsx:148  مشاركة الملف  [ui]
+components/files/file-context-menu.tsx:151  إنشاء رابط مشاركة عام لـ &quot;{decodeURIComponent(file.name)}&quot;  [ui]
+components/files/file-context-menu.tsx:160  مدة الصلاحية (Label)  [ui]
+components/files/file-context-menu.tsx:166  SelectItem value="1">ساعة واحدة  [ui]
+components/files/file-context-menu.tsx:167  SelectItem value="24">يوم واحد  [ui]
+components/files/file-context-menu.tsx:168  SelectItem value="72">3 أيام  [ui]
+components/files/file-context-menu.tsx:169  SelectItem value="168">أسبوع  [ui]
+components/files/file-context-menu.tsx:170  SelectItem value="720">شهر  [ui]
+components/files/file-context-menu.tsx:175  الحد الأقصى للتحميلات (Label)  [ui]
+components/files/file-context-menu.tsx:181  SelectItem value="0">غير محدود  [ui]
+components/files/file-context-menu.tsx:182  SelectItem value="1">مرة واحدة  [ui]
+components/files/file-context-menu.tsx:183  SelectItem value="5">5 مرات  [ui]
+components/files/file-context-menu.tsx:184  SelectItem value="10">10 مرات  [ui]
+components/files/file-context-menu.tsx:185  SelectItem value="50">50 مرة  [ui]
+components/files/file-context-menu.tsx:194  كلمة مرور (اختياري)  [ui]
+components/files/file-context-menu.tsx:200  placeholder="أدخل كلمة مرور لحماية الرابط"  [ui]
+components/files/file-context-menu.tsx:208  بريد الإشعار عند التحميل (اختياري)  [ui]
+components/files/file-context-menu.tsx:231  {creating ? 'جاري الإنشاء...' : 'إنشاء رابط ونسخه'}  [ui]
+components/files/file-context-menu.tsx:242  الروابط النشطة ({links.length}) (Label)  [ui]
+components/files/file-context-menu.tsx:253  <>ينتهي: {new Date(link.expires_at).toLocaleDateString('ar-SA')}</>  [ui]   *** toLocaleDateString('ar-SA') HAZARD — see HAZARDS ***
+components/files/file-context-menu.tsx:255  منتهي  [ui]
+components/files/file-context-menu.tsx:261  محمي  [ui]
+components/files/file-context-menu.tsx:267  إشعار  [ui]
+components/files/file-context-menu.tsx:272  تحميلات: {link.access_count}  [ui]
+components/files/file-context-menu.tsx:281  title="إلغاء الرابط"  [ui]
+components/files/file-context-menu.tsx:346  معاينة  [ui]
+components/files/file-context-menu.tsx:352  تحميل  [ui]
+components/files/file-context-menu.tsx:358  مشاركة  [ui]
+components/files/file-context-menu.tsx:364  إعادة تسمية  [ui]
+components/files/file-context-menu.tsx:368  نسخ المسار  [ui]
+components/files/file-context-menu.tsx:382  {isFavorited ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}  [ui]
+components/files/file-context-menu.tsx:386  وسوم  [ui]
+components/files/file-context-menu.tsx:393  صلاحيات  [ui]
+components/files/file-context-menu.tsx:403  حذف  [ui]
+components/files/file-context-menu.tsx:412  إعادة تسمية (DialogTitle)  [ui]
+components/files/file-context-menu.tsx:414  أدخل الاسم الجديد لـ &quot;{decodedName}&quot;  [ui]
+components/files/file-context-menu.tsx:429  إلغاء  [ui]
+components/files/file-context-menu.tsx:432  تأكيد  [ui]
+components/files/file-context-menu.tsx:442  تأكيد الحذف (DialogTitle)  [ui]
+components/files/file-context-menu.tsx:444  هل أنت متأكد من حذف &quot;{decodedName}&quot;؟ سيتم نقله إلى سلة المحذوفات.  [ui]
+components/files/file-context-menu.tsx:449  إلغاء  [ui]
+components/files/file-context-menu.tsx:452  حذف  [ui]
+
+--- components/files/file-list.tsx ---
+components/files/file-list.tsx:53  title="لا توجد ملفات"  [ui]
+components/files/file-list.tsx:54  description="قم برفع ملفات أو إنشاء مجلد جديد للبدء"  [ui]
+components/files/file-list.tsx:108  الاسم (column header)  [ui]
+components/files/file-list.tsx:109  الحجم (column header)  [ui]
+components/files/file-list.tsx:110  آخر تعديل (column header)  [ui]
+components/files/file-list.tsx:168  ← انقل هنا  [ui]
+
+--- components/files/upload-progress.tsx ---
+components/files/upload-progress.tsx:26  جاري رفع:{' '}  [ui]
+components/files/upload-progress.tsx:28  {activeFiles.join('، ')}  [ui]   (Arabic comma separator hardcoded — see HAZARDS)
+components/files/upload-progress.tsx:32  {completedFiles} من {totalFiles} مكتمل  [ui]
+components/files/upload-progress.tsx:33  ` · ${activeFiles.length} متزامن`  [ui]
+
+--- components/files/file-explorer.tsx  (666 LOC) — SHARED dashboard+portal ---
+components/files/file-explorer.tsx:204  toast.success(`تم إنشاء المجلد "${name}"`)  [ui]
+components/files/file-explorer.tsx:207  toast.error(`فشل إنشاء المجلد: ${err.message}`)  [ui]
+components/files/file-explorer.tsx:225  toast.warning(`تم رفع ${uploaded} ملف(ات) مع ${errCount} خطأ`)  [ui]
+components/files/file-explorer.tsx:227  toast.success(`تم رفع ${uploaded} ملف(ات) بنجاح`)  [ui]
+components/files/file-explorer.tsx:258  toast.success('جاري تحميل الملف...')  [ui]
+components/files/file-explorer.tsx:260  toast.error('فشل في تحميل الملف')  [ui]
+components/files/file-explorer.tsx:271  toast.success(`تم إعادة التسمية إلى "${newName}"`)  [ui]
+components/files/file-explorer.tsx:274  toast.error('فشل في إعادة التسمية')  [ui]
+components/files/file-explorer.tsx:284  toast.success(`تم حذف "${decodeURIComponent(file.name)}"`)  [ui]
+components/files/file-explorer.tsx:292  toast.error('فشل في الحذف')  [ui]
+components/files/file-explorer.tsx:305  toast.success(`تم حذف ${paths.length} عنصر(ات)`)  [ui]
+components/files/file-explorer.tsx:318  toast.success('تم نسخ المسار')  [ui]
+components/files/file-explorer.tsx:319  toast.error('فشل في نسخ المسار')  [ui]
+components/files/file-explorer.tsx:332  `${pathsToMove.length} عنصر(ات)`  [ui]
+components/files/file-explorer.tsx:339  toast.success(`تم نقل ${label} بنجاح`)  [ui]
+components/files/file-explorer.tsx:343  toast.error(`فشل في النقل: ${err.message}`)  [ui]
+components/files/file-explorer.tsx:361  toast.error('لم يتم تحديد ملفات للتحميل')  [ui]
+components/files/file-explorer.tsx:384  toast.success(`تم تحميل ${filePaths.length} ملف(ات) كملف ZIP`)  [ui]
+components/files/file-explorer.tsx:386  toast.error('فشل في تحميل الملفات')  [ui]
+components/files/file-explorer.tsx:530  {processedFiles.length} عنصر  [ui]
+components/files/file-explorer.tsx:531  ` (من ${files.length})`  [ui]
+components/files/file-explorer.tsx:535  {selectedFiles.size} محدد  [ui]
+components/files/file-explorer.tsx:568  جاري تحميل المزيد...  [ui]
+components/files/file-explorer.tsx:577  تحميل المزيد  [ui]
+components/files/file-explorer.tsx:617  toast.success(`تم نقل ${paths.length} عنصر بنجاح`)  [ui]
+components/files/file-explorer.tsx:621  toast.error(`فشل في النقل: ${err.message}`)  [ui]
+
+--- components/files/file-toolbar.tsx  (405 LOC) ---
+components/files/file-toolbar.tsx:35  name: 'الاسم',  [status]  (SORT_LABELS map)
+components/files/file-toolbar.tsx:36  size: 'الحجم',  [status]
+components/files/file-toolbar.tsx:37  date: 'التاريخ',  [status]
+components/files/file-toolbar.tsx:38  type: 'النوع',  [status]
+components/files/file-toolbar.tsx:42  all: 'الكل',  [status]  (TYPE_LABELS map — file-category shadow map #1 of 3, see HAZARDS)
+components/files/file-toolbar.tsx:43  image: 'صور',  [status]
+components/files/file-toolbar.tsx:44  video: 'فيديو',  [status]
+components/files/file-toolbar.tsx:45  audio: 'صوت',  [status]
+components/files/file-toolbar.tsx:46  document: 'مستندات',  [status]
+components/files/file-toolbar.tsx:47  archive: 'أرشيف',  [status]
+components/files/file-toolbar.tsx:48  code: 'أكواد',  [status]
+components/files/file-toolbar.tsx:137  مجلد جديد  [ui]
+components/files/file-toolbar.tsx:152  {isUploading ? 'جاري الرفع...' : 'رفع'}  [ui]
+components/files/file-toolbar.tsx:158  رفع ملفات  [ui]
+components/files/file-toolbar.tsx:162  رفع مجلد  [ui]
+components/files/file-toolbar.tsx:194  {isBatchDownloading ? 'جاري التحميل...' : `تحميل (${selectedCount})`}  [ui]
+components/files/file-toolbar.tsx:209  حذف ({selectedCount})  [ui]
+components/files/file-toolbar.tsx:214  تأكيد الحذف (AlertDialogTitle)  [ui]
+components/files/file-toolbar.tsx:216  هل أنت متأكد من حذف {selectedCount} ملف محدد؟ لا يمكن التراجع عن هذا الإجراء.  [ui]
+components/files/file-toolbar.tsx:220  إلغاء  [ui]
+components/files/file-toolbar.tsx:221  حذف (AlertDialogAction)  [ui]
+components/files/file-toolbar.tsx:238  placeholder="بحث..."  [ui]
+components/files/file-toolbar.tsx:262  title="تصفية حسب النوع"  [ui]
+components/files/file-toolbar.tsx:290  title="ترتيب"  [ui]
+components/files/file-toolbar.tsx:324  title="تحديث"  [ui]
+components/files/file-toolbar.tsx:339  title="عرض شبكي"  [ui]
+components/files/file-toolbar.tsx:351  title="عرض قائمة"  [ui]
+components/files/file-toolbar.tsx:365  placeholder="اسم المجلد الجديد"  [ui]
+components/files/file-toolbar.tsx:390  {isCreating ? 'جاري الإنشاء...' : 'إنشاء'}  [ui]
+components/files/file-toolbar.tsx:399  إلغاء  [ui]
+
+--- components/files/file-preview.tsx  (1480 LOC, LARGEST file in scope) — SHARED dashboard+portal ---
+components/files/file-preview.tsx:128  isImage: label: 'صورة'  [status]  (file-category icon-label map — shadow map #2 of 3)
+components/files/file-preview.tsx:129  isVideo: label: 'فيديو'  [status]
+components/files/file-preview.tsx:130  isAudio: label: 'صوت'  [status]
+components/files/file-preview.tsx:131  isSpreadsheet: label: 'جدول'  [status]
+components/files/file-preview.tsx:134  isText: label: 'نص'  [status]
+components/files/file-preview.tsx:135  default: label: 'ملف'  [status]
+components/files/file-preview.tsx:263  title="النسخ"  [ui]
+components/files/file-preview.tsx:264  aria-label="النسخ"  [ui]
+components/files/file-preview.tsx:273  title="معلومات الملف"  [ui]
+components/files/file-preview.tsx:274  aria-label="معلومات الملف"  [ui]
+components/files/file-preview.tsx:287  تحميل  [ui]
+components/files/file-preview.tsx:297  فتح  [ui]
+components/files/file-preview.tsx:305  aria-label="إغلاق"  [ui]
+components/files/file-preview.tsx:355  معلومات الملف  [ui]
+components/files/file-preview.tsx:358  InfoRow label="الاسم"  [ui]
+components/files/file-preview.tsx:359  InfoRow label="النوع"  [ui]
+components/files/file-preview.tsx:360  InfoRow label="الحجم"  [ui]
+components/files/file-preview.tsx:361  InfoRow label="المسار"  [ui]
+components/files/file-preview.tsx:363  InfoRow label="آخر تعديل"  [ui]
+components/files/file-preview.tsx:506  تحميل  [ui]
+components/files/file-preview.tsx:514  aria-label="إغلاق"  [ui]
+components/files/file-preview.tsx:578  جاري تحميل المعاينة...  [ui]
+components/files/file-preview.tsx:579  يرجى الانتظار  [ui]
+components/files/file-preview.tsx:592  فشل في تحميل المعاينة  [ui]
+components/files/file-preview.tsx:594  تأكد من وجود الملف وصلاحيتك للوصول إليه  [ui]
+components/files/file-preview.tsx:605  مجلد — انقر مرتين لفتحه  [ui]
+components/files/file-preview.tsx:623  aria-label="تصغير"  [ui]
+components/files/file-preview.tsx:633  aria-label="تكبير"  [ui]
+components/files/file-preview.tsx:644  تصفير  [ui]
+components/files/file-preview.tsx:701  ملف صوتي  [ui]
+components/files/file-preview.tsx:816  أول {MAX_CODE_CHARS.toLocaleString()} حرف  [ui]  (toLocaleString on a number — money/number-format check, low risk but note)
+components/files/file-preview.tsx:819  {lineCount} سطر  [ui]
+components/files/file-preview.tsx:847  لا تتوفر معاينة لهذا النوع  [ui]
+components/files/file-preview.tsx:851  يمكنك تحميل الملف أو فتحه في تطبيق خارجي باستخدام الأزرار أعلاه  [ui]
+components/files/file-preview.tsx:927  {bodyRows.length} صف{...} · {headerRow.length} عمود  [ui]
+components/files/file-preview.tsx:931  يتم عرض أول {MAX_PREVIEW_ROWS} صف فقط  [ui]
+components/files/file-preview.tsx:1023  toast.success('تم إرسال التعليق')  [ui]
+components/files/file-preview.tsx:1024  toast.error('حدث خطأ')  [ui]
+components/files/file-preview.tsx:1033  التعليقات  [ui]
+components/files/file-preview.tsx:1040  جاري التحميل...  [ui]
+components/files/file-preview.tsx:1042  EmptyState title="لا توجد تعليقات"  [ui]
+components/files/file-preview.tsx:1047  عرض {comments.length - 3} تعليقات أقدم  [ui]
+components/files/file-preview.tsx:1057  {isTeam ? 'فريق' : 'عميل'}  [ui]
+components/files/file-preview.tsx:1076  placeholder="اكتب تعليق... (استخدم @ للإشارة)"  [ui]
+components/files/file-preview.tsx:1096  upload: 'رفع', download: 'تنزيل', rename: 'إعادة تسمية', move: 'نقل',  [status]  (ACTION_LABELS #2 — overlaps client-detail-client.tsx ACTION_LABELS keys; see HAZARDS)
+components/files/file-preview.tsx:1097  delete: 'حذف', restore: 'استعادة', copy: 'نسخ', share: 'مشاركة', version: 'نسخة جديدة',  [status]
+components/files/file-preview.tsx:1128  سجل النشاط  [ui]
+components/files/file-preview.tsx:1137  جاري التحميل...  [ui]
+components/files/file-preview.tsx:1139  EmptyState title="لا يوجد نشاط مسجل"  [ui]
+components/files/file-preview.tsx:1189  لا تتوفر معاينة لهذا النوع من الملفات  [ui]
+components/files/file-preview.tsx:1193  تحميل الملف  [ui]
+components/files/file-preview.tsx:1252  {content.split('\n').length} سطر  [ui]
+components/files/file-preview.tsx:1282  — معاينة عبر Microsoft Office Online  [ui]
+components/files/file-preview.tsx:1304  إذا لم تظهر المعاينة، حمّل الملف  [ui]
+
+--- components/files/pdf-viewer.tsx ---
+components/files/pdf-viewer.tsx:40  جاري تحميل PDF...  [ui]
+components/files/pdf-viewer.tsx:41  يرجى الانتظار  [ui]
+components/files/pdf-viewer.tsx:53  تعذّر عرض PDF في المتصفح  [ui]
+components/files/pdf-viewer.tsx:55  يمكنك تحميل الملف أو فتحه في نافذة جديدة  [ui]
+components/files/pdf-viewer.tsx:71  تحميل  [ui]
+components/files/pdf-viewer.tsx:80  فتح في نافذة جديدة  [ui]
+
+--- components/files/file-permissions-dialog.tsx  (312 LOC) ---
+components/files/file-permissions-dialog.tsx:45  browse: 'تصفح فقط',  [status]  (PERMISSION_LEVEL_LABELS map)
+components/files/file-permissions-dialog.tsx:46  upload: 'تصفح + رفع',  [status]
+components/files/file-permissions-dialog.tsx:47  full: 'تحكم كامل',  [status]
+components/files/file-permissions-dialog.tsx:120  toast.error('المستخدم لديه صلاحيات بالفعل لهذا المسار')  [ui]
+components/files/file-permissions-dialog.tsx:135  toast.success(`تم إضافة صلاحيات لـ "${selectedUser}"`)  [ui]
+components/files/file-permissions-dialog.tsx:140  toast.error('فشل في إضافة الصلاحيات')  [ui]
+components/files/file-permissions-dialog.tsx:157  toast.success(`تم إزالة صلاحيات "${username}"`)  [ui]
+components/files/file-permissions-dialog.tsx:160  toast.error('فشل في إزالة الصلاحيات')  [ui]
+components/files/file-permissions-dialog.tsx:177  toast.success('تم تحديث مستوى الصلاحيات')  [ui]
+components/files/file-permissions-dialog.tsx:180  toast.error('فشل في تحديث الصلاحيات')  [ui]
+components/files/file-permissions-dialog.tsx:197  صلاحيات الملف  [ui]
+components/files/file-permissions-dialog.tsx:200  إدارة صلاحيات الوصول لـ &quot;{decodedName}&quot;  [ui]
+components/files/file-permissions-dialog.tsx:213  جاري التحميل...  [ui]
+components/files/file-permissions-dialog.tsx:216  EmptyState title="لا توجد صلاحيات مخصصة لهذا المسار"  [ui]
+components/files/file-permissions-dialog.tsx:240  SelectItem value="browse">تصفح فقط  [ui]  (dup of @45)
+components/files/file-permissions-dialog.tsx:241  SelectItem value="upload">تصفح + رفع  [ui]  (dup of @46)
+components/files/file-permissions-dialog.tsx:242  SelectItem value="full">تحكم كامل  [ui]  (dup of @47)
+components/files/file-permissions-dialog.tsx:251  aria-label="حذف"  [ui]
+components/files/file-permissions-dialog.tsx:265  إضافة مستخدم (label)  [ui]
+components/files/file-permissions-dialog.tsx:268  placeholder="اختر مستخدم..."  [ui]
+components/files/file-permissions-dialog.tsx:280  المستوى (label)  [ui]
+components/files/file-permissions-dialog.tsx:286  SelectItem value="browse">تصفح  [ui]  (shorter variant, 3rd copy)
+components/files/file-permissions-dialog.tsx:287  SelectItem value="upload">رفع  [ui]
+components/files/file-permissions-dialog.tsx:288  SelectItem value="full">كامل  [ui]
+components/files/file-permissions-dialog.tsx:299  إضافة  [ui]
+components/files/file-permissions-dialog.tsx:306  إغلاق  [ui]
+
+--- components/files/bulk-actions-bar.tsx  (307 LOC) ---
+components/files/bulk-actions-bar.tsx:42  { value: '#f97316', label: 'برتقالي' },  [status]  (TAG color-palette map — color-palette shadow map #1 of 2, near-dup of file-tags.tsx)
+components/files/bulk-actions-bar.tsx:43  { value: '#ef4444', label: 'أحمر' },  [status]
+components/files/bulk-actions-bar.tsx:44  { value: '#22c55e', label: 'أخضر' },  [status]
+components/files/bulk-actions-bar.tsx:45  { value: '#3b82f6', label: 'أزرق' },  [status]
+components/files/bulk-actions-bar.tsx:46  { value: '#8b5cf6', label: 'بنفسجي' },  [status]
+components/files/bulk-actions-bar.tsx:47  { value: '#ec4899', label: 'وردي' },  [status]
+components/files/bulk-actions-bar.tsx:48  { value: '#6b7280', label: 'رمادي' },  [status]
+components/files/bulk-actions-bar.tsx:86  toast.success(`تم نسخ ${result?.copied || selectedPaths.length} ملف`)  [ui]
+components/files/bulk-actions-bar.tsx:91  toast.error('حدث خطأ أثناء النسخ')  [ui]
+components/files/bulk-actions-bar.tsx:106  toast.success(`تم إضافة وسم "${tagName.trim()}" إلى ${result?.tagged || selectedPaths.length} ملف`)  [ui]
+components/files/bulk-actions-bar.tsx:110  toast.error('حدث خطأ أثناء إضافة الوسوم')  [ui]
+components/files/bulk-actions-bar.tsx:124  محدد  [ui]
+components/files/bulk-actions-bar.tsx:135  نقل  [ui]
+components/files/bulk-actions-bar.tsx:145  نسخ  [ui]
+components/files/bulk-actions-bar.tsx:155  وسم  [ui]
+components/files/bulk-actions-bar.tsx:170  تحميل  [ui]
+components/files/bulk-actions-bar.tsx:182  حذف  [ui]
+components/files/bulk-actions-bar.tsx:187  تأكيد الحذف (AlertDialogTitle)  [ui]
+components/files/bulk-actions-bar.tsx:189  هل أنت متأكد من حذف {selectedCount} ملف محدد؟ لا يمكن التراجع عن هذا الإجراء.  [ui]
+components/files/bulk-actions-bar.tsx:193  إلغاء  [ui]
+components/files/bulk-actions-bar.tsx:194  حذف (AlertDialogAction)  [ui]
+components/files/bulk-actions-bar.tsx:206  title="إلغاء التحديد"  [ui]
+components/files/bulk-actions-bar.tsx:207  aria-label="إلغاء"  [ui]
+components/files/bulk-actions-bar.tsx:218  نقل {selectedCount} ملف (DialogTitle)  [ui]
+components/files/bulk-actions-bar.tsx:221  المجلد الوجهة (Label)  [ui]
+components/files/bulk-actions-bar.tsx:225  placeholder="مثال: projects/folder-name"  [ui]
+components/files/bulk-actions-bar.tsx:231  إلغاء  [ui]
+components/files/bulk-actions-bar.tsx:232  نقل (Button)  [ui]
+components/files/bulk-actions-bar.tsx:241  نسخ {selectedCount} ملف (DialogTitle)  [ui]
+components/files/bulk-actions-bar.tsx:244  المجلد الوجهة (Label)  [ui]
+components/files/bulk-actions-bar.tsx:248  placeholder="مثال: projects/folder-name"  [ui]
+components/files/bulk-actions-bar.tsx:254  إلغاء  [ui]
+components/files/bulk-actions-bar.tsx:257  نسخ  [ui]
+components/files/bulk-actions-bar.tsx:267  إضافة وسم لـ {selectedCount} ملف (DialogTitle)  [ui]
+components/files/bulk-actions-bar.tsx:271  اسم الوسم (Label)  [ui]
+components/files/bulk-actions-bar.tsx:275  placeholder="مثال: مهم"  [ui]
+components/files/bulk-actions-bar.tsx:280  اللون (Label)  [ui]
+components/files/bulk-actions-bar.tsx:297  إلغاء  [ui]
+components/files/bulk-actions-bar.tsx:300  إضافة وسم  [ui]
+
+--- components/files/file-grid.tsx ---
+components/files/file-grid.tsx:53  title="لا توجد ملفات"  [ui]
+components/files/file-grid.tsx:54  description="قم برفع ملفات أو إنشاء مجلد جديد للبدء"  [ui]
+components/files/file-grid.tsx:191  انقل هنا  [ui]
+
+--- components/files/file-tags.tsx ---
+components/files/file-tags.tsx:15  { value: '#f97316', label: 'برتقالي' },  [status]  (TAG color-palette map — color-palette shadow map #2 of 2, near-dup of bulk-actions-bar.tsx; ADDS #14b8a6 فيروزي + #f59e0b ذهبي vs bulk-actions-bar's set)
+components/files/file-tags.tsx:16  { value: '#ef4444', label: 'أحمر' },  [status]
+components/files/file-tags.tsx:17  { value: '#22c55e', label: 'أخضر' },  [status]
+components/files/file-tags.tsx:18  { value: '#3b82f6', label: 'أزرق' },  [status]
+components/files/file-tags.tsx:19  { value: '#8b5cf6', label: 'بنفسجي' },  [status]
+components/files/file-tags.tsx:20  { value: '#ec4899', label: 'وردي' },  [status]
+components/files/file-tags.tsx:21  { value: '#14b8a6', label: 'فيروزي' },  [status]
+components/files/file-tags.tsx:22  { value: '#f59e0b', label: 'ذهبي' },  [status]
+components/files/file-tags.tsx:23  { value: '#6b7280', label: 'رمادي' },  [status]
+components/files/file-tags.tsx:68  وسوم الملف  [ui]
+components/files/file-tags.tsx:102  placeholder="وسم جديد..."  [ui]
+components/files/file-tags.tsx:142  وسوم موجودة:  [ui]
+
+--- app/api/clients/route.ts ---
+app/api/clients/route.ts:207  apiValidationError('الاسم مطلوب')  [a]
+app/api/clients/route.ts:208  apiValidationError('البريد الإلكتروني مطلوب')  [a]
+app/api/clients/route.ts:209  apiValidationError('اسم الشركة مطلوب')  [a]
+app/api/clients/route.ts:214  apiValidationError(`كلمة المرور مطلوبة (${PASSWORD_MIN_LENGTH} أحرف على الأقل) لإنشاء حساب البورتال`)  [a]
+app/api/clients/route.ts:231  apiValidationError('البريد الإلكتروني مسجل مسبقاً')  [a]
+app/api/clients/route.ts:252  apiValidationError('البريد الإلكتروني مسجل مسبقاً في نظام المصادقة')  [a]
+app/api/clients/route.ts:254  apiValidationError(`فشل إنشاء الحساب: ${authError.message}`)  [a]
+app/api/clients/route.ts:289  apiValidationError(`فشل حفظ بيانات العميل: ${insertError.message}`)  [a]
+
+--- app/api/clients/tags/route.ts ---
+app/api/clients/tags/route.ts:68  apiValidationError('اسم الوسم مطلوب')  [a]
+app/api/clients/tags/route.ts:74  apiValidationError(`لون غير صالح. الألوان المتاحة: ${TAG_COLORS.join(', ')}`)  [a]
+app/api/clients/tags/route.ts:86  apiValidationError('يوجد وسم بنفس الاسم بالفعل')  [a]
+app/api/clients/tags/route.ts:127  apiValidationError('معرف الوسم مطلوب')  [a]
+
+--- app/api/clients/export/route.ts ---
+app/api/clients/export/route.ts:98  apiServerError('فشل في تصدير العملاء')  [a]
+app/api/clients/export/route.ts:132  headers[0] 'الاسم'  [pdf]
+app/api/clients/export/route.ts:133  headers[1] 'البريد الإلكتروني'  [pdf]
+app/api/clients/export/route.ts:134  headers[2] 'الهاتف'  [pdf]
+app/api/clients/export/route.ts:135  headers[3] 'الشركة'  [pdf]
+app/api/clients/export/route.ts:136  headers[4] 'المصدر'  [pdf]
+app/api/clients/export/route.ts:137  headers[5] 'الحالة'  [pdf]
+app/api/clients/export/route.ts:138  headers[6] 'التصنيفات'  [pdf]
+app/api/clients/export/route.ts:139  headers[7] 'تاريخ الإنشاء'  [pdf]
+app/api/clients/export/route.ts:143  manual: 'يدوي',  [status]  (SOURCE_LABELS map #3 of 4 — CSV-scoped; also has 'import' key not present in the UI-side maps)
+app/api/clients/export/route.ts:144  import: 'استيراد',  [status]
+app/api/clients/export/route.ts:145  referral: 'إحالة',  [status]
+app/api/clients/export/route.ts:146  website: 'موقع إلكتروني',  [status]
+app/api/clients/export/route.ts:153  const statusLabel = client.is_active ? 'نشط' : 'غير نشط'  [status]  (4th inline client-status dup — duplicates centralized CLIENT_STATUS_LABELS)
+app/api/clients/export/route.ts:155  clientTagsMap[client.id]?.join('، ')  [pdf]  (hardcoded Arabic comma separator in CSV value — see HAZARDS)
+app/api/clients/export/route.ts:191  headers[0] 'الاسم' (buildEmptyCsv dup)  [pdf]
+app/api/clients/export/route.ts:192  headers[1] 'البريد الإلكتروني'  [pdf]
+app/api/clients/export/route.ts:193  headers[2] 'الهاتف'  [pdf]
+app/api/clients/export/route.ts:194  headers[3] 'الشركة'  [pdf]
+app/api/clients/export/route.ts:195  headers[4] 'المصدر'  [pdf]
+app/api/clients/export/route.ts:196  headers[5] 'الحالة'  [pdf]
+app/api/clients/export/route.ts:197  headers[6] 'التصنيفات'  [pdf]
+app/api/clients/export/route.ts:198  headers[7] 'تاريخ الإنشاء'  [pdf]
+
+--- app/api/clients/[id]/activity/route.ts ---
+app/api/clients/[id]/activity/route.ts:38  apiNotFound('العميل غير موجود')  [a]
+
+--- app/api/clients/[id]/activate-portal/route.ts ---
+app/api/clients/[id]/activate-portal/route.ts:32  apiValidationError(`كلمة المرور مطلوبة (${PASSWORD_MIN_LENGTH} أحرف على الأقل)`)  [a]
+app/api/clients/[id]/activate-portal/route.ts:45  apiNotFound('العميل غير موجود')  [a]
+app/api/clients/[id]/activate-portal/route.ts:49  apiValidationError('العميل لديه حساب بورتال بالفعل')  [a]
+app/api/clients/[id]/activate-portal/route.ts:67  apiValidationError('البريد الإلكتروني مسجل مسبقاً في نظام المصادقة')  [a]
+app/api/clients/[id]/activate-portal/route.ts:69  apiValidationError(`فشل إنشاء الحساب: ${authError.message}`)  [a]
+app/api/clients/[id]/activate-portal/route.ts:86  apiServerError('فشل تحديث بيانات العميل')  [a]
+
+--- app/api/clients/[id]/tags/route.ts ---
+app/api/clients/[id]/tags/route.ts:34  apiNotFound('العميل غير موجود')  [a]
+app/api/clients/[id]/tags/route.ts:80  apiValidationError('tag_ids يجب أن يكون مصفوفة')  [a]
+app/api/clients/[id]/tags/route.ts:91  apiNotFound('العميل غير موجود')  [a]
+app/api/clients/[id]/tags/route.ts:118  apiServerError('فشل تحديث الوسوم')  [a]
+
+--- app/api/clients/[id]/financials/route.ts ---
+app/api/clients/[id]/financials/route.ts:36  apiNotFound('العميل غير موجود')  [a]
+
+--- app/api/clients/[id]/route.ts ---
+app/api/clients/[id]/route.ts:46  apiNotFound('العميل غير موجود')  [a]
+app/api/clients/[id]/route.ts:170  apiNotFound('العميل غير موجود')  [a]
+app/api/clients/[id]/route.ts:177  apiValidationError('الاسم لا يمكن أن يكون فارغاً')  [a]
+app/api/clients/[id]/route.ts:182  apiValidationError('البريد الإلكتروني لا يمكن أن يكون فارغاً')  [a]
+app/api/clients/[id]/route.ts:195  apiValidationError('البريد الإلكتروني مسجل بالفعل')  [a]
+app/api/clients/[id]/route.ts:214  apiValidationError('اسم الشركة لا يمكن أن يكون فارغاً')  [a]
+app/api/clients/[id]/route.ts:229  apiValidationError(`مصدر غير صالح. المصادر المسموحة: ${validSources.join(', ')}`)  [a]
+app/api/clients/[id]/route.ts:236  apiValidationError('لا توجد بيانات للتحديث')  [a]
+app/api/clients/[id]/route.ts:293  apiNotFound('العميل غير موجود')  [a]
+app/api/clients/[id]/route.ts:320  parts.push(`${linkedProjects} مشروع`)  [a]
+app/api/clients/[id]/route.ts:321  parts.push(`${linkedQuotes} عرض سعر`)  [a]
+app/api/clients/[id]/route.ts:322  parts.push(`${linkedInvoices} فاتورة`)  [a]
+app/api/clients/[id]/route.ts:324  `لا يمكن حذف العميل. يوجد ${parts.join(' و ')} مرتبط بهذا العميل. قم بحذفها أو نقلها أولاً.`  [a]
+
+--- app/api/clients/[id]/branding/upload/route.ts ---
+app/api/clients/[id]/branding/upload/route.ts:35  apiValidationError('الملف مطلوب')  [a]
+app/api/clients/[id]/branding/upload/route.ts:39  apiValidationError('نوع الحقل غير صالح')  [a]
+app/api/clients/[id]/branding/upload/route.ts:43  apiValidationError('حجم الملف يجب أن يكون أقل من 5 ميجابايت')  [a]
+app/api/clients/[id]/branding/upload/route.ts:47  apiValidationError('يجب أن يكون الملف صورة')  [a]
+app/api/clients/[id]/branding/upload/route.ts:60  apiValidationError('العميل غير موجود')  [a]
+app/api/clients/[id]/branding/upload/route.ts:85  apiServerError('فشل في رفع الملف')  [a]
+
+--- app/api/clients/[id]/notes/route.ts ---
+app/api/clients/[id]/notes/route.ts:36  apiNotFound('العميل غير موجود')  [a]
+app/api/clients/[id]/notes/route.ts:85  apiNotFound('العميل غير موجود')  [a]
+app/api/clients/[id]/notes/route.ts:90  apiValidationError('محتوى الملاحظة مطلوب')  [a]
+
+--- app/api/clients/[id]/notes/[noteId]/route.ts ---
+app/api/clients/[id]/notes/[noteId]/route.ts:39  apiNotFound('الملاحظة غير موجودة')  [a]
+app/api/clients/[id]/notes/[noteId]/route.ts:49  apiValidationError('محتوى الملاحظة لا يمكن أن يكون فارغاً')  [a]
+app/api/clients/[id]/notes/[noteId]/route.ts:60  apiValidationError('لا توجد بيانات للتحديث')  [a]
+app/api/clients/[id]/notes/[noteId]/route.ts:108  apiNotFound('الملاحظة غير موجودة')  [a]
+
+--- app/api/projects/route.ts ---
+app/api/projects/route.ts:99  apiServerError('فشل في جلب المشاريع')  [a]
+app/api/projects/route.ts:125  apiValidationError('اسم المشروع مطلوب')  [a]
+app/api/projects/route.ts:129  apiValidationError('اسم شركة العميل مطلوب')  [a]
+app/api/projects/route.ts:134  apiValidationError(`حالة غير صالحة. الحالات المسموحة: ${validStatuses.join(', ')}`)  [a]
+app/api/projects/route.ts:192  apiServerError('فشل في إنشاء المشروع')  [a]
+
+--- app/api/projects/[id]/route.ts ---
+app/api/projects/[id]/route.ts:47  apiNotFound('المشروع غير موجود')  [a]
+app/api/projects/[id]/route.ts:65  apiForbidden('لا تملك صلاحية الوصول لهذا المشروع')  [a]
+app/api/projects/[id]/route.ts:76  apiForbidden('لا تملك صلاحية الوصول لهذا المشروع')  [a]
+app/api/projects/[id]/route.ts:111  apiNotFound('المشروع غير موجود')  [a]
+app/api/projects/[id]/route.ts:117  apiValidationError(`حالة غير صالحة. الحالات المسموحة: ${validStatuses.join(', ')}`)  [a]
+app/api/projects/[id]/route.ts:127  apiValidationError('اسم المشروع لا يمكن أن يكون فارغًا')  [a]
+app/api/projects/[id]/route.ts:142  apiValidationError('اسم شركة العميل لا يمكن أن يكون فارغًا')  [a]
+app/api/projects/[id]/route.ts:167  apiValidationError('ميزانية المشروع يجب أن تكون رقم موجب')  [a]
+app/api/projects/[id]/route.ts:174  apiValidationError('الساعات المخصصة يجب أن تكون رقم موجب')  [a]
+app/api/projects/[id]/route.ts:188  apiServerError('فشل في تحديث المشروع')  [a]
+app/api/projects/[id]/route.ts:231  apiNotFound('المشروع غير موجود')  [a]
+app/api/projects/[id]/route.ts:268  apiServerError('فشل في حذف المشروع')  [a]
+  ^^ NOTE: this route is the SOLE server-side source of truth for the project-status
+     enum (`validStatuses` array) — none of the 3 UI shadow maps (status-config,
+     project-kanban, client-detail-client) import from it or from
+     lib/constants/statuses.ts (PROJECT_STATUS does not exist there at all).
+
+--- app/api/projects/[id]/files/route.ts ---
+app/api/projects/[id]/files/route.ts:37  apiNotFound('المشروع غير موجود')  [a]
+app/api/projects/[id]/files/route.ts:43  apiForbidden('لا تملك صلاحية الوصول لهذا المشروع')  [a]
+app/api/projects/[id]/files/route.ts:52  apiForbidden('لا تملك صلاحية الوصول لهذا المشروع')  [a]
+app/api/projects/[id]/files/route.ts:65  apiServerError('فشل في جلب ملفات المشروع')  [a]
+app/api/projects/[id]/files/route.ts:91  apiValidationError('مسار الملف مطلوب')  [a]
+app/api/projects/[id]/files/route.ts:94  apiValidationError('اسم الملف مطلوب')  [a]
+app/api/projects/[id]/files/route.ts:97  apiValidationError('نوع الملف مطلوب')  [a]
+app/api/projects/[id]/files/route.ts:110  apiNotFound('المشروع غير موجود')  [a]
+app/api/projects/[id]/files/route.ts:116  apiForbidden('لا تملك صلاحية الوصول لهذا المشروع')  [a]
+app/api/projects/[id]/files/route.ts:125  apiForbidden('لا تملك صلاحية الوصول لهذا المشروع')  [a]
+app/api/projects/[id]/files/route.ts:138  apiValidationError('هذا الملف مضاف بالفعل لهذا المشروع')  [a]
+app/api/projects/[id]/files/route.ts:163  apiServerError('فشل في إضافة الملف للمشروع')  [a]
+app/api/projects/[id]/files/route.ts:198  apiValidationError('معرّف الملف مطلوب (file_id)')  [a]
+app/api/projects/[id]/files/route.ts:212  apiForbidden('لا تملك صلاحية الوصول لهذا المشروع')  [a]
+app/api/projects/[id]/files/route.ts:221  apiForbidden('لا تملك صلاحية الوصول لهذا المشروع')  [a]
+app/api/projects/[id]/files/route.ts:234  apiNotFound('الملف غير موجود في هذا المشروع')  [a]
+app/api/projects/[id]/files/route.ts:251  apiServerError('فشل في إزالة الملف من المشروع')  [a]
+
+--- app/api/projects/[id]/files/sync/route.ts ---
+app/api/projects/[id]/files/sync/route.ts:41  apiNotFound('المشروع غير موجود')  [a]
+app/api/projects/[id]/files/sync/route.ts:47  apiForbidden('لا تملك صلاحية الوصول لهذا المشروع')  [a]
+app/api/projects/[id]/files/sync/route.ts:56  apiForbidden('لا تملك صلاحية الوصول لهذا المشروع')  [a]
+app/api/projects/[id]/files/sync/route.ts:61  apiServerError('هذا المشروع ليس له مسار تخزين محدد')  [a]
+app/api/projects/[id]/files/sync/route.ts:183  title: 'ملفات جديدة',  [notification]  (raw `pyra_client_notifications` insert — bypasses lib/notifications/notify.ts; portal-facing table, separate from pyra_notifications — see HAZARDS)
+app/api/projects/[id]/files/sync/route.ts:184  message: `تم إضافة ${synced} ملف جديد للمشروع`,  [notification]
+app/api/projects/[id]/files/sync/route.ts:213  apiSuccess message: `تم مزامنة ${synced} ملف جديد...`  [a]
+app/api/projects/[id]/files/sync/route.ts:214  apiSuccess message: `لا توجد ملفات جديدة للمزامنة (...)`  [a]
+app/api/projects/[id]/files/sync/route.ts:219  apiServerError(`خطأ في المزامنة: ${...}`)  [a]
+
+--- app/api/projects/[id]/files/visibility/route.ts ---
+app/api/projects/[id]/files/visibility/route.ts:31  apiValidationError('يجب تحديد ملف واحد على الأقل')  [a]
+app/api/projects/[id]/files/visibility/route.ts:34  apiValidationError('قيمة الظهور للعميل يجب أن تكون true أو false')  [a]
+app/api/projects/[id]/files/visibility/route.ts:47  apiNotFound('المشروع غير موجود')  [a]
+app/api/projects/[id]/files/visibility/route.ts:53  apiForbidden('لا تملك صلاحية الوصول لهذا المشروع')  [a]
+app/api/projects/[id]/files/visibility/route.ts:62  apiForbidden('لا تملك صلاحية الوصول لهذا المشروع')  [a]
+app/api/projects/[id]/files/visibility/route.ts:76  apiServerError('فشل في تحديث ظهور الملفات')  [a]
+
+--- app/api/files/route.ts ---
+app/api/files/route.ts:211  apiServerError('فشل في قراءة الملفات')  [a]
+app/api/files/route.ts:303  apiForbidden('لا تملك صلاحية الرفع في هذا المسار')  [a]
+app/api/files/route.ts:317  apiValidationError('لم يتم اختيار أي ملفات')  [a]
+app/api/files/route.ts:324  `الملف "${file.name}" يتجاوز الحد الأقصى المسموح (1 GB)`  [a]
+app/api/files/route.ts:329  `نوع الملف "${file.name}" غير مسموح به. الملفات التنفيذية والبرمجيات الخبيثة ممنوعة`  [a]
+app/api/files/route.ts:358  errors.push(`فشل رفع "${safeName}": ${uploadError.message}`)  [a]
+app/api/files/route.ts:382  errors.push(`فشل فهرسة "${safeName}": ${indexError.message}`)  [a]
+app/api/files/route.ts:414  apiServerError(errors.join('; ') || 'فشل رفع جميع الملفات')  [a]
+app/api/files/route.ts:427  apiValidationError('حجم الملف أكبر من الحد المسموح للخادم')  [a]
+app/api/files/route.ts:430  apiServerError(`خطأ في رفع الملفات: ${message}`)  [a]
+
+--- app/api/files/[...path]/route.ts ---
+app/api/files/[...path]/route.ts:46  apiValidationError('مسار الملف مطلوب')  [a]
+app/api/files/[...path]/route.ts:63  apiNotFound('الملف غير موجود')  [a]
+app/api/files/[...path]/route.ts:117  apiValidationError('مسار الملف مطلوب')  [a]
+app/api/files/[...path]/route.ts:133  apiValidationError('الإجراء غير صالح — يجب أن يكون rename أو move')  [a]
+app/api/files/[...path]/route.ts:143  apiValidationError('الاسم الجديد مطلوب')  [a]
+app/api/files/[...path]/route.ts:151  apiValidationError('المسار الجديد مطلوب')  [a]
+app/api/files/[...path]/route.ts:157  apiValidationError('المسار الجديد مطابق للمسار الحالي')  [a]
+app/api/files/[...path]/route.ts:172  apiServerError('فشل في نقل الملف')  [a]
+app/api/files/[...path]/route.ts:231  apiValidationError('مسار الملف مطلوب')  [a]
+app/api/files/[...path]/route.ts:264  apiServerError('فشل في نقل الملف إلى سلة المحذوفات')  [a]
+
+--- app/api/files/copy-batch/route.ts ---
+app/api/files/copy-batch/route.ts:30  apiValidationError('قائمة الملفات مطلوبة')  [a]
+app/api/files/copy-batch/route.ts:34  apiValidationError('المجلد الوجهة مطلوب')  [a]
+app/api/files/copy-batch/route.ts:38  apiValidationError('مسار الوجهة غير صالح')  [a]
+app/api/files/copy-batch/route.ts:44  apiForbidden(`لا تملك صلاحية الوصول إلى: ${deniedPaths.join(', ')}`)  [a]
+app/api/files/copy-batch/route.ts:49  apiForbidden('لا تملك صلاحية النسخ إلى هذا المسار')  [a]
+
+--- app/api/files/delete-batch/route.ts ---
+app/api/files/delete-batch/route.ts:39  apiValidationError('يجب تحديد ملف واحد على الأقل للحذف')  [a]
+app/api/files/delete-batch/route.ts:44  `الحد الأقصى للحذف الجماعي هو ${MAX_BATCH_SIZE} ملف`  [a]
+app/api/files/delete-batch/route.ts:52  apiForbidden(`لا تملك صلاحية حذف الملفات في: ${deniedPaths.join(', ')}`)  [a]
+app/api/files/delete-batch/route.ts:65  errors.push({ error: 'مسار غير صالح' })  [a]
+app/api/files/delete-batch/route.ts:94  error: 'فشل في نقل إلى سلة المحذوفات'  [a]
+app/api/files/delete-batch/route.ts:140  errors.push({ error: 'خطأ غير متوقع' })  [a]
+
+--- app/api/files/download-batch/route.ts ---
+app/api/files/download-batch/route.ts:25  apiValidationError('يجب تحديد ملف واحد على الأقل')  [a]
+app/api/files/download-batch/route.ts:29  apiValidationError('الحد الأقصى 50 ملف')  [a]
+app/api/files/download-batch/route.ts:35  apiValidationError(`مسار غير صالح: ${p}`)  [a]
+app/api/files/download-batch/route.ts:77  apiServerError('فشل في تحميل الملفات')  [a]
+app/api/files/download-batch/route.ts:98  apiServerError('فشل في إنشاء الملف المضغوط')  [a]
+
+--- app/api/files/folders/route.ts ---
+app/api/files/folders/route.ts:39  apiValidationError('اسم المجلد مطلوب')  [a]
+app/api/files/folders/route.ts:47  apiValidationError('اسم المجلد غير صالح')  [a]
+app/api/files/folders/route.ts:71  apiServerError('فشل في إنشاء المجلد')  [a]
+
+--- app/api/files/move-batch/route.ts ---
+app/api/files/move-batch/route.ts:52  apiForbidden(`لا تملك صلاحية نقل: ${deniedPaths.join(', ')}`)  [a]
+app/api/files/move-batch/route.ts:55  apiForbidden('لا تملك صلاحية النقل إلى هذا المجلد')  [a]
+app/api/files/move-batch/route.ts:59  apiValidationError('يجب تحديد ملف واحد على الأقل للنقل')  [a]
+app/api/files/move-batch/route.ts:63  apiValidationError('الحد الأقصى 50 عنصر في المرة الواحدة')  [a]
+app/api/files/move-batch/route.ts:76  errors.push('مسار فارغ')  [a]
+app/api/files/move-batch/route.ts:82  errors.push(`لا يمكن نقل "${getFileName(sourcePath)}" داخل نفسه`)  [a]
+app/api/files/move-batch/route.ts:91  errors.push(`"${fileName}" موجود بالفعل في نفس المكان`)  [a]
+app/api/files/move-batch/route.ts:128  const msg = err instanceof Error ? err.message : 'خطأ غير معروف'  [a]
+app/api/files/move-batch/route.ts:129  errors.push(`فشل نقل "${fileName}": ${msg}`)  [a]
+app/api/files/move-batch/route.ts:134  apiServerError(errors.join('; ') || 'فشل نقل جميع الملفات')  [a]
+app/api/files/move-batch/route.ts:161  throw new Error('فشل نقل الملف')  [a]
+app/api/files/move-batch/route.ts:192  throw new Error(`تجاوز الحد الأقصى لعمق المجلدات (${MAX_FOLDER_DEPTH})`)  [a]
+app/api/files/move-batch/route.ts:201  throw new Error('فشل قراءة محتويات المجلد')  [a]
+
+--- app/api/files/reindex/route.ts ---
+app/api/files/reindex/route.ts:115  message: `تم فهرسة ${totalIndexed} ملف بنجاح${...}`  [a]
+app/api/files/reindex/route.ts:120  apiServerError(`خطأ في إعادة الفهرسة: ${...}`)  [a]
+
+--- app/api/files/search/route.ts ---
+app/api/files/search/route.ts:28  apiValidationError('يجب إدخال كلمة البحث')  [a]
+app/api/files/search/route.ts:32  apiValidationError('كلمة البحث يجب أن تكون حرفين على الأقل')  [a]
+app/api/files/search/route.ts:75  apiServerError('فشل في البحث')  [a]
+
+--- app/api/files/tag-batch/route.ts ---
+app/api/files/tag-batch/route.ts:29  apiValidationError('قائمة الملفات مطلوبة')  [a]
+app/api/files/tag-batch/route.ts:37  apiValidationError('اسم الوسم مطلوب')  [a]
+app/api/files/tag-batch/route.ts:41  apiValidationError('اسم الوسم طويل جداً (الحد الأقصى 30 حرف)')  [a]
+
+--- app/api/files/tags/route.ts ---
+app/api/files/tags/route.ts:39  apiServerError('فشل في جلب الوسوم')  [a]
+app/api/files/tags/route.ts:51  apiValidationError('file_path مطلوب')  [a]
+app/api/files/tags/route.ts:62  apiServerError('فشل في جلب الوسوم')  [a]
+app/api/files/tags/route.ts:86  apiValidationError('file_path مطلوب')  [a]
+app/api/files/tags/route.ts:95  apiValidationError('اسم الوسم مطلوب')  [a]
+app/api/files/tags/route.ts:99  apiValidationError('اسم الوسم طويل جداً (الحد الأقصى 30 حرف)')  [a]
+app/api/files/tags/route.ts:129  apiServerError('فشل في إضافة الوسم')  [a]
+app/api/files/tags/route.ts:156  apiValidationError('file_path و tag_name مطلوبان')  [a]
+app/api/files/tags/route.ts:174  apiServerError('فشل في حذف الوسم')  [a]
+
+--- app/api/files/upload-complete/route.ts ---
+app/api/files/upload-complete/route.ts:42  apiValidationError('بيانات الملف ناقصة')  [a]
+app/api/files/upload-complete/route.ts:46  apiValidationError('مسار الملف غير صالح')  [a]
+app/api/files/upload-complete/route.ts:55  apiForbidden('لا تملك صلاحية الرفع في هذا المسار')  [a]
+app/api/files/upload-complete/route.ts:69  apiServerError('فشل التحقق من وجود الملف في التخزين')  [a]
+app/api/files/upload-complete/route.ts:77  apiValidationError('الملف غير موجود في التخزين. تأكد من اكتمال الرفع')  [a]
+app/api/files/upload-complete/route.ts:105  apiServerError(`فشل فهرسة الملف: ${indexError.message}`)  [a]
+app/api/files/upload-complete/route.ts:137  `خطأ في تسجيل الرفع: ${...}`  [a]
+app/api/files/upload-complete/route.ts:154  tags.push({ name: 'صورة', color: '#3b82f6' })  [data]  (auto-tag PERSISTED to pyra_file_tags on upload — file-category shadow map #3 of 3, see HAZARDS)
+app/api/files/upload-complete/route.ts:155  tags.push({ name: 'فيديو', color: '#8b5cf6' })  [data]
+app/api/files/upload-complete/route.ts:156  tags.push({ name: 'صوت', color: '#ec4899' })  [data]
+app/api/files/upload-complete/route.ts:162  tags.push({ name: 'جدول', color: '#22c55e' })  [data]
+app/api/files/upload-complete/route.ts:167  tags.push({ name: 'مستند', color: '#f59e0b' })  [data]
+app/api/files/upload-complete/route.ts:173  tags.push({ name: 'أرشيف', color: '#6b7280' })  [data]
+
+--- app/api/files/upload-url/route.ts ---
+app/api/files/upload-url/route.ts:64  apiValidationError('اسم الملف مطلوب')  [a]
+app/api/files/upload-url/route.ts:70  `الملف "${fileName}" يتجاوز الحد الأقصى المسموح (1 GB)`  [a]
+app/api/files/upload-url/route.ts:80  `نوع الملف "${fileName}" غير مسموح به. الملفات التنفيذية ممنوعة`  [a]
+app/api/files/upload-url/route.ts:90  apiForbidden('لا تملك صلاحية الرفع في هذا المسار')  [a]
+app/api/files/upload-url/route.ts:173  apiServerError(`فشل إنشاء رابط الرفع: ${error.message}`)  [a]
+app/api/files/upload-url/route.ts:185  `خطأ في إنشاء رابط الرفع: ${...}`  [a]
+
+--- app/api/files/versions/route.ts ---
+app/api/files/versions/route.ts:27  apiValidationError('مسار الملف غير صالح')  [a]
+
+--- app/api/files/download/[...path]/route.ts ---
+app/api/files/download/[...path]/route.ts:53  apiValidationError('مسار الملف مطلوب')  [a]
+app/api/files/download/[...path]/route.ts:100  apiNotFound('الملف غير موجود')  [a]
+app/api/files/download/[...path]/route.ts:113  apiNotFound('الملف غير موجود')  [a]
+
+--- app/api/files/signed-url/[...path]/route.ts ---
+app/api/files/signed-url/[...path]/route.ts:30  apiValidationError('مسار الملف مطلوب')  [a]
+app/api/files/signed-url/[...path]/route.ts:47  apiNotFound('الملف غير موجود')  [a]
+
+--- app/api/files/versions/[id]/route.ts ---
+app/api/files/versions/[id]/route.ts:41  apiNotFound('النسخة غير موجودة')  [a]
+
+--- app/api/files/versions/[id]/restore/route.ts ---
+app/api/files/versions/[id]/restore/route.ts:46  apiNotFound('النسخة غير موجودة')  [a]
+app/api/files/versions/[id]/restore/route.ts:110  apiServerError('فشل تحميل ملف النسخة من التخزين')  [a]
+app/api/files/versions/[id]/restore/route.ts:122  apiServerError('فشل استعادة النسخة')  [a]
+
+--- app/api/teams/route.ts ---
+app/api/teams/route.ts:69  apiValidationError('اسم الفريق مطلوب')  [a]
+
+--- app/api/teams/[id]/route.ts ---
+app/api/teams/[id]/route.ts:34  apiNotFound('الفريق غير موجود')  [a]
+app/api/teams/[id]/route.ts:85  apiNotFound('الفريق غير موجود')  [a]
+app/api/teams/[id]/route.ts:140  apiNotFound('الفريق غير موجود')  [a]
+
+--- app/api/teams/[id]/members/route.ts ---
+app/api/teams/[id]/members/route.ts:45  apiNotFound('الفريق غير موجود')  [a]
+app/api/teams/[id]/members/route.ts:90  apiValidationError('اسم المستخدم مطلوب')  [a]
+app/api/teams/[id]/members/route.ts:103  apiNotFound('الفريق غير موجود')  [a]
+app/api/teams/[id]/members/route.ts:115  apiValidationError('المستخدم موجود بالفعل في هذا الفريق')  [a]
+app/api/teams/[id]/members/route.ts:169  apiValidationError('اسم المستخدم مطلوب في الاستعلام')  [a]
+app/api/teams/[id]/members/route.ts:182  apiNotFound('الفريق غير موجود')  [a]
+
+
+================================================================================
+HAZARDS
+================================================================================
+
+H1. PROJECT STATUS — NO centralized entity, THREE independent shadow maps
+    - app/dashboard/clients/[id]/client-detail-client.tsx:128-132  (PROJECT_STATUS_CONFIG-like, local)
+    - app/dashboard/projects/projects-client.tsx:54-58              (STATUS_CONFIG)
+    - components/projects/project-kanban.tsx:65-69                 (PROJECT_STATUSES array)
+    All three define the same 5 values (active/in_progress/review/completed/
+    archived) with near-identical Arabic labels, but as THREE separate object
+    literals with zero shared source. `lib/constants/statuses.ts` has NO
+    `PROJECT_STATUS` export at all (confirmed) and `lib/i18n/status-labels.ts`
+    `StatusEntity` union has NO `'project'` entry. The authoritative enum only
+    exists server-side as `validStatuses` array in
+    app/api/projects/[id]/route.ts:~115 and app/api/projects/route.ts:~130
+    (not exported/shared). Phase 6 should add PROJECT_STATUS +
+    PROJECT_STATUS_LABELS to lib/constants/statuses.ts and a `'project'`
+    StatusEntity, then collapse all 3 UI maps + the ~10 literal SelectItem
+    duplicates (clients-client-style) onto useStatusLabels('project').
+
+H2. CLIENT SOURCE enum — FOUR independent copies, one with extra 'import' key
+    - app/dashboard/clients/clients-client.tsx:77-80        (manual/referral/website/social)
+    - app/dashboard/clients/[id]/client-detail-client.tsx:121-124  (same 4)
+    - app/api/clients/export/route.ts:143-146                (adds 'import' — NOT present in the two UI copies; a client with source='import' would render blank/fallback in the UI dropdowns)
+    - Plus 2 more literal SelectItem duplications inside clients-client.tsx
+      itself (create dialog @613-616, edit dialog @695-698) — 3 renders of the
+      same 4 strings in ONE file.
+    No centralized `CLIENT_SOURCE` / `CLIENT_SOURCE_LABELS` exists in
+    lib/constants/statuses.ts. Recommend adding one and fixing the 'import'
+    drift as part of Phase 6.
+
+H3. CLIENT active/inactive — FOUR inline ternary duplicates of an ALREADY
+    centralized entity, with wording drift
+    CLIENT_STATUS_LABELS already exists (lib/constants/statuses.ts:335-338,
+    'نشط'/'غير نشط') and 'client' is already a migrated StatusEntity
+    (messages/ar/statuses.json:18). Yet these 4 call sites still hardcode
+    inline ternaries instead of using it:
+    - app/dashboard/clients/clients-client.tsx:427   ('نشط' : 'معطل' — "معطل" not "غير نشط"! wording drift)
+    - app/dashboard/clients/clients-client.tsx:528   (same drift)
+    - app/dashboard/clients/[id]/client-detail-client.tsx:580  ('نشط' : 'غير نشط' — correct wording, still not using the centralized map)
+    - app/api/clients/export/route.ts:153            ('نشط' : 'غير نشط')
+    Phase 6 should swap all 4 onto useStatusLabels('client') / CLIENT_STATUS_LABELS
+    and settle the "معطل" vs "غير نشط" inconsistency.
+
+H4. INVOICE / QUOTE local shadow maps in client-detail-client.tsx duplicate
+    ALREADY-centralized entities, with real semantic drift (not just labels)
+    - Lines 136-140: local invoice-status map is missing `partially_paid`
+      entirely (centralized INVOICE_STATUS has 6 states, this has 5) and
+      spells cancelled as 'ملغاة' vs the centralized 'ملغية'.
+    - Lines 144-148: local quote-status map uses accepted/rejected/expired —
+      NONE of which match the centralized QUOTE_STATUS enum (draft/
+      pending_approval/sent/viewed/signed/invoiced/rejected/expired/cancelled).
+      'accepted' is not a real quote status in this codebase at all; 'signed'/
+      'invoiced'/'viewed'/'pending_approval'/'cancelled' are silently
+      unhandled here and would fall through to no badge/no color.
+    Phase 6 MUST NOT just localize these strings verbatim — they should be
+    replaced with useStatusLabels('invoice') / useStatusLabels('quote') and
+    the underlying badge-variant logic re-derived from the real enums.
+
+H5. ACTION_LABELS — cross-module activity-log dictionary duplicated across
+    TWO unrelated files with only partial key overlap
+    - app/dashboard/clients/[id]/client-detail-client.tsx:165-217 (45 entries,
+      covers client/project/invoice/quote/file/portal/expense/subscription/
+      contract/payment/review/settings/branding action types)
+    - components/files/file-preview.tsx:1096-1097 (9 entries: upload/download/
+      rename/move/delete/restore/copy/share/version)
+    Both maps independently translate the SAME file-action keys (upload,
+    download, rename, move, delete, restore, copy, share) with slightly
+    different Arabic phrasing (client-detail-client says "تم رفع ملف" /
+    "past-tense sentence", file-preview says "رفع" / bare noun) for what is
+    presumably the same underlying activity-log action_type space. This is a
+    prime DRY target for Phase 6 — a single ACTIVITY_ACTION_LABELS_AR map
+    (or next-intl namespace) should replace both, but the two call sites use
+    it in different contexts (full sentence for a timeline row vs bare label
+    for a small badge) so the message KEYS may need distinct short/long
+    variants rather than a naive merge.
+
+H6. FILE-TYPE-CATEGORY label — independently defined in THREE places with
+    inconsistent values, one of which is PERSISTED DATA not a UI label
+    - components/files/file-toolbar.tsx:42-48   (filter labels: all/image/
+      video/audio/document/archive/code → 'الكل'/'صور'/'فيديو'/'صوت'/
+      'مستندات'/'أرشيف'/'أكواد' — 7 categories incl. 'code')
+    - components/files/file-preview.tsx:128-135 (icon labels: صورة/فيديو/
+      صوت/جدول/نص/ملف — 6 categories incl. 'جدول'(spreadsheet) and 'نص'(text),
+      no 'code'/'archive')
+    - app/api/files/upload-complete/route.ts:154-173 (AUTO-TAG DATA written
+      to pyra_file_tags on every upload: صورة/فيديو/صوت/جدول/مستند/أرشيف —
+      note 'مستند' singular here vs 'مستندات' plural in file-toolbar)
+    The upload-complete route's version is [data] (persisted DB rows, not a
+    runtime label) — migrating the UI labels to next-intl will NOT fix the
+    already-stored Arabic-only tag names on existing files, and any English
+    locale will show a mix of translated UI filter chips against
+    Arabic-only persisted tag data. Flag for Phase 6 design discussion:
+    either leave file-type auto-tags as permanently-Arabic data (like other
+    DB content) or introduce a typed `file_category` enum column.
+
+H7. TAG COLOR PALETTE — near-duplicate maps in bulk-actions-bar.tsx and
+    file-tags.tsx (2 of 7 colors differ)
+    - components/files/bulk-actions-bar.tsx:42-48  (7 colors: برتقالي/أحمر/
+      أخضر/أزرق/بنفسجي/وردي/رمادي)
+    - components/files/file-tags.tsx:15-23         (9 colors: same 7 PLUS
+      فيروزي #14b8a6 and ذهبي #f59e0b)
+    Low-severity (color-swatch labels), but worth consolidating into one
+    shared TAG_COLOR_PALETTE constant so both pickers offer the same set.
+
+H8. FILE_APPROVAL_STATUS has NO _LABELS export and NO i18n entity
+    lib/constants/statuses.ts defines `FILE_APPROVAL_STATUS` (pending/
+    approved/revision_requested) but — unlike every other entity in that
+    file — never exports `FILE_APPROVAL_STATUS_LABELS`. `lib/i18n/
+    status-labels.ts` `StatusEntity` union also has no `'fileApproval'`
+    member. Not directly hit by Arabic strings in THIS census (no file-
+    approval UI text was found in the clients/projects/files/teams scope),
+    but Phase 6 planning for a future files-approval UI should note this gap
+    exists and needs to be filled from scratch (no legacy Arabic map to
+    migrate FROM).
+
+H9. Hardcoded `dir="rtl"` (2 occurrences) — bypasses locale-driven <html dir>
+    - app/dashboard/clients/[id]/client-detail-client.tsx:1305  `<DialogContent dir="rtl">`
+    - app/dashboard/projects/[id]/page.tsx:78  `<Tabs defaultValue="tasks" dir="rtl">`
+    Per CLAUDE.md i18n rules, `<html lang dir>` is dynamic based on locale —
+    a hardcoded `dir="rtl"` on a Dialog/Tabs will not flip when a user
+    switches to EN. (NOT a hazard: `dir={direction}` in file-preview.tsx:729,
+    docx-viewer.tsx:104, and the InfoRow `dir` prop in client-detail-client.tsx:1375
+    are all CONTENT-based direction detection — legitimate, unrelated to app
+    locale.)
+
+H10. `toLocaleDateString('ar-SA')` hardcoded — locale mismatch hazard
+     - components/files/file-context-menu.tsx:253  `new Date(link.expires_at).toLocaleDateString('ar-SA')`
+     This is the ONLY hardcoded-locale `toLocale*` call found in scope; it
+     will keep rendering Saudi-formatted Arabic dates even when the app
+     locale is switched to English. Contrast with the correct pattern already
+     used elsewhere in scope: app/api/clients/export/route.ts:151 uses
+     `toLocaleDateString('en-CA')` deliberately for a stable YYYY-MM-DD CSV
+     value (not a hazard — intentional ISO-like format, unrelated to UI
+     locale). Phase 6 should replace the file-context-menu.tsx call with the
+     shared `formatDate()` helper (`lib/utils/format.ts`) which already
+     accepts a locale param per CLAUDE.md i18n rules.
+
+H11. `formatCurrency` / `formatDate` money & date call sites in scope (verify
+     Phase 6 doesn't touch these incorrectly — currency/number formatting is
+     locale-STABLE by design per CLAUDE.md, dates take a locale param):
+     - app/dashboard/clients/clients-client.tsx:414,417,558        formatCurrency
+     - app/dashboard/clients/[id]/client-detail-client.tsx:723,754,866,996,1000,1077,1097,1101,1174,1191   formatCurrency + formatDate
+     - app/dashboard/projects/projects-client.tsx:289,294           formatDate
+     - app/dashboard/teams/teams-client.tsx:154                     formatDate
+     None of these are hardcoded Arabic strings (they're function calls), so
+     they carry 0 Arabic-line count, but Phase 6 must NOT wrap formatCurrency
+     calls in translation (currency stays en-AE per the i18n lock) — only
+     formatDate calls should get the trailing locale param wired to the
+     active locale.
+
+H12. Hardcoded Arabic list-separator characters (not just words)
+     - app/api/clients/export/route.ts:155     `.join('، ')`  (Arabic comma+space, CSV tag list)
+     - components/files/upload-progress.tsx:28  `.join('، ')`  (Arabic comma+space, active-file-name list)
+     These are literal punctuation, not sentence content — will read oddly
+     in an English locale (an ASCII ", " is expected there). Recommend
+     Intl.ListFormat(locale) or a locale-aware separator constant instead of
+     hardcoding '، '.
+
+H13. Raw client-notification insert bypasses the central `notify()` helper
+     - app/api/projects/[id]/files/sync/route.ts:179-187  inserts directly
+       into `pyra_client_notifications` (title 'ملفات جديدة' / message
+       template) instead of going through any central portal-notification
+       helper. NOTE: this is a DIFFERENT table from `pyra_notifications`
+       (which IS covered by `lib/notifications/notify.ts` — that helper only
+       targets internal dashboard users, not portal clients), so this may be
+       intentional/pre-existing architecture rather than a rule violation —
+       but Phase 6/7 (portal) should be aware this Arabic content is
+       persisted+portal-facing, not a transient UI string, and any future
+       central portal-notify helper should absorb this call site.
+
+H14. `file-context-menu.tsx`, `file-explorer.tsx`, `file-preview.tsx` are
+     SHARED components consumed by BOTH `app/dashboard/files` (this scope)
+     AND `app/portal` (Phase 7 scope, per DECISIONS in CLAUDE.md: files
+     preview is explicitly shared dashboard+portal). Do NOT let Phase 6
+     migrate these 3 files' strings in a way that assumes a dashboard-only
+     namespace — the same components render inside the portal shell too, so
+     message keys must live in a shared namespace (or be duplicated
+     consistently) reachable from both `getTranslations`/`useTranslations`
+     call sites. Verified by cross-reference with components/portal/* import
+     graph is OUT OF SCOPE for this census (Phase 7 discovery will confirm
+     exact portal import sites) — flagging here so Phase 6 planning accounts
+     for it up front rather than re-discovering it in Phase 7.
+
+H15. >300 LOC files in scope (page-size hazard per CLAUDE.md "<300 lines"
+     convention — these will need splitting BEFORE or DURING the i18n pass,
+     since adding useTranslations()/getTranslations() calls to an already-
+     oversized file compounds the debt):
+     - app/dashboard/clients/[id]/client-detail-client.tsx   1381 LOC (largest dashboard client file in this census by far)
+     - components/files/file-preview.tsx                     1480 LOC (largest file in entire scope)
+     - components/files/file-explorer.tsx                     666 LOC
+     - components/files/file-context-menu.tsx                 505 LOC
+     - components/clients/ClientNotesTab.tsx                  463 LOC
+     - components/clients/ClientTagsManager.tsx                455 LOC
+     - components/files/file-toolbar.tsx                       405 LOC
+     - app/dashboard/clients/clients-client.tsx                744 LOC
+     - components/clients/BrandingEditor.tsx                   383 LOC
+     - app/dashboard/projects/[id]/project-board-embed.tsx     374 LOC
+     - components/projects/project-kanban.tsx                  340 LOC (LOCKED architecture per CLAUDE.md CRM Phase 7 Chunk 3 — do NOT touch drag/drop internals, only string extraction)
+     - components/files/file-permissions-dialog.tsx             312 LOC
+     - components/files/bulk-actions-bar.tsx                    307 LOC
+     - app/dashboard/projects/projects-client.tsx               449 LOC
+
+H16. Raw `fetch()` / `useState` calls present (pre-existing CLAUDE.md
+     violations, unrelated to i18n but visible during this scan — noting for
+     completeness, NOT for Phase 6 to fix unless asked):
+     - app/dashboard/clients/[id]/client-detail-client.tsx uses raw `fetch()`
+       at lines 327,351,368,385,402,436,468 instead of the mandated
+       fetchAPI/mutateAPI + React Query hooks. This file is a pre-existing
+       CLAUDE.md-non-compliant page; Phase 6 should NOT need to touch the
+       fetch plumbing, only extract/replace the Arabic strings, but be aware
+       error-toast strings here are wired to raw fetch .catch() blocks, not
+       useMutation onError, so the string-replacement pattern will look
+       slightly different from a React-Query-hook file.
+
+H17. No JSON-array risk found for MESSAGE CATALOG purposes — all Arabic
+     "arrays" found in scope (TAG_COLORS in bulk-actions-bar.tsx/file-tags.tsx,
+     CSV headers array in api/clients/export/route.ts) are plain JS constants
+     used as source data, not next-intl message values, so the "catalogs must
+     never contain JSON arrays" rule (CLAUDE.md i18n section) is not
+     currently violated in this scope — just flag as a reminder: when these
+     value→label maps get migrated to messages/{ar,en}/*.json, they MUST
+     become keyed objects (e.g. `tagColors.orange`, `tagColors.red`), never a
+     JSON array of strings.
+
+H18. MONTH_NAMES_AR — NOT found anywhere in this scope (clean; no date-
+     ladder/month-name hazard in CLIENTS/PROJECTS/FILES/TEAMS).
+
+H19. `email-triggered` external link generation — NOT applicable in this
+     scope (no email/URL-building code found in CLIENTS/PROJECTS/FILES/TEAMS
+     routes; the Phase-12 "email URL bypasses middleware" pattern from
+     CLAUDE.md does not recur here).
+
+
+================================================================================
+REUSE NOTES (existing i18n infrastructure this scope should build on)
+================================================================================
+- `messages/ar/common.json` → `common.actions.{save,cancel,confirm,close,retry,
+  search,clearSearch}`, `common.table.*`, `common.pagination.*`,
+  `common.errors.{unexpected,sectionLoad,loadFailed,serverConnection,
+  checkInternet}` directly cover MANY of the repeated إلغاء/حفظ/بحث/حذث
+  strings found across clients-client.tsx, teams-client.tsx,
+  projects-client.tsx, and nearly every dialog in components/files/* and
+  components/clients/*. Phase 6 should wire these BEFORE inventing new
+  per-module keys for "إلغاء" / "حفظ" / "بحث...".
+- `lib/i18n/status-labels.ts` `useStatusLabels(entity)` + `messages/ar/
+  statuses.json` already cover `'client'` (active/inactive) fully — the 4
+  inline duplicates in H3 should switch to it directly, no new catalog work
+  needed for that entity.
+- `messages/ar/api.json` → `api.common.*` pattern (existing keys like
+  `jsonBodyRequired`, `usernameRequired`) is the model for the ~200 [a]-class
+  API validation/not-found/forbidden strings census'd above. No `api.clients`,
+  `api.projects`, `api.files`, or `api.teams` namespace exists yet — Phase 6
+  is the first to populate these under the existing `api` top-level
+  namespace, following the api.boards / api.calendar precedent already in
+  the file.
+- `INVOICE_STATUS_LABELS` and `QUOTE_STATUS_LABELS` are ALREADY centralized
+  (lib/constants/statuses.ts) and already migrated to next-intl per
+  `useStatusLabels('invoice')`/`useStatusLabels('quote')` (both are members
+  of the `StatusEntity` union in lib/i18n/status-labels.ts) — client-detail-
+  client.tsx's local shadow maps (H4) should be DELETED in favor of these,
+  not translated in place.
+- `PASSWORD_MIN_LENGTH` (lib/constants/auth.ts) is already correctly
+  interpolated via template literals in every password-related message found
+  in this scope (clients-client.tsx:155,639; client-detail-client.tsx:463,
+  1322; api/clients/route.ts:214; api/clients/[id]/activate-portal/route.ts:32)
+  — these will need the ICU `{count}`-style interpolation pattern when
+  migrated to next-intl message catalogs, not string concatenation.
+- No `PROJECT_STATUS`, `CLIENT_SOURCE`, or `FILE_APPROVAL_STATUS_LABELS`
+  entities exist yet — H1/H2/H8 are genuine gaps Phase 6 (or a preceding
+  small PR) should fill in lib/constants/statuses.ts + lib/i18n/status-
+  labels.ts's StatusEntity union before/while doing the string migration,
+  otherwise the migration will just relocate the duplication into next-intl
+  catalogs instead of eliminating it.
+================================================================================

@@ -1,0 +1,1895 @@
+================================================================================
+PHASE 6 DISCOVERY CENSUS — Misc Remaining Dashboard Pages
+Pyra Workspace bilingual AR/EN (next-intl) migration
+Generated: 2026-07-09 (read-only census, no source modified)
+================================================================================
+
+SCOPE
+-----
+app/dashboard/{activity,announcements,notifications,sessions,login-history,
+favorites,trash,profile,reports,sales}/**
+app/api/{activity,announcements,notifications,sessions,login-history,
+favorites,trash,profile,reports}/**
+app/api/dashboard/sales/**  (Phase-12-sunset remnants — 5 live pages route
+through this legacy prefix: chat, whatsapp-analytics, whatsapp-campaigns,
+approvals, settings; plus dead leads/follow-ups/labels/pipeline-stages/reports
+endpoints kept alive only because the WhatsApp chat create-lead + schedule-
+followup dialogs still call them per CLAUDE.md CRM Audit Remediation #10)
++ matching components/ dirs
+
+CLASS legend: (ui)=visible UI copy (labels/headings/toasts/empty states)
+(a)=aria-label/title attribute/placeholder  (data)=API validation/error
+response strings + CSV export headers  (status)=status/label shadow maps
+(key→Arabic string lookup objects)  (notification)=notify()/title+message
+payloads sent to pyra_notifications  (pdf)=PDF-generation content (none
+found in this scope)  (internal)=code comments
+NOTE: classification below is a heuristic (regex-based, generated
+programmatically over all 1,368 matched lines) — treat CLASS as a strong
+guide, not a guarantee; a handful of boundary lines (e.g. multi-key object
+literals split across lines) may be off by one bucket. All file:line
+verbatim strings themselves are exact greps, not paraphrased.
+
+================================================================================
+DIRECTORY EXISTENCE / MIGRATION STATUS
+================================================================================
+
+All 10 requested app/dashboard/* directories EXIST. All 9 requested
+app/api/* directories EXIST. app/api/dashboard/sales/** EXISTS (52 files).
+
+Matching components/ dirs:
+  components/activity          MISSING (activity-client.tsx is self-contained,
+                                no sub-components extracted)
+  components/announcements     MISSING (same — self-contained client file)
+  components/notifications     MISSING (same)
+  components/sessions          MISSING (same)
+  components/login-history     MISSING (same)
+  components/favorites         MISSING (same — but DOES consume
+                                hooks/useFavorites.ts, already React-Query)
+  components/trash             MISSING (same — self-contained client file)
+  components/profile           MISSING (same — self-contained client file)
+  components/reports           EXISTS (3 files: ExportButton, ReportChart,
+                                ReportDateFilter) — ZERO Arabic in any of the
+                                3 (pure chart/export wrappers, all copy comes
+                                from the page that calls them)
+  components/sales             EXISTS — components/sales/chat/** (29 files,
+                                the live WhatsApp shared-inbox surface behind
+                                /dashboard/sales/chat). No components/sales
+                                dir matches whatsapp-analytics, whatsapp-
+                                campaigns, approvals, or settings directly —
+                                those 4 pages instead pull from:
+                                  components/dashboard/sales-settings/**
+                                    (5 files — used by /dashboard/sales/settings)
+                                  components/dashboard/approvals/**
+                                    (2 files — used by /dashboard/sales/approvals)
+                                  hooks/useWhatsApp.ts (useCampaigns/*, not
+                                    a component dir — whatsapp-campaigns page
+                                    is self-contained + hook-driven)
+                                  components/sales/chat/csat/csat-stats-card.tsx
+                                  + components/sales/chat/sla/sla-stats-card.tsx
+                                    (reused directly by whatsapp-analytics/page.tsx)
+
+OUT-OF-SCOPE FIND (excluded from totals below, listed separately at the end):
+  components/settings/agent-whatsapp-settings/{dialog,list,section}.tsx —
+  matched a naive "sales settings" search but is actually wired into
+  app/dashboard/settings/settings-client.tsx (the MAIN admin Settings page,
+  a different phase's scope), NOT into app/dashboard/sales/**. Verified via
+  grep: zero references to this component from anywhere under app/dashboard/
+  sales/. 3 files, 49 Arabic lines, one file >300 lines (dialog.tsx, 351
+  lines) — flagged here so a future Settings-page census doesn't miss it,
+  but NOT counted in this census's totals.
+
+MIGRATION STATUS: Nothing in scope uses next-intl. Zero `useTranslations` /
+`getTranslations` calls found anywhere under the scoped app/dashboard/* or
+components/sales/** or components/dashboard/sales-settings/** trees (grep
+confirmed empty across activity, reports, sales, components/sales).
+ONLY app/dashboard/profile/profile-client.tsx is PARTIALLY touched: it
+imports and renders `<LocaleSelect endpoint="/api/profile" />` (line 7, 241)
+from components/layout/locale-switcher — this is the Phase-0 infra locale
+switcher UI, already live on the profile page. It does NOT mean any of
+profile-client.tsx's 37 hardcoded Arabic lines are migrated — every label,
+toast, and section heading on the page is still a raw Arabic string literal.
+
+================================================================================
+SUMMARY COUNTS (in-scope only — excludes the 3 agent-whatsapp-settings files)
+================================================================================
+
+Total files scanned (in scope):      148  (.ts + .tsx, full read)
+Files containing Arabic:             121
+Files with ZERO Arabic:               27
+Total Arabic lines matched:        1,319
+
+Breakdown by CLASS (heuristic, in-scope only — see notes below the table for
+the small adjustment vs the raw 1,368/127-class script run which still
+included the 3 out-of-scope files):
+  (ui)           ~876   visible UI copy — labels, JSX text, toasts, empty
+                         states, dialog titles, button text
+  (a)            ~119   aria-label / title attr / placeholder
+  (data)         ~195   API apiError/apiValidationError/apiNotFound/
+                         apiForbidden/apiServerError messages + CSV headers
+  (status)       ~113   status/label shadow maps (ACTION_LABELS, NOTIF_TYPES,
+                         PRIORITY_LABELS, STATUS_MAP, MEDIA_LABELS, sourceLabels,
+                         ROLE_LABELS, and inline per-key map entries)
+  (notification)  ~18   notify()/title+message strings sent into
+                         pyra_notifications (lead transfer, quote approval,
+                         WhatsApp assignment, SLA breach, etc.)
+  (pdf)             0   none — this scope has no PDF-generating code
+  (internal)        ~4  code comments containing Arabic (mostly example
+                         strings inside comments, e.g. webhook.ts L401-402)
+
+(Exact per-file counts and the full raw script run — including the 3
+out-of-scope agent-whatsapp-settings files, 1,368 lines / 127 files total —
+are preserved in the per-file table below for auditability.)
+
+================================================================================
+PER-FILE ARABIC-LINE COUNT (all 151 files scanned; sorted high→low;
+the 3 marked [OUT-OF-SCOPE] are agent-whatsapp-settings, excluded from
+the headline totals above but shown here for completeness)
+================================================================================
+ARABIC_LINES	TOTAL_LINES	FILE
+93	434	app/api/dashboard/sales/whatsapp/ai-suggest/route.ts
+80	258	app/dashboard/activity/activity-client.tsx
+51	632	components/dashboard/sales-settings/SalesSettingsContent.tsx
+49	311	app/dashboard/trash/trash-client.tsx
+40	649	components/sales/chat/contact-panel/index.tsx
+37	466	app/dashboard/profile/profile-client.tsx
+37	338	components/dashboard/sales-settings/sla-manager.tsx
+34	645	components/sales/chat/chat-input.tsx
+31	272	components/dashboard/sales-settings/canned-responses.tsx
+30	190	app/dashboard/notifications/notifications-client.tsx
+28	269	app/dashboard/sales/whatsapp-campaigns/page.tsx
+27	334	app/dashboard/announcements/announcements-client.tsx
+26	351	components/settings/agent-whatsapp-settings/dialog.tsx [OUT-OF-SCOPE]
+25	194	app/dashboard/sessions/sessions-client.tsx
+24	127	app/api/activity/export/route.ts
+24	232	app/dashboard/login-history/login-history-client.tsx
+24	235	components/sales/chat/dialogs/send-invoice-dialog.tsx
+24	235	components/sales/chat/dialogs/send-quote-dialog.tsx
+22	321	app/api/dashboard/sales/leads/bulk/route.ts
+20	209	components/sales/chat/dialogs/create-lead-dialog.tsx
+19	190	app/dashboard/reports/team/page.tsx
+19	608	components/sales/chat/chat-panel/index.tsx
+19	178	components/sales/chat/dialogs/schedule-followup-dialog.tsx
+18	374	components/sales/chat/chat-panel/chat-header.tsx
+18	456	components/sales/chat/message-bubble.tsx
+16	200	app/dashboard/reports/projects/page.tsx
+16	118	app/dashboard/reports/reports-client.tsx
+15	196	app/dashboard/reports/revenue/page.tsx
+15	215	components/sales/chat/dialogs/snooze-picker.tsx
+15	187	components/sales/chat/sla/sla-stats-card.tsx
+14	144	components/sales/chat/bulk-actions-bar.tsx
+14	231	components/settings/agent-whatsapp-settings/section.tsx [OUT-OF-SCOPE]
+13	173	app/dashboard/reports/storage/page.tsx
+12	183	app/dashboard/sales/approvals/page.tsx
+12	401	components/sales/chat/chat-layout.tsx
+12	124	components/sales/chat/dialogs/add-note-dialog.tsx
+12	273	components/sales/chat/dialogs/label-picker.tsx
+11	198	app/api/dashboard/sales/whatsapp/send-pdf/route.ts
+11	391	app/api/reports/export/route.ts
+11	148	components/sales/chat/dialogs/assign-dialog.tsx
+11	256	components/sales/chat/filters/filter-bar.tsx
+10	157	app/dashboard/reports/clients/page.tsx
+10	172	components/sales/chat/conversation-list/conversation-item.tsx
+10	186	components/sales/chat/dialogs/merge-dialog.tsx
+9	169	app/api/dashboard/sales/whatsapp/sla/route.ts
+9	936	app/api/dashboard/sales/whatsapp/webhook/route.ts
+9	203	app/dashboard/favorites/favorites-client.tsx
+9	180	components/settings/agent-whatsapp-settings/list.tsx [OUT-OF-SCOPE]
+8	318	app/api/dashboard/sales/reports/route.ts
+8	102	app/api/dashboard/sales/whatsapp/sla/check/route.ts
+8	102	app/api/profile/password/route.ts
+8	119	components/dashboard/approvals/approval-card.tsx
+8	59	components/dashboard/sales-settings/pipeline-stages.tsx
+7	216	app/api/dashboard/sales/follow-ups/route.ts
+7	119	app/dashboard/sales/whatsapp-analytics/page.tsx
+7	193	components/sales/chat/csat/csat-stats-card.tsx
+7	124	components/sales/chat/dialogs/forward-dialog.tsx
+6	133	app/api/dashboard/sales/approvals/[id]/route.ts
+6	167	app/api/dashboard/sales/leads/[id]/convert/route.ts
+6	235	app/api/dashboard/sales/leads/[id]/route.ts
+6	109	app/api/dashboard/sales/leads/[id]/transfer/route.ts
+6	286	app/api/dashboard/sales/leads/route.ts
+6	107	app/api/dashboard/sales/whatsapp/conversations/[id]/merge/route.ts
+6	166	app/api/dashboard/sales/whatsapp/conversations/bulk/route.ts
+6	62	components/dashboard/sales-settings/wa-manager.tsx
+6	256	components/sales/chat/use-chat-store.ts
+5	131	app/api/dashboard/sales/whatsapp/conversations/[id]/notes/route.ts
+5	155	app/api/dashboard/sales/whatsapp/messages/[id]/save-to-files/route.ts
+5	190	app/api/dashboard/sales/whatsapp/send/route.ts
+5	140	app/api/notifications/route.ts
+5	152	app/api/profile/route.ts
+5	183	components/sales/chat/contact-panel/previous-conversations.tsx
+5	91	components/sales/chat/csat/csat-badge.tsx
+5	69	components/sales/chat/filters/sort-selector.tsx
+5	134	components/sales/chat/sla/sla-indicator.tsx
+4	122	app/api/dashboard/sales/labels/route.ts
+4	116	app/api/dashboard/sales/leads/export/route.ts
+4	168	app/api/dashboard/sales/whatsapp/conversations/[id]/route.ts
+4	99	app/api/dashboard/sales/whatsapp/csat/[conversationId]/route.ts
+4	125	app/api/dashboard/sales/whatsapp/messages/[id]/react/route.ts
+4	113	app/api/notifications/[id]/route.ts
+4	102	components/sales/chat/conversation-list.tsx
+3	91	app/api/dashboard/sales/whatsapp/conversations/[id]/assign/route.ts
+3	143	app/api/dashboard/sales/whatsapp/conversations/[id]/labels/route.ts
+3	180	app/api/dashboard/sales/whatsapp/csat/route.ts
+3	178	app/api/dashboard/sales/whatsapp/labels/route.ts
+3	113	app/api/dashboard/sales/whatsapp/media/[messageId]/route.ts
+3	77	app/api/dashboard/sales/whatsapp/messages/[id]/forward/route.ts
+3	111	app/api/dashboard/sales/whatsapp/sla/stats/route.ts
+3	125	app/api/dashboard/sales/whatsapp/templates/route.ts
+3	145	app/api/favorites/route.ts
+3	69	app/api/profile/avatar/route.ts
+3	177	app/api/trash/[id]/route.ts
+3	62	components/dashboard/approvals/approval-history-item.tsx
+3	186	components/sales/chat/chat-panel/message-list.tsx
+2	72	app/api/dashboard/sales/leads/[id]/labels/route.ts
+2	113	app/api/dashboard/sales/pipeline-stages/route.ts
+2	132	app/api/dashboard/sales/whatsapp/campaigns/[id]/send/route.ts
+2	101	app/api/dashboard/sales/whatsapp/campaigns/route.ts
+2	141	app/api/dashboard/sales/whatsapp/groups/[id]/participants/route.ts
+2	89	app/api/dashboard/sales/whatsapp/groups/[id]/route.ts
+2	269	app/api/dashboard/sales/whatsapp/groups/route.ts
+2	62	app/api/dashboard/sales/whatsapp/instances/route.ts
+2	54	app/api/dashboard/sales/whatsapp/typing/route.ts
+2	87	components/sales/chat/chat-panel/note-input.tsx
+1	73	app/api/announcements/[id]/route.ts
+1	87	app/api/announcements/route.ts
+1	82	app/api/dashboard/sales/leads/[id]/activities/route.ts
+1	78	app/api/dashboard/sales/whatsapp/assignments/[id]/route.ts
+1	107	app/api/dashboard/sales/whatsapp/assignments/route.ts
+1	85	app/api/dashboard/sales/whatsapp/campaigns/[id]/route.ts
+1	124	app/api/dashboard/sales/whatsapp/instances/[id]/route.ts
+1	135	app/api/reports/clients/route.ts
+1	45	app/api/sessions/[id]/route.ts
+1	89	app/api/trash/empty/route.ts
+1	82	app/api/trash/purge-expired/route.ts
+1	12	app/dashboard/activity/page.tsx
+1	12	app/dashboard/favorites/page.tsx
+1	12	app/dashboard/login-history/page.tsx
+1	12	app/dashboard/notifications/page.tsx
+1	12	app/dashboard/reports/page.tsx
+1	12	app/dashboard/sessions/page.tsx
+1	12	app/dashboard/trash/page.tsx
+1	107	components/sales/chat/ai-suggest/suggest-bar.tsx
+0	83	app/api/activity/route.ts
+0	30	app/api/announcements/[id]/read/route.ts
+0	29	app/api/dashboard/sales/approvals/route.ts
+0	42	app/api/dashboard/sales/leads/[id]/quotes/route.ts
+0	270	app/api/dashboard/sales/whatsapp/conversations/route.ts
+0	99	app/api/dashboard/sales/whatsapp/csat/stats/route.ts
+0	145	app/api/dashboard/sales/whatsapp/messages/route.ts
+0	258	app/api/dashboard/sales/whatsapp/poll/route.ts
+0	360	app/api/dashboard/sales/whatsapp/sync/route.ts
+0	66	app/api/login-history/route.ts
+0	44	app/api/notifications/read-all/route.ts
+0	123	app/api/reports/projects/route.ts
+0	181	app/api/reports/revenue/route.ts
+0	223	app/api/reports/route.ts
+0	106	app/api/reports/storage/route.ts
+0	135	app/api/reports/team/route.ts
+0	67	app/api/sessions/route.ts
+0	133	app/api/trash/route.ts
+0	8	app/dashboard/announcements/page.tsx
+0	8	app/dashboard/profile/page.tsx
+0	13	app/dashboard/sales/chat/page.tsx
+0	8	app/dashboard/sales/settings/page.tsx
+0	58	components/reports/ExportButton.tsx
+0	145	components/reports/ReportChart.tsx
+0	113	components/reports/ReportDateFilter.tsx
+0	70	components/sales/chat/hooks/use-conversation-presence.ts
+0	147	components/sales/chat/use-chat-shortcuts.ts
+================================================================================
+HAZARDS
+================================================================================
+
+1. RAW fetch() / useState-driven data fetching (violates CLAUDE.md's
+   "NEVER use raw fetch() in components — use React Query" mandate).
+   Confirmed via grep across the whole scope:
+     app/dashboard/activity/activity-client.tsx:92   fetch(`/api/activity?${params}`)
+     app/dashboard/activity/activity-client.tsx:113  fetch(`/api/activity/export?${params}`)
+       (whole file is useState/useEffect/useCallback-driven, NOT React Query —
+        lines 3, 73-81 confirm; this is the single biggest RQ-migration item
+        in the misc-pages set)
+     app/dashboard/login-history/login-history-client.tsx:52  fetch(`/api/login-history?${params}`)
+     app/dashboard/reports/projects/page.tsx:45   fetch(`/api/reports/projects?...`)
+     app/dashboard/reports/team/page.tsx:51       fetch(`/api/reports/team?...`)
+     app/dashboard/reports/clients/page.tsx:37    fetch(`/api/reports/clients?...`)
+     app/dashboard/sales/approvals/page.tsx:59    fetch(`/api/dashboard/sales/approvals/${id}`)
+   Already React-Query-compliant (verified, no action needed on this axis):
+     sessions-client.tsx, trash-client.tsx, announcements-client.tsx,
+     favorites-client.tsx (via hooks/useFavorites.ts), profile-client.tsx
+     (useQuery/useMutation — EXCEPT the avatar upload at line 110 which uses
+     raw fetch('/api/profile/avatar', {method:'POST', body: formData}) — this
+     is the documented FormData/multipart exemption pattern, not a violation),
+     notifications-client.tsx, reports-client.tsx (index page), reports/
+     revenue/page.tsx, reports/storage/page.tsx, whatsapp-analytics/page.tsx
+     (hooks/useCurrentUser + child components' own hooks), whatsapp-campaigns/
+     page.tsx (hooks/useWhatsApp.ts: useCampaigns/useCreateCampaign/
+     useDeleteCampaign/useSendCampaign), and all of components/sales/chat/**
+     (chat-store + React Query throughout).
+
+2. ACTION_LABELS shadow-map — THREE-WAY DRIFT (the "Phase 6" flag referenced
+   in the task brief). This is the same conceptual key→Arabic-label map that
+   existed a third time in components/boards/task-sheet.tsx (already migrated
+   to `boards.sheet.activity.*` next-intl keys per Phase 2, per CLAUDE.md/
+   docs/superpowers/plans/2026-07-05-i18n-phase-2.md line 127) and a fourth
+   time in the now-DELETED dead TaskDetailDialog (board-view-client.tsx,
+   removed in Phase 2 per MEMORY.md). The two copies still alive and BOTH
+   in this census's scope are:
+     app/dashboard/activity/activity-client.tsx:29-70   (const ACTION_LABELS,
+       ~38 keys, client-side badge/filter rendering — [status] class)
+     app/api/activity/export/route.ts:57-81             (inline literal object
+       inside the CSV-export handler, ~24 keys — [status] class)
+   DRIFT CONFIRMED: the export route's map is missing keys the client map has
+   (e.g. `user_created`, `create_target`/`update_target`, ALL of the HR/
+   payroll block — leave_create, timesheet_create, work_schedule_create,
+   employee_payment_create, payroll_create, attendance_create, etc. — lines
+   64-69 in activity-client.tsx have no counterpart in export/route.ts). A
+   payroll/leave activity row exported to CSV today falls back to the raw
+   action_type string instead of an Arabic label. Any Phase 6 migration MUST
+   unify these into a single next-intl catalog (or a single shared TS const)
+   consumed by both the client badge AND the CSV export headers — migrating
+   only one and leaving the other hardcoded re-creates the exact drift bug
+   this hazard describes.
+   A third, SMALLER, independent shadow map exists for NOTIFICATION types
+   (different domain, different keys — NOT the same map, don't conflate):
+     app/dashboard/notifications/notifications-client.tsx:27-51  (NOTIF_TYPES,
+       ~24 keys, badge label next to each notification row)
+   No server-side counterpart to NOTIF_TYPES was found (notifications are
+   rendered from stored `n.title`/`n.message`, not re-derived from `n.type`
+   client-side beyond this one badge) — lower drift risk than ACTION_LABELS,
+   but still a hardcoded Arabic map that needs a catalog home.
+
+3. STORED-CONTENT vs PAGE-CHROME split on the notifications page (task brief
+   explicitly asked this be distinguished). app/dashboard/notifications/
+   notifications-client.tsx renders `n.title`, `n.message`, and
+   `n.source_display_name` (lines 162, 166, 168) — these are DATABASE VALUES
+   read from the `pyra_notifications` row, written at insert time by
+   `notify()`/`notifyMany()`/`notifyBatch()` call sites all over the codebase
+   (Phase 8 scope — the notification TEMPLATE system, out of this census's
+   scope). They do NOT appear in the Arabic-line census below because they
+   are JSX expressions (`{n.title}`), not string literals — grep-for-literal-
+   Arabic correctly did not catch them. Everything else on the page — the
+   "الإشعارات" heading, "تحديد الكل كمقروء"/"الكل"/"غير مقروء" filter buttons,
+   the NOTIF_TYPES badge map (hazard #2 above), the EmptyState copy, and the
+   "فتح" external-link affordance — IS page chrome, IS a string literal, and
+   IS this census's (Phase 6) responsibility. The 18 (notification)-class
+   lines counted below are exclusively notify()-call payloads found across
+   the API routes in scope (lead transfer, quote approval, WhatsApp
+   assignment/merge/mention, SLA breach, HR document, etc.) — i.e. the
+   Arabic TEXT that eventually becomes a future n.title/n.message value; the
+   notify() call sites themselves stay Arabic per the CLAUDE.md i18n rule
+   ("Notification / WhatsApp / DB-data strings inside routes STAY Arabic
+   ... until Phase 8").
+
+4. Bilingual DB-row pattern (name / name_ar columns) — a future locale-aware
+   render decision, not a string to translate:
+     components/dashboard/sales-settings/pipeline-stages.tsx:50-51  form
+       captures BOTH `newStage.name` (English) and `newStage.name_ar`
+       (Arabic) as separate DB columns on `pyra_sales_stages` — this is
+       existing bilingual DATA, not migratable UI copy. Flag for whoever
+       migrates whatsapp-campaigns/settings: stage names displayed
+       elsewhere (pipeline board, this settings list) currently always show
+       `name_ar` regardless of locale — decide whether Phase 6+ should
+       start reading `name`/`name_ar` locale-conditionally.
+
+5. Duplicated `sourceLabels`/`priorityLabels` maps — SAME FILE, declared
+   TWICE (not even cross-file drift, just copy-paste inside one route):
+     app/api/dashboard/sales/reports/route.ts:78-79   and again at :300-301
+       (`manual: 'يدوي', whatsapp: 'واتساب', website: 'موقع', referral: 'إحالة',
+       ad: 'إعلان', social: 'سوشيال'` — identical literal object appears
+       twice in the same file, once per report-type branch)
+   Also duplicated (3rd copy, different file) at:
+     app/api/dashboard/sales/leads/export/route.ts:76
+   Same drift risk as hazard #2 — three copies of the lead-source label map
+   across 2 files; a 4th copy may exist elsewhere outside this census's scope.
+
+6. ROLE_LABELS shadow map (yet another key→Arabic label object, distinct
+   domain from ACTION_LABELS/NOTIF_TYPES/sourceLabels):
+     app/dashboard/reports/team/page.tsx:32-36   ({admin: 'مدير', member:
+       'عضو', viewer: 'مشاهد', editor: 'محرر', super_admin: 'مدير أعلى'})
+   Worth checking against any existing canonical role-label source
+   (lib/auth/rbac.ts or a status-labels helper) before creating a 3rd
+   next-intl key set for "role display name" if one already exists.
+
+7. `toLocaleDateString('ar-EG'/'ar-AE', ...)` / `toLocaleString('ar-EG', ...)`
+   hardcoded-locale calls inside this scope (will need the same
+   locale-conditional parametrize treatment CLAUDE.md documents for
+   boards/my-payslips/timesheet, which are OUT of this census's scope but
+   set the precedent):
+     app/dashboard/sales/whatsapp-campaigns/page.tsx:191
+       `new Date(campaign.created_at).toLocaleDateString('ar-EG')`
+     components/sales/chat/contact-panel/previous-conversations.tsx:168
+       `new Date(msg.timestamp).toLocaleTimeString('ar-AE', {...})`
+     components/sales/chat/message-bubble.tsx:79
+       `new Date(timestamp).toLocaleTimeString('ar-EG', {...})`
+     components/sales/chat/chat-panel/message-list.tsx:62
+       `new Date(item.sortTime).toLocaleDateString('ar-EG', {...})`
+     components/sales/chat/chat-panel/message-list.tsx:160
+       `new Date(note.created_at).toLocaleString('ar-EG', {...})`
+     components/sales/chat/dialogs/send-invoice-dialog.tsx:83
+       `new Date(inv.due_date).toLocaleDateString('ar-EG')` (embedded inside
+       a template-literal WhatsApp message body being composed — locale AND
+       content both need attention here since it's message content sent to
+       a client, not just UI)
+     components/sales/chat/dialogs/snooze-picker.tsx:119,157
+       `toLocaleString('ar-EG', ...)` (×2 — title attr + preset button label)
+   None of `formatDate`/`formatCurrency` from lib/utils/format (the
+   locale-aware helpers CLAUDE.md prescribes) are used anywhere in the
+   WhatsApp chat surface — it independently hand-rolls ar-EG/ar-AE
+   formatting everywhere dates/times are shown. This is the single largest
+   concentration of hardcoded-locale date formatting in the misc-pages set.
+   No hardcoded `dir="rtl"`/`dir="ltr"` JSX attributes were found anywhere
+   in scope (grep returned zero matches).
+
+8. JSON-array-shaped label catalogs — will need conversion to KEYED OBJECTS
+   per the CLAUDE.md i18n rule "Catalogs must NEVER contain JSON arrays"
+   (the `calendar.dayNames` precedent). These are `Array<{value/key, label,
+   ...}>` constants used to drive Select/Tabs/filter UI — every one below
+   has a `label:` field that is a raw Arabic string and will need to become
+   an ICU/next-intl key lookup while preserving array ORDER for the UI:
+     components/sales/chat/use-chat-store.ts:97-102        (FILTER_TABS, 6 entries)
+     components/sales/chat/filters/sort-selector.tsx:24-27  (SORT_OPTIONS, 4)
+     components/sales/chat/filters/filter-bar.tsx:12-15     (PRIORITY_OPTIONS, 4)
+     components/sales/chat/dialogs/snooze-picker.tsx:~20-45 (SNOOZE_PRESETS, 4)
+     components/sales/chat/dialogs/schedule-followup-dialog.tsx:20-25
+                                                              (QUICK_OPTIONS, 6)
+     components/sales/chat/dialogs/add-note-dialog.tsx:19-22 (ACTIVITY_TYPES, 4)
+     components/dashboard/sales-settings/sla-manager.tsx:37-40 (PRIORITY array, 4)
+   components/sales/chat/dialogs/label-picker.tsx and chat-panel/message-list.tsx
+   also matched the array-literal heuristic but on inspection are label-picker
+   UI text / message-list rendering, not catalog arrays — lower priority.
+
+9. Files >300 lines in scope (18, split-before-migrate candidates per
+   CLAUDE.md's "<300 lines per client file" convention — several are already
+   well past double that):
+     936  app/api/dashboard/sales/whatsapp/webhook/route.ts
+     649  components/sales/chat/contact-panel/index.tsx
+     645  components/sales/chat/chat-input.tsx
+     632  components/dashboard/sales-settings/SalesSettingsContent.tsx
+     608  components/sales/chat/chat-panel/index.tsx
+     466  app/dashboard/profile/profile-client.tsx
+     456  components/sales/chat/message-bubble.tsx
+     434  app/api/dashboard/sales/whatsapp/ai-suggest/route.ts  (93 Arabic
+          lines — almost entirely a hardcoded Arabic rule-based chatbot
+          keyword/response engine, see hazard #10)
+     401  components/sales/chat/chat-layout.tsx
+     391  app/api/reports/export/route.ts
+     374  components/sales/chat/chat-panel/chat-header.tsx
+     360  app/api/dashboard/sales/whatsapp/sync/route.ts (0 Arabic)
+     351  components/settings/agent-whatsapp-settings/dialog.tsx [OUT-OF-SCOPE]
+     338  components/dashboard/sales-settings/sla-manager.tsx
+     334  app/dashboard/announcements/announcements-client.tsx
+     321  app/api/dashboard/sales/leads/bulk/route.ts
+     318  app/api/dashboard/sales/reports/route.ts
+     311  app/dashboard/trash/trash-client.tsx
+
+10. app/api/dashboard/sales/whatsapp/ai-suggest/route.ts is NOT ordinary
+    UI/API-message Arabic — it's a rule-based Arabic NLU keyword-matcher +
+    canned-response generator (93 Arabic lines, the single largest count in
+    the whole census) that also builds an Arabic LLM system prompt
+    (lines 200-207+, `systemPrompt = \`أنت مساعد مبيعات...\``) for an AI
+    provider call. This is qualitatively different from every other file in
+    scope: the Arabic here is BUSINESS LOGIC DATA (keyword lists + canned
+    replies + a prompt template), not translatable UI copy. It should very
+    likely be EXCLUDED from the standard next-intl catalog migration
+    entirely (or handled as a special "content, not chrome" case like the
+    Phase 8 notification templates) — migrating it the same way as a button
+    label would be a category error. Flag for the planning phase, do not
+    just bucket it under (ui)/(status) counts.
+
+11. Duplicate PRIORITY_LABELS-style maps across THREE unrelated files, same
+    domain (lead/conversation priority), no shared source:
+     components/sales/chat/filters/filter-bar.tsx:12-15
+     components/sales/chat/contact-panel/index.tsx:35  (inline, single line)
+     components/dashboard/sales-settings/sla-manager.tsx:37-40
+   Same drift-risk pattern as hazards #2/#5/#6 — 4 independent priority-label
+   shadow maps exist across the whole misc-pages scope (chat filter-bar,
+   contact-panel, sla-manager here, PLUS boards' own PRIORITY_LABELS already
+   flagged for migration per docs/superpowers/plans/2026-07-05-i18n-phase-2.md
+   line 113, outside this census). Strong candidate for ONE shared
+   `useStatusLabels('leadPriority')`/`useStatusLabels('conversationPriority')`
+   entity, following the pattern CLAUDE.md documents for `useStatusLabels`.
+
+12. No `MONTH_NAMES_AR`/`ARABIC_MONTHS`/`MONTHS_AR` usage found anywhere in
+    this scope (grep confirmed empty in app/api/reports and app/api/dashboard/
+    sales) — the shared `MONTH_NAMES_AR` DRY-up documented in CLAUDE.md's
+    "HR/Payroll v1.1 Cleanup" section does not apply here; no action needed.
+
+13. Emoji-prefixed Arabic labels embedded in message-composition template
+    literals (will need careful handling — the emoji is presentational, the
+    Arabic is content, both currently welded into one hardcoded string):
+     app/api/dashboard/sales/whatsapp/groups/route.ts:236
+       `[${messageType === 'audio' ? 'صوت' : messageType === 'image' ? 'صورة' : messageType}]`
+     app/api/dashboard/sales/whatsapp/webhook/route.ts:411
+       `📷 صورة` / `🎤 صوتية` / `🎬 فيديو` / `📎 ملف` (media-type preview text
+       written into `conv.last_message` — this is DATA persisted to the DB,
+       not a render-time literal; migrating it changes historical rows'
+       apparent language, same caution as hazard #3's stored-content note)
+     components/sales/chat/conversation-list/conversation-item.tsx:21-27
+       (MEDIA_LABELS, client-side render-time equivalent of the webhook's
+       persisted text — TWO independent copies of "media type → Arabic
+       label," one baked into stored DB strings, one live client-side;
+       migrating only the client copy leaves old conversations' persisted
+       preview text permanently Arabic — flag for Phase 8/9 data-migration
+       planning, not a pure Phase 6 UI fix).
+
+================================================================================
+FULL LINE-BY-LINE LISTING (1,368 lines across all 151 scanned files,
+including the 3 OUT-OF-SCOPE agent-whatsapp-settings files at the very end)
+Format: file:line  <verbatim string>  [CLASS]
+================================================================================
+app/api/activity/export/route.ts:45  return apiServerError('فشل في تصدير سجل النشاط');  [data]
+app/api/activity/export/route.ts:54  const headers = ['التاريخ', 'الوقت', 'المستخدم', 'الاسم', 'نوع الإجراء', 'المسار', 'IP', 'التفاصيل'];  [data]
+app/api/activity/export/route.ts:58  file_uploaded: 'رفع ملف', file_deleted: 'حذف ملف', file_renamed: 'إعادة تسمية',  [status]
+app/api/activity/export/route.ts:59  file_moved: 'نقل ملف', folder_created: 'إنشاء مجلد', user_created: 'إنشاء مستخدم',  [status]
+app/api/activity/export/route.ts:60  user_updated: 'تحديث مستخدم', user_deleted: 'حذف مستخدم', team_created: 'إنشاء فريق',  [status]
+app/api/activity/export/route.ts:61  client_created: 'إنشاء عميل', project_created: 'إنشاء مشروع', share_created: 'رابط مشاركة',  [status]
+app/api/activity/export/route.ts:62  review_added: 'مراجعة', settings_updated: 'تحديث إعدادات', file_restored: 'استعادة ملف',  [status]
+app/api/activity/export/route.ts:63  file_purged: 'حذف نهائي', login: 'تسجيل دخول', logout: 'تسجيل خروج',  [status]
+app/api/activity/export/route.ts:64  password_changed: 'تغيير كلمة مرور',  [status]
+app/api/activity/export/route.ts:65  upload: 'رفع ملف', version_restore: 'استعادة نسخة', version_delete: 'حذف نسخة',  [status]
+app/api/activity/export/route.ts:66  trash_empty: 'تفريغ السلة', trash_purge: 'حذف منتهية',  [status]
+app/api/activity/export/route.ts:68  portal_login: 'دخول عميل', portal_logout: 'خروج عميل',  [status]
+app/api/activity/export/route.ts:69  portal_download: 'تحميل ملف (عميل)', portal_preview: 'معاينة ملف (عميل)',  [status]
+app/api/activity/export/route.ts:70  file_approved: 'اعتماد ملف', revision_requested: 'طلب تعديل',  [status]
+app/api/activity/export/route.ts:71  client_comment: 'تعليق عميل', quote_signed: 'توقيع عرض سعر',  [status]
+app/api/activity/export/route.ts:72  quote_viewed: 'مشاهدة عرض سعر',  [status]
+app/api/activity/export/route.ts:73  portal_password_changed: 'تغيير كلمة مرور (عميل)',  [status]
+app/api/activity/export/route.ts:74  portal_password_reset_requested: 'طلب استعادة كلمة مرور',  [status]
+app/api/activity/export/route.ts:75  portal_password_reset_completed: 'إعادة تعيين كلمة مرور',  [status]
+app/api/activity/export/route.ts:76  portal_profile_updated: 'تحديث بروفايل عميل',  [status]
+app/api/activity/export/route.ts:77  script_approved: 'اعتماد سكريبت',  [status]
+app/api/activity/export/route.ts:78  script_revision_requested: 'طلب تعديل سكريبت',  [status]
+app/api/activity/export/route.ts:79  script_reply_sent: 'رد إدارة على سكريبت',  [status]
+app/api/activity/export/route.ts:80  script_client_reply: 'رد عميل على سكريبت',  [status]
+app/api/announcements/[id]/route.ts:30  if (!data) return apiNotFound('الإعلان غير موجود');  [data]
+app/api/announcements/route.ts:52  if (!title || !content) return apiValidationError('العنوان والمحتوى مطلوبان');  [data]
+app/api/dashboard/sales/approvals/[id]/route.ts:29  return apiError('الإجراء يجب أن يكون approve أو reject');  [data]
+app/api/dashboard/sales/approvals/[id]/route.ts:39  if (fetchError || !approval) return apiError('طلب الموافقة غير موجود', 404);  [data]
+app/api/dashboard/sales/approvals/[id]/route.ts:40  if (approval.status !== 'pending') return apiError('تم الرد على هذا الطلب مسبقاً');  [data]
+app/api/dashboard/sales/approvals/[id]/route.ts:96  title: action === 'approve' ? 'تمت الموافقة على عرض السعر' : 'تم رفض عرض السعر',  [ui]
+app/api/dashboard/sales/approvals/[id]/route.ts:98  ? `تمت الموافقة على عرض السعر ${quoteNumber}${comments ? ` — ${comments}` : ''}`  [ui]
+app/api/dashboard/sales/approvals/[id]/route.ts:99  : `تم رفض عرض السعر ${quoteNumber}${comments ? ` — السبب: ${comments}` : ''}`,  [ui]
+app/api/dashboard/sales/follow-ups/route.ts:56  if ((!lead_id && !quote_id) || !due_at) return apiError('العميل المحتمل أو عرض السعر ووقت المتابعة مطلوبين');  [data]
+app/api/dashboard/sales/follow-ups/route.ts:67  return apiForbidden('لا يمكنك إنشاء متابعة لعميل محتمل غير مسند إليك');  [data]
+app/api/dashboard/sales/follow-ups/route.ts:113  description: title || 'متابعة',  [ui]
+app/api/dashboard/sales/follow-ups/route.ts:141  if (!id) return apiError('معرّف المتابعة مطلوب');  [data]
+app/api/dashboard/sales/follow-ups/route.ts:152  return apiNotFound('المتابعة غير موجودة');  [data]
+app/api/dashboard/sales/follow-ups/route.ts:188  if (!id) return apiError('معرّف المتابعة مطلوب');  [data]
+app/api/dashboard/sales/follow-ups/route.ts:199  return apiNotFound('المتابعة غير موجودة');  [data]
+app/api/dashboard/sales/labels/route.ts:39  if (!name) return apiError('اسم التصنيف مطلوب');  [data]
+app/api/dashboard/sales/labels/route.ts:74  if (!id) return apiError('معرّف التصنيف مطلوب');  [data]
+app/api/dashboard/sales/labels/route.ts:89  if (!data) return apiNotFound('التصنيف غير موجود');  [data]
+app/api/dashboard/sales/labels/route.ts:107  if (!id) return apiError('معرّف التصنيف مطلوب');  [data]
+app/api/dashboard/sales/leads/[id]/activities/route.ts:49  if (!activity_type) return apiError('نوع النشاط مطلوب');  [data]
+app/api/dashboard/sales/leads/[id]/convert/route.ts:33  if (leadError || !lead) return apiNotFound('العميل المحتمل غير موجود');  [data]
+app/api/dashboard/sales/leads/[id]/convert/route.ts:38  return apiNotFound('العميل المحتمل غير موجود');  [data]
+app/api/dashboard/sales/leads/[id]/convert/route.ts:41  if (lead.is_converted) return apiError('تم تحويل هذا العميل المحتمل بالفعل');  [data]
+app/api/dashboard/sales/leads/[id]/convert/route.ts:44  if (!lead.email) return apiError('لا يمكن التحويل: البريد الإلكتروني مطلوب على العميل المحتمل', 422);  [data]
+app/api/dashboard/sales/leads/[id]/convert/route.ts:68  if (clientError) return apiServerError(`فشل إنشاء العميل: ${clientError.message}`);  [data]
+app/api/dashboard/sales/leads/[id]/convert/route.ts:150  description: `تم تحويل العميل المحتمل إلى عميل فعلي`,  [ui]
+app/api/dashboard/sales/leads/[id]/labels/route.ts:24  if (!Array.isArray(label_ids)) return apiError('label_ids مطلوب كمصفوفة');  [data]
+app/api/dashboard/sales/leads/[id]/labels/route.ts:58  description: 'تم تحديث التصنيفات',  [ui]
+app/api/dashboard/sales/leads/[id]/route.ts:27  if (error || !data) return apiNotFound('العميل المحتمل غير موجود');  [data]
+app/api/dashboard/sales/leads/[id]/route.ts:32  return apiNotFound('العميل المحتمل غير موجود');  [data]
+app/api/dashboard/sales/leads/[id]/route.ts:114  if (fetchError || !existing) return apiNotFound('العميل المحتمل غير موجود');  [data]
+app/api/dashboard/sales/leads/[id]/route.ts:119  return apiNotFound('العميل المحتمل غير موجود');  [data]
+app/api/dashboard/sales/leads/[id]/route.ts:147  description: `تم تغيير المرحلة`,  [ui]
+app/api/dashboard/sales/leads/[id]/route.ts:218  return apiNotFound('العميل المحتمل غير موجود');  [data]
+app/api/dashboard/sales/leads/[id]/transfer/route.ts:22  if (!to_agent) return apiError('يجب تحديد الموظف المحوّل إليه');  [data]
+app/api/dashboard/sales/leads/[id]/transfer/route.ts:31  if (fetchError || !lead) return apiNotFound('العميل المحتمل غير موجود');  [data]
+app/api/dashboard/sales/leads/[id]/transfer/route.ts:36  return apiNotFound('العميل المحتمل غير موجود');  [data]
+app/api/dashboard/sales/leads/[id]/transfer/route.ts:65  description: `تم تحويل العميل المحتمل من ${fromAgent} إلى ${to_agent}`,  [ui]
+app/api/dashboard/sales/leads/[id]/transfer/route.ts:86  title: 'تم تعيين عميل محتمل جديد لك',  [notification]
+app/api/dashboard/sales/leads/[id]/transfer/route.ts:87  message: `تم تحويل العميل المحتمل "${lead.name}" إليك${reason ? ` — ${reason}` : ''}`,  [notification]
+app/api/dashboard/sales/leads/bulk/route.ts:64  return apiValidationError('إجراء غير صالح');  [data]
+app/api/dashboard/sales/leads/bulk/route.ts:68  return apiValidationError('يجب تحديد عميل محتمل واحد على الأقل');  [data]
+app/api/dashboard/sales/leads/bulk/route.ts:79  return apiValidationError('قائمة العملاء المحتملين غير صالحة');  [data]
+app/api/dashboard/sales/leads/bulk/route.ts:83  return apiValidationError('الحد الأقصى 50 عميل محتمل في المرة الواحدة');  [data]
+app/api/dashboard/sales/leads/bulk/route.ts:96  return apiValidationError('بعض العملاء المحتملين غير موجودين');  [data]
+app/api/dashboard/sales/leads/bulk/route.ts:100  return apiValidationError('لا يمكن تنفيذ عملية جماعية على Leads مؤرشفة');  [data]
+app/api/dashboard/sales/leads/bulk/route.ts:108  return apiForbidden('لا يمكنك تعديل عملاء محتملين غير مسندين إليك');  [data]
+app/api/dashboard/sales/leads/bulk/route.ts:118  return apiForbidden('تغيير مسؤول مجموعة Leads متاح للمدير فقط');  [data]
+app/api/dashboard/sales/leads/bulk/route.ts:122  if (!targetOwner) return apiValidationError('يجب تحديد الموظف');  [data]
+app/api/dashboard/sales/leads/bulk/route.ts:124  return apiValidationError('الموظف المحدد غير موجود أو غير نشط');  [data]
+app/api/dashboard/sales/leads/bulk/route.ts:158  title: 'تم تحويل Lead لك',  [notification]
+app/api/dashboard/sales/leads/bulk/route.ts:159  message: `${auth.pyraUser.display_name} حوّل Lead "${lead.name ?? 'بدون اسم'}" إليك`,  [notification]
+app/api/dashboard/sales/leads/bulk/route.ts:174  return apiForbidden('تغيير مرحلة مجموعة Leads غير متاح لحسابك');  [data]
+app/api/dashboard/sales/leads/bulk/route.ts:178  if (!targetStage) return apiValidationError('يجب تحديد المرحلة');  [data]
+app/api/dashboard/sales/leads/bulk/route.ts:179  if (!VALID_STAGES.has(targetStage)) return apiValidationError('المرحلة المحددة غير صالحة');  [data]
+app/api/dashboard/sales/leads/bulk/route.ts:181  return apiValidationError('لا يمكن نقل Leads إلى فوز بالصفقة مباشرة. استخدم مسار الموافقة');  [data]
+app/api/dashboard/sales/leads/bulk/route.ts:184  return apiValidationError('مرحلة توقيع العقد تحتاج عقد أو فاتورة لكل Lead، لذلك تتم من صفحة الـ Lead نفسه');  [data]
+app/api/dashboard/sales/leads/bulk/route.ts:191  return apiValidationError('إعادة فتح صفقة مغلقة لا تتم كعملية جماعية. افتح كل Lead وحده مع سبب واضح');  [data]
+app/api/dashboard/sales/leads/bulk/route.ts:198  if (!lostReason) return apiValidationError('نقل Leads إلى خسارة يحتاج سبب الخسارة');  [data]
+app/api/dashboard/sales/leads/bulk/route.ts:263  return apiForbidden('أرشفة مجموعة Leads متاحة للمدير فقط');  [data]
+app/api/dashboard/sales/leads/bulk/route.ts:277  description: 'تم أرشفة الـ Lead (عملية جماعية)',  [ui]
+app/api/dashboard/sales/leads/bulk/route.ts:289  if (!label_id) return apiValidationError('يجب تحديد الوسم');  [data]
+app/api/dashboard/sales/leads/export/route.ts:72  low: 'منخفضة', medium: 'متوسطة', high: 'عالية', urgent: 'عاجلة',  [status]
+app/api/dashboard/sales/leads/export/route.ts:76  manual: 'يدوي', whatsapp: 'واتساب', website: 'موقع', referral: 'إحالة', ad: 'إعلان', social: 'سوشيال',  [status]
+app/api/dashboard/sales/leads/export/route.ts:80  const headers = ['الاسم', 'الهاتف', 'البريد الإلكتروني', 'الشركة', 'المصدر', 'المرحلة', 'الأولوية', 'التقييم', 'الموظف', 'محوّل', 'تاريخ الإنشاء'];  [data]
+app/api/dashboard/sales/leads/export/route.ts:91  lead.is_converted ? 'نعم' : 'لا',  [ui]
+app/api/dashboard/sales/leads/route.ts:143  if (!name) return apiError('اسم العميل المحتمل مطلوب');  [data]
+app/api/dashboard/sales/leads/route.ts:152  return apiError('يمكنك فقط إنشاء عملاء معينين لك (للتعيين لشخص آخر استخدم خاصية النقل)', 403);  [data]
+app/api/dashboard/sales/leads/route.ts:161  return apiError('المستخدم المحدد للتعيين غير موجود أو غير نشط', 422);  [data]
+app/api/dashboard/sales/leads/route.ts:235  description: `تم إنشاء العميل المحتمل`,  [ui]
+app/api/dashboard/sales/leads/route.ts:263  title: 'تم تعيين عميل محتمل جديد لك',  [notification]
+app/api/dashboard/sales/leads/route.ts:264  message: `تم تعيين العميل المحتمل "${name}" لك`,  [notification]
+app/api/dashboard/sales/pipeline-stages/route.ts:40  if (!name || !name_ar) return apiError('اسم المرحلة مطلوب (عربي وإنجليزي)');  [data]
+app/api/dashboard/sales/pipeline-stages/route.ts:79  if (!Array.isArray(stages)) return apiError('مطلوب مصفوفة stages');  [data]
+app/api/dashboard/sales/reports/route.ts:23  return apiValidationError('نوع التقرير مطلوب (funnel, velocity, agents, aging, lost)');  [data]
+app/api/dashboard/sales/reports/route.ts:44  return apiValidationError('نوع التقرير غير صالح');  [data]
+app/api/dashboard/sales/reports/route.ts:78  manual: 'يدوي', whatsapp: 'واتساب', website: 'موقع',  [status]
+app/api/dashboard/sales/reports/route.ts:79  referral: 'إحالة', ad: 'إعلان', social: 'سوشيال',  [status]
+app/api/dashboard/sales/reports/route.ts:278  .or('name.ilike.%lost%,name.ilike.%خسر%,name_ar.ilike.%خسر%,name_ar.ilike.%فقد%');  [ui]
+app/api/dashboard/sales/reports/route.ts:300  manual: 'يدوي', whatsapp: 'واتساب', website: 'موقع',  [status]
+app/api/dashboard/sales/reports/route.ts:301  referral: 'إحالة', ad: 'إعلان', social: 'سوشيال',  [status]
+app/api/dashboard/sales/reports/route.ts:306  const src = sourceLabels[lead.source] || lead.source || 'أخرى';  [status]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:65  'هلا',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:66  'مرحبا',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:67  'مرحباً',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:68  'السلام',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:69  'هاي',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:73  'صباح',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:74  'مساء',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:75  'أهلا',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:76  'أهلاً',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:81  ? `أهلاً ${name}! كيف أقدر أساعدك؟`  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:82  : 'أهلاً! كيف أقدر أساعدك؟'  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:84  suggestions.push('مرحباً بك! أنا هنا لمساعدتك');  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:85  suggestions.push('أهلاً وسهلاً! كيف يمكنني خدمتك اليوم؟');  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:91  'سعر',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:92  'كم',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:93  'تكلفة',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:97  'عرض سعر',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:98  'أسعار',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:99  'باقات',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:100  'باكج',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:104  suggestions.push('بالتأكيد! خليني أجهز لك عرض سعر مفصّل');  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:106  'أقدر أرسل لك تفاصيل الأسعار. ممكن تحدد لي بالضبط إيش تحتاج؟'  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:113  'شكرا',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:114  'شكراً',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:117  'مشكور',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:118  'مشكورين',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:119  'يعطيك العافية',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:120  'تسلم',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:123  suggestions.push('العفو! سعيدين بخدمتك');  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:124  suggestions.push('لا شكر على واجب! نتطلع للتعاون معك');  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:130  'موعد',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:131  'اجتماع',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:134  'نلتقي',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:135  'زيارة',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:136  'نشوفكم',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:137  'متى فاضي',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:140  suggestions.push('أكيد! متى يناسبك؟ أنا متاح الأسبوع هذا');  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:141  suggestions.push('بكل سرور. ممكن نحدد موعد يناسبك؟');  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:147  'خدمات',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:149  'إيش تقدمون',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:150  'شو عندكم',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:151  'ايش تسوون',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:152  'نبذة',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:153  'تعريف',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:154  'بروفايل',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:158  'نقدم خدمات تسويق رقمي متكاملة: إعلانات، سوشيال ميديا، تصوير، إنتاج'  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:160  suggestions.push('خليني أرسل لك بروفايل الشركة مع كل التفاصيل');  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:166  'متى يكون جاهز',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:168  'منتظر',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:169  'رد',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:170  'وين وصلتوا',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:171  'تحديث',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:173  'أخبار',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:174  'خلصتوا',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:177  suggestions.push('شكراً لصبرك! جاري التحقق وبرد عليك بأسرع وقت');  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:178  suggestions.push('أعتذر عن التأخير. خليني أتابع الموضوع وأرد عليك');  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:184  'مشكلة',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:185  'شكوى',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:188  'خطأ',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:189  'ما يشتغل',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:190  'مو شغال',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:191  'خراب',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:192  'عطل',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:193  'زعلان',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:194  'مو راضي',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:198  'نعتذر عن أي إزعاج. ممكن توضح لي المشكلة بالتفصيل عشان نحلها؟'  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:200  suggestions.push('أفهم قلقك تماماً. خليني أتابع الموضوع شخصياً');  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:206  'تمام',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:207  'أوكي',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:210  'موافق',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:211  'ماشي',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:212  'حلو',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:218  suggestions.push('ممتاز! بنبدأ على طول');  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:219  suggestions.push('تمام، أي شي ثاني تحتاجه لا تتردد');  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:225  'مواعيد',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:226  'دوام',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:227  'ساعات',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:228  'مفتوح',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:229  'شغالين',  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:236  'دوامنا من الأحد إلى الخميس، من 9 صباحاً حتى 6 مساءً'  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:238  suggestions.push('نحن متاحين لخدمتك! تقدر تتواصل معنا أي وقت');  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:245  ? `شكراً لتواصلك ${name}! كيف أقدر أساعدك؟`  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:246  : 'شكراً لتواصلك! كيف أقدر أساعدك؟'  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:248  suggestions.push('تم استلام رسالتك. سأرد عليك بأسرع وقت');  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:267  const systemPrompt = `أنت مساعد مبيعات في شركة إنتاج إعلامي في الإمارات (Pyramedia X).  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:268  اقترح 3 ردود قصيرة بالعربية مناسبة للرد على آخر رسالة من العميل.  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:269  ${contactName ? `اسم العميل: ${contactName}` : ''}  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:270  الردود يجب أن تكون:  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:271  - مختصرة (جملة أو جملتين كحد أقصى)  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:272  - مهنية ودودة  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:273  - مناسبة لسياق المحادثة  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:274  أجب بصيغة JSON فقط: ["رد 1", "رد 2", "رد 3"]`;  [ui]
+app/api/dashboard/sales/whatsapp/ai-suggest/route.ts:340  return apiValidationError('الرسائل مطلوبة');  [data]
+app/api/dashboard/sales/whatsapp/assignments/[id]/route.ts:32  return apiError('لا توجد حقول للتحديث');  [data]
+app/api/dashboard/sales/whatsapp/assignments/route.ts:57  return apiError('remote_jid و instance_name و assigned_to مطلوبين');  [data]
+app/api/dashboard/sales/whatsapp/campaigns/[id]/route.ts:28  if (error || !campaign) return apiNotFound('الحملة غير موجودة');  [data]
+app/api/dashboard/sales/whatsapp/campaigns/[id]/send/route.ts:30  if (campErr || !campaign) return apiNotFound('الحملة غير موجودة');  [data]
+app/api/dashboard/sales/whatsapp/campaigns/[id]/send/route.ts:33  return apiServerError('الحملة قيد الإرسال أو مكتملة');  [data]
+app/api/dashboard/sales/whatsapp/campaigns/route.ts:45  return apiValidationError('اسم الحملة والرسالة مطلوبين');  [data]
+app/api/dashboard/sales/whatsapp/campaigns/route.ts:48  return apiValidationError('يجب إضافة جهات اتصال');  [data]
+app/api/dashboard/sales/whatsapp/conversations/[id]/assign/route.ts:32  if (!conv) return apiNotFound('المحادثة غير موجودة');  [data]
+app/api/dashboard/sales/whatsapp/conversations/[id]/assign/route.ts:59  title: 'محادثة جديدة مسندة إليك',  [notification]
+app/api/dashboard/sales/whatsapp/conversations/[id]/assign/route.ts:60  message: `تم تعيينك على محادثة ${conv.contact_name || conv.remote_jid}`,  [notification]
+app/api/dashboard/sales/whatsapp/conversations/[id]/labels/route.ts:62  if (!label_id) return apiValidationError('معرف التسمية مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/conversations/[id]/labels/route.ts:73  if (!conv) return apiNotFound('المحادثة غير موجودة');  [data]
+app/api/dashboard/sales/whatsapp/conversations/[id]/labels/route.ts:122  if (!label_id) return apiValidationError('معرف التسمية مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/conversations/[id]/merge/route.ts:26  if (!secondaryId) return apiValidationError('merge_with_id مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/conversations/[id]/merge/route.ts:27  if (primaryId === secondaryId) return apiValidationError('لا يمكن دمج المحادثة مع نفسها');  [data]
+app/api/dashboard/sales/whatsapp/conversations/[id]/merge/route.ts:37  if (!primary) return apiNotFound('المحادثة الأساسية غير موجودة');  [data]
+app/api/dashboard/sales/whatsapp/conversations/[id]/merge/route.ts:38  if (!secondary) return apiNotFound('المحادثة المطلوب دمجها غير موجودة');  [data]
+app/api/dashboard/sales/whatsapp/conversations/[id]/merge/route.ts:42  return apiValidationError('هذه المحادثة مدمجة بالفعل');  [data]
+app/api/dashboard/sales/whatsapp/conversations/[id]/merge/route.ts:45  return apiValidationError('المحادثة الأساسية مدمجة بالفعل في محادثة أخرى');  [data]
+app/api/dashboard/sales/whatsapp/conversations/[id]/notes/route.ts:53  if (!content) return apiValidationError('محتوى الملاحظة مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/conversations/[id]/notes/route.ts:64  if (!conv) return apiNotFound('المحادثة غير موجودة');  [data]
+app/api/dashboard/sales/whatsapp/conversations/[id]/notes/route.ts:69  return apiForbidden('لا يمكنك إضافة ملاحظة لمحادثة غير مسندة إليك');  [data]
+app/api/dashboard/sales/whatsapp/conversations/[id]/notes/route.ts:111  title: 'تم ذكرك في ملاحظة',  [notification]
+app/api/dashboard/sales/whatsapp/conversations/[id]/notes/route.ts:112  message: `ذكرك ${auth.pyraUser.display_name} في محادثة واتساب`,  [notification]
+app/api/dashboard/sales/whatsapp/conversations/[id]/route.ts:31  if (!conv) return apiNotFound('المحادثة غير موجودة');  [data]
+app/api/dashboard/sales/whatsapp/conversations/[id]/route.ts:36  return apiNotFound('المحادثة غير موجودة');  [data]
+app/api/dashboard/sales/whatsapp/conversations/[id]/route.ts:72  if (!conv) return apiNotFound('المحادثة غير موجودة');  [data]
+app/api/dashboard/sales/whatsapp/conversations/[id]/route.ts:77  return apiValidationError('لا يمكنك تعديل هذه المحادثة');  [data]
+app/api/dashboard/sales/whatsapp/conversations/bulk/route.ts:22  return apiValidationError('يجب تحديد محادثة واحدة على الأقل');  [data]
+app/api/dashboard/sales/whatsapp/conversations/bulk/route.ts:26  return apiValidationError('الإجراء مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/conversations/bulk/route.ts:60  if (!status) return apiValidationError('الحالة مطلوبة');  [data]
+app/api/dashboard/sales/whatsapp/conversations/bulk/route.ts:77  if (!priority) return apiValidationError('الأولوية مطلوبة');  [data]
+app/api/dashboard/sales/whatsapp/conversations/bulk/route.ts:94  if (!labelId) return apiValidationError('معرف التسمية مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/conversations/bulk/route.ts:149  return apiValidationError('إجراء غير مدعوم');  [data]
+app/api/dashboard/sales/whatsapp/csat/[conversationId]/route.ts:32  if (!survey) return apiNotFound('لا يوجد تقييم لهذه المحادثة');  [data]
+app/api/dashboard/sales/whatsapp/csat/[conversationId]/route.ts:56  if (body.rating < 1 || body.rating > 5) return apiValidationError('التقييم يجب أن يكون بين 1 و 5');  [data]
+app/api/dashboard/sales/whatsapp/csat/[conversationId]/route.ts:62  return apiValidationError('لا توجد تحديثات');  [data]
+app/api/dashboard/sales/whatsapp/csat/[conversationId]/route.ts:74  return apiNotFound('لا يوجد تقييم لهذه المحادثة');  [data]
+app/api/dashboard/sales/whatsapp/csat/route.ts:90  if (!conversation_id) return apiValidationError('conversation_id مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/csat/route.ts:91  if (!rating || rating < 1 || rating > 5) return apiValidationError('التقييم يجب أن يكون بين 1 و 5');  [data]
+app/api/dashboard/sales/whatsapp/csat/route.ts:102  if (convErr || !conv) return apiValidationError('المحادثة غير موجودة');  [data]
+app/api/dashboard/sales/whatsapp/groups/[id]/participants/route.ts:30  if (!group) return apiNotFound('المجموعة غير موجودة');  [data]
+app/api/dashboard/sales/whatsapp/groups/[id]/participants/route.ts:79  if (!group) return apiNotFound('المجموعة غير موجودة');  [data]
+app/api/dashboard/sales/whatsapp/groups/[id]/route.ts:28  if (error || !group) return apiNotFound('المجموعة غير موجودة');  [data]
+app/api/dashboard/sales/whatsapp/groups/[id]/route.ts:65  if (!group) return apiNotFound('المجموعة غير موجودة');  [data]
+app/api/dashboard/sales/whatsapp/groups/route.ts:199  text: quotedMsg.conversation || quotedMsg.extendedTextMessage?.text || '[وسائط]',  [ui]
+app/api/dashboard/sales/whatsapp/groups/route.ts:236  const preview = text || `[${messageType === 'audio' ? 'صوت' : messageType === 'image' ? 'صورة' : messageType}]`;  [ui]
+app/api/dashboard/sales/whatsapp/instances/[id]/route.ts:25  if (error || !data) return apiError('Instance غير موجود', 404);  [data]
+app/api/dashboard/sales/whatsapp/instances/route.ts:31  if (!instance_name) return apiError('اسم الـ Instance مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/instances/route.ts:41  return apiServerError(`فشل إنشاء Instance على Evolution API: ${err instanceof Error ? err.message : ''}`);  [data]
+app/api/dashboard/sales/whatsapp/labels/route.ts:49  return apiValidationError('الاسم واللون مطلوبان');  [data]
+app/api/dashboard/sales/whatsapp/labels/route.ts:101  if (!id) return apiValidationError('معرف التسمية مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/labels/route.ts:144  if (!id) return apiValidationError('معرف التسمية مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/media/[messageId]/route.ts:36  if (error || !message) return apiNotFound('الرسالة غير موجودة');  [data]
+app/api/dashboard/sales/whatsapp/media/[messageId]/route.ts:83  return apiNotFound('لا يمكن تحميل الوسائط');  [data]
+app/api/dashboard/sales/whatsapp/media/[messageId]/route.ts:90  return apiNotFound('فشل في تحميل الوسائط من واتساب');  [data]
+app/api/dashboard/sales/whatsapp/messages/[id]/forward/route.ts:28  return apiValidationError('رقم الهاتف مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/messages/[id]/forward/route.ts:43  if (!allowed) return apiNotFound('الرسالة غير موجودة');  [data]
+app/api/dashboard/sales/whatsapp/messages/[id]/forward/route.ts:53  return apiNotFound('الرسالة غير موجودة');  [data]
+app/api/dashboard/sales/whatsapp/messages/[id]/react/route.ts:31  return apiError('حقل reaction مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/messages/[id]/react/route.ts:43  if (!allowed) return apiError('الرسالة غير موجودة', 404);  [data]
+app/api/dashboard/sales/whatsapp/messages/[id]/react/route.ts:53  return apiError('الرسالة غير موجودة', 404);  [data]
+app/api/dashboard/sales/whatsapp/messages/[id]/react/route.ts:57  return apiError('لا يمكن التفاعل مع هذه الرسالة');  [data]
+app/api/dashboard/sales/whatsapp/messages/[id]/save-to-files/route.ts:36  if (!allowed) return apiNotFound('الرسالة غير موجودة');  [data]
+app/api/dashboard/sales/whatsapp/messages/[id]/save-to-files/route.ts:45  if (msgErr || !msg) return apiNotFound('الرسالة غير موجودة');  [data]
+app/api/dashboard/sales/whatsapp/messages/[id]/save-to-files/route.ts:49  return apiNotFound('الرسالة لا تحتوي على ملف');  [data]
+app/api/dashboard/sales/whatsapp/messages/[id]/save-to-files/route.ts:83  return apiNotFound('لا يمكن تحميل الملف — الرابط منتهي');  [data]
+app/api/dashboard/sales/whatsapp/messages/[id]/save-to-files/route.ts:114  return apiServerError('فشل رفع الملف');  [data]
+app/api/dashboard/sales/whatsapp/send-pdf/route.ts:25  if (!conversation_id) return apiValidationError('معرف المحادثة مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/send-pdf/route.ts:26  if (!type || !['quote', 'invoice'].includes(type)) return apiValidationError('النوع يجب أن يكون quote أو invoice');  [data]
+app/api/dashboard/sales/whatsapp/send-pdf/route.ts:27  if (!document_id) return apiValidationError('معرف المستند مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/send-pdf/route.ts:38  if (convErr || !conv) return apiError('المحادثة غير موجودة', 404);  [data]
+app/api/dashboard/sales/whatsapp/send-pdf/route.ts:64  if (quoteErr || !quote) return apiError('عرض السعر غير موجود', 404);  [data]
+app/api/dashboard/sales/whatsapp/send-pdf/route.ts:84  if (!blob) return apiServerError('فشل إنشاء ملف PDF');  [data]
+app/api/dashboard/sales/whatsapp/send-pdf/route.ts:97  if (invErr || !invoice) return apiError('الفاتورة غير موجودة', 404);  [data]
+app/api/dashboard/sales/whatsapp/send-pdf/route.ts:125  if (!invBlob) return apiServerError('فشل إنشاء ملف PDF');  [data]
+app/api/dashboard/sales/whatsapp/send-pdf/route.ts:142  return apiServerError('فشل رفع ملف PDF');  [data]
+app/api/dashboard/sales/whatsapp/send-pdf/route.ts:170  content: type === 'quote' ? `عرض سعر - ${fileName}` : `فاتورة - ${fileName}`,  [ui]
+app/api/dashboard/sales/whatsapp/send-pdf/route.ts:179  last_message: `[${type === 'quote' ? 'عرض سعر' : 'فاتورة'}] ${fileName}`,  [ui]
+app/api/dashboard/sales/whatsapp/send/route.ts:35  if (!number && !remote_jid) return apiError('رقم الهاتف مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/send/route.ts:36  if (!text && !media_url) return apiError('محتوى الرسالة مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/send/route.ts:52  return apiError('هذه المحادثة غير مسندة إليك', 403);  [data]
+app/api/dashboard/sales/whatsapp/send/route.ts:164  ? `${auth.pyraUser.display_name || 'أنت'}: ${content || '[ملف]'}`  [ui]
+app/api/dashboard/sales/whatsapp/send/route.ts:187  return apiServerError(`فشل إرسال الرسالة: ${err instanceof Error ? err.message : ''}`);  [data]
+app/api/dashboard/sales/whatsapp/sla/check/route.ts:14  if (!auth) return apiError('غير مصرح', 401);  [data]
+app/api/dashboard/sales/whatsapp/sla/check/route.ts:46  title: 'تجاوز اتفاقية مستوى الخدمة — الرد الأول',  [notification]
+app/api/dashboard/sales/whatsapp/sla/check/route.ts:47  message: `المحادثة مع ${conv.contact_name || conv.contact_phone || 'جهة اتصال'} تجاوزت وقت الرد الأول`,  [notification]
+app/api/dashboard/sales/whatsapp/sla/check/route.ts:48  source_display_name: 'نظام SLA',  [notification]
+app/api/dashboard/sales/whatsapp/sla/check/route.ts:83  title: 'تجاوز اتفاقية مستوى الخدمة — الحل',  [notification]
+app/api/dashboard/sales/whatsapp/sla/check/route.ts:84  message: `المحادثة مع ${conv.contact_name || conv.contact_phone || 'جهة اتصال'} تجاوزت وقت الحل`,  [notification]
+app/api/dashboard/sales/whatsapp/sla/check/route.ts:85  source_display_name: 'نظام SLA',  [notification]
+app/api/dashboard/sales/whatsapp/sla/check/route.ts:99  return apiServerError(err instanceof Error ? err.message : 'خطأ في الخادم');  [data]
+app/api/dashboard/sales/whatsapp/sla/route.ts:27  return apiServerError(err instanceof Error ? err.message : 'خطأ في الخادم');  [data]
+app/api/dashboard/sales/whatsapp/sla/route.ts:43  if (!name) return apiError('اسم السياسة مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/sla/route.ts:44  if (!first_response_minutes || first_response_minutes < 1) return apiError('وقت الرد الأول مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/sla/route.ts:45  if (!resolution_minutes || resolution_minutes < 1) return apiError('وقت الحل مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/sla/route.ts:77  return apiServerError(err instanceof Error ? err.message : 'خطأ في الخادم');  [data]
+app/api/dashboard/sales/whatsapp/sla/route.ts:93  if (!id) return apiError('معرف السياسة مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/sla/route.ts:124  return apiServerError(err instanceof Error ? err.message : 'خطأ في الخادم');  [data]
+app/api/dashboard/sales/whatsapp/sla/route.ts:139  if (!id) return apiError('معرف السياسة مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/sla/route.ts:166  return apiServerError(err instanceof Error ? err.message : 'خطأ في الخادم');  [data]
+app/api/dashboard/sales/whatsapp/sla/stats/route.ts:12  if (!auth) return apiError('غير مصرح', 401);  [data]
+app/api/dashboard/sales/whatsapp/sla/stats/route.ts:79  const agent = conv.assigned_to || 'غير مسند';  [ui]
+app/api/dashboard/sales/whatsapp/sla/stats/route.ts:108  return apiServerError(err instanceof Error ? err.message : 'خطأ في الخادم');  [data]
+app/api/dashboard/sales/whatsapp/templates/route.ts:54  if (!title?.trim()) return apiValidationError('عنوان القالب مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/templates/route.ts:55  if (!content?.trim()) return apiValidationError('محتوى القالب مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/templates/route.ts:105  if (!templateId) return apiValidationError('معرف القالب مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/typing/route.ts:25  return apiError('conversation_id مطلوب');  [data]
+app/api/dashboard/sales/whatsapp/typing/route.ts:38  return apiError('المحادثة غير موجودة', 404);  [data]
+app/api/dashboard/sales/whatsapp/webhook/route.ts:401  // For groups: "سارة في [group_subject]: message..."  [internal]
+app/api/dashboard/sales/whatsapp/webhook/route.ts:402  // For individual: "سارة: message..."  [internal]
+app/api/dashboard/sales/whatsapp/webhook/route.ts:403  const msgSenderName = msg.pushName || (phone ? `+${phone}` : 'جهة اتصال');  [ui]
+app/api/dashboard/sales/whatsapp/webhook/route.ts:406  ? `${msgSenderName} في ${groupSubject}`  [ui]
+app/api/dashboard/sales/whatsapp/webhook/route.ts:411  : (messageType === 'image' ? '📷 صورة' : messageType === 'audio' ? '🎤 صوتية' : messageType === 'video' ? '🎬 فيديو' : '📎 ملف');  [ui]
+app/api/dashboard/sales/whatsapp/webhook/route.ts:419  title: `رسالة من ${notifSenderDisplay}`,  [notification]
+app/api/dashboard/sales/whatsapp/webhook/route.ts:431  title: isGroup ? `مجموعة جديدة: ${msgSenderName}` : `محادثة جديدة من ${msgSenderName}`,  [ui]
+app/api/dashboard/sales/whatsapp/webhook/route.ts:432  message: `${preview} — بحاجة للتعيين`,  [notification]
+app/api/dashboard/sales/whatsapp/webhook/route.ts:881  const awayMessage = config.away_message || 'نحن خارج ساعات العمل حالياً. سنرد عليك قريباً.';  [ui]
+app/api/favorites/route.ts:59  return apiValidationError('مسار الملف مطلوب');  [data]
+app/api/favorites/route.ts:99  return apiServerError('فشل في إضافة المفضلة');  [data]
+app/api/favorites/route.ts:123  return apiValidationError('مسار الملف مطلوب');  [data]
+app/api/notifications/[id]/route.ts:35  return apiNotFound('الإشعار غير موجود');  [data]
+app/api/notifications/[id]/route.ts:39  return apiForbidden('لا يمكنك تعديل إشعارات مستخدم آخر');  [data]
+app/api/notifications/[id]/route.ts:86  return apiNotFound('الإشعار غير موجود');  [data]
+app/api/notifications/[id]/route.ts:94  return apiForbidden('لا يمكنك حذف هذا الإشعار');  [data]
+app/api/notifications/route.ts:92  return apiForbidden('غير مصرح بإرسال إشعارات لمستخدمين آخرين');  [data]
+app/api/notifications/route.ts:97  return apiValidationError('اسم المستخدم المستلم مطلوب');  [data]
+app/api/notifications/route.ts:100  return apiValidationError('نوع الإشعار مطلوب');  [data]
+app/api/notifications/route.ts:103  return apiValidationError('عنوان الإشعار مطلوب');  [data]
+app/api/notifications/route.ts:106  return apiValidationError('رسالة الإشعار مطلوبة');  [data]
+app/api/profile/avatar/route.ts:16  if (!file) return apiValidationError('لم يتم اختيار ملف');  [data]
+app/api/profile/avatar/route.ts:20  return apiValidationError('حجم الملف يجب أن يكون أقل من 2 ميجابايت');  [data]
+app/api/profile/avatar/route.ts:25  return apiValidationError('يجب أن يكون الملف صورة');  [data]
+app/api/profile/password/route.ts:28  return apiValidationError('كلمة المرور الحالية مطلوبة');  [data]
+app/api/profile/password/route.ts:31  return apiValidationError(`كلمة المرور يجب أن تكون ${PASSWORD_MIN_LENGTH} أحرف على الأقل`);  [data]
+app/api/profile/password/route.ts:34  return apiValidationError('كلمة المرور طويلة جداً (الحد الأقصى 128 حرف)');  [data]
+app/api/profile/password/route.ts:43  return apiServerError('لم يتم العثور على حساب المصادقة');  [data]
+app/api/profile/password/route.ts:49  return apiServerError('لم يتم العثور على بيانات المصادقة');  [data]
+app/api/profile/password/route.ts:65  return apiValidationError('كلمة المرور الحالية غير صحيحة');  [data]
+app/api/profile/password/route.ts:79  return apiServerError(`فشل في تحديث كلمة المرور: ${updateError.message}`);  [data]
+app/api/profile/password/route.ts:96  return apiSuccess({ message: 'تم تغيير كلمة المرور بنجاح' });  [data]
+app/api/profile/route.ts:79  return apiValidationError('الاسم مطلوب');  [data]
+app/api/profile/route.ts:84  return apiValidationError('النبذة التعريفية يجب أن تكون أقل من 280 حرف');  [data]
+app/api/profile/route.ts:93  return apiValidationError('بيانات البنك يجب أن تكون كائن JSON');  [data]
+app/api/profile/route.ts:101  return apiValidationError('قيمة اللغة غير صالحة');  [data]
+app/api/profile/route.ts:121  return apiServerError('فشل في تحديث الملف الشخصي', error, request);  [data]
+app/api/reports/clients/route.ts:108  const company = (c as { company: string }).company || 'غير محدد';  [ui]
+app/api/reports/export/route.ts:107  const headers = ['المعرف', 'اسم المشروع', 'شركة العميل', 'الحالة', 'تاريخ الإنشاء', 'آخر تحديث', 'الموعد النهائي'];  [data]
+app/api/reports/export/route.ts:133  const headers = ['المعرف', 'الاسم', 'البريد', 'الهاتف', 'الشركة', 'نشط', 'تاريخ الإنشاء'];  [data]
+app/api/reports/export/route.ts:142  c.is_active ? 'نعم' : 'لا',  [ui]
+app/api/reports/export/route.ts:178  const paymentHeaders = ['معرف الدفعة', 'معرف الفاتورة', 'المبلغ', 'تاريخ الدفع', 'طريقة الدفع', 'المرجع'];  [data]
+app/api/reports/export/route.ts:191  const invoiceHeaders = ['رقم الفاتورة', 'العميل', 'الإجمالي', 'المدفوع', 'المتبقي', 'الحالة', 'تاريخ الإنشاء'];  [data]
+app/api/reports/export/route.ts:208  return `--- الفواتير ---\n${invoicesCSV}\n\n--- المدفوعات ---\n${paymentsCSV}`;  [ui]
+app/api/reports/export/route.ts:253  const headers = ['اسم المستخدم', 'الاسم', 'الدور', 'عدد الإجراءات', 'الملفات المرفوعة', 'آخر نشاط'];  [data]
+app/api/reports/export/route.ts:282  const headers = ['اسم الملف', 'المسار', 'الحجم (بايت)', 'النوع', 'تاريخ الفهرسة'];  [data]
+app/api/reports/export/route.ts:325  const headers = ['الوصف', 'المبلغ', 'العملة', 'الضريبة', 'التاريخ', 'المورد', 'طريقة الدفع', 'التصنيف', 'ملاحظات'];  [data]
+app/api/reports/export/route.ts:359  const headers = ['رقم الفاتورة', 'العميل', 'الحالة', 'الإجمالي', 'المدفوع', 'المتبقي', 'العملة', 'تاريخ الإصدار', 'تاريخ الاستحقاق'];  [data]
+app/api/reports/export/route.ts:389  return `--- المصاريف (${from} — ${to}) ---\n${expensesCSV}\n\n--- الفواتير (${from} — ${to}) ---\n${invoicesCSV}`;  [ui]
+app/api/sessions/[id]/route.ts:34  return apiNotFound('الجلسة غير موجودة');  [data]
+app/api/trash/[id]/route.ts:38  return apiNotFound('العنصر غير موجود في سلة المهملات');  [data]
+app/api/trash/[id]/route.ts:48  return apiServerError('فشل في استعادة الملف إلى مساره الأصلي');  [data]
+app/api/trash/[id]/route.ts:127  return apiNotFound('العنصر غير موجود في سلة المهملات');  [data]
+app/api/trash/empty/route.ts:35  return apiSuccess({ purged: 0, message: 'السلة فارغة بالفعل' });  [data]
+app/api/trash/purge-expired/route.ts:38  return apiSuccess({ purged: 0, message: 'لا توجد ملفات منتهية الصلاحية' });  [data]
+app/dashboard/activity/activity-client.tsx:31  file_uploaded: 'رفع ملف', file_deleted: 'حذف ملف', file_renamed: 'إعادة تسمية',  [status]
+app/dashboard/activity/activity-client.tsx:32  file_moved: 'نقل ملف', folder_created: 'إنشاء مجلد', user_created: 'إنشاء مستخدم',  [status]
+app/dashboard/activity/activity-client.tsx:33  user_updated: 'تحديث مستخدم', user_deleted: 'حذف مستخدم', team_created: 'إنشاء فريق',  [status]
+app/dashboard/activity/activity-client.tsx:34  client_created: 'إنشاء عميل', project_created: 'إنشاء مشروع', project_deleted: 'حذف مشروع',  [status]
+app/dashboard/activity/activity-client.tsx:35  share_created: 'رابط مشاركة',  [status]
+app/dashboard/activity/activity-client.tsx:36  review_added: 'مراجعة', settings_updated: 'تحديث إعدادات', file_restored: 'استعادة ملف',  [status]
+app/dashboard/activity/activity-client.tsx:37  file_purged: 'حذف نهائي', login: 'تسجيل دخول', logout: 'تسجيل خروج',  [status]
+app/dashboard/activity/activity-client.tsx:38  password_changed: 'تغيير كلمة مرور',  [status]
+app/dashboard/activity/activity-client.tsx:39  upload: 'رفع ملف', upload_deletion: 'حذف ملف مرفوع',  [status]
+app/dashboard/activity/activity-client.tsx:40  version_restore: 'استعادة نسخة', version_delete: 'حذف نسخة',  [status]
+app/dashboard/activity/activity-client.tsx:41  trash_empty: 'تفريغ السلة', trash_purge: 'حذف منتهية',  [status]
+app/dashboard/activity/activity-client.tsx:43  create_expense: 'إنشاء مصروف', update_expense: 'تحديث مصروف', delete_expense: 'حذف مصروف',  [status]
+app/dashboard/activity/activity-client.tsx:44  create_subscription: 'إنشاء اشتراك', update_subscription: 'تحديث اشتراك', delete_subscription: 'حذف اشتراك',  [status]
+app/dashboard/activity/activity-client.tsx:45  payment_recorded: 'تسجيل دفعة', invoice_sent: 'إرسال فاتورة', invoice_created: 'إنشاء فاتورة',  [status]
+app/dashboard/activity/activity-client.tsx:46  milestone_invoice_generated: 'فاتورة مرحلة',  [status]
+app/dashboard/activity/activity-client.tsx:47  quote_sent: 'إرسال عرض سعر',  [status]
+app/dashboard/activity/activity-client.tsx:48  create_card: 'إضافة بطاقة', update_card: 'تحديث بطاقة', delete_card: 'حذف بطاقة',  [status]
+app/dashboard/activity/activity-client.tsx:49  create_contract: 'إنشاء عقد', update_contract: 'تحديث عقد',  [status]
+app/dashboard/activity/activity-client.tsx:50  create_target: 'إنشاء هدف', update_target: 'تحديث هدف',  [status]
+app/dashboard/activity/activity-client.tsx:52  portal_login: 'دخول عميل', portal_logout: 'خروج عميل',  [status]
+app/dashboard/activity/activity-client.tsx:53  portal_download: 'تحميل ملف (عميل)', portal_preview: 'معاينة ملف (عميل)',  [status]
+app/dashboard/activity/activity-client.tsx:54  file_approved: 'اعتماد ملف', revision_requested: 'طلب تعديل',  [status]
+app/dashboard/activity/activity-client.tsx:55  client_comment: 'تعليق عميل', quote_signed: 'توقيع عرض سعر',  [status]
+app/dashboard/activity/activity-client.tsx:56  quote_viewed: 'مشاهدة عرض سعر',  [status]
+app/dashboard/activity/activity-client.tsx:57  script_approved: 'اعتماد سكريبت', script_revision_requested: 'طلب تعديل سكريبت',  [status]
+app/dashboard/activity/activity-client.tsx:58  script_reply_sent: 'رد إدارة على سكريبت', script_client_reply: 'رد عميل على سكريبت',  [status]
+app/dashboard/activity/activity-client.tsx:59  portal_password_changed: 'تغيير كلمة مرور (عميل)',  [status]
+app/dashboard/activity/activity-client.tsx:60  portal_password_reset_requested: 'طلب استعادة كلمة مرور',  [status]
+app/dashboard/activity/activity-client.tsx:61  portal_password_reset_completed: 'إعادة تعيين كلمة مرور',  [status]
+app/dashboard/activity/activity-client.tsx:62  portal_profile_updated: 'تحديث بروفايل عميل',  [status]
+app/dashboard/activity/activity-client.tsx:64  leave_create: 'طلب إجازة', leave_update: 'تحديث إجازة',  [status]
+app/dashboard/activity/activity-client.tsx:65  timesheet_create: 'تسجيل وقت', timesheet_update: 'تحديث وقت', timesheet_delete: 'حذف وقت',  [status]
+app/dashboard/activity/activity-client.tsx:66  work_schedule_create: 'جدول عمل',  [status]
+app/dashboard/activity/activity-client.tsx:67  employee_payment_create: 'دفعة موظف', employee_payment_update: 'تحديث دفعة',  [status]
+app/dashboard/activity/activity-client.tsx:68  payroll_create: 'إنشاء رواتب', payroll_update: 'تحديث رواتب', payroll_delete: 'حذف رواتب',  [status]
+app/dashboard/activity/activity-client.tsx:69  attendance_create: 'تسجيل حضور', attendance_update: 'تحديث حضور',  [status]
+app/dashboard/activity/activity-client.tsx:98  toast.error('فشل في جلب سجل النشاط');  [ui]
+app/dashboard/activity/activity-client.tsx:125  toast.success('تم تصدير سجل النشاط بنجاح');  [ui]
+app/dashboard/activity/activity-client.tsx:127  toast.error('فشل في تصدير سجل النشاط');  [ui]
+app/dashboard/activity/activity-client.tsx:139  <h1 className="text-2xl font-bold flex items-center gap-2"><Activity className="h-6 w-6" aria-hidden="true" /> سجل النشاط</h1>  [ui]
+app/dashboard/activity/activity-client.tsx:140  <p className="text-muted-foreground">جميع الإجراءات والعمليات في النظام</p>  [ui]
+app/dashboard/activity/activity-client.tsx:150  تصدير CSV  [ui]
+app/dashboard/activity/activity-client.tsx:156  <SelectTrigger className="w-[200px]"><SelectValue placeholder="نوع النشاط" /></SelectTrigger>  [a]
+app/dashboard/activity/activity-client.tsx:158  <SelectItem value="all">جميع الأنواع</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:159  <SelectItem value="file_uploaded">رفع ملف</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:160  <SelectItem value="file_deleted">حذف ملف</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:161  <SelectItem value="file_renamed">إعادة تسمية</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:162  <SelectItem value="folder_created">إنشاء مجلد</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:163  <SelectItem value="user_created">إنشاء مستخدم</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:164  <SelectItem value="user_deleted">حذف مستخدم</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:165  <SelectItem value="team_created">فريق</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:166  <SelectItem value="settings_updated">إعدادات</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:167  <SelectItem value="_divider_finance" disabled>── أنشطة مالية ──</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:168  <SelectItem value="create_expense">إنشاء مصروف</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:169  <SelectItem value="create_subscription">إنشاء اشتراك</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:170  <SelectItem value="payment_recorded">تسجيل دفعة</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:171  <SelectItem value="invoice_created">إنشاء فاتورة</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:172  <SelectItem value="invoice_sent">إرسال فاتورة</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:173  <SelectItem value="_divider" disabled>── أنشطة العملاء ──</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:174  <SelectItem value="portal_login">دخول عميل</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:175  <SelectItem value="portal_logout">خروج عميل</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:176  <SelectItem value="portal_download">تحميل ملف (عميل)</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:177  <SelectItem value="portal_preview">معاينة ملف (عميل)</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:178  <SelectItem value="file_approved">اعتماد ملف</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:179  <SelectItem value="revision_requested">طلب تعديل</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:180  <SelectItem value="client_comment">تعليق عميل</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:181  <SelectItem value="quote_viewed">مشاهدة عرض سعر</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:182  <SelectItem value="quote_signed">توقيع عرض سعر</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:183  <SelectItem value="script_approved">اعتماد سكريبت</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:184  <SelectItem value="script_revision_requested">طلب تعديل سكريبت</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:185  <SelectItem value="script_reply_sent">رد إدارة على سكريبت</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:186  <SelectItem value="script_client_reply">رد عميل على سكريبت</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:187  <SelectItem value="portal_password_changed">تغيير كلمة مرور (عميل)</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:188  <SelectItem value="portal_profile_updated">تحديث بروفايل عميل</SelectItem>  [ui]
+app/dashboard/activity/activity-client.tsx:193  <span className="text-xs text-muted-foreground">من</span>  [ui]
+app/dashboard/activity/activity-client.tsx:200  <span className="text-xs text-muted-foreground">إلى</span>  [ui]
+app/dashboard/activity/activity-client.tsx:209  <span className="text-sm text-muted-foreground">{total} نتيجة</span>  [ui]
+app/dashboard/activity/activity-client.tsx:221  title="لا توجد نشاطات"  [a]
+app/dashboard/activity/activity-client.tsx:222  description="لم يتم تسجيل أي نشاط بعد أو لا توجد نتائج مطابقة للفلاتر المحددة"  [ui]
+app/dashboard/activity/activity-client.tsx:251  <span className="text-sm text-muted-foreground">صفحة {page} من {totalPages}</span>  [ui]
+app/dashboard/activity/page.tsx:5  title: 'سجل النشاط | Pyra Workspace',  [ui]
+app/dashboard/announcements/announcements-client.tsx:40  const PRIORITY_LABELS: Record<string, string> = { urgent: 'عاجل', important: 'مهم', normal: 'عادي' };  [status]
+app/dashboard/announcements/announcements-client.tsx:76  toast.success(editItem ? 'تم تحديث الإعلان' : 'تم نشر الإعلان');  [ui]
+app/dashboard/announcements/announcements-client.tsx:82  onError: () => toast.error('فشل حفظ الإعلان'),  [ui]
+app/dashboard/announcements/announcements-client.tsx:88  toast.success('تم حذف الإعلان');  [ui]
+app/dashboard/announcements/announcements-client.tsx:91  onError: () => toast.error('فشل الحذف'),  [ui]
+app/dashboard/announcements/announcements-client.tsx:151  <h1 className="text-2xl font-bold">الإعلانات</h1>  [ui]
+app/dashboard/announcements/announcements-client.tsx:153  {announcements.length} إعلان{unreadCount > 0 && ` · ${unreadCount} غير مقروء`}  [ui]
+app/dashboard/announcements/announcements-client.tsx:170  إعلان جديد  [ui]
+app/dashboard/announcements/announcements-client.tsx:175  <DialogTitle>{editItem ? 'تعديل الإعلان' : 'إعلان جديد'}</DialogTitle>  [ui]
+app/dashboard/announcements/announcements-client.tsx:179  <label className="text-sm font-medium">العنوان</label>  [ui]
+app/dashboard/announcements/announcements-client.tsx:183  placeholder="عنوان الإعلان..."  [a]
+app/dashboard/announcements/announcements-client.tsx:187  <label className="text-sm font-medium">المحتوى</label>  [ui]
+app/dashboard/announcements/announcements-client.tsx:191  placeholder="محتوى الإعلان..."  [a]
+app/dashboard/announcements/announcements-client.tsx:197  <label className="text-sm font-medium">الأولوية</label>  [ui]
+app/dashboard/announcements/announcements-client.tsx:203  <option value="normal">عادي</option>  [ui]
+app/dashboard/announcements/announcements-client.tsx:204  <option value="important">مهم</option>  [ui]
+app/dashboard/announcements/announcements-client.tsx:205  <option value="urgent">عاجل</option>  [ui]
+app/dashboard/announcements/announcements-client.tsx:217  تثبيت  [ui]
+app/dashboard/announcements/announcements-client.tsx:226  {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الحفظ...</> : editItem ? 'تحديث الإعلان' : 'نشر الإعلان'}  [ui]
+app/dashboard/announcements/announcements-client.tsx:237  title="لا توجد إعلانات"  [a]
+app/dashboard/announcements/announcements-client.tsx:238  description="لم يتم نشر أي إعلانات بعد"  [ui]
+app/dashboard/announcements/announcements-client.tsx:239  actionLabel={canManage ? 'إعلان جديد' : undefined}  [ui]
+app/dashboard/announcements/announcements-client.tsx:267  {PRIORITY_LABELS[a.priority] || 'عادي'}  [status]
+app/dashboard/announcements/announcements-client.tsx:318  <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>  [ui]
+app/dashboard/announcements/announcements-client.tsx:320  هل أنت متأكد من حذف هذا الإعلان؟ لا يمكن التراجع عن هذا الإجراء.  [ui]
+app/dashboard/announcements/announcements-client.tsx:324  <AlertDialogCancel>إلغاء</AlertDialogCancel>  [ui]
+app/dashboard/announcements/announcements-client.tsx:326  حذف  [ui]
+app/dashboard/favorites/favorites-client.tsx:58  <Star className="h-6 w-6 fill-yellow-400 text-yellow-500" aria-hidden="true" /> المفضلة  [ui]
+app/dashboard/favorites/favorites-client.tsx:61  الملفات والمجلدات المفضلة لديك ({favorites.length})  [ui]
+app/dashboard/favorites/favorites-client.tsx:84  title="لا توجد عناصر مفضلة"  [a]
+app/dashboard/favorites/favorites-client.tsx:85  description="أضف الملفات والمجلدات للمفضلة من قائمة الملفات"  [ui]
+app/dashboard/favorites/favorites-client.tsx:93  <FolderOpen className="h-4 w-4" aria-hidden="true" /> المجلدات ({folders.length})  [ui]
+app/dashboard/favorites/favorites-client.tsx:113  <FileText className="h-4 w-4" aria-hidden="true" /> الملفات ({files.length})  [ui]
+app/dashboard/favorites/favorites-client.tsx:168  {isFolder ? 'مجلد' : 'ملف'}  [ui]
+app/dashboard/favorites/favorites-client.tsx:187  فتح  [ui]
+app/dashboard/favorites/favorites-client.tsx:196  إزالة  [ui]
+app/dashboard/favorites/page.tsx:5  title: 'المفضلة | Pyra Workspace',  [ui]
+app/dashboard/login-history/login-history-client.tsx:58  toast.error('فشل في جلب سجل الدخول');  [ui]
+app/dashboard/login-history/login-history-client.tsx:82  <Shield className="h-6 w-6" aria-hidden="true" /> سجل الدخول  [ui]
+app/dashboard/login-history/login-history-client.tsx:84  <p className="text-muted-foreground">محاولات تسجيل الدخول للنظام</p>  [ui]
+app/dashboard/login-history/login-history-client.tsx:94  <div className="text-xs text-muted-foreground">إجمالي المحاولات</div>  [ui]
+app/dashboard/login-history/login-history-client.tsx:103  <div className="text-xs text-muted-foreground">ناجح (هذه الصفحة)</div>  [ui]
+app/dashboard/login-history/login-history-client.tsx:112  <div className="text-xs text-muted-foreground">فاشل (هذه الصفحة)</div>  [ui]
+app/dashboard/login-history/login-history-client.tsx:121  placeholder="بحث باسم المستخدم..."  [a]
+app/dashboard/login-history/login-history-client.tsx:131  <SelectItem value="all">الكل</SelectItem>  [ui]
+app/dashboard/login-history/login-history-client.tsx:132  <SelectItem value="admin">الإدارة فقط</SelectItem>  [ui]
+app/dashboard/login-history/login-history-client.tsx:133  <SelectItem value="portal">العملاء فقط</SelectItem>  [ui]
+app/dashboard/login-history/login-history-client.tsx:141  <SelectItem value="all">كل الحالات</SelectItem>  [ui]
+app/dashboard/login-history/login-history-client.tsx:142  <SelectItem value="true">ناجح فقط</SelectItem>  [ui]
+app/dashboard/login-history/login-history-client.tsx:143  <SelectItem value="false">فاشل فقط</SelectItem>  [ui]
+app/dashboard/login-history/login-history-client.tsx:146  <span className="text-sm text-muted-foreground">{total} نتيجة</span>  [ui]
+app/dashboard/login-history/login-history-client.tsx:156  <th className="text-start p-3 font-medium">المستخدم</th>  [ui]
+app/dashboard/login-history/login-history-client.tsx:157  <th className="text-start p-3 font-medium">عنوان IP</th>  [ui]
+app/dashboard/login-history/login-history-client.tsx:158  <th className="text-start p-3 font-medium">الحالة</th>  [ui]
+app/dashboard/login-history/login-history-client.tsx:159  <th className="text-start p-3 font-medium">التوقيت</th>  [ui]
+app/dashboard/login-history/login-history-client.tsx:173  title="لا توجد محاولات دخول"  [a]
+app/dashboard/login-history/login-history-client.tsx:174  description="لم يتم تسجيل أي محاولات دخول بعد أو لا توجد نتائج مطابقة للفلاتر"  [ui]
+app/dashboard/login-history/login-history-client.tsx:188  عميل  [ui]
+app/dashboard/login-history/login-history-client.tsx:200  <CheckCircle className="h-3 w-3 me-1" /> ناجح  [ui]
+app/dashboard/login-history/login-history-client.tsx:204  <XCircle className="h-3 w-3 me-1" /> فاشل  [ui]
+app/dashboard/login-history/login-history-client.tsx:223  <span className="text-sm text-muted-foreground">صفحة {page} من {totalPages}</span>  [ui]
+app/dashboard/login-history/page.tsx:5  title: 'سجل الدخول | Pyra Workspace',  [ui]
+app/dashboard/notifications/notifications-client.tsx:28  file_uploaded: 'رفع ملف',  [status]
+app/dashboard/notifications/notifications-client.tsx:29  comment_added: 'تعليق',  [status]
+app/dashboard/notifications/notifications-client.tsx:30  approval_requested: 'طلب موافقة',  [status]
+app/dashboard/notifications/notifications-client.tsx:31  review_added: 'مراجعة',  [status]
+app/dashboard/notifications/notifications-client.tsx:32  review: 'مراجعة',  [status]
+app/dashboard/notifications/notifications-client.tsx:33  team_added: 'فريق',  [status]
+app/dashboard/notifications/notifications-client.tsx:34  permission_changed: 'صلاحيات',  [status]
+app/dashboard/notifications/notifications-client.tsx:35  file_shared: 'مشاركة',  [status]
+app/dashboard/notifications/notifications-client.tsx:36  mention: 'إشارة',  [status]
+app/dashboard/notifications/notifications-client.tsx:37  client_comment: 'تعليق عميل',  [status]
+app/dashboard/notifications/notifications-client.tsx:38  script_client_reply: 'رد عميل',  [status]
+app/dashboard/notifications/notifications-client.tsx:39  script_reply_sent: 'رد إدارة',  [status]
+app/dashboard/notifications/notifications-client.tsx:40  script_approved: 'اعتماد سكريبت',  [status]
+app/dashboard/notifications/notifications-client.tsx:41  script_revision_requested: 'طلب تعديل',  [status]
+app/dashboard/notifications/notifications-client.tsx:42  invoice_sent: 'إرسال فاتورة',  [status]
+app/dashboard/notifications/notifications-client.tsx:43  invoice_created: 'إنشاء فاتورة',  [status]
+app/dashboard/notifications/notifications-client.tsx:44  payment_recorded: 'تسجيل دفعة',  [status]
+app/dashboard/notifications/notifications-client.tsx:45  milestone_invoice_generated: 'فاتورة مرحلة',  [status]
+app/dashboard/notifications/notifications-client.tsx:46  quote_signed: 'توقيع عرض',  [status]
+app/dashboard/notifications/notifications-client.tsx:47  quote_viewed: 'مشاهدة عرض',  [status]
+app/dashboard/notifications/notifications-client.tsx:48  quote_sent: 'إرسال عرض',  [status]
+app/dashboard/notifications/notifications-client.tsx:49  file_approved: 'اعتماد ملف',  [status]
+app/dashboard/notifications/notifications-client.tsx:50  revision_requested: 'طلب تعديل',  [status]
+app/dashboard/notifications/notifications-client.tsx:127  <Bell className="h-6 w-6" aria-hidden="true" /> الإشعارات  [ui]
+app/dashboard/notifications/notifications-client.tsx:130  <p className="text-muted-foreground">جميع الإشعارات والتنبيهات</p>  [ui]
+app/dashboard/notifications/notifications-client.tsx:133  <Button variant="outline" onClick={markAllRead}><CheckCheck className="h-4 w-4 me-2" /> تحديد الكل كمقروء</Button>  [ui]
+app/dashboard/notifications/notifications-client.tsx:138  <Button variant={filter === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('all')}>الكل</Button>  [ui]
+app/dashboard/notifications/notifications-client.tsx:139  <Button variant={filter === 'unread' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('unread')}>غير مقروء</Button>  [ui]
+app/dashboard/notifications/notifications-client.tsx:148  <EmptyState icon={Bell} title="لا توجد إشعارات" description="ستظهر هنا الإشعارات والتنبيهات الجديدة" />  [a]
+app/dashboard/notifications/notifications-client.tsx:175  <ExternalLink className="h-2.5 w-2.5" /> فتح  [ui]
+app/dashboard/notifications/page.tsx:5  title: 'الإشعارات | Pyra',  [ui]
+app/dashboard/profile/profile-client.tsx:72  toast.success('تم حفظ التغييرات بنجاح');  [ui]
+app/dashboard/profile/profile-client.tsx:75  onError: () => toast.error('فشل حفظ التغييرات'),  [ui]
+app/dashboard/profile/profile-client.tsx:112  toast.success('تم رفع الصورة بنجاح');  [ui]
+app/dashboard/profile/profile-client.tsx:115  toast.error('فشل رفع الصورة');  [ui]
+app/dashboard/profile/profile-client.tsx:209  معلومات شخصية  [ui]
+app/dashboard/profile/profile-client.tsx:213  الأمان  [ui]
+app/dashboard/profile/profile-client.tsx:217  الصلاحيات  [ui]
+app/dashboard/profile/profile-client.tsx:221  نشاطي  [ui]
+app/dashboard/profile/profile-client.tsx:229  <CardTitle className="text-lg">المعلومات الشخصية</CardTitle>  [ui]
+app/dashboard/profile/profile-client.tsx:234  <label className="text-sm font-medium">الاسم المعروض</label>  [ui]
+app/dashboard/profile/profile-client.tsx:235  <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="الاسم الكامل" />  [a]
+app/dashboard/profile/profile-client.tsx:238  <label className="text-sm font-medium">رقم الهاتف</label>  [ui]
+app/dashboard/profile/profile-client.tsx:243  <label className="text-sm font-medium">المسمى الوظيفي</label>  [ui]
+app/dashboard/profile/profile-client.tsx:244  <Input value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} placeholder="مثال: مصمم جرافيك" />  [a]
+app/dashboard/profile/profile-client.tsx:247  <label className="text-sm font-medium">اسم المستخدم</label>  [ui]
+app/dashboard/profile/profile-client.tsx:252  <label className="text-sm font-medium">نبذة تعريفية</label>  [ui]
+app/dashboard/profile/profile-client.tsx:256  placeholder="نبذة مختصرة عنك..."  [a]
+app/dashboard/profile/profile-client.tsx:265  حفظ التغييرات  [ui]
+app/dashboard/profile/profile-client.tsx:276  البيانات البنكية  [ui]
+app/dashboard/profile/profile-client.tsx:282  <label className="text-sm font-medium">البنك</label>  [ui]
+app/dashboard/profile/profile-client.tsx:283  <Input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="مثال: بنك الإمارات دبي الوطني" />  [a]
+app/dashboard/profile/profile-client.tsx:290  <label className="text-sm font-medium">اسم صاحب الحساب</label>  [ui]
+app/dashboard/profile/profile-client.tsx:294  <label className="text-sm font-medium">رقم الحساب</label>  [ui]
+app/dashboard/profile/profile-client.tsx:301  حفظ البيانات البنكية  [ui]
+app/dashboard/profile/profile-client.tsx:312  <CardTitle className="text-lg">تغيير كلمة المرور</CardTitle>  [ui]
+app/dashboard/profile/profile-client.tsx:325  <CardTitle className="text-lg">الدور والصلاحيات</CardTitle>  [ui]
+app/dashboard/profile/profile-client.tsx:368  لتغيير صلاحياتك، تواصل مع مسؤول النظام  [ui]
+app/dashboard/profile/profile-client.tsx:378  <CardTitle className="text-lg">نشاطي الأخير</CardTitle>  [ui]
+app/dashboard/profile/profile-client.tsx:390  <p>لا يوجد نشاط حتى الآن</p>  [ui]
+app/dashboard/profile/profile-client.tsx:424  toast.success('تم تغيير كلمة المرور بنجاح');  [ui]
+app/dashboard/profile/profile-client.tsx:427  onError: (err: any) => toast.error(err.message || 'فشل تغيير كلمة المرور'),  [ui]
+app/dashboard/profile/profile-client.tsx:435  toast.error('كلمتا المرور غير متطابقتين');  [ui]
+app/dashboard/profile/profile-client.tsx:439  toast.error(`كلمة المرور يجب أن تكون ${PASSWORD_MIN_LENGTH} أحرف على الأقل`);  [ui]
+app/dashboard/profile/profile-client.tsx:448  <label className="text-sm font-medium">كلمة المرور الحالية</label>  [ui]
+app/dashboard/profile/profile-client.tsx:452  <label className="text-sm font-medium">كلمة المرور الجديدة</label>  [ui]
+app/dashboard/profile/profile-client.tsx:456  <label className="text-sm font-medium">تأكيد كلمة المرور</label>  [ui]
+app/dashboard/profile/profile-client.tsx:461  تغيير كلمة المرور  [ui]
+app/dashboard/reports/clients/page.tsx:41  toast.error('فشل في تحميل التقرير');  [ui]
+app/dashboard/reports/clients/page.tsx:55  <Link href="/dashboard/reports" aria-label="العودة إلى التقارير">  [a]
+app/dashboard/reports/clients/page.tsx:62  تقرير العملاء  [ui]
+app/dashboard/reports/clients/page.tsx:86  <Users className="h-3.5 w-3.5" /> إجمالي العملاء  [ui]
+app/dashboard/reports/clients/page.tsx:94  <UserCheck className="h-3.5 w-3.5" /> نشط  [ui]
+app/dashboard/reports/clients/page.tsx:102  <UserPlus className="h-3.5 w-3.5" /> جديد في الفترة  [ui]
+app/dashboard/reports/clients/page.tsx:114  <CardTitle className="text-base">أعلى العملاء حسب الإيرادات</CardTitle>  [ui]
+app/dashboard/reports/clients/page.tsx:128  title="أعلى العملاء حسب الإيرادات"  [a]
+app/dashboard/reports/clients/page.tsx:138  <CardTitle className="text-base">توزيع العملاء حسب الشركة</CardTitle>  [ui]
+app/dashboard/reports/clients/page.tsx:149  title="توزيع العملاء حسب الشركة"  [a]
+app/dashboard/reports/page.tsx:5  title: 'التقارير | Pyra Workspace',  [ui]
+app/dashboard/reports/projects/page.tsx:49  toast.error('فشل في تحميل التقرير');  [ui]
+app/dashboard/reports/projects/page.tsx:63  <Link href="/dashboard/reports" aria-label="العودة إلى التقارير">  [a]
+app/dashboard/reports/projects/page.tsx:70  تقرير المشاريع  [ui]
+app/dashboard/reports/projects/page.tsx:94  <Briefcase className="h-3.5 w-3.5" /> إجمالي المشاريع  [ui]
+app/dashboard/reports/projects/page.tsx:102  <CheckCircle className="h-3.5 w-3.5" /> مكتمل في الفترة  [ui]
+app/dashboard/reports/projects/page.tsx:110  <Clock className="h-3.5 w-3.5" /> متوسط أيام الإنجاز  [ui]
+app/dashboard/reports/projects/page.tsx:118  <AlertTriangle className="h-3.5 w-3.5" /> متأخرة  [ui]
+app/dashboard/reports/projects/page.tsx:130  <CardTitle className="text-base">توزيع حالات المشاريع</CardTitle>  [ui]
+app/dashboard/reports/projects/page.tsx:141  title="توزيع حالات المشاريع"  [a]
+app/dashboard/reports/projects/page.tsx:150  <CardTitle className="text-base">المشاريع المكتملة حديثاً</CardTitle>  [ui]
+app/dashboard/reports/projects/page.tsx:157  <th className="text-start p-3 font-medium">المشروع</th>  [ui]
+app/dashboard/reports/projects/page.tsx:158  <th className="text-start p-3 font-medium">العميل</th>  [ui]
+app/dashboard/reports/projects/page.tsx:159  <th className="text-start p-3 font-medium">تاريخ الإكتمال</th>  [ui]
+app/dashboard/reports/projects/page.tsx:160  <th className="text-start p-3 font-medium">المدة (أيام)</th>  [ui]
+app/dashboard/reports/projects/page.tsx:177  لا توجد مشاريع مكتملة في هذه الفترة  [ui]
+app/dashboard/reports/projects/page.tsx:187  <Badge variant="secondary">{item.days_taken} يوم</Badge>  [ui]
+app/dashboard/reports/reports-client.tsx:23  title: 'المشاريع',  [ui]
+app/dashboard/reports/reports-client.tsx:24  description: 'تحليل أداء المشاريع والإنجاز',  [ui]
+app/dashboard/reports/reports-client.tsx:28  d.projects ? `${formatNumber(d.projects.total ?? 0)} مشروع` : null,  [ui]
+app/dashboard/reports/reports-client.tsx:32  title: 'العملاء',  [ui]
+app/dashboard/reports/reports-client.tsx:33  description: 'تحليلات العملاء والإيرادات حسب العميل',  [ui]
+app/dashboard/reports/reports-client.tsx:37  d.clients ? `${formatNumber(d.clients.total ?? 0)} عميل` : null,  [ui]
+app/dashboard/reports/reports-client.tsx:41  title: 'التخزين',  [ui]
+app/dashboard/reports/reports-client.tsx:42  description: 'تحليل استخدام التخزين وأنواع الملفات',  [ui]
+app/dashboard/reports/reports-client.tsx:46  d.storage ? `${formatNumber(d.storage.total_files ?? 0)} ملف` : null,  [ui]
+app/dashboard/reports/reports-client.tsx:50  title: 'الإيرادات',  [ui]
+app/dashboard/reports/reports-client.tsx:51  description: 'تقارير الإيرادات والفواتير والمدفوعات',  [ui]
+app/dashboard/reports/reports-client.tsx:59  title: 'الفريق',  [ui]
+app/dashboard/reports/reports-client.tsx:60  description: 'إنتاجية الفريق والنشاط',  [ui]
+app/dashboard/reports/reports-client.tsx:64  d.team ? `${formatNumber(d.team.total_members ?? 0)} عضو` : null,  [ui]
+app/dashboard/reports/reports-client.tsx:80  التقارير  [ui]
+app/dashboard/reports/reports-client.tsx:82  <p className="text-muted-foreground">تقارير وتحليلات شاملة للنظام</p>  [ui]
+app/dashboard/reports/revenue/page.tsx:52  toast.error('فشل في تحميل التقرير');  [ui]
+app/dashboard/reports/revenue/page.tsx:66  <Link href="/dashboard/reports" aria-label="العودة إلى التقارير">  [a]
+app/dashboard/reports/revenue/page.tsx:73  تقرير الإيرادات  [ui]
+app/dashboard/reports/revenue/page.tsx:82  <span className="text-sm text-muted-foreground">الفترة:</span>  [ui]
+app/dashboard/reports/revenue/page.tsx:88  <SelectItem value="monthly">شهري</SelectItem>  [ui]
+app/dashboard/reports/revenue/page.tsx:89  <SelectItem value="quarterly">ربع سنوي</SelectItem>  [ui]
+app/dashboard/reports/revenue/page.tsx:90  <SelectItem value="yearly">سنوي</SelectItem>  [ui]
+app/dashboard/reports/revenue/page.tsx:112  <DollarSign className="h-3.5 w-3.5" /> إجمالي الإيرادات  [ui]
+app/dashboard/reports/revenue/page.tsx:122  <Receipt className="h-3.5 w-3.5" /> إجمالي الفواتير  [ui]
+app/dashboard/reports/revenue/page.tsx:132  <TrendingUp className="h-3.5 w-3.5" /> مستحقة  [ui]
+app/dashboard/reports/revenue/page.tsx:142  <AlertTriangle className="h-3.5 w-3.5" /> متأخرة  [ui]
+app/dashboard/reports/revenue/page.tsx:156  <CardTitle className="text-base">اتجاه الإيرادات</CardTitle>  [ui]
+app/dashboard/reports/revenue/page.tsx:167  title="اتجاه الإيرادات"  [a]
+app/dashboard/reports/revenue/page.tsx:177  <CardTitle className="text-base">توزيع طرق الدفع</CardTitle>  [ui]
+app/dashboard/reports/revenue/page.tsx:188  title="توزيع طرق الدفع"  [a]
+app/dashboard/reports/storage/page.tsx:43  <Link href="/dashboard/reports" aria-label="العودة إلى التقارير">  [a]
+app/dashboard/reports/storage/page.tsx:50  تقرير التخزين  [ui]
+app/dashboard/reports/storage/page.tsx:72  <FileText className="h-3.5 w-3.5" /> إجمالي الملفات  [ui]
+app/dashboard/reports/storage/page.tsx:80  <FolderOpen className="h-3.5 w-3.5" /> إجمالي المجلدات  [ui]
+app/dashboard/reports/storage/page.tsx:88  <HardDrive className="h-3.5 w-3.5" /> الحجم الإجمالي  [ui]
+app/dashboard/reports/storage/page.tsx:102  <CardTitle className="text-base">التخزين حسب نوع الملف</CardTitle>  [ui]
+app/dashboard/reports/storage/page.tsx:116  title="التخزين حسب نوع الملف"  [a]
+app/dashboard/reports/storage/page.tsx:125  <CardTitle className="text-base">أكبر الملفات</CardTitle>  [ui]
+app/dashboard/reports/storage/page.tsx:132  <th className="text-start p-3 font-medium">اسم الملف</th>  [ui]
+app/dashboard/reports/storage/page.tsx:133  <th className="text-start p-3 font-medium">الحجم</th>  [ui]
+app/dashboard/reports/storage/page.tsx:134  <th className="text-start p-3 font-medium">النوع</th>  [ui]
+app/dashboard/reports/storage/page.tsx:135  <th className="text-start p-3 font-medium">المشروع</th>  [ui]
+app/dashboard/reports/storage/page.tsx:152  لا توجد ملفات  [ui]
+app/dashboard/reports/team/page.tsx:32  admin: 'مدير',  [status]
+app/dashboard/reports/team/page.tsx:33  member: 'عضو',  [status]
+app/dashboard/reports/team/page.tsx:34  viewer: 'مشاهد',  [status]
+app/dashboard/reports/team/page.tsx:35  editor: 'محرر',  [status]
+app/dashboard/reports/team/page.tsx:36  super_admin: 'مدير أعلى',  [status]
+app/dashboard/reports/team/page.tsx:55  toast.error('فشل في تحميل التقرير');  [ui]
+app/dashboard/reports/team/page.tsx:69  <Link href="/dashboard/reports" aria-label="العودة إلى التقارير">  [a]
+app/dashboard/reports/team/page.tsx:76  تقرير الفريق  [ui]
+app/dashboard/reports/team/page.tsx:97  <Users className="h-3.5 w-3.5" /> إجمالي الأعضاء  [ui]
+app/dashboard/reports/team/page.tsx:108  <CardTitle className="text-base">النشاط حسب العضو</CardTitle>  [ui]
+app/dashboard/reports/team/page.tsx:119  title="النشاط حسب العضو"  [a]
+app/dashboard/reports/team/page.tsx:129  <CardTitle className="text-base">ملخص نشاط الفريق</CardTitle>  [ui]
+app/dashboard/reports/team/page.tsx:136  <th className="text-start p-3 font-medium">اسم المستخدم</th>  [ui]
+app/dashboard/reports/team/page.tsx:137  <th className="text-start p-3 font-medium">الاسم</th>  [ui]
+app/dashboard/reports/team/page.tsx:138  <th className="text-start p-3 font-medium">الدور</th>  [ui]
+app/dashboard/reports/team/page.tsx:139  <th className="text-start p-3 font-medium">الإجراءات</th>  [ui]
+app/dashboard/reports/team/page.tsx:140  <th className="text-start p-3 font-medium">الملفات المرفوعة</th>  [ui]
+app/dashboard/reports/team/page.tsx:141  <th className="text-start p-3 font-medium">آخر نشاط</th>  [ui]
+app/dashboard/reports/team/page.tsx:158  لا توجد بيانات نشاط في هذه الفترة  [ui]
+app/dashboard/sales/approvals/page.tsx:65  if (!res.ok) throw new Error(data.error || 'فشل العملية');  [ui]
+app/dashboard/sales/approvals/page.tsx:67  toast.success(action === 'approve' ? 'تمت الموافقة على العرض' : 'تم رفض العرض');  [ui]
+app/dashboard/sales/approvals/page.tsx:70  toast.error(err instanceof Error ? err.message : 'حدث خطأ');  [ui]
+app/dashboard/sales/approvals/page.tsx:103  <h1 className="text-2xl font-bold tracking-tight">موافقات العروض</h1>  [ui]
+app/dashboard/sales/approvals/page.tsx:106  <span className="text-orange-500 font-medium">{pending.length} طلب بانتظار الموافقة</span>  [ui]
+app/dashboard/sales/approvals/page.tsx:108  'جميع الطلبات تمت معالجتها'  [ui]
+app/dashboard/sales/approvals/page.tsx:118  معلقة  [ui]
+app/dashboard/sales/approvals/page.tsx:126  السجل  [ui]
+app/dashboard/sales/approvals/page.tsx:134  title="لا توجد طلبات معلقة"  [a]
+app/dashboard/sales/approvals/page.tsx:135  description="جميع طلبات الموافقة تمت معالجتها"  [ui]
+app/dashboard/sales/approvals/page.tsx:162  title="لا يوجد سجل"  [a]
+app/dashboard/sales/approvals/page.tsx:163  description="ستظهر الموافقات والرفض هنا"  [ui]
+app/dashboard/sales/whatsapp-analytics/page.tsx:45  <p className="text-muted-foreground">ليس لديك صلاحية لعرض هذه الصفحة</p>  [ui]
+app/dashboard/sales/whatsapp-analytics/page.tsx:63  <h1 className="text-2xl font-bold">تحليلات واتساب</h1>  [ui]
+app/dashboard/sales/whatsapp-analytics/page.tsx:70  العودة للمحادثات  [ui]
+app/dashboard/sales/whatsapp-analytics/page.tsx:79  <span className="text-sm text-muted-foreground">الفترة:</span>  [ui]
+app/dashboard/sales/whatsapp-analytics/page.tsx:82  <label className="text-xs text-muted-foreground">من</label>  [ui]
+app/dashboard/sales/whatsapp-analytics/page.tsx:91  <label className="text-xs text-muted-foreground">إلى</label>  [ui]
+app/dashboard/sales/whatsapp-analytics/page.tsx:106  مسح الفلتر  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:28  draft: { label: 'مسودة', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },  [status]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:29  sending: { label: 'جاري الإرسال', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },  [status]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:30  completed: { label: 'مكتمل', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },  [status]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:58  toast.error('يرجى ملء جميع الحقول');  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:65  toast.success('تم إنشاء الحملة');  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:71  onError: () => toast.error('فشل إنشاء الحملة'),  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:78  onSuccess: () => toast.success('بدأ إرسال الحملة'),  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:79  onError: () => toast.error('فشل إرسال الحملة'),  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:85  onSuccess: () => toast.success('تم حذف الحملة'),  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:86  onError: () => toast.error('فشل حذف الحملة'),  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:117  <h1 className="text-2xl font-bold">حملات الرسائل</h1>  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:118  <p className="text-xs text-muted-foreground/60">إرسال رسائل جماعية عبر واتساب</p>  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:123  إنشاء حملة  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:131  title="لا توجد حملات"  [a]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:132  description="أنشئ حملة رسائل جديدة لإرسال رسائل جماعية"  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:163  إرسال  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:183  {campaign.total_contacts} جهة اتصال  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:187  {campaign.sent_count} مرسلة  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:218  إنشاء حملة جديدة  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:223  <Label>اسم الحملة</Label>  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:227  placeholder="مثال: عرض رمضان 2026"  [a]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:231  <Label>نص الرسالة</Label>  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:235  placeholder={'مرحباً {{name}}!\nلدينا عرض خاص لك...'}  [a]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:239  {'استخدم {{name}} لإدراج اسم جهة الاتصال تلقائياً'}  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:243  <Label>جهات الاتصال (رقم في كل سطر)</Label>  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:247  placeholder={'971501234567, أحمد\n971509876543, فاطمة'}  [a]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:252  الصيغة: رقم الهاتف, الاسم (اختياري) — كل سطر جهة اتصال واحدة  [ui]
+app/dashboard/sales/whatsapp-campaigns/page.tsx:261  إنشاء الحملة  [ui]
+app/dashboard/sessions/page.tsx:5  title: 'الجلسات | Pyra Workspace',  [ui]
+app/dashboard/sessions/sessions-client.tsx:28  if (!ua) return 'غير معروف';  [ui]
+app/dashboard/sessions/sessions-client.tsx:58  onSuccess: () => { toast.success('تم إنهاء الجلسة'); invalidate(); },  [ui]
+app/dashboard/sessions/sessions-client.tsx:59  onError: () => toast.error('حدث خطأ'),  [ui]
+app/dashboard/sessions/sessions-client.tsx:64  onSuccess: () => { setShowTerminateAll(false); toast.success('تم إنهاء جميع الجلسات'); invalidate(); },  [ui]
+app/dashboard/sessions/sessions-client.tsx:65  onError: () => toast.error('حدث خطأ'),  [ui]
+app/dashboard/sessions/sessions-client.tsx:76  <Monitor className="h-6 w-6" aria-hidden="true" /> إدارة الجلسات  [ui]
+app/dashboard/sessions/sessions-client.tsx:78  <p className="text-muted-foreground">الجلسات النشطة للعملاء على البورتال</p>  [ui]
+app/dashboard/sessions/sessions-client.tsx:82  <Trash2 className="h-4 w-4 me-1" /> إنهاء الكل  [ui]
+app/dashboard/sessions/sessions-client.tsx:93  <div className="text-xs text-muted-foreground">جلسات نشطة</div>  [ui]
+app/dashboard/sessions/sessions-client.tsx:102  <div className="text-xs text-muted-foreground">جلسات غير نشطة</div>  [ui]
+app/dashboard/sessions/sessions-client.tsx:114  <th className="text-start p-3 font-medium">المستخدم</th>  [ui]
+app/dashboard/sessions/sessions-client.tsx:115  <th className="text-start p-3 font-medium">عنوان IP</th>  [ui]
+app/dashboard/sessions/sessions-client.tsx:116  <th className="text-start p-3 font-medium">المتصفح</th>  [ui]
+app/dashboard/sessions/sessions-client.tsx:117  <th className="text-start p-3 font-medium">الحالة</th>  [ui]
+app/dashboard/sessions/sessions-client.tsx:118  <th className="text-start p-3 font-medium">آخر نشاط</th>  [ui]
+app/dashboard/sessions/sessions-client.tsx:119  <th className="text-start p-3 font-medium">بدأت في</th>  [ui]
+app/dashboard/sessions/sessions-client.tsx:131  <tr><td colSpan={7} className="p-12 text-center text-muted-foreground">لا توجد جلسات نشطة</td></tr>  [ui]
+app/dashboard/sessions/sessions-client.tsx:140  <Wifi className="h-3 w-3 me-1" /> نشط  [ui]
+app/dashboard/sessions/sessions-client.tsx:144  <WifiOff className="h-3 w-3 me-1" /> غير نشط  [ui]
+app/dashboard/sessions/sessions-client.tsx:158  title="إنهاء الجلسة"  [a]
+app/dashboard/sessions/sessions-client.tsx:176  <AlertTriangle className="h-5 w-5 text-destructive" /> إنهاء جميع الجلسات  [ui]
+app/dashboard/sessions/sessions-client.tsx:180  هل أنت متأكد من إنهاء <strong>جميع الجلسات ({sessions.length})</strong>؟<br />  [ui]
+app/dashboard/sessions/sessions-client.tsx:181  سيتم تسجيل خروج جميع العملاء المتصلين.  [ui]
+app/dashboard/sessions/sessions-client.tsx:184  <Button variant="outline" onClick={() => setShowTerminateAll(false)}>إلغاء</Button>  [ui]
+app/dashboard/sessions/sessions-client.tsx:186  {saving ? 'جارٍ الإنهاء...' : 'إنهاء الكل'}  [ui]
+app/dashboard/trash/page.tsx:5  title: 'المحذوفات | Pyra Workspace',  [ui]
+app/dashboard/trash/trash-client.tsx:58  onSuccess: () => { toast.success('تم استعادة الملف'); invalidate(); },  [ui]
+app/dashboard/trash/trash-client.tsx:59  onError: () => toast.error('حدث خطأ'),  [ui]
+app/dashboard/trash/trash-client.tsx:64  onSuccess: () => { setShowPurge(false); toast.success('تم الحذف النهائي'); invalidate(); },  [ui]
+app/dashboard/trash/trash-client.tsx:65  onError: () => toast.error('حدث خطأ'),  [ui]
+app/dashboard/trash/trash-client.tsx:70  onSuccess: (data) => { setShowEmptyAll(false); toast.success(`تم تفريغ السلة — ${(data as any).purged || 0} ملف`); invalidate(); },  [ui]
+app/dashboard/trash/trash-client.tsx:71  onError: () => toast.error('حدث خطأ'),  [ui]
+app/dashboard/trash/trash-client.tsx:78  if (purged === 0) { toast.info('لا توجد ملفات منتهية الصلاحية'); }  [ui]
+app/dashboard/trash/trash-client.tsx:79  else { toast.success(`تم حذف ${purged} ملف منتهي الصلاحية`); }  [ui]
+app/dashboard/trash/trash-client.tsx:83  onError: () => toast.error('حدث خطأ'),  [ui]
+app/dashboard/trash/trash-client.tsx:143  toast.success(`تم استعادة ${successCount} ملف`);  [ui]
+app/dashboard/trash/trash-client.tsx:151  <h1 className="text-2xl font-bold flex items-center gap-2"><Trash2 className="h-6 w-6" aria-hidden="true" /> المحذوفات</h1>  [ui]
+app/dashboard/trash/trash-client.tsx:152  <p className="text-muted-foreground">الملفات المحذوفة — يتم حذفها نهائياً بعد 30 يوماً تلقائياً</p>  [ui]
+app/dashboard/trash/trash-client.tsx:157  <Clock className="h-4 w-4 me-1" /> حذف المنتهية  [ui]
+app/dashboard/trash/trash-client.tsx:160  <XCircle className="h-4 w-4 me-1" /> تفريغ السلة  [ui]
+app/dashboard/trash/trash-client.tsx:172  placeholder="بحث بالاسم أو المسار..."  [a]
+app/dashboard/trash/trash-client.tsx:181  <SelectValue placeholder="النوع" />  [a]
+app/dashboard/trash/trash-client.tsx:184  <SelectItem value="all">الكل</SelectItem>  [ui]
+app/dashboard/trash/trash-client.tsx:185  <SelectItem value="image">صور</SelectItem>  [ui]
+app/dashboard/trash/trash-client.tsx:186  <SelectItem value="video">فيديو</SelectItem>  [ui]
+app/dashboard/trash/trash-client.tsx:187  <SelectItem value="document">مستندات</SelectItem>  [ui]
+app/dashboard/trash/trash-client.tsx:188  <SelectItem value="archive">أرشيف</SelectItem>  [ui]
+app/dashboard/trash/trash-client.tsx:194  استعادة المحدد ({checkedIds.size})  [ui]
+app/dashboard/trash/trash-client.tsx:211  aria-label="تحديد الكل"  [a]
+app/dashboard/trash/trash-client.tsx:215  <th className="text-start p-3 font-medium">الملف</th>  [ui]
+app/dashboard/trash/trash-client.tsx:216  <th className="text-start p-3 font-medium">المسار الأصلي</th>  [ui]
+app/dashboard/trash/trash-client.tsx:217  <th className="text-start p-3 font-medium">الحجم</th>  [ui]
+app/dashboard/trash/trash-client.tsx:218  <th className="text-start p-3 font-medium">حُذف بواسطة</th>  [ui]
+app/dashboard/trash/trash-client.tsx:219  <th className="text-start p-3 font-medium">تاريخ الحذف</th>  [ui]
+app/dashboard/trash/trash-client.tsx:220  <th className="text-start p-3 font-medium">الحذف التلقائي</th>  [ui]
+app/dashboard/trash/trash-client.tsx:231  title={items.length === 0 ? 'سلة المحذوفات فارغة' : 'لا توجد نتائج'}  [a]
+app/dashboard/trash/trash-client.tsx:232  description={items.length === 0 ? 'الملفات المحذوفة ستظهر هنا' : 'جرّب تغيير كلمة البحث أو الفلتر'}  [ui]
+app/dashboard/trash/trash-client.tsx:241  aria-label={`تحديد ${item.file_name}`}  [a]
+app/dashboard/trash/trash-client.tsx:252  <Button variant="ghost" size="sm" onClick={() => restoreMutation.mutate(item.id)} disabled={saving} title="استعادة"><RotateCcw className="h-4 w-4" /></Button>  [a]
+app/dashboard/trash/trash-client.tsx:253  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => { setSelected(item); setShowPurge(true); }} title="حذف نهائي"><Trash2 className="h-4 w-4" /></Button>  [a]
+app/dashboard/trash/trash-client.tsx:267  <DialogHeader><DialogTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-destructive" /> تفريغ السلة بالكامل</DialogTitle></DialogHeader>  [ui]
+app/dashboard/trash/trash-client.tsx:269  هل أنت متأكد من حذف <strong>جميع الملفات ({items.length})</strong> نهائياً من السلة؟<br />  [ui]
+app/dashboard/trash/trash-client.tsx:270  <span className="text-destructive">هذا الإجراء لا يمكن التراجع عنه.</span>  [ui]
+app/dashboard/trash/trash-client.tsx:273  <Button variant="outline" onClick={() => setShowEmptyAll(false)}>إلغاء</Button>  [ui]
+app/dashboard/trash/trash-client.tsx:274  <Button variant="destructive" onClick={() => emptyAllMutation.mutate()} disabled={saving}>{saving ? 'جارٍ التفريغ...' : 'تفريغ السلة'}</Button>  [ui]
+app/dashboard/trash/trash-client.tsx:282  <DialogHeader><DialogTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-destructive" /> حذف نهائي</DialogTitle></DialogHeader>  [ui]
+app/dashboard/trash/trash-client.tsx:284  هل أنت متأكد من الحذف النهائي لـ <strong>{selected?.file_name}</strong>؟<br />  [ui]
+app/dashboard/trash/trash-client.tsx:285  <span className="text-destructive">هذا الإجراء لا يمكن التراجع عنه.</span>  [ui]
+app/dashboard/trash/trash-client.tsx:288  <Button variant="outline" onClick={() => setShowPurge(false)}>إلغاء</Button>  [ui]
+app/dashboard/trash/trash-client.tsx:289  <Button variant="destructive" onClick={() => selected && purgeMutation.mutate(selected.id)} disabled={saving}>{saving ? 'جارٍ الحذف...' : 'حذف نهائي'}</Button>  [ui]
+app/dashboard/trash/trash-client.tsx:297  <DialogHeader><DialogTitle className="flex items-center gap-2"><Clock className="h-5 w-5 text-orange-500" /> حذف الملفات المنتهية</DialogTitle></DialogHeader>  [ui]
+app/dashboard/trash/trash-client.tsx:299  سيتم حذف جميع الملفات التي تجاوزت مدة 30 يوماً في السلة نهائياً.<br />  [ui]
+app/dashboard/trash/trash-client.tsx:300  <span className="text-destructive">هذا الإجراء لا يمكن التراجع عنه.</span>  [ui]
+app/dashboard/trash/trash-client.tsx:303  <Button variant="outline" onClick={() => setShowPurgeExpired(false)}>إلغاء</Button>  [ui]
+app/dashboard/trash/trash-client.tsx:304  <Button variant="destructive" onClick={() => purgeExpiredMutation.mutate()} disabled={saving}>{saving ? 'جارٍ الحذف...' : 'حذف المنتهية'}</Button>  [ui]
+components/dashboard/approvals/approval-card.tsx:64  بانتظار الموافقة  [ui]
+components/dashboard/approvals/approval-card.tsx:69  {quote.project_name && <p>المشروع: <span className="text-foreground font-medium">{quote.project_name}</span></p>}  [ui]
+components/dashboard/approvals/approval-card.tsx:71  <p>العميل: <span className="text-foreground font-medium">{quote.client_name}</span> {quote.client_company ? `(${quote.client_company})` : ''}</p>  [ui]
+components/dashboard/approvals/approval-card.tsx:77  طلب بواسطة: {approval.requested_by} • {formatRelativeDate(approval.requested_at)}  [ui]
+components/dashboard/approvals/approval-card.tsx:83  عرض  [ui]
+components/dashboard/approvals/approval-card.tsx:91  placeholder="تعليق (اختياري)..."  [a]
+components/dashboard/approvals/approval-card.tsx:104  رفض  [ui]
+components/dashboard/approvals/approval-card.tsx:112  موافقة  [ui]
+components/dashboard/approvals/approval-history-item.tsx:42  {approval.status === 'approved' ? 'تمت الموافقة' : 'مرفوض'}  [ui]
+components/dashboard/approvals/approval-history-item.tsx:46  بواسطة: {approval.approved_by} • {approval.responded_at ? formatRelativeDate(approval.responded_at) : ''}  [ui]
+components/dashboard/approvals/approval-history-item.tsx:49  <p className="text-xs text-muted-foreground/70 mt-1 italic">تعليق: {approval.comments}</p>  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:47  away_message: 'شكراً لتواصلك! نحن خارج ساعات العمل حالياً. سنرد عليك في أقرب وقت خلال ساعات العمل.',  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:122  toast.success('تم حفظ إعداد التعيين التلقائي');  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:124  toast.error('فشل حفظ الإعداد');  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:138  toast.success(enabled ? 'تم تفعيل الردود الذكية' : 'تم تعطيل الردود الذكية');  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:140  toast.error('فشل حفظ الإعداد');  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:160  toast.success('تم حفظ إعداد مزود الذكاء الاصطناعي');  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:162  toast.error('فشل حفظ الإعداد');  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:193  toast.success('تم حفظ ساعات العمل');  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:195  toast.error('فشل حفظ الإعداد');  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:211  { key: 'manual', label: 'يدوي', desc: 'المدير يوزع المحادثات يدوياً', icon: Hand },  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:212  { key: 'round_robin', label: 'توزيع بالتناوب', desc: 'توزيع تلقائي بالتناوب على الوكلاء', icon: RotateCcw },  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:213  { key: 'least_busy', label: 'الأقل عبئاً', desc: 'تعيين للوكيل صاحب أقل محادثات مفتوحة', icon: Scale },  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:218  <h1 className="text-2xl font-bold">إعدادات المبيعات</h1>  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:221  <TabsTrigger value="stages">مراحل Pipeline</TabsTrigger>  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:222  <TabsTrigger value="whatsapp">واتساب</TabsTrigger>  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:223  <TabsTrigger value="canned">ردود جاهزة</TabsTrigger>  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:224  <TabsTrigger value="assignment">التعيين التلقائي</TabsTrigger>  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:227  <TabsTrigger value="business-hours">ساعات العمل</TabsTrigger>  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:238  التعيين التلقائي للمحادثات  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:243  اختر كيفية تعيين المحادثات الجديدة تلقائياً للوكلاء  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:291  لا يوجد وكلاء مبيعات نشطين. أضف وكلاء أولاً لتفعيل التعيين التلقائي.  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:303  الردود الذكية (AI)  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:308  عند تفعيل هذا الخيار، يقوم النظام بتحليل الرسائل الواردة واقتراح ردود سريعة للوكيل.  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:309  يمكن للوكيل اختيار اقتراح وتعديله قبل الإرسال.  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:330  {aiSuggestEnabled ? 'مفعّل' : 'معطّل'}  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:334  ? 'يظهر شريط الاقتراحات فوق حقل الإدخال'  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:335  : 'الاقتراحات مخفية لجميع الوكلاء'  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:344  aria-label="تفعيل الردود الذكية"  [a]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:350  <p className="text-sm font-medium">مزود الاقتراحات</p>  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:367  <span className="text-sm font-medium">قواعد ثابتة</span>  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:370  تحليل الكلمات المفتاحية + القوالب المحفوظة  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:391  ردود ذكية بالذكاء الاصطناعي  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:398  <Label className="text-xs">مفتاح API</Label>  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:413  حفظ  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:417  يتم استخدام Claude 3.5 Sonnet لتوليد الاقتراحات. التكلفة التقديرية: ~$0.003 لكل اقتراح.  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:427  ? 'يستخدم Claude AI لتحليل سياق المحادثة واقتراح ردود مخصصة. في حالة فشل الاتصال يتم الرجوع للقواعد الثابتة.'  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:428  : 'النظام يستخدم قواعد ذكية لتحليل الرسائل الواردة ويقترح ردوداً مناسبة بناءً على المحتوى.'  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:496  ساعات العمل  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:501  حدد ساعات العمل الرسمية. عند استلام رسالة خارج هذه الساعات، يتم إرسال رسالة تلقائية.  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:520  {businessHours.enabled ? 'مفعّل' : 'معطّل'}  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:523  {businessHours.enabled ? 'رسالة تلقائية خارج ساعات العمل' : 'لن يتم إرسال رسالة تلقائية'}  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:533  aria-label="تفعيل ساعات العمل"  [a]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:539  <Label className="text-xs">المنطقة الزمنية</Label>  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:555  <Label className="text-xs font-semibold">الجدول الأسبوعي</Label>  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:558  sunday: 'الأحد', monday: 'الاثنين', tuesday: 'الثلاثاء', wednesday: 'الأربعاء',  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:559  thursday: 'الخميس', friday: 'الجمعة', saturday: 'السبت',  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:575  <span className="text-xs text-muted-foreground">مغلق</span>  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:585  <span className="text-xs text-muted-foreground">إلى</span>  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:601  <Label className="text-xs">رسالة خارج ساعات العمل</Label>  [ui]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:607  placeholder="رسالة تلقائية خارج ساعات العمل..."  [a]
+components/dashboard/sales-settings/SalesSettingsContent.tsx:619  {savingBH ? 'جاري الحفظ...' : 'حفظ الإعدادات'}  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:52  toast.error('العنوان والمحتوى مطلوبين');  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:67  toast.error('أضف زر واحد على الأقل');  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:80  toast.success('تم إضافة الرد الجاهز');  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:86  toast.error('فشل الإضافة');  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:96  toast.success('تم الحذف');  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:99  toast.error('فشل الحذف');  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:112  الردود الجاهزة  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:116  إضافة رد  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:121  الردود الجاهزة تظهر في الشات عند الضغط على أيقونة الردود السريعة أو كتابة <kbd className="px-1.5 py-0.5 rounded bg-muted text-foreground font-mono text-[10px]">/</kbd> في مربع الرسائل  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:129  <Label className="text-xs">العنوان</Label>  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:130  <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="مثال: ترحيب" />  [a]
+components/dashboard/sales-settings/canned-responses.tsx:133  <Label className="text-xs">اختصار (اختياري)</Label>  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:134  <Input value={shortcut} onChange={e => setShortcut(e.target.value)} placeholder="مثال: hi" dir="ltr" />  [a]
+components/dashboard/sales-settings/canned-responses.tsx:139  <Label className="text-xs">النوع</Label>  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:146  نص  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:153  أزرار تفاعلية  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:158  <Label className="text-xs">المحتوى</Label>  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:159  <Textarea value={content} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setContent(e.target.value)} placeholder="نص الرد الجاهز..." rows={3} />  [a]
+components/dashboard/sales-settings/canned-responses.tsx:164  <Label className="text-xs font-semibold">الأزرار (حتى 3)</Label>  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:174  placeholder={`نص الزر ${idx + 1}`}  [a]
+components/dashboard/sales-settings/canned-responses.tsx:181  aria-label="حذف الزر"  [a]
+components/dashboard/sales-settings/canned-responses.tsx:198  إضافة زر  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:202  <Label className="text-xs">نص التذييل (اختياري)</Label>  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:203  <Input value={footerText} onChange={e => setFooterText(e.target.value)} placeholder="مثال: Pyramedia X" />  [a]
+components/dashboard/sales-settings/canned-responses.tsx:210  حفظ  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:212  <Button onClick={() => setShowAdd(false)} variant="outline" size="sm">إلغاء</Button>  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:221  title="لا توجد ردود جاهزة"  [a]
+components/dashboard/sales-settings/canned-responses.tsx:222  description="أضف ردود جاهزة لتسريع التواصل عبر الشات"  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:228  <p className="text-xs font-semibold text-muted-foreground mb-1.5">{cat === 'general' ? 'عام' : cat}</p>  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:238  <Badge className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">أزرار</Badge>  [ui]
+components/dashboard/sales-settings/canned-responses.tsx:258  aria-label="حذف"  [a]
+components/dashboard/sales-settings/pipeline-stages.tsx:27  if (!newStage.name_ar.trim()) { toast.error('اسم المرحلة مطلوب'); return; }  [ui]
+components/dashboard/sales-settings/pipeline-stages.tsx:31  toast.success('تمت إضافة المرحلة');  [ui]
+components/dashboard/sales-settings/pipeline-stages.tsx:34  } catch { toast.error('فشل الإضافة'); } finally { setAdding(false); }  [ui]
+components/dashboard/sales-settings/pipeline-stages.tsx:39  <CardHeader><CardTitle className="text-base">مراحل خط المبيعات</CardTitle></CardHeader>  [ui]
+components/dashboard/sales-settings/pipeline-stages.tsx:50  <div><Label className="text-xs">الاسم (عربي)</Label><Input value={newStage.name_ar} onChange={e => setNewStage(s => ({ ...s, name_ar: e.target.value }))} /></div>  [ui]
+components/dashboard/sales-settings/pipeline-stages.tsx:51  <div><Label className="text-xs">الاسم (إنجليزي)</Label><Input value={newStage.name} onChange={e => setNewStage(s => ({ ...s, name: e.target.value }))} /></div>  [ui]
+components/dashboard/sales-settings/pipeline-stages.tsx:52  <div><Label className="text-xs">اللون</Label><Select value={newStage.color} onValueChange={v => setNewStage(s => ({ ...s, color: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{COLORS.map(c => <SelectItem key={c} value={c}><div className="flex items-center gap-2"><div className={cn('w-3 h-3 rounded-full', COLOR_BG[c])}/>{c}</div></SelectItem>)}</SelectContent></Select></div>  [ui]
+components/dashboard/sales-settings/pipeline-stages.tsx:53  <Button onClick={handleAdd} disabled={adding}>{adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} إضافة</Button>  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:37  { value: 'low', label: 'منخفضة', color: 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400' },  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:38  { value: 'normal', label: 'عادية', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800/40 dark:text-gray-400' },  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:39  { value: 'high', label: 'عالية', color: 'bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400' },  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:40  { value: 'urgent', label: 'عاجلة', color: 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400' },  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:44  if (mins < 60) return `${mins} دقيقة`;  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:47  if (remaining === 0) return `${hours} ساعة`;  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:48  return `${hours} ساعة و ${remaining} دقيقة`;  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:97  toast.error('اسم السياسة مطلوب');  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:107  toast.success('تم تحديث السياسة');  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:110  toast.success('تم إنشاء السياسة');  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:114  toast.error('فشل حفظ السياسة');  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:121  toast.success('تم حذف السياسة');  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:123  toast.error('فشل حذف السياسة');  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:133  toast.success(policy.is_active ? 'تم تعطيل السياسة' : 'تم تفعيل السياسة');  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:135  toast.error('فشل تحديث السياسة');  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:147  اتفاقيات مستوى الخدمة (SLA)  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:151  إضافة سياسة  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:157  حدد مهلة زمنية للرد الأول وحل المحادثة لكل مستوى أولوية  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:161  <div className="text-center py-8 text-muted-foreground text-sm">جاري التحميل...</div>  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:165  <p className="text-sm text-muted-foreground">لا توجد سياسات SLA بعد</p>  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:168  إنشاء أول سياسة  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:175  <span>الاسم</span>  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:176  <span>الأولوية</span>  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:177  <span>الرد الأول</span>  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:178  <span>الحل</span>  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:179  <span>الحالة</span>  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:219  aria-label="تعديل السياسة"  [a]
+components/dashboard/sales-settings/sla-manager.tsx:228  aria-label="حذف السياسة"  [a]
+components/dashboard/sales-settings/sla-manager.tsx:251  {editingPolicy ? 'تعديل سياسة SLA' : 'إنشاء سياسة SLA جديدة'}  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:256  <Label>اسم السياسة (English)</Label>  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:264  <Label>اسم السياسة (عربي)</Label>  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:268  placeholder="مثال: اتفاقية عادية"  [a]
+components/dashboard/sales-settings/sla-manager.tsx:272  <Label>الأولوية</Label>  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:291  <Label>مهلة الرد الأول (دقيقة)</Label>  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:306  <Label>مهلة الحل (دقيقة)</Label>  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:324  إلغاء  [ui]
+components/dashboard/sales-settings/sla-manager.tsx:330  {editingPolicy ? 'تحديث' : 'إنشاء'}  [ui]
+components/dashboard/sales-settings/wa-manager.tsx:22  if (!newInstance.instance_name.trim()) { toast.error('اسم الـ Instance مطلوب'); return; }  [ui]
+components/dashboard/sales-settings/wa-manager.tsx:26  toast.success('تم إنشاء الـ Instance');  [ui]
+components/dashboard/sales-settings/wa-manager.tsx:28  } catch { toast.error('فشل الإنشاء'); } finally { setAdding(false); }  [ui]
+components/dashboard/sales-settings/wa-manager.tsx:54  <div><Label className="text-xs">اسم Instance</Label><Input value={newInstance.instance_name} onChange={e => setNewInstance(i => ({ ...i, instance_name: e.target.value }))} dir="ltr" /></div>  [ui]
+components/dashboard/sales-settings/wa-manager.tsx:55  <div><Label className="text-xs">الموظف</Label><Select onValueChange={v => setNewInstance(i => ({ ...i, agent_username: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{agents.map((a: any) => <SelectItem key={a.username} value={a.username}>{a.display_name}</SelectItem>)}</SelectContent></Select></div>  [ui]
+components/dashboard/sales-settings/wa-manager.tsx:56  <Button onClick={handleAdd} disabled={adding}>{adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} إنشاء</Button>  [ui]
+components/sales/chat/ai-suggest/suggest-bar.tsx:98  aria-label="إخفاء الاقتراحات"  [a]
+components/sales/chat/bulk-actions-bar.tsx:33  toast.success(`تم تحديث ${ids.length} محادثة`);  [ui]
+components/sales/chat/bulk-actions-bar.tsx:36  toast.error('فشل التحديث الجماعي');  [ui]
+components/sales/chat/bulk-actions-bar.tsx:49  محادثة محددة  [ui]
+components/sales/chat/bulk-actions-bar.tsx:58  الحالة  [ui]
+components/sales/chat/bulk-actions-bar.tsx:62  <ActionBtn label="حل" color="text-green-600" loading={bulkUpdate.isPending} onClick={() => handleAction('status', { status: 'resolved' })} />  [ui]
+components/sales/chat/bulk-actions-bar.tsx:63  <ActionBtn label="إعادة فتح" color="text-blue-600" loading={bulkUpdate.isPending} onClick={() => handleAction('status', { status: 'open' })} />  [ui]
+components/sales/chat/bulk-actions-bar.tsx:64  <ActionBtn label="تعليق" color="text-yellow-600" loading={bulkUpdate.isPending} onClick={() => handleAction('status', { status: 'pending' })} />  [ui]
+components/sales/chat/bulk-actions-bar.tsx:73  الأولوية  [ui]
+components/sales/chat/bulk-actions-bar.tsx:77  <ActionBtn label="عاجل" color="text-red-600" loading={bulkUpdate.isPending} onClick={() => handleAction('priority', { priority: 'urgent' })} />  [ui]
+components/sales/chat/bulk-actions-bar.tsx:78  <ActionBtn label="مرتفع" color="text-orange-600" loading={bulkUpdate.isPending} onClick={() => handleAction('priority', { priority: 'high' })} />  [ui]
+components/sales/chat/bulk-actions-bar.tsx:79  <ActionBtn label="عادي" color="text-blue-600" loading={bulkUpdate.isPending} onClick={() => handleAction('priority', { priority: 'normal' })} />  [ui]
+components/sales/chat/bulk-actions-bar.tsx:80  <ActionBtn label="منخفض" color="text-green-600" loading={bulkUpdate.isPending} onClick={() => handleAction('priority', { priority: 'low' })} />  [ui]
+components/sales/chat/bulk-actions-bar.tsx:90  تسمية  [ui]
+components/sales/chat/bulk-actions-bar.tsx:117  مسح  [ui]
+components/sales/chat/chat-input.tsx:231  toast.error('حجم الملف أكبر من 16 ميجابايت');  [ui]
+components/sales/chat/chat-input.tsx:287  toast.error('لم يتم السماح بالوصول للميكروفون');  [ui]
+components/sales/chat/chat-input.tsx:346  aria-label="إلغاء الرد"  [a]
+components/sales/chat/chat-input.tsx:356  اسحب الملف هنا للإرسال  [ui]
+components/sales/chat/chat-input.tsx:368  <span className="text-[13px] text-[#667781] dark:text-[#8696a0]">جاري التسجيل...</span>  [ui]
+components/sales/chat/chat-input.tsx:373  title="إلغاء"  [a]
+components/sales/chat/chat-input.tsx:374  aria-label="إلغاء"  [a]
+components/sales/chat/chat-input.tsx:381  title="إيقاف وإرسال"  [a]
+components/sales/chat/chat-input.tsx:382  aria-label="إيقاف وإرسال"  [a]
+components/sales/chat/chat-input.tsx:410  aria-label="إزالة"  [a]
+components/sales/chat/chat-input.tsx:430  aria-label="إرفاق ملف"  [a]
+components/sales/chat/chat-input.tsx:444  صورة  [ui]
+components/sales/chat/chat-input.tsx:454  مستند  [ui]
+components/sales/chat/chat-input.tsx:459  const question = prompt('سؤال الاستطلاع:');  [ui]
+components/sales/chat/chat-input.tsx:461  const optionsStr = prompt('الخيارات (مفصولة بفاصلة):');  [ui]
+components/sales/chat/chat-input.tsx:464  if (options.length < 2) { toast.error('يجب إدخال خيارين على الأقل'); return; }  [ui]
+components/sales/chat/chat-input.tsx:470  استطلاع  [ui]
+components/sales/chat/chat-input.tsx:476  const latStr = prompt('خط العرض (Latitude):');  [ui]
+components/sales/chat/chat-input.tsx:477  const lngStr = prompt('خط الطول (Longitude):');  [ui]
+components/sales/chat/chat-input.tsx:479  const locName = prompt('اسم الموقع (اختياري):') || undefined;  [ui]
+components/sales/chat/chat-input.tsx:485  موقع  [ui]
+components/sales/chat/chat-input.tsx:491  const fullName = prompt('اسم جهة الاتصال:');  [ui]
+components/sales/chat/chat-input.tsx:493  const phoneNumber = prompt('رقم الهاتف:');  [ui]
+components/sales/chat/chat-input.tsx:500  جهة اتصال  [ui]
+components/sales/chat/chat-input.tsx:518  title="ردود سريعة"  [a]
+components/sales/chat/chat-input.tsx:519  aria-label="ردود سريعة"  [a]
+components/sales/chat/chat-input.tsx:529  placeholder="بحث في القوالب..."  [a]
+components/sales/chat/chat-input.tsx:537  {templates.length === 0 ? 'لا توجد قوالب' : 'لا توجد نتائج'}  [ui]
+components/sales/chat/chat-input.tsx:562  <p className="text-[9px] text-muted-foreground/50 mb-1 font-medium">المتغيرات المتاحة:</p>  [ui]
+components/sales/chat/chat-input.tsx:579  إدارة القوالب  [ui]
+components/sales/chat/chat-input.tsx:595  placeholder="اكتب رسالة..."  [a]
+components/sales/chat/chat-input.tsx:618  title="تسجيل رسالة صوتية"  [a]
+components/sales/chat/chat-input.tsx:619  aria-label="تسجيل رسالة صوتية"  [a]
+components/sales/chat/chat-input.tsx:630  aria-label="إرسال"  [a]
+components/sales/chat/chat-layout.tsx:128  toast.success('تم حل المحادثة');  [ui]
+components/sales/chat/chat-layout.tsx:131  onError: () => toast.error('فشل في حل المحادثة'),  [ui]
+components/sales/chat/chat-layout.tsx:165  `رسالة من ${newMsgConv.contact_name || newMsgConv.contact_phone || 'جهة اتصال'}`,  [ui]
+components/sales/chat/chat-layout.tsx:166  newMsgConv.last_message || 'رسالة جديدة'  [ui]
+components/sales/chat/chat-layout.tsx:199  <h1 className="text-xl font-bold tracking-tight">محادثات واتساب</h1>  [ui]
+components/sales/chat/chat-layout.tsx:207  عرض التحليلات  [ui]
+components/sales/chat/chat-layout.tsx:214  <div role="tablist" aria-label="تصفية المحادثات" className="flex bg-[#f0f2f5] dark:bg-[#202c33] rounded-lg overflow-x-auto">  [a]
+components/sales/chat/chat-layout.tsx:262  {t === 'all' ? 'الكل' : t === 'individual' ? 'فردي' : 'مجموعات'}  [ui]
+components/sales/chat/chat-layout.tsx:282  مزامنة  [ui]
+components/sales/chat/chat-layout.tsx:295  {bulkMode ? 'إلغاء التحديد' : 'تحديد متعدد'}  [ui]
+components/sales/chat/chat-layout.tsx:363  <p className="font-normal text-[#41525d] dark:text-[#e9edef] text-base">اختر محادثة</p>  [ui]
+components/sales/chat/chat-layout.tsx:365  اختر محادثة من القائمة لعرض الرسائل والرد عليها  [ui]
+components/sales/chat/chat-panel/chat-header.tsx:117  aria-label="رجوع"  [a]
+components/sales/chat/chat-panel/chat-header.tsx:159  <span>يكتب...</span>  [ui]
+components/sales/chat/chat-panel/chat-header.tsx:163  {participantCount || 0} عضو  [ui]
+components/sales/chat/chat-panel/chat-header.tsx:187  {otherViewers.length === 1 ? `${otherViewers[0]} يشاهد` : `${otherViewers.length} يشاهدون`}  [ui]
+components/sales/chat/chat-panel/chat-header.tsx:196  خارج ساعات العمل  [ui]
+components/sales/chat/chat-panel/chat-header.tsx:214  title="بحث في الرسائل"  [a]
+components/sales/chat/chat-panel/chat-header.tsx:215  aria-label="بحث"  [a]
+components/sales/chat/chat-panel/chat-header.tsx:229  title="معلومات جهة الاتصال"  [a]
+components/sales/chat/chat-panel/chat-header.tsx:230  aria-label="معلومات جهة الاتصال"  [a]
+components/sales/chat/chat-panel/chat-header.tsx:240  aria-label="المزيد"  [a]
+components/sales/chat/chat-panel/chat-header.tsx:250  تعيين لوكيل  [ui]
+components/sales/chat/chat-panel/chat-header.tsx:258  {isMuted ? 'إلغاء الكتم' : 'كتم'}  [ui]
+components/sales/chat/chat-panel/chat-header.tsx:274  حل المحادثة  [ui]
+components/sales/chat/chat-panel/chat-header.tsx:284  تعليق  [ui]
+components/sales/chat/chat-panel/chat-header.tsx:293  إعادة فتح  [ui]
+components/sales/chat/chat-panel/chat-header.tsx:305  عرض العميل  [ui]
+components/sales/chat/chat-panel/chat-header.tsx:355  placeholder="بحث في الرسائل..."  [a]
+components/sales/chat/chat-panel/chat-header.tsx:360  {displayMessagesCount} نتيجة  [ui]
+components/sales/chat/chat-panel/index.tsx:206  onSuccess: () => toast.success('تم حفظ الملف'),  [ui]
+components/sales/chat/chat-panel/index.tsx:207  onError: () => toast.error('فشل حفظ الملف'),  [ui]
+components/sales/chat/chat-panel/index.tsx:251  toast.error(err instanceof Error ? err.message : 'فشل إرسال الرسالة');  [ui]
+components/sales/chat/chat-panel/index.tsx:274  toast.error('فشل رفع الملف — حاول ملف أصغر');  [ui]
+components/sales/chat/chat-panel/index.tsx:302  toast.error(err instanceof Error ? err.message : 'فشل إرسال الملف');  [ui]
+components/sales/chat/chat-panel/index.tsx:309  if (!conversationId) { toast.error('لا يمكن إضافة ملاحظة'); return; }  [ui]
+components/sales/chat/chat-panel/index.tsx:312  toast.success('تم إضافة الملاحظة');  [ui]
+components/sales/chat/chat-panel/index.tsx:314  toast.error('فشل إضافة الملاحظة');  [ui]
+components/sales/chat/chat-panel/index.tsx:329  toast.success(newStatus === 'resolved' ? 'تم حل المحادثة' : newStatus === 'pending' ? 'تم تعليق المحادثة' : 'تم فتح المحادثة');  [ui]
+components/sales/chat/chat-panel/index.tsx:331  toast.error('فشل تحديث الحالة');  [ui]
+components/sales/chat/chat-panel/index.tsx:348  toast.success(newMuted ? 'تم كتم المحادثة' : 'تم إلغاء الكتم');  [ui]
+components/sales/chat/chat-panel/index.tsx:350  toast.error('فشل تحديث حالة الكتم');  [ui]
+components/sales/chat/chat-panel/index.tsx:454  عرض سعر  [ui]
+components/sales/chat/chat-panel/index.tsx:461  فاتورة  [ui]
+components/sales/chat/chat-panel/index.tsx:468  ملاحظة  [ui]
+components/sales/chat/chat-panel/index.tsx:475  متابعة  [ui]
+components/sales/chat/chat-panel/index.tsx:484  إنشاء عميل محتمل  [ui]
+components/sales/chat/chat-panel/index.tsx:502  رسالة  [ui]
+components/sales/chat/chat-panel/index.tsx:514  ملاحظة داخلية  [ui]
+components/sales/chat/chat-panel/message-list.tsx:104  <p className="text-sm font-normal text-[#111b21] dark:text-[#e9edef]">لا توجد رسائل بعد</p>  [ui]
+components/sales/chat/chat-panel/message-list.tsx:105  <p className="text-[13px] mt-1">ابدأ المحادثة بإرسال رسالة</p>  [ui]
+components/sales/chat/chat-panel/message-list.tsx:155  <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400">ملاحظة داخلية</span>  [ui]
+components/sales/chat/chat-panel/note-input.tsx:56  placeholder="اكتب ملاحظة داخلية... (@ لذكر شخص)"  [a]
+components/sales/chat/chat-panel/note-input.tsx:72  aria-label="إرسال ملاحظة"  [a]
+components/sales/chat/contact-panel/index.tsx:35  urgent: 'عاجل', high: 'مرتفع', medium: 'متوسط', low: 'منخفض',  [status]
+components/sales/chat/contact-panel/index.tsx:39  draft: 'مسودة', sent: 'مرسل', viewed: 'تمت المعاينة', signed: 'تم التوقيع',  [status]
+components/sales/chat/contact-panel/index.tsx:40  approved: 'معتمد', rejected: 'مرفوض', expired: 'منتهي', invoiced: 'تمت الفوترة',  [ui]
+components/sales/chat/contact-panel/index.tsx:147  toast.success('تم تحديث الاسم');  [ui]
+components/sales/chat/contact-panel/index.tsx:149  toast.error('فشل تحديث الاسم');  [ui]
+components/sales/chat/contact-panel/index.tsx:163  toast.error('فشل تحديث البيانات المخصصة');  [ui]
+components/sales/chat/contact-panel/index.tsx:194  toast.success('تم إلغاء الربط');  [ui]
+components/sales/chat/contact-panel/index.tsx:196  toast.error('فشل إلغاء الربط');  [ui]
+components/sales/chat/contact-panel/index.tsx:204  <h3 className="font-semibold text-sm">معلومات جهة الاتصال</h3>  [ui]
+components/sales/chat/contact-panel/index.tsx:205  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={onClose} aria-label="إغلاق">  [a]
+components/sales/chat/contact-panel/index.tsx:226  <p className="text-xs text-muted-foreground">{conversation.participant_count || 0} عضو</p>  [ui]
+components/sales/chat/contact-panel/index.tsx:232  <h4 className="text-xs font-semibold text-muted-foreground mb-1">الوصف</h4>  [ui]
+components/sales/chat/contact-panel/index.tsx:240  <Users className="h-3 w-3" aria-hidden="true" /> الأعضاء ({conversation.participant_count || 0})  [ui]
+components/sales/chat/contact-panel/index.tsx:251  التسميات  [ui]
+components/sales/chat/contact-panel/index.tsx:265  <p className="text-[11px] text-muted-foreground/40 py-1">لا توجد تسميات</p>  [ui]
+components/sales/chat/contact-panel/index.tsx:300  placeholder="اسم جهة الاتصال"  [a]
+components/sales/chat/contact-panel/index.tsx:313  <p className="font-semibold text-base">{contactName || displayPhone || 'غير معروف'}</p>  [ui]
+components/sales/chat/contact-panel/index.tsx:318  title="تعديل الاسم"  [a]
+components/sales/chat/contact-panel/index.tsx:358  {'تقييم العميل'}  [ui]
+components/sales/chat/contact-panel/index.tsx:381  التسميات  [ui]
+components/sales/chat/contact-panel/index.tsx:395  <p className="text-[11px] text-muted-foreground/40 py-1">لا توجد تسميات</p>  [ui]
+components/sales/chat/contact-panel/index.tsx:404  بيانات مخصصة  [ui]
+components/sales/chat/contact-panel/index.tsx:410  title="إضافة حقل"  [a]
+components/sales/chat/contact-panel/index.tsx:439  placeholder="اسم الحقل"  [a]
+components/sales/chat/contact-panel/index.tsx:445  placeholder="القيمة"  [a]
+components/sales/chat/contact-panel/index.tsx:451  إضافة  [ui]
+components/sales/chat/contact-panel/index.tsx:454  إلغاء  [ui]
+components/sales/chat/contact-panel/index.tsx:460  <p className="text-[11px] text-muted-foreground/40 py-1">لا توجد بيانات مخصصة</p>  [ui]
+components/sales/chat/contact-panel/index.tsx:468  <h4 className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider">حالة العميل المحتمل</h4>  [ui]
+components/sales/chat/contact-panel/index.tsx:473  title="إلغاء ربط العميل المحتمل"  [a]
+components/sales/chat/contact-panel/index.tsx:491  تم التحويل  [ui]
+components/sales/chat/contact-panel/index.tsx:513  <span>آخر تواصل: {formatRelativeDate(lead.last_contact_at)}</span>  [ui]
+components/sales/chat/contact-panel/index.tsx:519  <span>متابعة قادمة: {formatRelativeDate(lead.next_follow_up)}</span>  [ui]
+components/sales/chat/contact-panel/index.tsx:528  فتح ملف العميل المحتمل  [ui]
+components/sales/chat/contact-panel/index.tsx:537  فتح ملف العميل  [ui]
+components/sales/chat/contact-panel/index.tsx:547  <p className="text-xs text-muted-foreground/60">لا يوجد عميل محتمل مرتبط</p>  [ui]
+components/sales/chat/contact-panel/index.tsx:560  عروض الأسعار ({quotes.length})  [ui]
+components/sales/chat/contact-panel/index.tsx:601  دمج محادثات  [ui]
+components/sales/chat/contact-panel/index.tsx:627  if (!participants || participants.length === 0) return <p className="text-xs text-muted-foreground">لا يوجد أعضاء</p>;  [ui]
+components/sales/chat/contact-panel/index.tsx:641  {p.role === 'superadmin' ? 'المالك' : 'مشرف'}  [ui]
+components/sales/chat/contact-panel/previous-conversations.tsx:88  محادثات سابقة ({prevConversations.length})  [ui]
+components/sales/chat/contact-panel/previous-conversations.tsx:113  {conv.last_message || 'لا توجد رسائل'}  [ui]
+components/sales/chat/contact-panel/previous-conversations.tsx:124  محلول  [ui]
+components/sales/chat/contact-panel/previous-conversations.tsx:137  <SheetTitle className="text-sm">سجل المحادثة السابقة</SheetTitle>  [ui]
+components/sales/chat/contact-panel/previous-conversations.tsx:148  لا توجد رسائل  [ui]
+components/sales/chat/conversation-list.tsx:45  placeholder="بحث بالاسم أو الرقم..."  [a]
+components/sales/chat/conversation-list.tsx:61  تحديد الكل  [ui]
+components/sales/chat/conversation-list.tsx:79  {search ? 'لا توجد نتائج' : 'لا توجد محادثات'}  [ui]
+components/sales/chat/conversation-list.tsx:82  <p className="text-[13px] text-[#667781] dark:text-[#8696a0] mt-1">حاول بكلمة بحث مختلفة</p>  [ui]
+components/sales/chat/conversation-list/conversation-item.tsx:21  image: '📷 صورة',  [status]
+components/sales/chat/conversation-list/conversation-item.tsx:22  audio: '🎙️ صوت',  [status]
+components/sales/chat/conversation-list/conversation-item.tsx:23  video: '🎥 فيديو',  [status]
+components/sales/chat/conversation-list/conversation-item.tsx:24  document: '📎 مستند',  [status]
+components/sales/chat/conversation-list/conversation-item.tsx:25  sticker: '🏷️ ملصق',  [status]
+components/sales/chat/conversation-list/conversation-item.tsx:26  contact: '👤 جهة اتصال',  [status]
+components/sales/chat/conversation-list/conversation-item.tsx:27  location: '📍 موقع',  [status]
+components/sales/chat/conversation-list/conversation-item.tsx:39  ? MEDIA_LABELS[msgType] || '📎 ملف'  [status]
+components/sales/chat/conversation-list/conversation-item.tsx:136  يكتب...  [ui]
+components/sales/chat/conversation-list/conversation-item.tsx:159  <span title="عميل محتمل"><User className="h-3.5 w-3.5 text-[#667781] dark:text-[#8696a0]" /></span>  [a]
+components/sales/chat/csat/csat-badge.tsx:30  1: 'سيء جداً',  [status]
+components/sales/chat/csat/csat-badge.tsx:31  2: 'سيء',  [status]
+components/sales/chat/csat/csat-badge.tsx:32  3: 'متوسط',  [status]
+components/sales/chat/csat/csat-badge.tsx:33  4: 'جيد',  [status]
+components/sales/chat/csat/csat-badge.tsx:34  5: 'ممتاز',  [status]
+components/sales/chat/csat/csat-stats-card.tsx:64  {'رضا العملاء (CSAT)'}  [ui]
+components/sales/chat/csat/csat-stats-card.tsx:76  {data.total} {'تقييم'}  [ui]
+components/sales/chat/csat/csat-stats-card.tsx:112  {'تقييم الوكلاء'}  [ui]
+components/sales/chat/csat/csat-stats-card.tsx:126  {agent.agent === 'unassigned' ? 'غير معيّن' : agent.agent}  [ui]
+components/sales/chat/csat/csat-stats-card.tsx:150  {'الاتجاه'}  [ui]
+components/sales/chat/csat/csat-stats-card.tsx:182  {'لا توجد تقييمات بعد'}  [ui]
+components/sales/chat/csat/csat-stats-card.tsx:185  {'ستظهر التقييمات عند حل المحادثات'}  [ui]
+components/sales/chat/dialogs/add-note-dialog.tsx:19  { value: 'note', label: 'ملاحظة', icon: StickyNote, color: 'text-yellow-600 dark:text-yellow-400 bg-yellow-500/10' },  [ui]
+components/sales/chat/dialogs/add-note-dialog.tsx:20  { value: 'call', label: 'مكالمة', icon: Phone, color: 'text-blue-600 dark:text-blue-400 bg-blue-500/10' },  [ui]
+components/sales/chat/dialogs/add-note-dialog.tsx:21  { value: 'email', label: 'بريد', icon: Mail, color: 'text-purple-600 dark:text-purple-400 bg-purple-500/10' },  [ui]
+components/sales/chat/dialogs/add-note-dialog.tsx:22  { value: 'meeting', label: 'اجتماع', icon: Users, color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' },  [ui]
+components/sales/chat/dialogs/add-note-dialog.tsx:33  toast.error('النص مطلوب');  [ui]
+components/sales/chat/dialogs/add-note-dialog.tsx:44  toast.success('تمت إضافة النشاط بنجاح');  [ui]
+components/sales/chat/dialogs/add-note-dialog.tsx:48  toast.error(err instanceof Error ? err.message : 'فشل إضافة النشاط');  [ui]
+components/sales/chat/dialogs/add-note-dialog.tsx:62  <DialogTitle className="text-sm">إضافة ملاحظة</DialogTitle>  [ui]
+components/sales/chat/dialogs/add-note-dialog.tsx:63  <DialogDescription className="sr-only">نموذج</DialogDescription>  [ui]
+components/sales/chat/dialogs/add-note-dialog.tsx:93  <label htmlFor="add-note-description" className="sr-only">الملاحظة</label>  [ui]
+components/sales/chat/dialogs/add-note-dialog.tsx:98  placeholder="اكتب الملاحظة هنا..."  [a]
+components/sales/chat/dialogs/add-note-dialog.tsx:117  حفظ  [ui]
+components/sales/chat/dialogs/assign-dialog.tsx:77  toast.success(selectedAgent ? 'تم تعيين المحادثة' : 'تم إلغاء التعيين');  [ui]
+components/sales/chat/dialogs/assign-dialog.tsx:81  toast.error('فشل تعيين المحادثة');  [ui]
+components/sales/chat/dialogs/assign-dialog.tsx:93  تعيين المحادثة لوكيل  [ui]
+components/sales/chat/dialogs/assign-dialog.tsx:99  <Label className="text-xs">الوكيل</Label>  [ui]
+components/sales/chat/dialogs/assign-dialog.tsx:102  <SelectValue placeholder="اختر الوكيل" />  [a]
+components/sales/chat/dialogs/assign-dialog.tsx:105  <SelectItem value="__none__">بدون تعيين</SelectItem>  [ui]
+components/sales/chat/dialogs/assign-dialog.tsx:117  <Label className="text-xs">الفريق (اختياري)</Label>  [ui]
+components/sales/chat/dialogs/assign-dialog.tsx:120  <SelectValue placeholder="اختر الفريق" />  [a]
+components/sales/chat/dialogs/assign-dialog.tsx:123  <SelectItem value="__none__">بدون فريق</SelectItem>  [ui]
+components/sales/chat/dialogs/assign-dialog.tsx:137  إلغاء  [ui]
+components/sales/chat/dialogs/assign-dialog.tsx:141  تعيين  [ui]
+components/sales/chat/dialogs/create-lead-dialog.tsx:62  toast.error('اسم العميل المحتمل مطلوب');  [ui]
+components/sales/chat/dialogs/create-lead-dialog.tsx:78  toast.success('تم إنشاء العميل المحتمل بنجاح');  [ui]
+components/sales/chat/dialogs/create-lead-dialog.tsx:82  toast.error(err instanceof Error ? err.message : 'فشل إنشاء العميل المحتمل');  [ui]
+components/sales/chat/dialogs/create-lead-dialog.tsx:98  <DialogTitle className="text-sm">إنشاء عميل محتمل</DialogTitle>  [ui]
+components/sales/chat/dialogs/create-lead-dialog.tsx:99  <DialogDescription className="sr-only">نموذج</DialogDescription>  [ui]
+components/sales/chat/dialogs/create-lead-dialog.tsx:106  <label htmlFor="create-lead-name" className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">الاسم *</label>  [ui]
+components/sales/chat/dialogs/create-lead-dialog.tsx:111  placeholder="اسم العميل المحتمل"  [a]
+components/sales/chat/dialogs/create-lead-dialog.tsx:120  <label htmlFor="create-lead-phone" className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">رقم الهاتف</label>  [ui]
+components/sales/chat/dialogs/create-lead-dialog.tsx:133  <label htmlFor="create-lead-email" className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">البريد الإلكتروني</label>  [ui]
+components/sales/chat/dialogs/create-lead-dialog.tsx:147  <label htmlFor="create-lead-company" className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">الشركة</label>  [ui]
+components/sales/chat/dialogs/create-lead-dialog.tsx:152  placeholder="اسم الشركة"  [a]
+components/sales/chat/dialogs/create-lead-dialog.tsx:160  <label htmlFor="create-lead-stage" className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">المرحلة</label>  [ui]
+components/sales/chat/dialogs/create-lead-dialog.tsx:168  <label htmlFor="create-lead-priority" className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">الأولوية</label>  [ui]
+components/sales/chat/dialogs/create-lead-dialog.tsx:170  <option value="low">منخفض</option>  [ui]
+components/sales/chat/dialogs/create-lead-dialog.tsx:171  <option value="medium">متوسط</option>  [ui]
+components/sales/chat/dialogs/create-lead-dialog.tsx:172  <option value="high">مرتفع</option>  [ui]
+components/sales/chat/dialogs/create-lead-dialog.tsx:173  <option value="urgent">عاجل</option>  [ui]
+components/sales/chat/dialogs/create-lead-dialog.tsx:180  <label htmlFor="create-lead-notes" className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">ملاحظات</label>  [ui]
+components/sales/chat/dialogs/create-lead-dialog.tsx:185  placeholder="ملاحظات اختيارية..."  [a]
+components/sales/chat/dialogs/create-lead-dialog.tsx:202  إنشاء عميل محتمل  [ui]
+components/sales/chat/dialogs/forward-dialog.tsx:40  toast.success('تم تحويل الرسالة');  [ui]
+components/sales/chat/dialogs/forward-dialog.tsx:43  onError: () => toast.error('فشل تحويل الرسالة'),  [ui]
+components/sales/chat/dialogs/forward-dialog.tsx:54  تحويل الرسالة  [ui]
+components/sales/chat/dialogs/forward-dialog.tsx:65  placeholder="بحث بالاسم أو الرقم..."  [a]
+components/sales/chat/dialogs/forward-dialog.tsx:95  <p className="text-center text-sm text-muted-foreground/50 py-6">لا توجد نتائج</p>  [ui]
+components/sales/chat/dialogs/forward-dialog.tsx:101  <p className="text-xs text-muted-foreground">أو أدخل رقم يدوياً:</p>  [ui]
+components/sales/chat/dialogs/forward-dialog.tsx:115  {forwardMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'إرسال'}  [ui]
+components/sales/chat/dialogs/label-picker.tsx:51  { onError: () => toast.error('فشل إزالة التسمية') }  [ui]
+components/sales/chat/dialogs/label-picker.tsx:56  { onError: () => toast.error('فشل إضافة التسمية') }  [ui]
+components/sales/chat/dialogs/label-picker.tsx:69  toast.success('تم إنشاء التسمية');  [ui]
+components/sales/chat/dialogs/label-picker.tsx:71  onError: () => toast.error('فشل إنشاء التسمية'),  [ui]
+components/sales/chat/dialogs/label-picker.tsx:84  title="التسميات"  [a]
+components/sales/chat/dialogs/label-picker.tsx:85  aria-label="إدارة التسميات"  [a]
+components/sales/chat/dialogs/label-picker.tsx:96  التسميات  [ui]
+components/sales/chat/dialogs/label-picker.tsx:107  <h4 className="text-xs font-semibold text-muted-foreground/70">التسميات</h4>  [ui]
+components/sales/chat/dialogs/label-picker.tsx:113  لا توجد تسميات بعد  [ui]
+components/sales/chat/dialogs/label-picker.tsx:151  placeholder="اسم التسمية..."  [a]
+components/sales/chat/dialogs/label-picker.tsx:179  'إنشاء'  [ui]
+components/sales/chat/dialogs/label-picker.tsx:198  إنشاء تسمية جديدة  [ui]
+components/sales/chat/dialogs/merge-dialog.tsx:71  toast.success('تم دمج المحادثات بنجاح');  [ui]
+components/sales/chat/dialogs/merge-dialog.tsx:77  toast.error('فشل دمج المحادثات');  [ui]
+components/sales/chat/dialogs/merge-dialog.tsx:92  دمج المحادثات  [ui]
+components/sales/chat/dialogs/merge-dialog.tsx:95  اختر المحادثة التي تريد دمجها مع المحادثة الحالية. سيتم نقل جميع الرسائل والملاحظات.  [ui]
+components/sales/chat/dialogs/merge-dialog.tsx:103  جاري البحث...  [ui]
+components/sales/chat/dialogs/merge-dialog.tsx:107  لا توجد محادثات أخرى لنفس جهة الاتصال  [ui]
+components/sales/chat/dialogs/merge-dialog.tsx:142  {conv.last_message || 'لا توجد رسائل'}  [ui]
+components/sales/chat/dialogs/merge-dialog.tsx:160  سيتم نقل جميع الرسائل والملاحظات من المحادثة المختارة إلى المحادثة الحالية. هذا الإجراء لا يمكن التراجع عنه.  [ui]
+components/sales/chat/dialogs/merge-dialog.tsx:167  إلغاء  [ui]
+components/sales/chat/dialogs/merge-dialog.tsx:179  دمج  [ui]
+components/sales/chat/dialogs/schedule-followup-dialog.tsx:20  { label: 'بعد ساعة', hours: 1 },  [ui]
+components/sales/chat/dialogs/schedule-followup-dialog.tsx:21  { label: 'بعد 3 ساعات', hours: 3 },  [ui]
+components/sales/chat/dialogs/schedule-followup-dialog.tsx:22  { label: 'غداً صباحاً', hours: null, preset: 'tomorrow_morning' },  [ui]
+components/sales/chat/dialogs/schedule-followup-dialog.tsx:23  { label: 'غداً مساءً', hours: null, preset: 'tomorrow_afternoon' },  [ui]
+components/sales/chat/dialogs/schedule-followup-dialog.tsx:24  { label: 'بعد 3 أيام', hours: 72 },  [ui]
+components/sales/chat/dialogs/schedule-followup-dialog.tsx:25  { label: 'بعد أسبوع', hours: 168 },  [ui]
+components/sales/chat/dialogs/schedule-followup-dialog.tsx:65  toast.error('تاريخ المتابعة مطلوب');  [ui]
+components/sales/chat/dialogs/schedule-followup-dialog.tsx:74  title: title.trim() || 'متابعة واتساب',  [ui]
+components/sales/chat/dialogs/schedule-followup-dialog.tsx:78  toast.success('تمت جدولة المتابعة');  [ui]
+components/sales/chat/dialogs/schedule-followup-dialog.tsx:82  toast.error(err instanceof Error ? err.message : 'فشل جدولة المتابعة');  [ui]
+components/sales/chat/dialogs/schedule-followup-dialog.tsx:98  <DialogTitle className="text-sm">جدولة متابعة</DialogTitle>  [ui]
+components/sales/chat/dialogs/schedule-followup-dialog.tsx:99  <DialogDescription className="sr-only">نموذج</DialogDescription>  [ui]
+components/sales/chat/dialogs/schedule-followup-dialog.tsx:106  <label className="text-xs font-medium text-muted-foreground/70 mb-2 block">اختصارات سريعة</label>  [ui]
+components/sales/chat/dialogs/schedule-followup-dialog.tsx:123  <label htmlFor="followup-due-at" className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">التاريخ والوقت *</label>  [ui]
+components/sales/chat/dialogs/schedule-followup-dialog.tsx:137  <label htmlFor="followup-title" className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">العنوان</label>  [ui]
+components/sales/chat/dialogs/schedule-followup-dialog.tsx:142  placeholder="متابعة واتساب"  [a]
+components/sales/chat/dialogs/schedule-followup-dialog.tsx:149  <label htmlFor="followup-notes" className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">ملاحظات</label>  [ui]
+components/sales/chat/dialogs/schedule-followup-dialog.tsx:154  placeholder="ملاحظات اختيارية..."  [a]
+components/sales/chat/dialogs/schedule-followup-dialog.tsx:171  جدولة المتابعة  [ui]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:39  draft: 'مسودة',  [status]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:40  sent: 'مرسل',  [status]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:41  viewed: 'تمت المعاينة',  [status]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:42  partially_paid: 'مدفوع جزئياً',  [status]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:43  paid: 'مدفوع',  [status]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:44  overdue: 'متأخر',  [status]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:45  cancelled: 'ملغي',  [status]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:65  toast.error('فشل تحميل الفواتير');  [ui]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:83  const message = `🧾 *فاتورة ${inv.invoice_number}*\n${inv.project_name ? `المشروع: ${inv.project_name}\n` : ''}الإجمالي: ${formatCurrency(inv.total, inv.currency)}${inv.amount_due > 0 && inv.amount_due !== inv.total ? `\nالمبلغ المتبقي: ${formatCurrency(inv.amount_due, inv.currency)}` : ''}\nتاريخ الاستحقاق: ${new Date(inv.due_date).toLocaleDateString('ar-EG')}\n\nسيتم إرسال التفاصيل الكاملة قريباً.`;  [ui]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:93  toast.success(`تم إرسال الفاتورة ${inv.invoice_number}`);  [ui]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:97  toast.error('فشل إرسال الفاتورة');  [ui]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:105  toast.error('لا يمكن إرسال PDF بدون محادثة');  [ui]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:115  toast.success(`تم إرسال الفاتورة ${inv.invoice_number} كـ PDF`);  [ui]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:119  toast.error('فشل إرسال PDF');  [ui]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:133  <DialogTitle className="text-sm">إرسال فاتورة</DialogTitle>  [ui]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:134  <DialogDescription className="sr-only">نموذج</DialogDescription>  [ui]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:141  <label htmlFor="invoice-search" className="sr-only">بحث الفواتير</label>  [ui]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:146  placeholder="بحث برقم الفاتورة أو المشروع..."  [a]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:155  <div className="text-center py-8 text-muted-foreground/50 text-sm">جاري التحميل...</div>  [ui]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:159  {search ? 'لا توجد نتائج' : 'لا توجد فواتير'}  [ui]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:184  متبقي: {formatCurrency(inv.amount_due, inv.currency)}  [ui]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:190  <Button variant="ghost" size="icon" asChild className="h-8 w-8 rounded-lg" aria-label="عرض">  [a]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:202  title="إرسال كـ PDF"  [a]
+components/sales/chat/dialogs/send-invoice-dialog.tsx:222  إرسال  [ui]
+components/sales/chat/dialogs/send-quote-dialog.tsx:37  draft: 'مسودة',  [status]
+components/sales/chat/dialogs/send-quote-dialog.tsx:38  pending_approval: 'بانتظار الموافقة',  [status]
+components/sales/chat/dialogs/send-quote-dialog.tsx:39  sent: 'مرسل',  [status]
+components/sales/chat/dialogs/send-quote-dialog.tsx:40  viewed: 'تمت المعاينة',  [status]
+components/sales/chat/dialogs/send-quote-dialog.tsx:41  signed: 'تم التوقيع',  [status]
+components/sales/chat/dialogs/send-quote-dialog.tsx:42  approved: 'معتمد',  [status]
+components/sales/chat/dialogs/send-quote-dialog.tsx:43  invoiced: 'تمت الفوترة',  [status]
+components/sales/chat/dialogs/send-quote-dialog.tsx:63  toast.error('فشل تحميل عروض الأسعار');  [ui]
+components/sales/chat/dialogs/send-quote-dialog.tsx:82  const message = `📋 *عرض سعر ${quote.quote_number}*\n${quote.project_name ? `المشروع: ${quote.project_name}\n` : ''}الإجمالي: ${formatCurrency(quote.total, quote.currency)}\n\nسيتم إرسال التفاصيل الكاملة قريباً.`;  [ui]
+components/sales/chat/dialogs/send-quote-dialog.tsx:92  toast.success(`تم إرسال عرض السعر ${quote.quote_number}`);  [ui]
+components/sales/chat/dialogs/send-quote-dialog.tsx:96  toast.error('فشل إرسال عرض السعر');  [ui]
+components/sales/chat/dialogs/send-quote-dialog.tsx:104  toast.error('لا يمكن إرسال PDF بدون محادثة');  [ui]
+components/sales/chat/dialogs/send-quote-dialog.tsx:114  toast.success(`تم إرسال عرض السعر ${quote.quote_number} كـ PDF`);  [ui]
+components/sales/chat/dialogs/send-quote-dialog.tsx:118  toast.error('فشل إرسال PDF');  [ui]
+components/sales/chat/dialogs/send-quote-dialog.tsx:132  <DialogTitle className="text-sm">إرسال عرض سعر</DialogTitle>  [ui]
+components/sales/chat/dialogs/send-quote-dialog.tsx:133  <DialogDescription className="sr-only">نموذج</DialogDescription>  [ui]
+components/sales/chat/dialogs/send-quote-dialog.tsx:140  <label htmlFor="quote-search" className="sr-only">بحث عروض الأسعار</label>  [ui]
+components/sales/chat/dialogs/send-quote-dialog.tsx:145  placeholder="بحث بالرقم أو اسم المشروع..."  [a]
+components/sales/chat/dialogs/send-quote-dialog.tsx:154  <div className="text-center py-8 text-muted-foreground/50 text-sm">جاري التحميل...</div>  [ui]
+components/sales/chat/dialogs/send-quote-dialog.tsx:158  {search ? 'لا توجد نتائج' : 'لا توجد عروض أسعار'}  [ui]
+components/sales/chat/dialogs/send-quote-dialog.tsx:164  إنشاء عرض سعر جديد  [ui]
+components/sales/chat/dialogs/send-quote-dialog.tsx:190  <Button variant="ghost" size="icon" asChild className="h-8 w-8 rounded-lg" aria-label="عرض">  [a]
+components/sales/chat/dialogs/send-quote-dialog.tsx:202  title="إرسال كـ PDF"  [a]
+components/sales/chat/dialogs/send-quote-dialog.tsx:222  إرسال  [ui]
+components/sales/chat/dialogs/snooze-picker.tsx:21  label: 'ساعة واحدة',  [ui]
+components/sales/chat/dialogs/snooze-picker.tsx:26  label: '3 ساعات',  [ui]
+components/sales/chat/dialogs/snooze-picker.tsx:31  label: 'غداً الساعة 9 صباحاً',  [ui]
+components/sales/chat/dialogs/snooze-picker.tsx:41  label: 'الأسبوع القادم',  [ui]
+components/sales/chat/dialogs/snooze-picker.tsx:74  toast.success('تم تأجيل المحادثة');  [ui]
+components/sales/chat/dialogs/snooze-picker.tsx:78  onError: () => toast.error('فشل تأجيل المحادثة'),  [ui]
+components/sales/chat/dialogs/snooze-picker.tsx:88  toast.success('تم إلغاء التأجيل');  [ui]
+components/sales/chat/dialogs/snooze-picker.tsx:92  onError: () => toast.error('فشل إلغاء التأجيل'),  [ui]
+components/sales/chat/dialogs/snooze-picker.tsx:103  toast.error('يجب اختيار وقت في المستقبل');  [ui]
+components/sales/chat/dialogs/snooze-picker.tsx:119  title={isSnoozed ? `مؤجلة حتى ${new Date(snoozedUntil!).toLocaleString('ar-EG')}` : 'تأجيل'}  [a]
+components/sales/chat/dialogs/snooze-picker.tsx:120  aria-label={isSnoozed ? 'إلغاء التأجيل' : 'تأجيل'}  [a]
+components/sales/chat/dialogs/snooze-picker.tsx:128  تأجيل المحادثة  [ui]
+components/sales/chat/dialogs/snooze-picker.tsx:140  إلغاء التأجيل  [ui]
+components/sales/chat/dialogs/snooze-picker.tsx:189  تأجيل  [ui]
+components/sales/chat/dialogs/snooze-picker.tsx:207  وقت مخصص  [ui]
+components/sales/chat/filters/filter-bar.tsx:12  { value: 'urgent', label: 'عاجل', color: 'bg-red-500' },  [ui]
+components/sales/chat/filters/filter-bar.tsx:13  { value: 'high', label: 'مرتفع', color: 'bg-orange-500' },  [ui]
+components/sales/chat/filters/filter-bar.tsx:14  { value: 'normal', label: 'عادي', color: 'bg-blue-500' },  [ui]
+components/sales/chat/filters/filter-bar.tsx:15  { value: 'low', label: 'منخفض', color: 'bg-green-500' },  [ui]
+components/sales/chat/filters/filter-bar.tsx:73  فلاتر  [ui]
+components/sales/chat/filters/filter-bar.tsx:99  فلاتر  [ui]
+components/sales/chat/filters/filter-bar.tsx:149  مسح الفلاتر  [ui]
+components/sales/chat/filters/filter-bar.tsx:177  الأولوية  [ui]
+components/sales/chat/filters/filter-bar.tsx:200  الوكيل  [ui]
+components/sales/chat/filters/filter-bar.tsx:224  التسميات  [ui]
+components/sales/chat/filters/filter-bar.tsx:250  مسح جميع الفلاتر  [ui]
+components/sales/chat/filters/sort-selector.tsx:24  { key: 'newest', label: 'الأحدث أولاً', icon: ArrowDownAZ },  [ui]
+components/sales/chat/filters/sort-selector.tsx:25  { key: 'oldest', label: 'الأقدم أولاً', icon: ArrowUpAZ },  [ui]
+components/sales/chat/filters/sort-selector.tsx:26  { key: 'priority', label: 'حسب الأولوية', icon: AlertTriangle },  [ui]
+components/sales/chat/filters/sort-selector.tsx:27  { key: 'waiting_longest', label: 'أطول انتظار', icon: Clock },  [ui]
+components/sales/chat/filters/sort-selector.tsx:40  title="ترتيب المحادثات"  [a]
+components/sales/chat/message-bubble.tsx:114  sender: direction === 'incoming' ? (contactName || undefined) : 'أنت',  [ui]
+components/sales/chat/message-bubble.tsx:117  aria-label="رد"  [a]
+components/sales/chat/message-bubble.tsx:118  title="رد"  [a]
+components/sales/chat/message-bubble.tsx:127  aria-label="تفاعل"  [a]
+components/sales/chat/message-bubble.tsx:128  title="تفاعل"  [a]
+components/sales/chat/message-bubble.tsx:137  aria-label="حفظ"  [a]
+components/sales/chat/message-bubble.tsx:138  title="حفظ"  [a]
+components/sales/chat/message-bubble.tsx:147  aria-label="تحويل"  [a]
+components/sales/chat/message-bubble.tsx:148  title="تحويل"  [a]
+components/sales/chat/message-bubble.tsx:213  alt={fileName || 'صورة'}  [ui]
+components/sales/chat/message-bubble.tsx:264  رسالة صوتية  [ui]
+components/sales/chat/message-bubble.tsx:305  {fileName || 'مستند'}  [ui]
+components/sales/chat/message-bubble.tsx:308  اضغط للتحميل  [ui]
+components/sales/chat/message-bubble.tsx:326  استطلاع  [ui]
+components/sales/chat/message-bubble.tsx:346  موقع  [ui]
+components/sales/chat/message-bubble.tsx:368  جهة اتصال  [ui]
+components/sales/chat/message-bubble.tsx:384  {fileName || (messageType === 'image' ? 'صورة' : messageType === 'audio' ? 'صوت' : messageType === 'video' ? 'فيديو' : 'ملف')}  [ui]
+components/sales/chat/message-bubble.tsx:438  alt={fileName || 'صورة'}  [ui]
+components/sales/chat/sla/sla-indicator.tsx:44  label: 'ضمن الاتفاقية',  [ui]
+components/sales/chat/sla/sla-indicator.tsx:51  label: 'قريب من الانتهاء',  [ui]
+components/sales/chat/sla/sla-indicator.tsx:58  label: 'تجاوز الاتفاقية',  [ui]
+components/sales/chat/sla/sla-indicator.tsx:123  <p className="text-muted-foreground">الرد الأول: {getSlaTimeRemaining(conversation.sla_first_response_due).label}</p>  [ui]
+components/sales/chat/sla/sla-indicator.tsx:126  <p className="text-muted-foreground">الحل: {getSlaTimeRemaining(conversation.sla_resolution_due).label}</p>  [ui]
+components/sales/chat/sla/sla-stats-card.tsx:14  if (mins < 60) return `${mins} دقيقة`;  [ui]
+components/sales/chat/sla/sla-stats-card.tsx:17  if (remaining === 0) return `${hours} ساعة`;  [ui]
+components/sales/chat/sla/sla-stats-card.tsx:18  return `${hours}س ${remaining}د`;  [ui]
+components/sales/chat/sla/sla-stats-card.tsx:48  اتفاقيات مستوى الخدمة (SLA)  [ui]
+components/sales/chat/sla/sla-stats-card.tsx:53  لا توجد بيانات SLA بعد  [ui]
+components/sales/chat/sla/sla-stats-card.tsx:77  اتفاقيات مستوى الخدمة (SLA)  [ui]
+components/sales/chat/sla/sla-stats-card.tsx:79  آخر {days} يوم  [ui]
+components/sales/chat/sla/sla-stats-card.tsx:108  <span className="text-[9px] text-muted-foreground">التزام</span>  [ui]
+components/sales/chat/sla/sla-stats-card.tsx:115  <span className="text-xs text-muted-foreground">ضمن SLA:</span>  [ui]
+components/sales/chat/sla/sla-stats-card.tsx:120  <span className="text-xs text-muted-foreground">تجاوز:</span>  [ui]
+components/sales/chat/sla/sla-stats-card.tsx:125  <span className="text-xs text-muted-foreground">إجمالي:</span>  [ui]
+components/sales/chat/sla/sla-stats-card.tsx:134  <p className="text-[10px] text-muted-foreground mb-1">متوسط الرد الأول</p>  [ui]
+components/sales/chat/sla/sla-stats-card.tsx:140  <p className="text-[10px] text-muted-foreground mb-1">متوسط وقت الحل</p>  [ui]
+components/sales/chat/sla/sla-stats-card.tsx:152  <span>حسب الوكيل</span>  [ui]
+components/sales/chat/sla/sla-stats-card.tsx:174  ({agent.breached} تجاوز)  [ui]
+components/sales/chat/use-chat-store.ts:97  { key: 'all', label: 'الكل', iconName: 'Inbox', status: 'all', assigned: 'all' },  [ui]
+components/sales/chat/use-chat-store.ts:98  { key: 'mine', label: 'لي', iconName: 'User', status: 'open', assigned: 'me' },  [ui]
+components/sales/chat/use-chat-store.ts:99  { key: 'unassigned', label: 'غير مسند', iconName: 'MessageCircle', status: 'open', assigned: 'unassigned' },  [ui]
+components/sales/chat/use-chat-store.ts:100  { key: 'pending', label: 'معلّق', iconName: 'Clock', status: 'pending', assigned: 'all' },  [ui]
+components/sales/chat/use-chat-store.ts:101  { key: 'snoozed', label: 'مؤجل', iconName: 'AlarmClock', status: 'snoozed', assigned: 'all' },  [ui]
+components/sales/chat/use-chat-store.ts:102  { key: 'resolved', label: 'محلول', iconName: 'CheckCircle2', status: 'resolved', assigned: 'all' },  [ui]
+
+--------------------------------------------------------------------------
+BELOW: OUT-OF-SCOPE (see "OUT-OF-SCOPE FIND" note near the top). These 3
+files belong to app/dashboard/settings/settings-client.tsx (main admin
+Settings page), NOT app/dashboard/sales/**. Listed for completeness only —
+NOT counted in this census's headline totals.
+--------------------------------------------------------------------------
+components/settings/agent-whatsapp-settings/dialog.tsx:65  /** mutation pending — disable submit + cancel; show "جارٍ الحفظ..." */  [internal]
+components/settings/agent-whatsapp-settings/dialog.tsx:136  toast.error('اختر الموظف');  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:140  toast.error('اسم Instance مطلوب');  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:144  toast.error('رقم WhatsApp المستلم مطلوب');  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:178  {isEdit ? 'تعديل إعداد WhatsApp' : 'إضافة إعداد WhatsApp'}  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:181  اربط الموظف بـ Evolution Instance ورقم WhatsApp يستقبل التذكيرات.  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:188  <Label htmlFor="agent-select">الموظف</Label>  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:195  <SelectValue placeholder="اختر الموظف" />  [a]
+components/settings/agent-whatsapp-settings/dialog.tsx:210  لا يمكن تعديل الموظف. للتغيير، احذف الإعداد وأنشئه من جديد.  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:233  Instance اللي ترسل منه الرسالة. ممكن تكتب اسم لم يُنشأ بعد —  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:234  التحقق يحدث عند تشغيل الـ Cron.  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:239  <Label htmlFor="recipient-phone">رقم WhatsApp المستلم</Label>  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:249  بدون + أو مسافات — أرقام فقط (مع كود الدولة).  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:257  تفعيل  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:260  عند التفعيل، الـ Cron يبدأ يستخدم هذا الإعداد فوراً.  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:272  <Label htmlFor="notes">ملاحظات (اختياري)</Label>  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:290  إلغاء  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:298  ? 'جارٍ الحفظ...'  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:300  ? 'حفظ التعديلات'  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:301  : 'إنشاء الإعداد'}  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:330  <AlertDialogTitle>حذف إعداد WhatsApp</AlertDialogTitle>  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:332  هل تريد حذف إعداد WhatsApp للموظف <strong>{displayName}</strong>؟ لن  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:333  يتلقى تذكيرات المتابعة على WhatsApp بعد الحذف (التنبيه داخل التطبيق  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:334  يبقى يعمل).  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:338  <AlertDialogCancel disabled={deleting}>إلغاء</AlertDialogCancel>  [ui]
+components/settings/agent-whatsapp-settings/dialog.tsx:344  حذف نهائي  [ui]
+components/settings/agent-whatsapp-settings/list.tsx:57  title="لا توجد إعدادات حتى الآن"  [a]
+components/settings/agent-whatsapp-settings/list.tsx:58  description="ابدأ بربط أول موظف برقم WhatsApp المستلم — الـ Cron سيستخدم هذا الإعداد على الفور بمجرد تفعيله."  [ui]
+components/settings/agent-whatsapp-settings/list.tsx:96  {!row.is_active && <Badge variant="secondary">معطّل</Badge>}  [ui]
+components/settings/agent-whatsapp-settings/list.tsx:106  aria-label={row.is_active ? 'تعطيل' : 'تفعيل'}  [a]
+components/settings/agent-whatsapp-settings/list.tsx:115  aria-label="تعديل"  [a]
+components/settings/agent-whatsapp-settings/list.tsx:124  aria-label="حذف"  [a]
+components/settings/agent-whatsapp-settings/list.tsx:147  <AlertCircle className="h-3 w-3" /> غير موجود  [ui]
+components/settings/agent-whatsapp-settings/list.tsx:161  * dialog ("بدون + أو مسافات") already conveys the format.  [ui]
+components/settings/agent-whatsapp-settings/list.tsx:164  الرقم المستلم:{' '}  [ui]
+components/settings/agent-whatsapp-settings/section.tsx:116  toast.success('تم التحديث');  [ui]
+components/settings/agent-whatsapp-settings/section.tsx:125  toast.success('تم الإنشاء');  [ui]
+components/settings/agent-whatsapp-settings/section.tsx:131  // ("استخدم تعديل بدلاً من إضافة") and 422 validation messages  [internal]
+components/settings/agent-whatsapp-settings/section.tsx:133  toast.error(err instanceof Error ? err.message : 'حدث خطأ');  [ui]
+components/settings/agent-whatsapp-settings/section.tsx:140  toast.success(row.is_active ? 'تم التعطيل' : 'تم التفعيل');  [ui]
+components/settings/agent-whatsapp-settings/section.tsx:142  toast.error(err instanceof Error ? err.message : 'فشل التحديث');  [ui]
+components/settings/agent-whatsapp-settings/section.tsx:150  toast.success('تم الحذف');  [ui]
+components/settings/agent-whatsapp-settings/section.tsx:153  toast.error(err instanceof Error ? err.message : 'فشل الحذف');  [ui]
+components/settings/agent-whatsapp-settings/section.tsx:169  <p className="font-medium">إلى أين يصل تنبيه المتابعة لكل موظف؟</p>  [ui]
+components/settings/agent-whatsapp-settings/section.tsx:171  اربط كل عضو في الفريق بـ Evolution Instance + رقم WhatsApp المستلم.  [ui]
+components/settings/agent-whatsapp-settings/section.tsx:172  الـ Cron يقرأ من هنا ويرسل تذكير المتابعة على واتساب الموظف. Instance  [ui]
+components/settings/agent-whatsapp-settings/section.tsx:173  واحد ممكن يخدم عدة موظفين، كل واحد على رقمه الخاص.  [ui]
+components/settings/agent-whatsapp-settings/section.tsx:186  <h3 className="font-bold text-sm flex-1">إعدادات WhatsApp للفريق</h3>  [ui]
+components/settings/agent-whatsapp-settings/section.tsx:195  إضافة إعداد  [ui]

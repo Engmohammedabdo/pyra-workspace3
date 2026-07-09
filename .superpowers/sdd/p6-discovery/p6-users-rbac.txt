@@ -1,0 +1,755 @@
+P6 DISCOVERY CENSUS — USERS / ROLES / PERMISSIONS / DIRECTORY / ORG-CHART / RBAC
+Pyra Workspace i18n bilingual migration — read-only census (no source modified)
+Generated: 2026-07-09
+
+SCOPE ACTUALLY FOUND ON DISK
+============================
+- app/dashboard/users/page.tsx (11 lines)
+- app/dashboard/users/users-client.tsx (935 lines)
+- app/dashboard/users/[username]/page.tsx (5 lines)
+- app/dashboard/users/[username]/user-detail-client.tsx (487 lines)
+- app/dashboard/roles/page.tsx (11 lines)
+- app/dashboard/roles/roles-client.tsx (680 lines)
+- app/dashboard/permissions/page.tsx (11 lines)
+- app/dashboard/permissions/permissions-client.tsx (289 lines)
+- app/dashboard/directory/directory-client.tsx (189 lines)
+- app/dashboard/directory/page.tsx (7 lines)
+- app/dashboard/org-chart/org-chart-client.tsx (353 lines)
+- app/dashboard/org-chart/page.tsx (7 lines)
+- app/api/users/lite/route.ts (41 lines)
+- app/api/users/route.ts (209 lines)
+- app/api/users/[username]/password/route.ts (112 lines)
+- app/api/users/[username]/route.ts (605 lines)
+- app/api/roles/route.ts (117 lines)
+- app/api/roles/[id]/route.ts (200 lines)
+- lib/auth/rbac.ts (945 lines)
+
+NOT FOUND (searched, do not exist — no census needed):
+- components/users/**, components/directory/**, components/roles/**,
+  components/permissions/**, components/org-chart/** — NONE of these
+  directories exist. All UI logic for this surface is inline in the five
+  `*-client.tsx` files above (no extracted sub-components).
+
+OUT OF SCOPE but referenced (noted, not censused):
+- `UserDocumentsTab` (components/hr/documents/UserDocumentsTab.tsx), imported
+  by user-detail-client.tsx:24/472 for the "وثائق" tab. Belongs to the
+  Employee Documents Vault module, already bilingual per commit log (Phase
+  5.7 "documents vault + my-documents + work-schedules — bilingual type
+  names"). No action needed here — just don't double-migrate it.
+- `/api/directory` (consumed by directory-client.tsx:65) and
+  `/api/dashboard/org-chart` (consumed by org-chart-client.tsx:208) are
+  OUTSIDE the stated API scope (`app/api/users/**`, `app/api/roles/**` only)
+  and were NOT scanned. A future plan should independently check those two
+  route files for Arabic API-response strings — they were not censused here.
+
+BASELINE: none of the 19 files import `useTranslations`/`getTranslations`/
+`next-intl` — this whole surface is un-migrated. None of these paths appear
+in `scripts/i18n-check.ts` MIGRATED_PATHS. Pure greenfield for Phase 6.
+
+================================================================
+PER-FILE ARABIC LINE CENSUS
+================================================================
+Format: file:line  <verbatim line>  [CLASS]
+CLASS: ui=UI string | a=API response | data=persisted/name_ar example |
+       status=enum label map | notification=notify()/WA | pdf=PDF/export |
+       internal=log/comment
+
+--- app/dashboard/users/page.tsx (11 lines, 1 Arabic line) ---
+app/dashboard/users/page.tsx:5  title: 'المستخدمون | Pyra Workspace',  [ui]
+
+--- app/dashboard/roles/page.tsx (11 lines, 1 Arabic line) ---
+app/dashboard/roles/page.tsx:5  title: 'الأدوار | Pyra Workspace',  [ui]
+
+--- app/dashboard/permissions/page.tsx (11 lines, 1 Arabic line) ---
+app/dashboard/permissions/page.tsx:5  title: 'الصلاحيات | Pyra Workspace',  [ui]
+
+--- app/dashboard/users/[username]/page.tsx (5 lines, 0 Arabic) ---
+(none)
+
+--- app/dashboard/directory/page.tsx (7 lines, 0 Arabic) ---
+(none)
+
+--- app/dashboard/org-chart/page.tsx (7 lines, 0 Arabic) ---
+(none)
+
+--- app/dashboard/users/users-client.tsx (935 lines, 121 Arabic lines) — CLASS ui for ALL ---
+188:    onSuccess: () => { setShowCreateDialog(false); resetFormData(); toast.success('تم إنشاء المستخدم بنجاح'); invalidate(); },
+189:    onError: (e: unknown) => toast.error(e instanceof Error && e.message ? e.message : 'حدث خطأ'),
+194:    onSuccess: () => { setShowEditDialog(false); toast.success('تم تحديث المستخدم'); invalidate(); },
+195:    onError: (e: unknown) => toast.error(e instanceof Error && e.message ? e.message : 'حدث خطأ'),
+200:    onSuccess: () => { setShowPasswordDialog(false); setNewPassword(''); toast.success('تم تغيير كلمة المرور'); },
+201:    onError: (e: unknown) => toast.error(e instanceof Error && e.message ? e.message : 'حدث خطأ'),
+206:    onSuccess: () => { setShowDeleteDialog(false); toast.success('تم حذف المستخدم'); invalidate(); },
+207:    onError: (e: unknown) => toast.error(e instanceof Error && e.message ? e.message : 'حدث خطأ'),
+290:            المستخدمون
+292:          <p className="text-muted-foreground">إدارة حسابات المستخدمين والصلاحيات</p>
+300:            إضافة مستخدم
+309:          placeholder="بحث عن مستخدم..."
+315:            <SelectItem value="all">جميع الأدوار</SelectItem>
+316:            <SelectItem value="admin">مسؤول</SelectItem>
+317:            <SelectItem value="employee">موظف</SelectItem>
+328:                  <th className="text-start p-3 font-medium">المستخدم</th>
+329:                  <th className="text-start p-3 font-medium">اسم العرض</th>
+330:                  <th className="text-start p-3 font-medium">الدور</th>
+331:                  <th className="text-start p-3 font-medium">المسمى الوظيفي</th>
+332:                  <th className="text-start p-3 font-medium">الحالة</th>
+333:                  <th className="text-start p-3 font-medium">تاريخ الإنشاء</th>
+349:                  <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">لا يوجد مستخدمون</td></tr>
+369:                            title="عرض ملف التعيين"
+373:                            معيّن عبر التعيين
+385:                          {user.role === 'admin' ? <><Shield className="h-3 w-3 me-1" /> مسؤول</> : user.role === 'sales_agent' ? 'وكيل مبيعات' : 'موظف'}
+400:                          {user.status === 'active' ? 'نشط' : user.status === 'inactive' ? 'غير نشط' : 'معلق'}
+409:                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="المزيد"><MoreHorizontal className="h-4 w-4" /></Button>
+413:                            <Pencil className="h-4 w-4 me-2" /> تعديل
+416:                            <Key className="h-4 w-4 me-2" /> تغيير كلمة المرور
+419:                            <Trash2 className="h-4 w-4 me-2" /> حذف
+436:          <DialogHeader><DialogTitle>إضافة مستخدم جديد</DialogTitle></DialogHeader>
+440:              <Label className="text-sm font-semibold text-muted-foreground">معلومات الحساب</Label>
+442:                <FormLabel required>اسم المستخدم</FormLabel>
+451:                <FormLabel required>اسم العرض</FormLabel>
+455:                  placeholder="الاسم الكامل"
+459:                <FormLabel required>كلمة المرور</FormLabel>
+464:                  placeholder={`${PASSWORD_MIN_LENGTH} أحرف على الأقل`}
+472:              <Label className="text-sm font-semibold text-muted-foreground">معلومات الموظف</Label>
+475:                  <FormLabel required>نوع الحساب</FormLabel>
+479:                      <SelectItem value="employee">موظف</SelectItem>
+480:                      <SelectItem value="sales_agent">وكيل مبيعات</SelectItem>
+481:                      <SelectItem value="admin">مسؤول</SelectItem>
+486:                  <FormLabel>الدور الوظيفي</FormLabel>
+488:                    <SelectTrigger><SelectValue placeholder="بدون دور محدد" /></SelectTrigger>
+490:                      <SelectItem value="__none__">بدون دور محدد</SelectItem>
+502:                  <FormLabel>المسمى الوظيفي</FormLabel>
+506:                    placeholder="مثال: مطور برمجيات"
+510:                  <FormLabel>رقم الهاتف</FormLabel>
+520:                <FormLabel>جدول العمل</FormLabel>
+525:                  <SelectTrigger><SelectValue placeholder="— الجدول الافتراضي —" /></SelectTrigger>
+527:                    <SelectItem value="__none__">— الجدول الافتراضي —</SelectItem>
+539:            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>إلغاء</Button>
+541:              {saving ? <><Loader2 className="h-4 w-4 me-2 animate-spin" /> جارٍ الحفظ...</> : 'إنشاء'}
+550:          <DialogHeader><DialogTitle>تعديل المستخدم — @{selectedUser?.username}</DialogTitle></DialogHeader>
+554:              <Label className="text-sm font-semibold text-muted-foreground">المعلومات الأساسية</Label>
+556:                <FormLabel required>اسم العرض</FormLabel>
+563:                <FormLabel required>الحالة</FormLabel>
+567:                    <SelectItem value="active">نشط</SelectItem>
+568:                    <SelectItem value="inactive">غير نشط</SelectItem>
+569:                    <SelectItem value="suspended">معلق</SelectItem>
+577:              <Label className="text-sm font-semibold text-muted-foreground">معلومات الموظف</Label>
+580:                  <FormLabel required>نوع الحساب</FormLabel>
+584:                      <SelectItem value="employee">موظف</SelectItem>
+585:                      <SelectItem value="sales_agent">وكيل مبيعات</SelectItem>
+586:                      <SelectItem value="admin">مسؤول</SelectItem>
+591:                  <FormLabel>الدور الوظيفي</FormLabel>
+593:                    <SelectTrigger><SelectValue placeholder="بدون دور محدد" /></SelectTrigger>
+595:                      <SelectItem value="__none__">بدون دور محدد</SelectItem>
+607:                  <FormLabel>المسمى الوظيفي</FormLabel>
+611:                    placeholder="مثال: مطور برمجيات"
+615:                  <FormLabel>رقم الهاتف</FormLabel>
+625:                <FormLabel>المدير المباشر</FormLabel>
+630:                  <SelectTrigger><SelectValue placeholder="— بدون مدير —" /></SelectTrigger>
+632:                    <SelectItem value="__none__">— بدون مدير —</SelectItem>
+653:                  <h3 className="text-sm font-semibold">صلاحيات إضافية</h3>
+654:                  <p className="text-xs text-muted-foreground">صلاحيات ممنوحة لهذا المستخدم بالإضافة إلى صلاحيات دوره الأساسي</p>
+660:                  <span className="text-xs text-muted-foreground">{showExtraPermissions ? 'إخفاء' : 'عرض'}</span>
+688:                            {allChecked ? 'إلغاء الكل' : 'تحديد الكل'}
+723:              <Label className="text-sm font-semibold text-muted-foreground">بيانات التوظيف</Label>
+726:                  <FormLabel>نوع التوظيف</FormLabel>
+728:                    <SelectTrigger><SelectValue placeholder="اختر نوع التوظيف" /></SelectTrigger>
+730:                      <SelectItem value="__none__">غير محدد</SelectItem>
+731:                      <SelectItem value="full_time">دوام كامل</SelectItem>
+732:                      <SelectItem value="part_time">دوام جزئي</SelectItem>
+733:                      <SelectItem value="contract">متعاقد</SelectItem>
+734:                      <SelectItem value="freelance">مستقل</SelectItem>
+735:                      <SelectItem value="intern">متدرب</SelectItem>
+740:                  <FormLabel>مكان العمل</FormLabel>
+742:                    <SelectTrigger><SelectValue placeholder="اختر مكان العمل" /></SelectTrigger>
+744:                      <SelectItem value="__none__">غير محدد</SelectItem>
+745:                      <SelectItem value="remote">عن بعد</SelectItem>
+746:                      <SelectItem value="onsite">حضوري</SelectItem>
+747:                      <SelectItem value="hybrid">هجين</SelectItem>
+754:                  <FormLabel>نوع الدفع</FormLabel>
+756:                    <SelectTrigger><SelectValue placeholder="اختر نوع الدفع" /></SelectTrigger>
+758:                      <SelectItem value="__none__">غير محدد</SelectItem>
+759:                      <SelectItem value="monthly_salary">راتب شهري</SelectItem>
+760:                      <SelectItem value="hourly">بالساعة</SelectItem>
+761:                      <SelectItem value="per_task">بالمهمة</SelectItem>
+762:                      <SelectItem value="commission">عمولة</SelectItem>
+767:                  <FormLabel>القسم</FormLabel>
+771:                    placeholder="مثال: التطوير"
+778:                    <FormLabel>الراتب الشهري</FormLabel>
+789:                    <FormLabel>العملة</FormLabel>
+802:                    <FormLabel>سعر الساعة</FormLabel>
+813:                    <FormLabel>العملة</FormLabel>
+825:                  <FormLabel>رقم الهوية / الجواز</FormLabel>
+829:                    placeholder="مثال: 784-XXXX-XXXXXXX-X"
+834:                  <FormLabel>نسبة العمولة %</FormLabel>
+848:                  <FormLabel>تاريخ التعيين</FormLabel>
+857:                  <FormLabel>تاريخ الميلاد</FormLabel>
+867:                <FormLabel>جدول العمل</FormLabel>
+872:                  <SelectTrigger><SelectValue placeholder="— الجدول الافتراضي —" /></SelectTrigger>
+874:                    <SelectItem value="__none__">— الجدول الافتراضي —</SelectItem>
+886:            <Button variant="outline" onClick={() => setShowEditDialog(false)}>إلغاء</Button>
+888:              {saving ? <><Loader2 className="h-4 w-4 me-2 animate-spin" /> جارٍ الحفظ...</> : 'حفظ التغييرات'}
+898:            <DialogTitle>تغيير كلمة المرور — @{selectedUser?.username}</DialogTitle>
+899:            <DialogDescription>{`اختر كلمة مرور قوية (${PASSWORD_MIN_LENGTH} أحرف على الأقل)`}</DialogDescription>
+905:              <FormLabel required htmlFor="new-password">كلمة المرور الجديدة</FormLabel>
+906:              <Input ... placeholder={`${PASSWORD_MIN_LENGTH} أحرف على الأقل`} dir="ltr" />
+909:              <Button type="button" variant="outline" onClick={() => setShowPasswordDialog(false)}>إلغاء</Button>
+911:                {saving ? <><Loader2 className="h-4 w-4 me-2 animate-spin" /> جارٍ الحفظ...</> : 'تغيير'}
+921:          <DialogHeader><DialogTitle>حذف المستخدم</DialogTitle></DialogHeader>
+923:            هل أنت متأكد من حذف المستخدم <strong>@{selectedUser?.username}</strong>؟ هذا الإجراء لا يمكن التراجع عنه.
+926:            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>إلغاء</Button>
+928:              {saving ? <><Loader2 className="h-4 w-4 me-2 animate-spin" /> جارٍ الحذف...</> : 'حذف'}
+
+NOTE: role dropdown options ("موظف"/"وكيل مبيعات"/"مسؤول") are hardcoded
+TWICE (create dialog 479-481, edit dialog 584-586) and AGAIN inline at the
+table-row badge (385) and status badges (400, 567-569) — 3 independent
+copies of the same enum, not sharing one source. Migration should collapse
+to one keyed message set consumed in all 3 places.
+
+--- app/dashboard/users/[username]/user-detail-client.tsx (487 lines, 62 Arabic lines) ---
+### Shadow label maps (lines 66-101) — CLASS status — ALL FIVE ARE LOCAL, UNSHARED ###
+66-72:  EMPLOYMENT_LABELS = { full_time: 'دوام كامل', part_time: 'دوام جزئي', contract: 'عقد', freelance: 'مستقل', intern: 'متدرب' }  [status]
+74-78:  WORK_LOCATION_LABELS = { onsite: 'في المكتب', remote: 'عن بعد', hybrid: 'هجين' }  [status]
+80-85:  PAYMENT_TYPE_LABELS = { monthly_salary: 'راتب شهري', hourly: 'بالساعة', per_task: 'بالمهمة', commission: 'عمولة' }  [status]
+87-94:  SOURCE_LABELS = { task: 'مهمة', bonus: 'مكافأة', deduction: 'خصم', commission: 'عمولة', overtime: 'إضافي', salary: 'راتب' }  [status]
+97-101: ROLE_LABELS = { admin: 'مدير', employee: 'موظف', sales_agent: 'مبيعات' }  [status]
+
+### Rest of file — CLASS ui ###
+126:      toast.error('فشل في تحميل بيانات الموظف');  [ui]
+183:                  {user.status === 'active' ? 'نشط' : user.status === 'suspended' ? 'موقوف' : 'غير نشط'}  [ui]
+203:                  <span ...>منذ {formatDate(user.hire_date)}</span>  [ui]  (formatDate no explicit locale — see hazards)
+220:                    عرض ملف التعيين  [ui]
+225:                <Button variant="outline" size="sm">رجوع</Button>  [ui]
+237:            <p className="text-[10px] text-muted-foreground">إجمالي المدفوع</p>  [ui]
+250:            <p className="text-[10px] text-muted-foreground">قيد المعالجة</p>  [ui]
+263:            <p className="text-[10px] text-muted-foreground">عدد الدفعات</p>  [ui]
+270:            <p className="text-[10px] text-muted-foreground">المشاريع</p>  [ui]
+281:            كشف الحساب  [ui]
+285:            المشاريع  [ui]
+289:            البيانات  [ui]
+293:            وثائق  [ui]
+306:              title="لا توجد مدفوعات"  [ui]
+307:              description="لم يتم تسجيل أي مدفوعات لهذا الموظف بعد"  [ui]
+314:                  سجل المدفوعات ({payments.length})  [ui]
+322:                        <th ...>التاريخ</th>  [ui]
+323:                        <th ...>النوع</th>  [ui]
+324:                        <th ...>الوصف</th>  [ui]
+325:                        <th ...>المبلغ</th>  [ui]
+326:                        <th ...>الحالة</th>  [ui]
+350:                              {p.status === 'paid' ? 'مدفوع' : p.status === 'approved' ? 'معتمد' : p.status === 'pending' ? 'معلق' : p.status}  [ui/status — duplicates payment-status enum, likely already in statuses.json]
+361:                  <span className="text-muted-foreground">صافي المدفوعات</span>  [ui]
+384:              title="لا توجد مشاريع"  [ui]
+385:              description="لم يتم ربط هذا الموظف بأي مشروع بعد"  [ui]
+402:                          {p.status === 'active' ? 'نشط' : p.status === 'completed' ? 'مكتمل' : p.status}  [ui/status — duplicates project-status enum]
+422:                  معلومات التوظيف  [ui]
+426:                <InfoRow label="نوع التوظيف" value={EMPLOYMENT_LABELS[...]} />  [ui]
+427:                <InfoRow label="مكان العمل" value={WORK_LOCATION_LABELS[...]} />  [ui]
+428:                <InfoRow label="القسم" value={...} />  [ui]
+429:                <InfoRow label="تاريخ التعيين" value={...formatDate...} />  [ui]
+430:                <InfoRow label="المدير المباشر" value={...} />  [ui]
+439:                  التعويضات  [ui]
+443:                <InfoRow label="نوع الدفع" value={PAYMENT_TYPE_LABELS[...]} />  [ui]
+444:                {... <InfoRow label="الراتب الشهري" value={formatCurrency(...)} /> ...}  [ui]
+445:                {... <InfoRow label="سعر الساعة" value={formatCurrency(...)} /> ...}  [ui]
+446:                {... <InfoRow label="نسبة العمولة" value={`${...}%`} /> ...}  [ui]
+456:                    بيانات بنكية  [ui]
+460:                  {... <InfoRow label="البنك" .../> }  [ui]
+461:                  {... <InfoRow label="اسم الحساب" .../> }  [ui]
+462:                  {... <InfoRow label="رقم الحساب" .../> }  [ui]
+
+--- app/dashboard/roles/roles-client.tsx (680 lines, 47 Arabic lines) — CLASS ui for ALL ---
+106:      toast.success('تم إنشاء الدور بنجاح');
+118:      toast.success('تم تحديث الدور بنجاح');
+134:      toast.success('تم حذف الدور بنجاح');
+214:      toast.error('اسم الدور بالعربية مطلوب');
+231:        toast.error('اسم الدور بالإنجليزية مطلوب');
+245:      toast.success('تم تعيين المستخدم للدور');
+249:      toast.error(err.message || 'فشل في تعيين المستخدم');
+256:      toast.success('تم إزالة المستخدم من الدور');
+260:      toast.error(err.message || 'فشل في إزالة المستخدم');
+279:          <h1 className="text-2xl font-bold">الأدوار والصلاحيات</h1>
+280:          <p ...>إدارة أدوار المستخدمين وصلاحياتهم في النظام</p>
+285:            إضافة دور
+294:          title="لا توجد أدوار"
+295:          description="قم بإنشاء دور جديد لتنظيم صلاحيات المستخدمين"
+296:          actionLabel="إضافة دور"
+329:                          نظام
+349:                      <span>{role.member_count ?? 0} مستخدم</span>   ← plural-count interpolation hazard
+352:                      {isSuperAdmin ? 'جميع الصلاحيات' : `${role.permissions.length} صلاحية`}   ← plural-count interpolation hazard
+359:                        تعديل
+364:                          حذف
+381:            <DialogTitle>{editingRole ? `تعديل دور: ${editingRole.name_ar}` : 'إضافة دور جديد'}</DialogTitle>   ← interpolates role.name_ar (DB data)
+383:              {editingRole?.is_system ? 'الأدوار النظامية: يمكن تعديل الاسم والوصف واللون فقط' : 'حدد اسم الدور والصلاحيات المطلوبة'}
+391:                <Label>الاسم بالإنجليزية</Label>
+401:                <Label>الاسم بالعربية</Label>
+405:                  placeholder="مثال: مدير مشاريع"
+411:              <Label>الوصف</Label>
+415:                placeholder="وصف مختصر للدور وصلاحياته"
+423:                <Label>اللون</Label>
+442:                <Label>الأيقونة</Label>
+468:                  <Label className="text-base">الصلاحيات</Label>
+469:                  <span ...>{formData.permissions.length} صلاحية محددة</span>   ← plural-count interpolation hazard
+524:            <Button variant="outline" onClick={closeDialog}>إلغاء</Button>
+527:              {editingRole ? 'حفظ التعديلات' : 'إنشاء الدور'}
+537:            <DialogTitle>حذف دور &quot;{deletingRole?.name_ar}&quot;؟</DialogTitle>   ← interpolates role.name_ar (DB data)
+540:                ? `هذا الدور مرتبط بـ ${deletingRole?.member_count} مستخدم. اختر دور بديل لنقل المستخدمين إليه.`   ← plural-count interpolation hazard
+541:                : 'سيتم حذف هذا الدور نهائياً. هذا الإجراء لا يمكن التراجع عنه.'}
+547:              <Label>الدور البديل</Label>
+550:                  <SelectValue placeholder="اختر دور بديل..." />
+564:            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>إلغاء</Button>
+578:              حذف الدور
+588:            <DialogTitle>أعضاء دور &quot;{membersRole?.name_ar}&quot;</DialogTitle>   ← interpolates role.name_ar (DB data)
+590:              إدارة المستخدمين المعينين لهذا الدور
+602:                <Label ...>الأعضاء الحاليون ({members.length})</Label>   ← plural-count interpolation hazard
+604:                  <EmptyState icon={Users} title="لا يوجد أعضاء معينون لهذا الدور" className="py-4" />
+626:                            إزالة
+638:                  <Label ...>إضافة عضو</Label>
+642:                    placeholder="بحث عن مستخدم..."
+
+--- app/dashboard/permissions/permissions-client.tsx (289 lines, 37 Arabic lines) — CLASS ui for ALL ---
+90:    if (!form.target_id || !form.file_path) { toast.error('يرجى تعبئة جميع الحقول'); return; }
+119:      toast.success('تمت إضافة الصلاحية');
+121:    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
+152:              هذه الصفحة مؤرشفة (Legacy)
+155:              تم أرشفة جدول صلاحيات الملفات القديم (<code>pyra_file_permissions</code>).
+156:              يتم التحكم بالوصول الآن عبر سلسلة الفريق → المشروع → مسار التخزين + نظام RBAC.
+157:              هذه الصفحة تعرض فقط صلاحيات المسارات المحفوظة في بيانات المستخدمين.
+169:          <h1 ...><Shield .../> الصلاحيات</h1>
+170:          <p ...>إدارة صلاحيات الوصول للملفات والمجلدات</p>
+173:          <Plus .../> صلاحية جديدة
+182:          title="لا توجد صلاحيات مخصصة"
+183:          description="أضف صلاحيات للمستخدمين أو الفرق للتحكم في الوصول"
+184:          actionLabel="صلاحية جديدة"
+194:                    <th ...>المسار</th>
+195:                    <th ...>النوع</th>
+196:                    <th ...>الهدف</th>
+197:                    <th ...>الصلاحيات</th>
+205:                      <td ...>{p.target_type === 'user' ? 'مستخدم' : 'فريق'}</td>
+209:                          {p.permissions.read && <Badge ...>قراءة</Badge>}
+210:                          {p.permissions.write && <Badge ...>كتابة</Badge>}
+211:                          {p.permissions.delete && <Badge ...>حذف</Badge>}
+212:                          {p.permissions.share && <Badge ...>مشاركة</Badge>}
+216:                        <Button ... aria-label="حذف الصلاحية">
+231:          <DialogHeader><DialogTitle>إضافة صلاحية جديدة</DialogTitle></DialogHeader>
+234:              <Label>مسار المجلد</Label>
+238:              <Label>نوع الهدف</Label>
+242:                  <SelectItem value="user">مستخدم</SelectItem>
+243:                  <SelectItem value="team">فريق</SelectItem>
+248:              <Label>{form.target_type === 'user' ? 'المستخدم' : 'الفريق'}</Label>
+250:                <SelectTrigger><SelectValue placeholder="اختر..." /></SelectTrigger>
+260:              <Label>الصلاحيات</Label>
+264:                  <Label className="font-normal">قراءة</Label>
+268:                  <Label className="font-normal">كتابة</Label>
+272:                  <Label className="font-normal">حذف</Label>
+276:                  <Label className="font-normal">مشاركة</Label>
+282:            <Button variant="outline" onClick={() => setShowCreate(false)}>إلغاء</Button>
+283:            <Button onClick={handleCreate} disabled={saving}>{saving ? 'جارٍ الحفظ...' : 'إضافة'}</Button>
+
+--- app/dashboard/directory/directory-client.tsx (189 lines, 15 Arabic lines) ---
+### Shadow label maps (lines 46-58) — CLASS status ###
+46-52:  EMPLOYMENT_TYPE_LABELS = { full_time: {label:'دوام كامل',color:...}, part_time: {label:'دوام جزئي',...}, contract: {label:'متعاقد',...}, freelance: {label:'مستقل',...}, intern: {label:'متدرب',...} }  [status]
+54-58:  WORK_LOCATION_LABELS = { remote: 'عن بعد', onsite: 'حضوري', hybrid: 'هجين' }  [status]
+
+### Rest — CLASS ui ###
+100:          <h1 className="text-2xl font-bold">دليل الفريق</h1>  [ui]
+101:          <p ...>{users.length} عضو في الفريق</p>  [ui]   ← plural-count interpolation hazard
+108:          placeholder="بحث بالاسم، المسمى الوظيفي..."  [ui]
+118:          title="لا يوجد نتائج"  [ui]
+119:          description="حاول تغيير كلمات البحث"  [ui]
+145:                    {role?.name_ar || (user.role === 'admin' ? 'مسؤول' : 'موظف')}  [ui]  ← name_ar is DB data fallback
+179:                    <Badge variant="secondary" className="text-[10px]">غير نشط</Badge>  [ui]
+
+--- app/dashboard/org-chart/org-chart-client.tsx (353 lines, 11 Arabic lines) — CLASS ui for ALL ---
+150:                    {node.children.length} تابعين   ← plural-count interpolation hazard
+279:          title="لا يوجد بيانات"
+280:          description="لم يتم العثور على مستخدمين لعرض الهيكل التنظيمي"
+293:            الهيكل التنظيمي
+296:            عرض شجري للهيكل الإداري والتقارير المباشرة
+302:            توسيع الكل
+306:            طي الكل
+316:            <p ...>إجمالي الأعضاء</p>
+322:            <p ...>المستوى الأعلى</p>
+328:            <p ...>المديرون</p>
+334:            <p ...>الأقسام</p>
+
+--- app/api/users/route.ts (209 lines, 12 Arabic lines) — CLASS a for ALL ---
+56:      return apiServerError('فشل في جلب قائمة المستخدمين');
+85:      return apiValidationError('اسم المستخدم مطلوب (3 أحرف على الأقل)');
+89:      return apiValidationError(`كلمة المرور مطلوبة (${PASSWORD_MIN_LENGTH} أحرف على الأقل)`);
+93:      return apiValidationError('الدور يجب أن يكون admin أو employee أو sales_agent');
+97:      return apiValidationError('اسم العرض مطلوب');
+101:      return apiValidationError('معرّف الدور الوظيفي غير صالح');
+107:      return apiValidationError(`عملة الراتب غير صالحة. القيم المسموح بها: ${SALARY_CURRENCIES.join('، ')}`);
+111:        return apiValidationError('نسبة العمولة يجب أن تكون رقم بين 0 و 100');
+115:      return apiValidationError('رقم الهوية الوطنية غير صالح');
+118:      return apiValidationError('معرّف جدول العمل غير صالح');
+122:      return apiValidationError('بيانات البنك يجب أن تكون كائن JSON');
+126:      return apiValidationError('تفاصيل الراتب يجب أن تكون كائن JSON');
+
+--- app/api/users/[username]/route.ts (605 lines, 40 Arabic lines) ---
+### CLASS a (36 lines) ###
+67:      return apiNotFound('المستخدم غير موجود');
+100:      return apiNotFound('المستخدم غير موجود');
+108:        return apiValidationError('اسم العرض غير صالح');
+115:        return apiValidationError('الدور يجب أن يكون admin أو employee أو sales_agent');
+122:        return apiError('لا يمكنك تغيير دورك الخاص', 400);
+131:          return apiError('لا يمكن تخفيض دور آخر مدير. يجب وجود مدير واحد على الأقل', 400);
+139:        return apiValidationError('الصلاحيات يجب أن تكون كائن JSON');
+165:          return apiValidationError('معرّف الدور الوظيفي غير صالح');
+175:          return apiValidationError('الدور الوظيفي المحدد غير موجود');
+184:        return apiValidationError('رقم الهاتف غير صالح');
+192:        return apiValidationError('المسمى الوظيفي غير صالح');
+201:        return apiValidationError('الحالة يجب أن تكون active أو inactive أو suspended');
+216:        return apiValidationError('نوع التوظيف غير صالح');
+223:        return apiValidationError('موقع العمل غير صالح');
+230:        return apiValidationError('نوع الدفع غير صالح');
+237:        return apiValidationError('الراتب يجب أن يكون رقم موجب');
+244:        return apiValidationError('أجر الساعة يجب أن يكون رقم موجب');
+251:        return apiValidationError('تاريخ التعيين غير صالح');
+258:        return apiValidationError('تاريخ الميلاد غير صالح');
+265:        return apiValidationError('القسم غير صالح');
+276:          return apiValidationError('اسم المدير المباشر غير صالح');
+280:          return apiError('لا يمكن تعيين المستخدم كمدير لنفسه', 400);
+289:          return apiValidationError('المدير المباشر المحدد غير موجود');
+299:        return apiValidationError(`عملة الراتب غير صالحة. القيم المسموح بها: ${SALARY_CURRENCIES.join('، ')}`);
+307:        return apiValidationError('رقم الهوية الوطنية غير صالح');
+316:        return apiValidationError('بيانات البنك يجب أن تكون كائن JSON');
+325:        return apiValidationError('نسبة العمولة يجب أن تكون رقم بين 0 و 100');
+333:        return apiValidationError('معرّف جدول العمل غير صالح');
+342:        return apiValidationError('تفاصيل الراتب يجب أن تكون كائن JSON');
+348:      return apiValidationError('لا توجد بيانات للتحديث');
+361:      return apiServerError('فشل في تحديث المستخدم');
+468:      return apiError('لا يمكنك حذف حسابك الخاص', 400);
+481:      return apiNotFound('المستخدم غير موجود');
+497:        'لا يمكن حذف الموظف لوجود سجلات مالية أو وثائق أو ملف تعيين مرتبطة به. استخدم "تعطيل" الحساب بدلاً من الحذف للحفاظ على السجلات.',
+549:      return apiServerError('فشل في حذف المستخدم');
+600:    return apiSuccess({ message: 'تم حذف المستخدم بنجاح' });
+### CLASS notification (4 lines) — notifyMany() payloads, persisted content, i18n-exempt per api-namespace rule ###
+405:              title: 'مدير مُعطَّل — موظفون بحاجة لمتابعة',
+406:              message: `تم تعطيل ${updatedUser.display_name ?? username} وله ${orphanedReports.length} موظف تابع — قد تحتاج لإعادة تعيين مديرهم`,
+592:          title: 'موظفون بحاجة لإعادة تعيين مدير',
+593:          message: `تم حذف ${existingUser.display_name} وكان لديه ${reports.length} موظف تابع — يرجى إعادة تعيين مديرهم`,
+
+--- app/api/users/[username]/password/route.ts (112 lines, 8 Arabic lines) — CLASS a for ALL ---
+41:      return apiValidationError(`كلمة المرور مطلوبة (${PASSWORD_MIN_LENGTH} أحرف على الأقل)`);
+54:      return apiNotFound('المستخدم غير موجود');
+62:      return apiServerError('لم يتم العثور على حساب المصادقة لهذا المستخدم');
+68:        return apiValidationError('كلمة المرور الحالية مطلوبة');
+72:        return apiServerError('لم يتم العثور على بيانات المصادقة');
+79:        return apiValidationError('كلمة المرور الحالية غير صحيحة');
+89:      return apiServerError(`فشل في تحديث كلمة المرور: ${updateError.message}`);
+107:    return apiSuccess({ message: 'تم تغيير كلمة المرور بنجاح' });
+
+--- app/api/users/lite/route.ts (41 lines, 1 Arabic line) — CLASS a ---
+33:      return apiServerError('فشل في جلب قائمة المستخدمين');
+
+--- app/api/roles/route.ts (117 lines, 4 Arabic lines) — CLASS a for ALL ---
+60:      return NextResponse.json({ error: 'الاسم مطلوب' }, { status: 400 });
+64:      return NextResponse.json({ error: 'يجب تحديد صلاحية واحدة على الأقل' }, { status: 400 });
+73:          { error: `لا يمكنك منح صلاحيات لا تملكها: ${unauthorized.join(', ')}` },
+98:        return NextResponse.json({ error: 'اسم الدور موجود مسبقاً' }, { status: 409 });
+
+--- app/api/roles/[id]/route.ts (200 lines, 7 Arabic lines) — CLASS a for ALL ---
+26:      return NextResponse.json({ error: 'الدور غير موجود' }, { status: 404 });
+62:      return NextResponse.json({ error: 'الدور غير موجود' }, { status: 404 });
+83:              { error: `لا يمكنك منح صلاحيات لا تملكها: ${unauthorized.join(', ')}` },
+101:        return NextResponse.json({ error: 'اسم الدور موجود مسبقاً' }, { status: 409 });
+141:      return NextResponse.json({ error: 'الدور غير موجود' }, { status: 404 });
+145:      return NextResponse.json({ error: 'لا يمكن حذف الأدوار الأساسية' }, { status: 403 });
+161:          { error: `هناك ${count} مستخدمين بهذا الدور. يجب تحديد دور بديل.`, requires_fallback: true },   ← plural-count interpolation hazard
+
+NOTE: app/api/roles/route.ts and [id]/route.ts use `NextResponse.json({error})`
+directly, NOT the `apiError`/`apiValidationError` helpers used by every
+other route in this census. Same `api` namespace target, different helper —
+flag for the plan (no functional difference, just a style inconsistency
+worth normalizing while touching the file).
+
+--- lib/auth/rbac.ts (945 lines, 160 Arabic lines) ---
+### CLASS a (4 lines) — validateExtraPermissions() input-validation errors, called from API PATCH routes ###
+280:    return { ok: false, error: 'extra_permissions يجب أن تكون مصفوفة' };
+288:        error: 'extra_permissions يجب أن تحتوي على نصوص فقط',
+297:        error: 'الصلاحيات الشاملة (wildcards) غير مسموحة هنا — استخدم نظام الأدوار',
+304:        error: `صلاحية غير معروفة: ${v}`,
+
+### CLASS ui (156 lines) — PERMISSION_MODULES catalogue (see STRUCTURE below) ###
+Module-level labelAr (33 lines): lines 331,339,347,359,370,381,393,404,413,
+  422,431,440,448,457,466,475,484,492,502,511,520,529,537,546,555,564,575,
+  583,593,602,612,621,630,639,648,657,666,675,684,703
+  (each is `labelAr: 'العربي',` for one of the 33 PERMISSION_MODULES entries
+  — dashboard/calendar/files/projects/clients/quotes/invoices/finance/users/
+  roles/teams/reports/settings/automations/knowledge_base/integrations/
+  activity/trash/sessions/error_logs/reviews/notifications/favorites/
+  script_reviews/boards/tasks/directory/timesheet/announcements/leave/
+  attendance/hr/documents/payroll/evaluations/overtime/leave_types/
+  content_pipeline/sales/crm)
+Permission-level labelAr (123 lines): one per `{ key, label, labelAr }`
+  permission entry nested inside each module's `permissions: []` array —
+  full text captured verbatim in the tool trace during census (omitted here
+  for brevity; every line matches pattern
+  `{ key: '<perm.key>', label: '<English>', labelAr: '<Arabic>' },`).
+  Representative samples:
+  333:      { key: 'dashboard.view', label: 'View Dashboard', labelAr: 'عرض لوحة التحكم' },
+  387:      { key: 'quotes.delete_own', label: 'Delete Own Quotes', labelAr: 'حذف عروضي فقط' },
+  713:      { key: 'leads.edit_core',   label: 'Edit Lead Data (Admin)',     labelAr: 'تعديل بيانات الليد (مشرف فقط)' },
+  719:      { key: 'follow_ups.manage',   label: 'Admin: manage all follow-ups', labelAr: 'إدارة كاملة للمتابعات' },
+
+### rbac.ts STRUCTURE (for the plan to catalogue) ###
+`PERMISSION_MODULES: PermissionModule[]` — a flat ARRAY of 33 module
+objects. Each module: `{ key: string, label: string, labelAr: string,
+permissions: { key: string, label: string, labelAr: string }[] }`.
+Nested one level: module → permissions array. 33 modules × ~1-12 perms each
+= ~156 English/Arabic label pairs (123 permission-level + 33 module-level).
+This is a DISPLAY-NAME catalogue only — it does NOT gate anything at
+runtime (the actual `PERMISSIONS` const + `hasPermission()`/
+`buildUserPermissions()` engine above it uses only the `.key` strings; the
+`label`/`labelAr` fields exist purely so 3 UI surfaces can render
+human-readable checkboxes/badges).
+
+USAGE — confirmed UI-ONLY (grep across whole repo), never server-side:
+  - app/dashboard/roles/roles-client.tsx (role-editor permission checklist,
+    module.labelAr for group headers + perm.labelAr for individual boxes)
+  - app/dashboard/users/users-client.tsx (per-user "صلاحيات إضافية" /
+    extra_permissions checklist, same module.labelAr + perm.labelAr pattern)
+  - app/dashboard/profile/profile-client.tsx (OUT OF SCOPE for this census,
+    but also reads PERMISSION_MODULES for a read-only "my permissions"
+    display — same UI-only usage)
+  No `app/api/**` route reads `.label`/`.labelAr` — only `.key` (confirmed
+  by the `PERMISSION_MODULES` grep hit list: only the 3 files above + docs).
+
+PROPOSED NAMESPACE (for the plan to evaluate, not decided here):
+  A `rbac.json` namespace keyed by module key → permission key, e.g.
+  `rbac.modules.dashboard.label` / `rbac.modules.dashboard.permissions.view`,
+  NOT the current array-of-objects shape. See CRITICAL HAZARD below —
+  `PERMISSION_MODULES` is a literal TS array; if migrated naively into a
+  next-intl JSON catalog as an array it violates the CLAUDE.md rule
+  "Catalogs must NEVER contain JSON arrays." The catalog and the TS runtime
+  array must be decoupled: TS keeps `key` order/structure (for iteration),
+  JSON catalog holds only `<module.key>.label` / `<module.key>.perms.<perm
+  suffix>.label` as keyed strings, and the component zips them back together
+  by key at render time (same pattern as `lib/i18n/status-labels.ts`).
+
+================================================================
+HAZARDS
+================================================================
+
+1. SHADOW LABEL MAPS (explicit call-out per task brief) — duplicate
+   messages/ar/statuses.json entities `employmentType` / `workLocation` /
+   `paymentSourceType`, WITH DIFFERENT WORDING than the canonical catalog:
+
+   app/dashboard/users/[username]/user-detail-client.tsx:66-101
+     EMPLOYMENT_LABELS, WORK_LOCATION_LABELS, PAYMENT_TYPE_LABELS,
+     SOURCE_LABELS, ROLE_LABELS (5 shadow maps, all local consts)
+
+   app/dashboard/directory/directory-client.tsx:46-58
+     EMPLOYMENT_TYPE_LABELS (with embedded Tailwind color per key),
+     WORK_LOCATION_LABELS (2 shadow maps, local consts)
+
+   Canonical source already exists: messages/ar/statuses.json:43-45
+     "employmentType": { full_time:"دوام كامل", part_time:"دوام جزئي",
+       contract:"عقد مؤقت", freelance:"فريلانس", intern:"تدريب" }
+     "workLocation": { onsite:"مكتبي", remote:"عن بُعد", hybrid:"هجين" }
+     "paymentSourceType": { task:"مهمة", bonus:"مكافأة", deduction:"خصم",
+       salary:"راتب", advance:"سلفة", commission:"عمولة", overtime:"إضافي" }
+   consumed via `useStatusLabels(entity)` from lib/i18n/status-labels.ts.
+
+   ⚠️ TEXT MISMATCH — migration is NOT a mechanical delete-and-rewire.
+   The shadow-map wording differs from the canonical catalog in several
+   places and the two shadow maps also DISAGREE WITH EACH OTHER:
+     - contract:      "عقد" (user-detail) vs "متعاقد" (directory) vs
+                       "عقد مؤقت" (statuses.json canonical)
+     - freelance:      "مستقل" (both shadow maps) vs "فريلانس" (canonical)
+     - intern:         "متدرب" (both shadow maps) vs "تدريب" (canonical)
+     - onsite:         "في المكتب" (user-detail) vs "حضوري" (directory) vs
+                       "مكتبي" (canonical)
+   A plan must explicitly decide which wording wins (likely the canonical
+   statuses.json one, since it's newer / already the shared source of
+   truth) — do not silently pick one shadow map's text.
+
+   SOURCE_LABELS and ROLE_LABELS in user-detail-client.tsx are ALSO shadow
+   maps not named in the task brief but same class of problem:
+     - SOURCE_LABELS duplicates statuses.json's `paymentSourceType` (missing
+       the "advance" key that statuses.json already has).
+     - ROLE_LABELS (admin/employee/sales_agent → مدير/موظف/مبيعات) has NO
+       existing canonical entity in statuses.json — this is closer to a
+       role-display label than a status; needs a new namespace decision
+       (possibly folded into the same `users.json` namespace as the rest of
+       this page, not `statuses.json`, since "role" here means legacy
+       account-type not the `pyra_roles` DB row).
+
+2. BILINGUAL DB ROWS (persisted data, not UI chrome) — `pyra_roles.name` /
+   `pyra_roles.name_ar` are separate columns holding an admin-entered custom
+   role name (e.g. "مدير مشاريع"). Read directly and rendered in:
+     app/dashboard/roles/roles-client.tsx:321,381,537,556(placeholder),588
+     app/dashboard/users/users-client.tsx:112,381,493-494,598-599
+     app/dashboard/directory/directory-client.tsx:33,145
+   This is genuine per-row DATA (admin-authored, like board-template seed
+   content) — do NOT attempt to route it through next-intl. Flag only so
+   the plan doesn't mistake `{role.name_ar}` JSX interpolations for
+   hardcoded UI strings needing extraction.
+
+3. CRITICAL — JSON-ARRAY-IN-CATALOG RISK for rbac.ts. `PERMISSION_MODULES`
+   is a TypeScript ARRAY of 33 objects, each containing a nested
+   `permissions` ARRAY. Per CLAUDE.md: "Catalogs must NEVER contain JSON
+   arrays — arrays poison next-intl's type inference." If this structure
+   is copy-pasted into a `messages/{ar,en}/rbac.json` file as an array, the
+   whole `rbac` namespace breaks next-intl's type generation. MUST be
+   re-shaped into keyed objects (module key → permission key) at message-
+   catalog time while the runtime `PERMISSION_MODULES` array in rbac.ts
+   keeps its current shape (`.key` order matters for the role-editor
+   render order) — decouple catalog from runtime structure.
+
+4. RAW fetch() — app/dashboard/permissions/permissions-client.tsx:95,108,
+   127,135 use bare `fetch()`/`await fetch()` instead of `fetchAPI`/
+   `mutateAPI` from `hooks/api-helpers.ts`. Direct violation of the
+   CLAUDE.md "NEVER use raw fetch() in components" mandate (ESLint
+   raw-fetch guard should already be warning here — worth confirming it
+   fires). Since this file is being touched for i18n anyway, flag for
+   inclusion in the same pass or a quick follow-up.
+
+5. useEffect-derived state anti-pattern — permissions-client.tsx:38,60-87
+   builds local `permissions` state via `useEffect` off the already-loaded
+   `allUsers` React Query result, instead of a `useMemo` derivation. Minor
+   code smell adjacent to the raw-fetch issue above; same file.
+
+6. PLURAL/COUNT INTERPOLATION (CLDR-plural hazard per the i18n rule "CLDR
+   plural categories key on n mod 100, not raw thresholds") — every one of
+   these concatenates a raw count directly against a singular Arabic noun,
+   with no plural-form awareness. English will need real plural handling
+   (`{count, plural, one {...} other {...}}`) even though Arabic can often
+   get away with the singular noun; flag every site so the plan decides
+   ICU-plural vs flat string per CLAUDE.md's documented precedent (the
+   contract-card `monthsLabel` flat-ladder exception):
+     app/dashboard/roles/roles-client.tsx:349  `{count} مستخدم`
+     app/dashboard/roles/roles-client.tsx:352  `${count} صلاحية`
+     app/dashboard/roles/roles-client.tsx:469  `{count} صلاحية محددة`
+     app/dashboard/roles/roles-client.tsx:540  `مرتبط بـ ${count} مستخدم`
+     app/dashboard/roles/roles-client.tsx:602  `الأعضاء الحاليون ({count})`
+     app/dashboard/directory/directory-client.tsx:101  `{count} عضو في الفريق`
+     app/dashboard/org-chart/org-chart-client.tsx:150  `{count} تابعين`
+     app/dashboard/users/[username]/user-detail-client.tsx:314  `سجل المدفوعات ({count})`
+     app/api/roles/[id]/route.ts:161  `هناك ${count} مستخدمين بهذا الدور`
+
+7. formatDate/formatCurrency call sites with NO explicit locale param
+   (defaults to 'ar' per lib/utils/format.ts) — fine today (Arabic-only
+   UI), but every call site below will need the request/session locale
+   threaded through once English rendering ships:
+     app/dashboard/users/users-client.tsx:404
+     app/dashboard/users/[username]/user-detail-client.tsx:203,239,242,
+       252,255,333,429,444,445
+   (Per CLAUDE.md: currency/number formatting itself stays locale-stable
+   `en-AE` by design — only the surrounding date formatting is locale-
+   sensitive.)
+
+8. HARDCODED `dir="ltr"` (flagged per task brief, all appear legitimate —
+   email/phone/username/date/numeric fields — but list them so the plan
+   confirms none are accidentally gating actual bilingual text):
+     app/dashboard/users/users-client.tsx:447,465(placeholder-only,no dir),
+       515,620,784,808,830,840,853,862,906
+     app/dashboard/roles/roles-client.tsx:397
+     app/dashboard/directory/directory-client.tsx:168,174
+     app/dashboard/permissions/permissions-client.tsx:204,235
+   None of these look mis-scoped (all wrap phone numbers, usernames,
+   emails, or numeric inputs) — no fix expected, just confirm during plan.
+
+9. LOCALE-HARDCODED SORT — app/dashboard/org-chart/org-chart-client.tsx:65
+   `.localeCompare(..., 'ar')` hardcodes Arabic collation for the org-tree
+   alphabetical sort. Needs to become locale-aware (or at minimum
+   documented as an intentional Arabic-first sort) once English rendering
+   exists — flag alongside the formatDate hazards above.
+
+10. RTL CHEVRON CONVENTION — app/dashboard/org-chart/org-chart-client.tsx:
+    113-116 uses `ChevronDown`/`ChevronLeft` for expand/collapse WITHOUT
+    the locked `rtl:rotate-180` utility (CLAUDE.md Phase 15.1 lock #7:
+    "RTL chevron icons use rtl:rotate-180"). Currently harmless (app is
+    RTL-only), but becomes a real bug the moment LTR (English) rendering
+    ships, since ChevronLeft would then point the wrong direction. Flag as
+    a pre-existing latent bug surfaced by this census, not strictly an
+    i18n-string issue but adjacent and cheap to fix in the same pass.
+
+11. FILES >300 LINES (CLAUDE.md "Page size: keep pages <300 lines" —
+    applies to the *-client.tsx files most directly; rbac.ts and the API
+    routes are libraries/routes, not pages, so the rule is softer there
+    but still worth noting for split-while-touching consideration):
+      lib/auth/rbac.ts                                    945 lines
+      app/dashboard/users/users-client.tsx                935 lines
+      app/dashboard/roles/roles-client.tsx                680 lines
+      app/api/users/[username]/route.ts                   605 lines
+      app/dashboard/users/[username]/user-detail-client.tsx  487 lines
+      app/dashboard/org-chart/org-chart-client.tsx         353 lines
+    None of these were split in this census pass (read-only) — flag for
+    the plan to decide whether i18n migration is also the moment to split
+    users-client.tsx (it already has 3 dialogs + a table — natural seams
+    at Create/Edit/Password/Delete dialogs) and roles-client.tsx (Create/
+    Edit dialog + Delete dialog + Members dialog).
+
+12. STYLE INCONSISTENCY — app/api/roles/route.ts and
+    app/api/roles/[id]/route.ts use `NextResponse.json({ error: '...' },
+    { status })` directly, while every other file in this census
+    (app/api/users/**) uses the `apiError`/`apiValidationError`/
+    `apiNotFound`/`apiServerError` helpers from `lib/api/response.ts`.
+    Not an i18n blocker, but if the migration touches these files for the
+    `api` namespace swap, consider normalizing to the standard helpers in
+    the same pass (separate decision from i18n, flag only).
+
+13. NO components/ subdirectory exists for this whole surface — all 5
+    pages are single monolithic `*-client.tsx` files with inline dialogs.
+    This means the i18n migration touches large files directly rather than
+    many small component files; no discovery gap, just noting the shape
+    differs from other already-migrated modules (e.g. documents vault) that
+    had dedicated `components/hr/documents/` sub-components.
+
+================================================================
+COUNTS
+================================================================
+Total files in scope (found + read):                    19
+Files containing ≥1 Arabic line:                         16
+Files with zero Arabic (page-shell only):                 3
+  (app/dashboard/users/[username]/page.tsx,
+   app/dashboard/directory/page.tsx,
+   app/dashboard/org-chart/page.tsx)
+
+Total Arabic lines censused:                             528
+
+Breakdown by CLASS:
+  ui            423   (UI strings — dialogs/labels/toasts/tables/badges/
+                        page titles/PERMISSION_MODULES labelAr catalogue)
+  status         29   (shadow enum-label maps: 21 in user-detail-client.tsx
+                        + 8 in directory-client.tsx)
+  a              72   (API response/validation messages — 4 in rbac.ts
+                        validateExtraPermissions + 68 across the 6
+                        app/api/users/** and app/api/roles/** route files)
+  notification    4   (notifyMany() title/message payloads in
+                        app/api/users/[username]/route.ts — i18n-exempt
+                        per the documented "notification/WA/DB-data stays
+                        Arabic" rule until Phase 8)
+  data            0   (no literal Arabic persisted-example strings found
+                        in code — DB bilingual rows like pyra_roles.name_ar
+                        are interpolated via JSX, not literal strings, see
+                        Hazard #2)
+  pdf             0   (no PDF/export code in this scope)
+  internal        0   (no Arabic code comments found in this scope)
+  ─────────────────
+  TOTAL         528
+
+Per-file Arabic-line counts:
+  lib/auth/rbac.ts                                          160
+  app/dashboard/users/users-client.tsx                       121
+  app/dashboard/users/[username]/user-detail-client.tsx       62
+  app/dashboard/roles/roles-client.tsx                        47
+  app/api/users/[username]/route.ts                           40
+  app/dashboard/permissions/permissions-client.tsx            37
+  app/api/users/route.ts                                      12
+  app/dashboard/directory/directory-client.tsx                15
+  app/dashboard/org-chart/org-chart-client.tsx                 11
+  app/api/users/[username]/password/route.ts                   8
+  app/api/roles/[id]/route.ts                                  7
+  app/api/roles/route.ts                                       4
+  app/dashboard/users/page.tsx                                 1
+  app/dashboard/roles/page.tsx                                 1
+  app/dashboard/permissions/page.tsx                           1
+  app/api/users/lite/route.ts                                  1
+  app/dashboard/users/[username]/page.tsx                      0
+  app/dashboard/directory/page.tsx                             0
+  app/dashboard/org-chart/page.tsx                             0
+  ─────────────────────────────────────────────────────────────
+  TOTAL                                                       528
