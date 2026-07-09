@@ -1,9 +1,11 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { CreateOnboardingInput } from '@/hooks/useOnboarding';
 import type { WizardMode } from './wizard-helpers';
+import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 
 type FormData = CreateOnboardingInput;
 type OnChange = (patch: Partial<FormData>) => void;
@@ -38,9 +40,10 @@ export function StepPersonal({
   /** Existing mode hides account fields — username comes from the picker. */
   mode?: WizardMode;
 }) {
+  const t = useTranslations('hr.onboarding.wizard.personal');
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      <Field label="الاسم بالإنجليزية" required>
+      <Field label={t('nameEnLabel')} required>
         <Input
           className="h-11"
           value={data.nameEn}
@@ -48,15 +51,15 @@ export function StepPersonal({
           placeholder="Full name in English"
         />
       </Field>
-      <Field label="الاسم بالعربية" required>
+      <Field label={t('nameArLabel')} required>
         <Input
           className="h-11"
           value={data.nameAr}
           onChange={(e) => onChange({ nameAr: e.target.value })}
-          placeholder="الاسم الكامل بالعربية"
+          placeholder="الاسم الكامل بالعربية" // i18n-exempt: Arabic example placeholder for an Arabic-only name field
         />
       </Field>
-      <Field label="الجنسية">
+      <Field label={t('nationalityLabel')}>
         <Input
           className="h-11"
           value={data.nationality}
@@ -64,21 +67,21 @@ export function StepPersonal({
           placeholder="Egyptian / Jordanian / etc."
         />
       </Field>
-      <Field label="رقم جواز السفر">
+      <Field label={t('passportLabel')}>
         <Input
           className="h-11"
           value={data.passport}
           onChange={(e) => onChange({ passport: e.target.value })}
         />
       </Field>
-      <Field label="رقم الهوية / الإقامة">
+      <Field label={t('idNumberLabel')}>
         <Input
           className="h-11"
           value={data.idNumber}
           onChange={(e) => onChange({ idNumber: e.target.value })}
         />
       </Field>
-      <Field label="تاريخ الميلاد">
+      <Field label={t('dateOfBirthLabel')}>
         <Input
           type="date"
           className="h-11"
@@ -86,7 +89,7 @@ export function StepPersonal({
           onChange={(e) => onChange({ dateOfBirth: e.target.value || undefined })}
         />
       </Field>
-      <Field label="رقم الهاتف">
+      <Field label={t('phoneLabel')}>
         <Input
           className="h-11"
           value={data.phone ?? ''}
@@ -94,7 +97,7 @@ export function StepPersonal({
           placeholder="+971 5X XXX XXXX"
         />
       </Field>
-      <Field label="البريد الإلكتروني">
+      <Field label={t('emailLabel')}>
         <Input
           type="email"
           className="h-11"
@@ -105,7 +108,7 @@ export function StepPersonal({
       </Field>
       {mode === 'new' && (
         <>
-          <Field label="اسم المستخدم (username)" required>
+          <Field label={t('usernameLabel')} required>
             <Input
               className="h-11"
               value={data.username}
@@ -114,13 +117,13 @@ export function StepPersonal({
               dir="ltr"
             />
           </Field>
-          <Field label="كلمة المرور" required>
+          <Field label={t('passwordLabel')} required>
             <Input
               type="password"
               className="h-11"
               value={data.password ?? ''}
               onChange={(e) => onChange({ password: e.target.value })}
-              placeholder="8+ أحرف"
+              placeholder={t('passwordPlaceholder', { min: PASSWORD_MIN_LENGTH })}
               dir="ltr"
             />
           </Field>

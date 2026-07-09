@@ -13,10 +13,23 @@ export type WizardMode = 'new' | 'existing';
 /** Document keys the API accepts — mirror ONBOARDING_DOC_KEYS server-side. */
 export const WIZARD_DOC_KEYS = ['offer_letter', 'nda', 'asset_handover'] as const;
 
-export const WIZARD_DOC_LABELS: Record<string, string> = {
-  offer_letter:   'خطاب العرض',
-  nda:            'اتفاقية السرية',
-  asset_handover: 'نموذج تسليم العهدة',
+/**
+ * Maps each WIZARD_DOC_KEYS entry to its hr.onboarding.docNames.* catalog key.
+ * i18n Phase 5.8: replaces the old WIZARD_DOC_LABELS Arabic map, which had
+ * drifted to a 4th, divergent phrasing for the offer letter versus the
+ * majority phrasing used in the 3 other spots across the onboarding surface
+ * (see docNames.offerLetter in messages/{ar,en}/hr.json for the converged text).
+ * This is a pure key→key lookup (no translated text) so it can live in this
+ * hook-free helper file; WizardStepReview.tsx resolves the actual label via
+ * `t(\`docNames.${WIZARD_DOC_NAME_KEYS[key]}\`)`.
+ */
+export const WIZARD_DOC_NAME_KEYS: Record<
+  (typeof WIZARD_DOC_KEYS)[number],
+  'offerLetter' | 'nda' | 'assetHandover'
+> = {
+  offer_letter:   'offerLetter',
+  nda:            'nda',
+  asset_handover: 'assetHandover',
 };
 
 export function defaultForm(): CreateOnboardingInput {
@@ -87,7 +100,16 @@ export function prefillFromUser(u: User): CreateOnboardingInput {
   };
 }
 
-/** Per-step validation. Existing mode skips username/password entry checks. */
+/**
+ * Per-step validation. Existing mode skips username/password entry checks.
+ *
+ * i18n Phase 5.8 — RETURN-KEY pattern: this is a pure helper (no hooks, so it
+ * cannot call `useTranslations`). It returns a fully-qualified catalog KEY
+ * (or `null` when the step is valid) — the calling component resolves the
+ * message via a root translator: `t(key, { min: PASSWORD_MIN_LENGTH })`
+ * (NewHireWizard.tsx). Extra interpolation params are harmless no-ops for
+ * keys that don't reference them.
+ */
 export function validateStep(
   step: number,
   data: CreateOnboardingInput,
@@ -95,29 +117,38 @@ export function validateStep(
 ): string | null {
   switch (step) {
     case 0:
-      if (mode === 'existing' && !data.username.trim()) return 'اختر الموظف أولاً';
-      if (!data.nameEn.trim()) return 'الاسم بالإنجليزية مطلوب';
-      if (!data.nameAr.trim()) return 'الاسم بالعربية مطلوب';
+      if (mode === 'existing' && !data.username.trim())
+        return 'hr.onboarding.wizard.validation.selectEmployeeFirst';
+      if (!data.nameEn.trim())
+        return 'hr.onboarding.wizard.validation.nameEnRequired';
+      if (!data.nameAr.trim())
+        return 'hr.onboarding.wizard.validation.nameArRequired';
       if (mode === 'new') {
-        if (!data.username.trim()) return 'اسم المستخدم مطلوب';
+        if (!data.username.trim())
+          return 'hr.onboarding.wizard.validation.usernameRequired';
         if (!data.password?.trim() || data.password.length < PASSWORD_MIN_LENGTH)
-          return `كلمة المرور يجب أن تكون ${PASSWORD_MIN_LENGTH} أحرف على الأقل`;
+          return 'hr.onboarding.wizard.validation.passwordMinLength';
       }
       return null;
     case 1:
-      if (!data.titleEn.trim()) return 'المسمى الوظيفي مطلوب';
-      if (!data.startDate) return 'تاريخ الالتحاق مطلوب';
+      if (!data.titleEn.trim())
+        return 'hr.onboarding.wizard.validation.titleRequired';
+      if (!data.startDate)
+        return 'hr.onboarding.wizard.validation.startDateRequired';
       return null;
     case 2:
-      if (data.basic <= 0) return 'الراتب الأساسي يجب أن يكون أكبر من صفر';
+      if (data.basic <= 0)
+        return 'hr.onboarding.wizard.validation.basicSalaryRequired';
       return null;
     case 3:
       return null; // clauses + assets are optional
     case 4:
-      if (!data.signatoryName.trim()) return 'اسم الموقّع مطلوب';
-      if (!data.signatoryTitle.trim()) return 'منصب الموقّع مطلوب';
+      if (!data.signatoryName.trim())
+        return 'hr.onboarding.wizard.validation.signatoryNameRequired';
+      if (!data.signatoryTitle.trim())
+        return 'hr.onboarding.wizard.validation.signatoryTitleRequired';
       if (mode === 'existing' && (data.documents ?? []).length === 0)
-        return 'اختر وثيقة واحدة على الأقل';
+        return 'hr.onboarding.wizard.validation.selectAtLeastOneDocument';
       return null;
     default:
       return null;

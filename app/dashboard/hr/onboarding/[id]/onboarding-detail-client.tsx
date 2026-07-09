@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useTranslations, useLocale } from 'next-intl';
 import { toast } from 'sonner';
 import {
   ArrowRight,
@@ -25,15 +26,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useOnboarding, useUpdateOnboarding } from '@/hooks/useOnboarding';
-import {
-  ONBOARDING_STATUS,
-  ONBOARDING_STATUS_LABELS,
-  type OnboardingStatus,
-} from '@/lib/constants/onboarding';
+import { ONBOARDING_STATUS } from '@/lib/constants/onboarding';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import { OnboardingChecklist } from '@/components/hr/onboarding/OnboardingChecklist';
 import { OnboardingDocuments } from '@/components/hr/onboarding/OnboardingDocuments';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
 import type { OfferData } from '@/types/database';
+import type { Locale } from '@/lib/i18n/config';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Status badge colours (matching list page)
@@ -67,6 +66,9 @@ function DetailSkeleton() {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export default function OnboardingDetailClient({ id }: { id: string }) {
+  const t = useTranslations('hr.onboarding.detail');
+  const locale = useLocale() as Locale;
+  const statusLabel = useStatusLabels('onboarding');
   const { data: onboarding, isLoading, error } = useOnboarding(id);
   const updateOnboarding = useUpdateOnboarding();
 
@@ -79,9 +81,9 @@ export default function OnboardingDetailClient({ id }: { id: string }) {
       <div className="p-6">
         <EmptyState
           icon={ClipboardList}
-          title="سجل التعيين غير موجود"
-          description="ربما تم حذف هذا السجل أو الرابط غير صحيح"
-          actionLabel="العودة لقائمة التعيينات"
+          title={t('notFound.title')}
+          description={t('notFound.description')}
+          actionLabel={t('notFound.actionLabel')}
           onAction={() => window.history.back()}
         />
       </div>
@@ -108,10 +110,10 @@ export default function OnboardingDetailClient({ id }: { id: string }) {
         id: onboarding!.id,
         action: 'cancel',
       });
-      toast.success('تم إلغاء التعيين');
+      toast.success(t('toasts.cancelSuccess'));
       setCancelDialogOpen(false);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'فشل الإلغاء';
+      const msg = e instanceof Error ? e.message : t('toasts.cancelFailedFallback');
       toast.error(msg);
     }
   }
@@ -122,10 +124,10 @@ export default function OnboardingDetailClient({ id }: { id: string }) {
         id: onboarding!.id,
         action: 'complete',
       });
-      toast.success('تم إنهاء التعيين بنجاح');
+      toast.success(t('toasts.completeSuccess'));
       setCompleteDialogOpen(false);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'فشل إنهاء التعيين';
+      const msg = e instanceof Error ? e.message : t('toasts.completeFailedFallback');
       toast.error(msg);
     }
   }
@@ -138,7 +140,7 @@ export default function OnboardingDetailClient({ id }: { id: string }) {
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowRight className="h-4 w-4 rtl:rotate-180" />
-        قائمة التعيينات
+        {t('backLink')}
       </Link>
 
       {/* Header */}
@@ -151,7 +153,7 @@ export default function OnboardingDetailClient({ id }: { id: string }) {
               className="inline-flex items-center gap-1.5 text-sm text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 transition-colors"
             >
               <User className="h-4 w-4" />
-              عرض ملف الموظف
+              {t('viewProfile')}
             </Link>
           </div>
           <div className="flex items-center gap-3">
@@ -159,17 +161,16 @@ export default function OnboardingDetailClient({ id }: { id: string }) {
               className={`text-xs ${STATUS_CLASS[onboarding.status] ?? ''}`}
               variant="outline"
             >
-              {ONBOARDING_STATUS_LABELS[onboarding.status as OnboardingStatus] ??
-                onboarding.status}
+              {statusLabel(onboarding.status)}
             </Badge>
             {onboarding.started_at && (
               <span className="text-sm text-muted-foreground">
-                بدأ {formatDate(onboarding.started_at)}
+                {t('startedLabel', { date: formatDate(onboarding.started_at, undefined, locale) })}
               </span>
             )}
             {onboarding.completed_at && (
               <span className="text-sm text-muted-foreground">
-                · اكتمل {formatDate(onboarding.completed_at)}
+                {t('completedLabel', { date: formatDate(onboarding.completed_at, undefined, locale) })}
               </span>
             )}
           </div>
@@ -190,7 +191,7 @@ export default function OnboardingDetailClient({ id }: { id: string }) {
               disabled={updateOnboarding.isPending}
             >
               <XCircle className="h-4 w-4" />
-              إلغاء التعيين
+              {t('cancelButton')}
             </Button>
             <Button
               className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white h-10"
@@ -198,7 +199,7 @@ export default function OnboardingDetailClient({ id }: { id: string }) {
               disabled={updateOnboarding.isPending}
             >
               <UserCheck className="h-4 w-4" />
-              إنهاء التعيين
+              {t('completeButton')}
             </Button>
           </div>
         )}
@@ -216,20 +217,20 @@ export default function OnboardingDetailClient({ id }: { id: string }) {
       {/* Offer data summary */}
       {offerData && Object.keys(offerData).length > 0 && (
         <div className="rounded-xl border bg-muted/30 dark:bg-muted/10 p-5 space-y-3">
-          <h2 className="font-semibold">تفاصيل العرض</h2>
+          <h2 className="font-semibold">{t('offerSummary.title')}</h2>
           <div className="grid gap-y-2 gap-x-8 grid-cols-2 sm:grid-cols-3 text-sm">
             {[
-              ['القسم', offerData.deptAr || offerData.deptEn],
-              ['المسمى', offerData.titleAr || offerData.titleEn],
-              ['تاريخ الالتحاق', offerData.startDate],
+              [t('offerSummary.department'), offerData.deptAr || offerData.deptEn],
+              [t('offerSummary.jobTitle'), offerData.titleAr || offerData.titleEn],
+              [t('offerSummary.startDate'), offerData.startDate],
               [
-                'الراتب الأساسي',
+                t('offerSummary.basicSalary'),
                 offerData.basic
                   ? formatCurrency(Number(offerData.basic), offerCurrency)
                   : undefined,
               ],
               [
-                'الإجمالي الشهري',
+                t('offerSummary.monthlyTotal'),
                 (() => {
                   const total =
                     Number(offerData.basic || 0) +
@@ -261,22 +262,24 @@ export default function OnboardingDetailClient({ id }: { id: string }) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>تأكيد إلغاء التعيين</AlertDialogTitle>
+            <AlertDialogTitle>{t('cancelDialog.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              هل أنت متأكد من إلغاء تعيين <strong>{employeeName}</strong>؟ لا يمكن
-              التراجع عن هذا الإجراء.
+              {t.rich('cancelDialog.description', {
+                name: employeeName,
+                strong: (chunks) => <strong>{chunks}</strong>,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={updateOnboarding.isPending}>
-              تراجع
+              {t('dialogBack')}
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
               onClick={handleCancel}
               disabled={updateOnboarding.isPending}
             >
-              {updateOnboarding.isPending ? 'جاري الإلغاء...' : 'تأكيد الإلغاء'}
+              {updateOnboarding.isPending ? t('cancelDialog.confirming') : t('cancelDialog.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -289,21 +292,24 @@ export default function OnboardingDetailClient({ id }: { id: string }) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>تأكيد إنهاء التعيين</AlertDialogTitle>
+            <AlertDialogTitle>{t('completeDialog.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              هل تريد تعليم تعيين <strong>{employeeName}</strong> كمكتمل؟
+              {t.rich('completeDialog.description', {
+                name: employeeName,
+                strong: (chunks) => <strong>{chunks}</strong>,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={updateOnboarding.isPending}>
-              تراجع
+              {t('dialogBack')}
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-emerald-600 hover:bg-emerald-700"
               onClick={handleComplete}
               disabled={updateOnboarding.isPending}
             >
-              {updateOnboarding.isPending ? 'جاري الإنهاء...' : 'تأكيد الإنهاء'}
+              {updateOnboarding.isPending ? t('completeDialog.confirming') : t('completeDialog.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

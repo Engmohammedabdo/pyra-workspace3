@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,7 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Trash2, Plus } from 'lucide-react';
-import { ASSET_TYPES_AR } from '@/lib/constants/onboarding';
+import { ASSET_TYPES_AR, ASSET_TYPE_KEYS } from '@/lib/constants/onboarding';
 import type { CreateOnboardingInput } from '@/hooks/useOnboarding';
 import { Field } from './WizardStepPersonal';
 
@@ -25,6 +26,8 @@ export function StepClauses({
   data: FormData;
   onChange: OnChange;
 }) {
+  const t = useTranslations('hr.onboarding.wizard.clauses');
+  const tAssetTypes = useTranslations('hr.onboarding.wizard.assetTypes');
   const currency = data.currency || 'AED';
 
   const addClause = () =>
@@ -55,7 +58,7 @@ export function StepClauses({
           type: ASSET_TYPES_AR[0],
           description: '',
           serial: '',
-          condition: 'جيد',
+          condition: 'جيد', // i18n-exempt: persisted asset-condition value (offer_data jsonb + Arabic PDF) — kept Arabic per locked decision, see condition <Select> below
           value: '',
           notes: '',
         },
@@ -79,10 +82,10 @@ export function StepClauses({
       {/* Custom clauses */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold">بنود إضافية في عرض العمل</h3>
+          <h3 className="font-semibold">{t('title')}</h3>
           <Button type="button" variant="outline" size="sm" onClick={addClause}>
             <Plus className="h-4 w-4 me-1" />
-            إضافة بند
+            {t('addClause')}
           </Button>
         </div>
         {data.customClauses.map((clause, i) => (
@@ -90,7 +93,7 @@ export function StepClauses({
             <div className="flex items-center gap-2">
               <Input
                 className="h-9 flex-1"
-                placeholder="عنوان البند (اختياري)"
+                placeholder={t('clauseTitlePlaceholder')}
                 value={clause.title ?? ''}
                 onChange={(e) => updateClause(i, { title: e.target.value })}
               />
@@ -106,30 +109,30 @@ export function StepClauses({
             </div>
             <Textarea
               className="min-h-[72px] resize-none"
-              placeholder="نص البند..."
+              placeholder={t('clauseBodyPlaceholder')}
               value={clause.body}
               onChange={(e) => updateClause(i, { body: e.target.value })}
             />
           </div>
         ))}
         {data.customClauses.length === 0 && (
-          <p className="text-sm text-muted-foreground">لا توجد بنود إضافية</p>
+          <p className="text-sm text-muted-foreground">{t('emptyClauses')}</p>
         )}
       </div>
 
       {/* Assets */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold">العهدة (الأجهزة والأصول)</h3>
+          <h3 className="font-semibold">{t('assetsTitle')}</h3>
           <Button type="button" variant="outline" size="sm" onClick={addAsset}>
             <Plus className="h-4 w-4 me-1" />
-            إضافة بند عهدة
+            {t('addAsset')}
           </Button>
         </div>
         {data.assets.map((asset, i) => (
           <div key={i} className="rounded-lg border p-3 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">بند #{i + 1}</span>
+              <span className="text-sm font-medium">{t('assetIndex', { index: i + 1 })}</span>
               <Button
                 type="button"
                 variant="ghost"
@@ -141,7 +144,7 @@ export function StepClauses({
               </Button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="النوع">
+              <Field label={t('assetTypeLabel')}>
                 <Select
                   value={asset.type || ASSET_TYPES_AR[0]}
                   onValueChange={(v) => updateAsset(i, { type: v })}
@@ -150,15 +153,15 @@ export function StepClauses({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {ASSET_TYPES_AR.map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {t}
+                    {ASSET_TYPES_AR.map((typeValue, idx) => (
+                      <SelectItem key={typeValue} value={typeValue}>
+                        {tAssetTypes(ASSET_TYPE_KEYS[idx])}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="الوصف">
+              <Field label={t('assetDescriptionLabel')}>
                 <Input
                   className="h-11"
                   placeholder="MacBook Pro 14-inch"
@@ -166,7 +169,7 @@ export function StepClauses({
                   onChange={(e) => updateAsset(i, { description: e.target.value })}
                 />
               </Field>
-              <Field label="الرقم التسلسلي">
+              <Field label={t('assetSerialLabel')}>
                 <Input
                   className="h-11"
                   placeholder="SN-XXXXXXXX"
@@ -175,22 +178,22 @@ export function StepClauses({
                   dir="ltr"
                 />
               </Field>
-              <Field label="الحالة">
+              <Field label={t('assetConditionLabel')}>
                 <Select
-                  value={asset.condition || 'جيد'}
+                  value={asset.condition || 'جيد'} // i18n-exempt: persisted asset-condition value (offer_data jsonb + Arabic PDF) — kept Arabic per locked decision (deferred enum-key migration, see backlog)
                   onValueChange={(v) => updateAsset(i, { condition: v })}
                 >
                   <SelectTrigger className="h-11">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="جديد">جديد</SelectItem>
-                    <SelectItem value="جيد">جيد</SelectItem>
-                    <SelectItem value="متوسط">متوسط</SelectItem>
+                    <SelectItem value="جديد">جديد</SelectItem> {/* i18n-exempt: persisted asset-condition value */}
+                    <SelectItem value="جيد">جيد</SelectItem> {/* i18n-exempt: persisted asset-condition value */}
+                    <SelectItem value="متوسط">متوسط</SelectItem> {/* i18n-exempt: persisted asset-condition value */}
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label={`القيمة التقديرية (${currency})`}>
+              <Field label={t('assetValueLabel', { currency })}>
                 <Input
                   className="h-11"
                   placeholder="0"
@@ -198,10 +201,10 @@ export function StepClauses({
                   onChange={(e) => updateAsset(i, { value: e.target.value })}
                 />
               </Field>
-              <Field label="ملاحظات">
+              <Field label={t('assetNotesLabel')}>
                 <Input
                   className="h-11"
-                  placeholder="ملاحظات اختيارية"
+                  placeholder={t('assetNotesPlaceholder')}
                   value={asset.notes}
                   onChange={(e) => updateAsset(i, { notes: e.target.value })}
                 />
@@ -210,7 +213,7 @@ export function StepClauses({
           </div>
         ))}
         {data.assets.length === 0 && (
-          <p className="text-sm text-muted-foreground">لا توجد عهدة</p>
+          <p className="text-sm text-muted-foreground">{t('emptyAssets')}</p>
         )}
       </div>
     </div>

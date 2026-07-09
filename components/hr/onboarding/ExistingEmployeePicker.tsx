@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -12,9 +13,10 @@ import type { User } from '@/hooks/useUsers';
 
 // ────────────────────────────────────────────────────────────────────────────
 // ExistingEmployeePicker — active employees / sales agents dropdown for the
-// wizard's "موظف حالي" mode. Users who already have an onboarding record are
-// rendered disabled with a "(لديه سجل)" suffix. Selecting a user hands the
-// full row back to the wizard so it can prefill the form.
+// wizard's "existing employee" mode. Users who already have an onboarding
+// record are rendered disabled with a translated "has a record" suffix.
+// Selecting a user hands the full row back to the wizard so it can prefill
+// the form.
 // ────────────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -27,6 +29,7 @@ interface Props {
 }
 
 export function ExistingEmployeePicker({ users, value, onSelect, loading }: Props) {
+  const t = useTranslations('hr.onboarding.wizard.picker');
   const eligible = users.filter(
     (u) =>
       u.status === 'active' &&
@@ -36,7 +39,7 @@ export function ExistingEmployeePicker({ users, value, onSelect, loading }: Prop
   return (
     <div className="space-y-1.5 rounded-lg border border-orange-200 dark:border-orange-800/40 bg-orange-50 dark:bg-orange-950/30 p-4">
       <Label className="text-sm font-medium">
-        الموظف الحالي
+        {t('label')}
         <span className="text-destructive ms-0.5">*</span>
       </Label>
       <Select
@@ -47,17 +50,17 @@ export function ExistingEmployeePicker({ users, value, onSelect, loading }: Prop
         }}
       >
         <SelectTrigger className="h-11 bg-background">
-          <SelectValue placeholder="اختر الموظف" />
+          <SelectValue placeholder={t('placeholder')} />
         </SelectTrigger>
         <SelectContent>
           {loading && eligible.length === 0 && (
             <SelectItem value="__loading__" disabled>
-              جاري التحميل...
+              {t('loading')}
             </SelectItem>
           )}
           {!loading && eligible.length === 0 && (
             <SelectItem value="__none__" disabled>
-              لا يوجد موظفون نشطون
+              {t('noneActive')}
             </SelectItem>
           )}
           {eligible.map((u) => {
@@ -69,14 +72,14 @@ export function ExistingEmployeePicker({ users, value, onSelect, loading }: Prop
                 disabled={hasRecord}
               >
                 {(u.display_name || u.name || u.username) as string}
-                {hasRecord ? ' (لديه سجل)' : ''}
+                {hasRecord ? t('hasRecordSuffix') : ''}
               </SelectItem>
             );
           })}
         </SelectContent>
       </Select>
       <p className="text-xs text-muted-foreground">
-        سيتم تعبئة البيانات تلقائياً من سجل الموظف — يمكنك تعديلها قبل التوليد.
+        {t('hint')}
       </p>
     </div>
   );

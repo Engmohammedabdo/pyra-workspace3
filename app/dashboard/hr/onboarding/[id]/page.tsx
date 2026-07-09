@@ -1,7 +1,12 @@
+import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { requirePermission } from '@/lib/auth/guards';
 import OnboardingDetailClient from './onboarding-detail-client';
 
-export const metadata = { title: 'تفاصيل التعيين' };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('hr.onboarding.detail');
+  return { title: t('metaTitle') };
+}
 
 export default async function OnboardingDetailPage({
   params,

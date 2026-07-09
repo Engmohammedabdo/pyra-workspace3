@@ -1109,6 +1109,223 @@
         "update": "تحديث",
         "create": "إنشاء"
       }
+    },
+    "onboarding": {
+      "list": {
+        "title": "تعيين موظفين جدد",
+        "subtitle": "إدارة سجلات الإيبورد وتوليد المستندات",
+        "newHireButton": "موظف جديد",
+        "columns": {
+          "employee": "الموظف",
+          "status": "الحالة",
+          "progress": "المهام",
+          "startedAt": "تاريخ البدء"
+        },
+        "empty": {
+          "title": "لا توجد سجلات تعيين",
+          "description": "ابدأ بإضافة موظف جديد عبر زر «{button}»"
+        }
+      },
+      "detail": {
+        "metaTitle": "تفاصيل التعيين",
+        "backLink": "قائمة التعيينات",
+        "viewProfile": "عرض ملف الموظف",
+        "startedLabel": "بدأ {date}",
+        "completedLabel": "· اكتمل {date}",
+        "cancelButton": "إلغاء التعيين",
+        "completeButton": "إنهاء التعيين",
+        "toasts": {
+          "cancelSuccess": "تم إلغاء التعيين",
+          "cancelFailedFallback": "فشل الإلغاء",
+          "completeSuccess": "تم إنهاء التعيين بنجاح",
+          "completeFailedFallback": "فشل إنهاء التعيين"
+        },
+        "notFound": {
+          "title": "سجل التعيين غير موجود",
+          "description": "ربما تم حذف هذا السجل أو الرابط غير صحيح",
+          "actionLabel": "العودة لقائمة التعيينات"
+        },
+        "offerSummary": {
+          "title": "تفاصيل العرض",
+          "department": "القسم",
+          "jobTitle": "المسمى",
+          "startDate": "تاريخ الالتحاق",
+          "basicSalary": "الراتب الأساسي",
+          "monthlyTotal": "الإجمالي الشهري"
+        },
+        "dialogBack": "تراجع",
+        "cancelDialog": {
+          "title": "تأكيد إلغاء التعيين",
+          "description": "هل أنت متأكد من إلغاء تعيين <strong>{name}</strong>؟ لا يمكن التراجع عن هذا الإجراء.",
+          "confirming": "جاري الإلغاء...",
+          "confirm": "تأكيد الإلغاء"
+        },
+        "completeDialog": {
+          "title": "تأكيد إنهاء التعيين",
+          "description": "هل تريد تعليم تعيين <strong>{name}</strong> كمكتمل؟",
+          "confirming": "جاري الإنهاء...",
+          "confirm": "تأكيد الإنهاء"
+        }
+      },
+      "checklist": {
+        "title": "قائمة مهام الإيبورد",
+        "doneOfTotal": "{done}/{total} مكتملة",
+        "empty": "لا توجد مهام",
+        "completeButton": "إنهاء التعيين (كل المهام مكتملة)",
+        "toasts": {
+          "toggleFailed": "فشل تحديث المهمة"
+        }
+      },
+      "documents": {
+        "title": "مستندات التعيين",
+        "download": "تحميل",
+        "notAvailable": "غير متاح",
+        "regenerate": "إعادة توليد",
+        "generate": "توليد",
+        "notGeneratedYet": "لم يُولَّد بعد",
+        "toasts": {
+          "unknownDocType": "نوع المستند غير معروف",
+          "regenerateSuccess": "تم إعادة توليد {label}",
+          "regenerateFailedFallback": "فشل إعادة التوليد",
+          "generateSuccess": "تم توليد {label}",
+          "generateFailed": "فشل توليد المستند"
+        }
+      },
+      "docNames": {
+        "offerLetter": "عرض العمل",
+        "nda": "اتفاقية السرية (NDA)",
+        "assetHandover": "نموذج تسليم العهدة"
+      },
+      "wizard": {
+        "dialogTitleNew": "تعيين موظف جديد",
+        "dialogTitleExisting": "توليد مستندات لموظف حالي",
+        "modeGroupAria": "نوع التعيين",
+        "modeNew": "موظف جديد",
+        "modeExisting": "موظف حالي",
+        "steps": {
+          "personal": "بيانات شخصية",
+          "position": "الوظيفة",
+          "compensation": "التعويض",
+          "clauses": "البنود والعهدة",
+          "review": "مراجعة"
+        },
+        "back": "السابق",
+        "cancel": "إلغاء",
+        "next": "التالي",
+        "submitting": "جاري التنفيذ...",
+        "submitExisting": "توليد المستندات",
+        "submitNew": "إتمام التعيين",
+        "toasts": {
+          "submitSuccessExisting": "تم توليد المستندات وربطها بسجل الموظف 🎉",
+          "submitSuccessNew": "تم إنشاء سجل التعيين بنجاح 🎉",
+          "submitFailedFallback": "حدث خطأ أثناء التعيين"
+        },
+        "assetTypes": {
+          "laptop": "لابتوب",
+          "mobilePhone": "هاتف متحرك",
+          "simCard": "خط هاتف / SIM",
+          "accessCard": "بطاقة دخول",
+          "cameraEquipment": "كاميرا / معدات",
+          "other": "أخرى"
+        },
+        "picker": {
+          "label": "الموظف الحالي",
+          "placeholder": "اختر الموظف",
+          "loading": "جاري التحميل...",
+          "noneActive": "لا يوجد موظفون نشطون",
+          "hasRecordSuffix": " (لديه سجل)",
+          "hint": "سيتم تعبئة البيانات تلقائياً من سجل الموظف — يمكنك تعديلها قبل التوليد."
+        },
+        "personal": {
+          "nameEnLabel": "الاسم بالإنجليزية",
+          "nameArLabel": "الاسم بالعربية",
+          "nationalityLabel": "الجنسية",
+          "passportLabel": "رقم جواز السفر",
+          "idNumberLabel": "رقم الهوية / الإقامة",
+          "dateOfBirthLabel": "تاريخ الميلاد",
+          "phoneLabel": "رقم الهاتف",
+          "emailLabel": "البريد الإلكتروني",
+          "usernameLabel": "اسم المستخدم (username)",
+          "passwordLabel": "كلمة المرور",
+          "passwordPlaceholder": "{min}+ أحرف"
+        },
+        "position": {
+          "titleEnLabel": "المسمى الوظيفي بالإنجليزية",
+          "titleArLabel": "المسمى الوظيفي بالعربية",
+          "deptEnLabel": "القسم بالإنجليزية",
+          "deptArLabel": "القسم بالعربية",
+          "managerLabel": "المدير المباشر",
+          "managerPlaceholder": "اختر المدير",
+          "noManager": "بدون مدير مباشر",
+          "startDateLabel": "تاريخ الالتحاق",
+          "employmentTypeLabel": "نوع التوظيف",
+          "employmentTypePlaceholder": "اختر نوع التوظيف",
+          "workLocationLabel": "مكان العمل",
+          "workLocationPlaceholder": "اختر مكان العمل",
+          "isSalesLabel": "موظف مبيعات (Sales Agent)"
+        },
+        "compensation": {
+          "currencyLabel": "عملة الراتب",
+          "currencyPlaceholder": "اختر العملة",
+          "basicLabel": "الراتب الأساسي",
+          "housingLabel": "بدل السكن",
+          "transportLabel": "بدل المواصلات",
+          "communicationLabel": "بدل الاتصالات",
+          "otherLabel": "بدلات أخرى",
+          "monthlyTotal": "الإجمالي الشهري",
+          "annualTotal": "الإجمالي السنوي",
+          "salesSectionTitle": "إعدادات المبيعات",
+          "commissionRateLabel": "نسبة العمولة (%)",
+          "monthlyTargetLabel": "الهدف الشهري ({currency})"
+        },
+        "clauses": {
+          "title": "بنود إضافية في عرض العمل",
+          "addClause": "إضافة بند",
+          "clauseTitlePlaceholder": "عنوان البند (اختياري)",
+          "clauseBodyPlaceholder": "نص البند...",
+          "emptyClauses": "لا توجد بنود إضافية",
+          "assetsTitle": "العهدة (الأجهزة والأصول)",
+          "addAsset": "إضافة بند عهدة",
+          "assetIndex": "بند #{index}",
+          "assetTypeLabel": "النوع",
+          "assetDescriptionLabel": "الوصف",
+          "assetSerialLabel": "الرقم التسلسلي",
+          "assetConditionLabel": "الحالة",
+          "assetValueLabel": "القيمة التقديرية ({currency})",
+          "assetNotesLabel": "ملاحظات",
+          "assetNotesPlaceholder": "ملاحظات اختيارية",
+          "emptyAssets": "لا توجد عهدة"
+        },
+        "review": {
+          "signatoryNameLabel": "اسم الموقّع (المفوّض)",
+          "signatoryTitleLabel": "منصب الموقّع",
+          "notesLabel": "ملاحظات داخلية (اختياري)",
+          "notesPlaceholder": "ملاحظات خاصة بسجل التعيين...",
+          "documentsToGenerate": "الوثائق المطلوب توليدها",
+          "summaryTitle": "ملخص التعيين",
+          "summaryName": "الاسم",
+          "summaryJobTitle": "المسمى",
+          "summaryStartDate": "تاريخ الالتحاق",
+          "summaryMonthlyTotal": "الإجمالي الشهري",
+          "summaryAssetCount": "عدد بنود العهدة",
+          "summaryClauseCount": "بنود إضافية",
+          "hintExisting": "عند الضغط على «{label}» سيتم توليد الوثائق المحددة (PDF) وربطها بسجل الموظف الحالي — دون إنشاء حساب جديد أو تغيير كلمة المرور أو قائمة مهام.",
+          "hintNew": "عند الضغط على «{label}» سيتم: إنشاء حساب الموظف، توليد عرض العمل واتفاقية السرية ونموذج تسليم العهدة (PDF)، وبدء قائمة مهام الإيبورد."
+        },
+        "validation": {
+          "selectEmployeeFirst": "اختر الموظف أولاً",
+          "nameEnRequired": "الاسم بالإنجليزية مطلوب",
+          "nameArRequired": "الاسم بالعربية مطلوب",
+          "usernameRequired": "اسم المستخدم مطلوب",
+          "passwordMinLength": "كلمة المرور يجب أن تكون {min} أحرف على الأقل",
+          "titleRequired": "المسمى الوظيفي مطلوب",
+          "startDateRequired": "تاريخ الالتحاق مطلوب",
+          "basicSalaryRequired": "الراتب الأساسي يجب أن يكون أكبر من صفر",
+          "signatoryNameRequired": "اسم الموقّع مطلوب",
+          "signatoryTitleRequired": "منصب الموقّع مطلوب",
+          "selectAtLeastOneDocument": "اختر وثيقة واحدة على الأقل"
+        }
+      }
     }
   }
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations, useLocale } from 'next-intl';
 import { toast } from 'sonner';
 import { CheckCircle2, Circle, CheckSquare } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
@@ -10,6 +11,7 @@ import {
   type OnboardingDetail,
 } from '@/hooks/useOnboarding';
 import { ONBOARDING_STATUS } from '@/lib/constants/onboarding';
+import type { Locale } from '@/lib/i18n/config';
 
 interface Props {
   onboarding: OnboardingDetail;
@@ -17,10 +19,12 @@ interface Props {
 }
 
 export function OnboardingChecklist({ onboarding, onRequestComplete }: Props) {
+  const t = useTranslations('hr.onboarding.checklist');
+  const locale = useLocale() as Locale;
   const toggleTask = useToggleOnboardingTask();
 
   const tasks = onboarding.tasks ?? [];
-  const done = tasks.filter((t) => t.is_done).length;
+  const done = tasks.filter((task) => task.is_done).length;
   const total = tasks.length;
   const allDone = total > 0 && done === total;
   const pct = total === 0 ? 0 : Math.round((done / total) * 100);
@@ -34,7 +38,7 @@ export function OnboardingChecklist({ onboarding, onRequestComplete }: Props) {
         is_done: !currentDone,
       });
     } catch {
-      toast.error('فشل تحديث المهمة');
+      toast.error(t('toasts.toggleFailed'));
     }
   }
 
@@ -42,9 +46,9 @@ export function OnboardingChecklist({ onboarding, onRequestComplete }: Props) {
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-4">
-          <CardTitle className="text-base">قائمة مهام الإيبورد</CardTitle>
+          <CardTitle className="text-base">{t('title')}</CardTitle>
           <span className="text-sm font-medium tabular-nums text-muted-foreground">
-            {done}/{total} مكتملة
+            {t('doneOfTotal', { done, total })}
           </span>
         </div>
         {/* Progress bar */}
@@ -89,7 +93,8 @@ export function OnboardingChecklist({ onboarding, onRequestComplete }: Props) {
             </span>
             {task.done_at && (
               <span className="text-xs text-muted-foreground shrink-0">
-                {new Date(task.done_at).toLocaleDateString('ar-AE')}
+                {/* in-place locale parametrize — preserves AR Arabic-Indic digits (Phase-2 lock) */}
+                {new Date(task.done_at).toLocaleDateString(locale === 'ar' ? 'ar-AE' : 'en-GB')}
               </span>
             )}
           </button>
@@ -97,7 +102,7 @@ export function OnboardingChecklist({ onboarding, onRequestComplete }: Props) {
 
         {tasks.length === 0 && (
           <p className="text-sm text-muted-foreground py-4 text-center">
-            لا توجد مهام
+            {t('empty')}
           </p>
         )}
 
@@ -109,7 +114,7 @@ export function OnboardingChecklist({ onboarding, onRequestComplete }: Props) {
               onClick={() => onRequestComplete?.()}
             >
               <CheckSquare className="h-4 w-4" />
-              إنهاء التعيين (كل المهام مكتملة)
+              {t('completeButton')}
             </Button>
           </div>
         )}

@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,20 +15,7 @@ import type { CreateOnboardingInput } from '@/hooks/useOnboarding';
 import type { User } from '@/hooks/useUsers';
 import { Field } from './WizardStepPersonal';
 import { EMPLOYMENT_TYPES, WORK_LOCATIONS } from '@/lib/constants/auth';
-
-const EMPLOYMENT_TYPE_LABELS: Record<string, string> = {
-  full_time:  'دوام كامل',
-  part_time:  'دوام جزئي',
-  contract:   'عقد مؤقت',
-  freelance:  'فريلانس',
-  intern:     'تدريب',
-};
-
-const WORK_LOCATION_LABELS: Record<string, string> = {
-  onsite:  'مكتبي',
-  remote:  'عن بُعد',
-  hybrid:  'هجين',
-};
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 
 type FormData = CreateOnboardingInput;
 type OnChange = (patch: Partial<FormData>) => void;
@@ -41,13 +29,16 @@ export function StepPosition({
   onChange: OnChange;
   allUsers: User[];
 }) {
+  const t = useTranslations('hr.onboarding.wizard.position');
+  const employmentTypeLabel = useStatusLabels('employmentType');
+  const workLocationLabel = useStatusLabels('workLocation');
   const managers = allUsers.filter(
     (u) => u.status === 'active' && (u.role === 'admin' || u.role === 'employee'),
   );
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      <Field label="المسمى الوظيفي بالإنجليزية" required>
+      <Field label={t('titleEnLabel')} required>
         <Input
           className="h-11"
           value={data.titleEn}
@@ -55,15 +46,15 @@ export function StepPosition({
           placeholder="Content Creator"
         />
       </Field>
-      <Field label="المسمى الوظيفي بالعربية">
+      <Field label={t('titleArLabel')}>
         <Input
           className="h-11"
           value={data.titleAr}
           onChange={(e) => onChange({ titleAr: e.target.value })}
-          placeholder="منشئ محتوى"
+          placeholder="منشئ محتوى" // i18n-exempt: Arabic example placeholder for an Arabic-only job-title field
         />
       </Field>
-      <Field label="القسم بالإنجليزية">
+      <Field label={t('deptEnLabel')}>
         <Input
           className="h-11"
           value={data.deptEn}
@@ -71,24 +62,24 @@ export function StepPosition({
           placeholder="Marketing"
         />
       </Field>
-      <Field label="القسم بالعربية">
+      <Field label={t('deptArLabel')}>
         <Input
           className="h-11"
           value={data.deptAr}
           onChange={(e) => onChange({ deptAr: e.target.value })}
-          placeholder="التسويق"
+          placeholder="التسويق" // i18n-exempt: Arabic example placeholder for an Arabic-only department field
         />
       </Field>
-      <Field label="المدير المباشر">
+      <Field label={t('managerLabel')}>
         <Select
           value={data.reportsTo || 'none'}
           onValueChange={(v) => onChange({ reportsTo: v === 'none' ? '' : v })}
         >
           <SelectTrigger className="h-11">
-            <SelectValue placeholder="اختر المدير" />
+            <SelectValue placeholder={t('managerPlaceholder')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="none">بدون مدير مباشر</SelectItem>
+            <SelectItem value="none">{t('noManager')}</SelectItem>
             {managers.map((u) => (
               <SelectItem key={u.username as string} value={u.username as string}>
                 {(u.display_name || u.name || u.username) as string}
@@ -97,7 +88,7 @@ export function StepPosition({
           </SelectContent>
         </Select>
       </Field>
-      <Field label="تاريخ الالتحاق" required>
+      <Field label={t('startDateLabel')} required>
         <Input
           type="date"
           className="h-11"
@@ -105,35 +96,35 @@ export function StepPosition({
           onChange={(e) => onChange({ startDate: e.target.value })}
         />
       </Field>
-      <Field label="نوع التوظيف">
+      <Field label={t('employmentTypeLabel')}>
         <Select
           value={data.employment_type ?? 'full_time'}
           onValueChange={(v) => onChange({ employment_type: v })}
         >
           <SelectTrigger className="h-11">
-            <SelectValue placeholder="اختر نوع التوظيف" />
+            <SelectValue placeholder={t('employmentTypePlaceholder')} />
           </SelectTrigger>
           <SelectContent>
-            {(EMPLOYMENT_TYPES as readonly string[]).map((t) => (
-              <SelectItem key={t} value={t}>
-                {EMPLOYMENT_TYPE_LABELS[t] ?? t}
+            {(EMPLOYMENT_TYPES as readonly string[]).map((et) => (
+              <SelectItem key={et} value={et}>
+                {employmentTypeLabel(et)}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </Field>
-      <Field label="مكان العمل">
+      <Field label={t('workLocationLabel')}>
         <Select
           value={data.work_location ?? 'onsite'}
           onValueChange={(v) => onChange({ work_location: v })}
         >
           <SelectTrigger className="h-11">
-            <SelectValue placeholder="اختر مكان العمل" />
+            <SelectValue placeholder={t('workLocationPlaceholder')} />
           </SelectTrigger>
           <SelectContent>
             {(WORK_LOCATIONS as readonly string[]).map((l) => (
               <SelectItem key={l} value={l}>
-                {WORK_LOCATION_LABELS[l] ?? l}
+                {workLocationLabel(l)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -146,7 +137,7 @@ export function StepPosition({
           onCheckedChange={(v) => onChange({ isSales: v })}
         />
         <Label htmlFor="isSales" className="cursor-pointer">
-          موظف مبيعات (Sales Agent)
+          {t('isSalesLabel')}
         </Label>
       </div>
     </div>

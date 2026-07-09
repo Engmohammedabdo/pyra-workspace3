@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
 import { Button } from '@/components/ui/button';
@@ -27,27 +28,23 @@ import {
   validateStep,
   type WizardMode,
 } from './wizard-helpers';
+import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 
 // ────────────────────────────────────────────────────────────────────────────
-// Step metadata
+// Step metadata — ASCII keys resolved to labels via t(`steps.${key}`) inside
+// the component (translated labels can't live in this module-level constant).
 // ────────────────────────────────────────────────────────────────────────────
 
-const STEPS = [
-  { label: 'بيانات شخصية' },
-  { label: 'الوظيفة' },
-  { label: 'التعويض' },
-  { label: 'البنود والعهدة' },
-  { label: 'مراجعة' },
-];
+const STEP_KEYS = ['personal', 'position', 'compensation', 'clauses', 'review'] as const;
 
 // ────────────────────────────────────────────────────────────────────────────
 // Stepper indicator
 // ────────────────────────────────────────────────────────────────────────────
 
-function Stepper({ current }: { current: number }) {
+function Stepper({ current, steps }: { current: number; steps: { label: string }[] }) {
   return (
     <div className="flex items-center gap-0 overflow-x-auto pb-1">
-      {STEPS.map((s, i) => {
+      {steps.map((s, i) => {
         const done = i < current;
         const active = i === current;
         return (
@@ -72,7 +69,7 @@ function Stepper({ current }: { current: number }) {
             >
               {s.label}
             </span>
-            {i < STEPS.length - 1 && (
+            {i < steps.length - 1 && (
               <div
                 className={cn(
                   'h-px w-4 me-1 shrink-0',
@@ -98,12 +95,19 @@ interface Props {
 
 export function NewHireWizard({ open, onClose }: Props) {
   const router = useRouter();
+  const t = useTranslations('hr.onboarding.wizard');
+  // Root translator (no namespace) — resolves the fully-qualified catalog
+  // keys returned by the pure validateStep() helper, which cannot call
+  // useTranslations itself. See wizard-helpers.ts.
+  const tRoot = useTranslations();
   const [mode, setMode] = useState<WizardMode>('new');
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<CreateOnboardingInput>(defaultForm);
 
   const { data: usersData = [], isLoading: usersLoading } = useUsers();
   const createOnboarding = useCreateOnboarding();
+
+  const steps = STEP_KEYS.map((key) => ({ label: t(`steps.${key}`) }));
 
   function patch(update: Partial<CreateOnboardingInput>) {
     setForm((prev) => ({ ...prev, ...update }));
@@ -132,12 +136,12 @@ export function NewHireWizard({ open, onClose }: Props) {
   }
 
   function handleNext() {
-    const err = validateStep(step, form, mode);
-    if (err) {
-      toast.error(err);
+    const errKey = validateStep(step, form, mode);
+    if (errKey) {
+      toast.error(tRoot(errKey as Parameters<typeof tRoot>[0], { min: PASSWORD_MIN_LENGTH }));
       return;
     }
-    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    setStep((s) => Math.min(s + 1, STEP_KEYS.length - 1));
   }
 
   function handleBack() {
@@ -145,9 +149,9 @@ export function NewHireWizard({ open, onClose }: Props) {
   }
 
   async function handleSubmit() {
-    const err = validateStep(step, form, mode);
-    if (err) {
-      toast.error(err);
+    const errKey = validateStep(step, form, mode);
+    if (errKey) {
+      toast.error(tRoot(errKey as Parameters<typeof tRoot>[0], { min: PASSWORD_MIN_LENGTH }));
       return;
     }
 
@@ -165,18 +169,18 @@ export function NewHireWizard({ open, onClose }: Props) {
       const result = await createOnboarding.mutateAsync(payload);
       toast.success(
         isExisting
-          ? 'تم توليد المستندات وربطها بسجل الموظف 🎉'
-          : 'تم إنشاء سجل التعيين بنجاح 🎉',
+          ? t('toasts.submitSuccessExisting')
+          : t('toasts.submitSuccessNew'),
       );
       handleClose();
       router.push(`/dashboard/hr/onboarding/${result.id}`);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'حدث خطأ أثناء التعيين';
+      const msg = e instanceof Error ? e.message : t('toasts.submitFailedFallback');
       toast.error(msg);
     }
   }
 
-  const isLast = step === STEPS.length - 1;
+  const isLast = step === STEP_KEYS.length - 1;
   const isPending = createOnboarding.isPending;
 
   return (
@@ -184,12 +188,12 @@ export function NewHireWizard({ open, onClose }: Props) {
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {mode === 'existing' ? 'توليد مستندات لموظف حالي' : 'تعيين موظف جديد'}
+            {mode === 'existing' ? t('dialogTitleExisting') : t('dialogTitleNew')}
           </DialogTitle>
         </DialogHeader>
 
         {/* Mode toggle */}
-        <div className="grid grid-cols-2 gap-2" role="group" aria-label="نوع التعيين">
+        <div className="grid grid-cols-2 gap-2" role="group" aria-label={t('modeGroupAria')}>
           <Button
             type="button"
             variant={mode === 'new' ? 'default' : 'outline'}
@@ -200,7 +204,7 @@ export function NewHireWizard({ open, onClose }: Props) {
             onClick={() => switchMode('new')}
             disabled={isPending}
           >
-            موظف جديد
+            {t('modeNew')}
           </Button>
           <Button
             type="button"
@@ -212,7 +216,7 @@ export function NewHireWizard({ open, onClose }: Props) {
             onClick={() => switchMode('existing')}
             disabled={isPending}
           >
-            موظف حالي
+            {t('modeExisting')}
           </Button>
         </div>
 
@@ -226,7 +230,7 @@ export function NewHireWizard({ open, onClose }: Props) {
           />
         )}
 
-        <Stepper current={step} />
+        <Stepper current={step} steps={steps} />
 
         <div className="min-h-[300px] py-2">
           {step === 0 && <StepPersonal data={form} onChange={patch} mode={mode} />}
@@ -246,7 +250,7 @@ export function NewHireWizard({ open, onClose }: Props) {
             onClick={step === 0 ? handleClose : handleBack}
             disabled={isPending}
           >
-            {step === 0 ? 'إلغاء' : 'السابق'}
+            {step === 0 ? t('cancel') : t('back')}
           </Button>
           {isLast ? (
             <Button
@@ -256,10 +260,10 @@ export function NewHireWizard({ open, onClose }: Props) {
               disabled={isPending}
             >
               {isPending
-                ? 'جاري التنفيذ...'
+                ? t('submitting')
                 : mode === 'existing'
-                ? 'توليد المستندات'
-                : 'إتمام التعيين'}
+                ? t('submitExisting')
+                : t('submitNew')}
             </Button>
           ) : (
             <Button
@@ -267,7 +271,7 @@ export function NewHireWizard({ open, onClose }: Props) {
               className="bg-orange-500 hover:bg-orange-600 text-white h-11"
               onClick={handleNext}
             >
-              التالي
+              {t('next')}
             </Button>
           )}
         </div>

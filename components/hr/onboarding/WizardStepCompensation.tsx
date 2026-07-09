@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations, useLocale } from 'next-intl';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -11,6 +12,7 @@ import {
 import type { CreateOnboardingInput } from '@/hooks/useOnboarding';
 import { SALARY_CURRENCIES, CURRENCY_LABELS_AR } from '@/lib/constants/auth';
 import { Field } from './WizardStepPersonal';
+import type { Locale } from '@/lib/i18n/config';
 
 type FormData = CreateOnboardingInput;
 type OnChange = (patch: Partial<FormData>) => void;
@@ -54,21 +56,24 @@ export function StepCompensation({
   data: FormData;
   onChange: OnChange;
 }) {
+  const t = useTranslations('hr.onboarding.wizard.compensation');
+  const locale = useLocale() as Locale;
   const currency = data.currency || 'AED';
   const monthly =
     data.basic + data.housing + data.transport + data.communication + data.other;
   const annual = monthly * 12;
+  const numberLocale = locale === 'ar' ? 'ar-AE' : 'en-AE';
 
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="عملة الراتب">
+        <Field label={t('currencyLabel')}>
           <Select
             value={currency}
             onValueChange={(v) => onChange({ currency: v })}
           >
             <SelectTrigger className="h-11">
-              <SelectValue placeholder="اختر العملة" />
+              <SelectValue placeholder={t('currencyPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
               {(SALARY_CURRENCIES as readonly string[]).map((c) => (
@@ -80,32 +85,32 @@ export function StepCompensation({
           </Select>
         </Field>
         <NumberInput
-          label="الراتب الأساسي"
+          label={t('basicLabel')}
           value={data.basic}
           onChange={(n) => onChange({ basic: n })}
           suffix={currency}
           required
         />
         <NumberInput
-          label="بدل السكن"
+          label={t('housingLabel')}
           value={data.housing}
           onChange={(n) => onChange({ housing: n })}
           suffix={currency}
         />
         <NumberInput
-          label="بدل المواصلات"
+          label={t('transportLabel')}
           value={data.transport}
           onChange={(n) => onChange({ transport: n })}
           suffix={currency}
         />
         <NumberInput
-          label="بدل الاتصالات"
+          label={t('communicationLabel')}
           value={data.communication}
           onChange={(n) => onChange({ communication: n })}
           suffix={currency}
         />
         <NumberInput
-          label="بدلات أخرى"
+          label={t('otherLabel')}
           value={data.other}
           onChange={(n) => onChange({ other: n })}
           suffix={currency}
@@ -115,15 +120,15 @@ export function StepCompensation({
       {/* Totals */}
       <div className="rounded-lg border bg-muted/30 dark:bg-muted/10 p-4 grid grid-cols-2 gap-4">
         <div>
-          <p className="text-xs text-muted-foreground">الإجمالي الشهري</p>
+          <p className="text-xs text-muted-foreground">{t('monthlyTotal')}</p>
           <p className="text-lg font-bold text-orange-600 dark:text-orange-400">
-            {monthly.toLocaleString('ar-AE')} {currency}
+            {monthly.toLocaleString(numberLocale)} {currency}
           </p>
         </div>
         <div>
-          <p className="text-xs text-muted-foreground">الإجمالي السنوي</p>
+          <p className="text-xs text-muted-foreground">{t('annualTotal')}</p>
           <p className="text-lg font-bold">
-            {annual.toLocaleString('ar-AE')} {currency}
+            {annual.toLocaleString(numberLocale)} {currency}
           </p>
         </div>
       </div>
@@ -132,9 +137,9 @@ export function StepCompensation({
       {data.isSales && (
         <div className="grid gap-4 sm:grid-cols-2 rounded-lg border border-orange-200 dark:border-orange-800/40 p-4">
           <p className="sm:col-span-2 text-sm font-semibold text-orange-600 dark:text-orange-400">
-            إعدادات المبيعات
+            {t('salesSectionTitle')}
           </p>
-          <Field label="نسبة العمولة (%)">
+          <Field label={t('commissionRateLabel')}>
             <Input
               type="number"
               min={0}
@@ -151,7 +156,7 @@ export function StepCompensation({
               placeholder="10"
             />
           </Field>
-          <Field label={`الهدف الشهري (${currency})`}>
+          <Field label={t('monthlyTargetLabel', { currency })}>
             <Input
               type="number"
               min={0}

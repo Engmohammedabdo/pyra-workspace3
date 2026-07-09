@@ -1109,6 +1109,223 @@
         "update": "Update",
         "create": "Create"
       }
+    },
+    "onboarding": {
+      "list": {
+        "title": "New Hire Onboarding",
+        "subtitle": "Manage onboarding records and generate documents",
+        "newHireButton": "New Employee",
+        "columns": {
+          "employee": "Employee",
+          "status": "Status",
+          "progress": "Tasks",
+          "startedAt": "Start Date"
+        },
+        "empty": {
+          "title": "No Onboarding Records",
+          "description": "Start by adding a new employee via the \"{button}\" button"
+        }
+      },
+      "detail": {
+        "metaTitle": "Onboarding Details",
+        "backLink": "Onboarding List",
+        "viewProfile": "View Employee Profile",
+        "startedLabel": "Started {date}",
+        "completedLabel": "· Completed {date}",
+        "cancelButton": "Cancel Onboarding",
+        "completeButton": "Complete Onboarding",
+        "toasts": {
+          "cancelSuccess": "Onboarding cancelled",
+          "cancelFailedFallback": "Cancellation failed",
+          "completeSuccess": "Onboarding completed successfully",
+          "completeFailedFallback": "Failed to complete onboarding"
+        },
+        "notFound": {
+          "title": "Onboarding Record Not Found",
+          "description": "This record may have been deleted or the link is incorrect",
+          "actionLabel": "Back to Onboarding List"
+        },
+        "offerSummary": {
+          "title": "Offer Details",
+          "department": "Department",
+          "jobTitle": "Job Title",
+          "startDate": "Start Date",
+          "basicSalary": "Basic Salary",
+          "monthlyTotal": "Monthly Total"
+        },
+        "dialogBack": "Back",
+        "cancelDialog": {
+          "title": "Confirm Onboarding Cancellation",
+          "description": "Are you sure you want to cancel the onboarding of <strong>{name}</strong>? This action cannot be undone.",
+          "confirming": "Cancelling...",
+          "confirm": "Confirm Cancellation"
+        },
+        "completeDialog": {
+          "title": "Confirm Onboarding Completion",
+          "description": "Mark the onboarding of <strong>{name}</strong> as complete?",
+          "confirming": "Completing...",
+          "confirm": "Confirm Completion"
+        }
+      },
+      "checklist": {
+        "title": "Onboarding Task Checklist",
+        "doneOfTotal": "{done}/{total} done",
+        "empty": "No tasks",
+        "completeButton": "Complete Onboarding (all tasks done)",
+        "toasts": {
+          "toggleFailed": "Failed to update task"
+        }
+      },
+      "documents": {
+        "title": "Onboarding Documents",
+        "download": "Download",
+        "notAvailable": "Unavailable",
+        "regenerate": "Regenerate",
+        "generate": "Generate",
+        "notGeneratedYet": "Not generated yet",
+        "toasts": {
+          "unknownDocType": "Unknown document type",
+          "regenerateSuccess": "{label} regenerated",
+          "regenerateFailedFallback": "Regeneration failed",
+          "generateSuccess": "{label} generated",
+          "generateFailed": "Failed to generate document"
+        }
+      },
+      "docNames": {
+        "offerLetter": "Offer Letter",
+        "nda": "NDA (Confidentiality Agreement)",
+        "assetHandover": "Asset Handover Form"
+      },
+      "wizard": {
+        "dialogTitleNew": "Onboard New Employee",
+        "dialogTitleExisting": "Generate Documents for Existing Employee",
+        "modeGroupAria": "Onboarding Type",
+        "modeNew": "New Employee",
+        "modeExisting": "Existing Employee",
+        "steps": {
+          "personal": "Personal Info",
+          "position": "Position",
+          "compensation": "Compensation",
+          "clauses": "Clauses & Assets",
+          "review": "Review"
+        },
+        "back": "Back",
+        "cancel": "Cancel",
+        "next": "Next",
+        "submitting": "Processing...",
+        "submitExisting": "Generate Documents",
+        "submitNew": "Complete Onboarding",
+        "toasts": {
+          "submitSuccessExisting": "Documents generated and linked to the employee record 🎉",
+          "submitSuccessNew": "Onboarding record created successfully 🎉",
+          "submitFailedFallback": "An error occurred during onboarding"
+        },
+        "assetTypes": {
+          "laptop": "Laptop",
+          "mobilePhone": "Mobile Phone",
+          "simCard": "SIM Card / Phone Line",
+          "accessCard": "Access Card",
+          "cameraEquipment": "Camera / Equipment",
+          "other": "Other"
+        },
+        "picker": {
+          "label": "Existing Employee",
+          "placeholder": "Select employee",
+          "loading": "Loading...",
+          "noneActive": "No active employees",
+          "hasRecordSuffix": " (has a record)",
+          "hint": "Fields will be pre-filled from the employee record — you can edit them before generating."
+        },
+        "personal": {
+          "nameEnLabel": "Name (English)",
+          "nameArLabel": "Name (Arabic)",
+          "nationalityLabel": "Nationality",
+          "passportLabel": "Passport Number",
+          "idNumberLabel": "ID / Residence Number",
+          "dateOfBirthLabel": "Date of Birth",
+          "phoneLabel": "Phone Number",
+          "emailLabel": "Email",
+          "usernameLabel": "Username",
+          "passwordLabel": "Password",
+          "passwordPlaceholder": "{min}+ characters"
+        },
+        "position": {
+          "titleEnLabel": "Job Title (English)",
+          "titleArLabel": "Job Title (Arabic)",
+          "deptEnLabel": "Department (English)",
+          "deptArLabel": "Department (Arabic)",
+          "managerLabel": "Direct Manager",
+          "managerPlaceholder": "Select manager",
+          "noManager": "No direct manager",
+          "startDateLabel": "Start Date",
+          "employmentTypeLabel": "Employment Type",
+          "employmentTypePlaceholder": "Select employment type",
+          "workLocationLabel": "Work Location",
+          "workLocationPlaceholder": "Select work location",
+          "isSalesLabel": "Sales Agent"
+        },
+        "compensation": {
+          "currencyLabel": "Salary Currency",
+          "currencyPlaceholder": "Select currency",
+          "basicLabel": "Basic Salary",
+          "housingLabel": "Housing Allowance",
+          "transportLabel": "Transport Allowance",
+          "communicationLabel": "Communication Allowance",
+          "otherLabel": "Other Allowances",
+          "monthlyTotal": "Monthly Total",
+          "annualTotal": "Annual Total",
+          "salesSectionTitle": "Sales Settings",
+          "commissionRateLabel": "Commission Rate (%)",
+          "monthlyTargetLabel": "Monthly Target ({currency})"
+        },
+        "clauses": {
+          "title": "Additional Clauses in Offer Letter",
+          "addClause": "Add Clause",
+          "clauseTitlePlaceholder": "Clause title (optional)",
+          "clauseBodyPlaceholder": "Clause text...",
+          "emptyClauses": "No additional clauses",
+          "assetsTitle": "Assets (Devices & Equipment)",
+          "addAsset": "Add Asset",
+          "assetIndex": "Item #{index}",
+          "assetTypeLabel": "Type",
+          "assetDescriptionLabel": "Description",
+          "assetSerialLabel": "Serial Number",
+          "assetConditionLabel": "Condition",
+          "assetValueLabel": "Estimated Value ({currency})",
+          "assetNotesLabel": "Notes",
+          "assetNotesPlaceholder": "Optional notes",
+          "emptyAssets": "No assets"
+        },
+        "review": {
+          "signatoryNameLabel": "Signatory Name (Authorized)",
+          "signatoryTitleLabel": "Signatory Title",
+          "notesLabel": "Internal Notes (optional)",
+          "notesPlaceholder": "Notes specific to this onboarding record...",
+          "documentsToGenerate": "Documents to Generate",
+          "summaryTitle": "Onboarding Summary",
+          "summaryName": "Name",
+          "summaryJobTitle": "Job Title",
+          "summaryStartDate": "Start Date",
+          "summaryMonthlyTotal": "Monthly Total",
+          "summaryAssetCount": "Number of Assets",
+          "summaryClauseCount": "Additional Clauses",
+          "hintExisting": "Clicking \"{label}\" will generate the selected documents (PDF) and link them to the existing employee record — without creating a new account, changing the password, or starting a task checklist.",
+          "hintNew": "Clicking \"{label}\" will: create the employee account, generate the offer letter, NDA, and asset handover form (PDF), and start the onboarding task checklist."
+        },
+        "validation": {
+          "selectEmployeeFirst": "Select the employee first",
+          "nameEnRequired": "Name (English) is required",
+          "nameArRequired": "Name (Arabic) is required",
+          "usernameRequired": "Username is required",
+          "passwordMinLength": "Password must be at least {min} characters",
+          "titleRequired": "Job title is required",
+          "startDateRequired": "Start date is required",
+          "basicSalaryRequired": "Basic salary must be greater than zero",
+          "signatoryNameRequired": "Signatory name is required",
+          "signatoryTitleRequired": "Signatory title is required",
+          "selectAtLeastOneDocument": "Select at least one document"
+        }
+      }
     }
   }
 }

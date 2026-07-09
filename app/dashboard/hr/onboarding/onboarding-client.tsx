@@ -2,16 +2,14 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { UserPlus, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Badge } from '@/components/ui/badge';
 import { formatDate } from '@/lib/utils/format';
-import {
-  ONBOARDING_STATUS_LABELS,
-  type OnboardingStatus,
-} from '@/lib/constants/onboarding';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import { useOnboardingList, type OnboardingListItem } from '@/hooks/useOnboarding';
 import { NewHireWizard } from '@/components/hr/onboarding/NewHireWizard';
 
@@ -56,6 +54,8 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
 
 export default function OnboardingClient() {
   const router = useRouter();
+  const t = useTranslations('hr.onboarding.list');
+  const statusLabel = useStatusLabels('onboarding');
   const [wizardOpen, setWizardOpen] = useState(false);
 
   const { data, isLoading } = useOnboardingList();
@@ -64,26 +64,26 @@ export default function OnboardingClient() {
   const columns: ColumnDef<OnboardingListItem>[] = [
     {
       key: 'employee',
-      header: 'الموظف',
+      header: t('columns.employee'),
       render: (row) => (
         <span className="font-medium">{row.employee_display_name}</span>
       ),
     },
     {
       key: 'status',
-      header: 'الحالة',
+      header: t('columns.status'),
       render: (row) => (
         <Badge
           className={`text-xs ${STATUS_CLASS[row.status] ?? ''}`}
           variant="outline"
         >
-          {ONBOARDING_STATUS_LABELS[row.status as OnboardingStatus] ?? row.status}
+          {statusLabel(row.status)}
         </Badge>
       ),
     },
     {
       key: 'progress',
-      header: 'المهام',
+      header: t('columns.progress'),
       render: (row) => (
         <ProgressBar
           done={row.task_progress.done}
@@ -93,7 +93,7 @@ export default function OnboardingClient() {
     },
     {
       key: 'started_at',
-      header: 'تاريخ البدء',
+      header: t('columns.startedAt'),
       render: (row) => (
         <span className="text-sm text-muted-foreground">
           {row.started_at ? formatDate(row.started_at) : '—'}
@@ -107,9 +107,9 @@ export default function OnboardingClient() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold">تعيين موظفين جدد</h1>
+          <h1 className="text-2xl font-bold">{t('title')}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            إدارة سجلات الإيبورد وتوليد المستندات
+            {t('subtitle')}
           </p>
         </div>
         <Button
@@ -117,7 +117,7 @@ export default function OnboardingClient() {
           onClick={() => setWizardOpen(true)}
         >
           <UserPlus className="h-4 w-4" />
-          موظف جديد
+          {t('newHireButton')}
         </Button>
       </div>
 
@@ -125,9 +125,9 @@ export default function OnboardingClient() {
       {!isLoading && rows.length === 0 ? (
         <EmptyState
           icon={ClipboardList}
-          title="لا توجد سجلات تعيين"
-          description="ابدأ بإضافة موظف جديد عبر زر «موظف جديد»"
-          actionLabel="موظف جديد"
+          title={t('empty.title')}
+          description={t('empty.description', { button: t('newHireButton') })}
+          actionLabel={t('newHireButton')}
           onAction={() => setWizardOpen(true)}
         />
       ) : (

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { FileText, Download, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,13 +12,16 @@ import {
 } from '@/hooks/useOnboarding';
 
 // ────────────────────────────────────────────────────────────────────────────
-// Label mapping for document type IDs
+// Doc-type-ID → hr.onboarding.docNames.* catalog key. i18n Phase 5.8: the
+// display label is resolved via `t(DOC_TYPE_NAME_KEYS[typeId])` — replaces
+// the old local Arabic DOC_TYPE_LABELS map (this was the majority phrasing
+// that WIZARD_DOC_LABELS in wizard-helpers.ts converged onto).
 // ────────────────────────────────────────────────────────────────────────────
 
-const DOC_TYPE_LABELS: Record<string, string> = {
-  dt_offer_letter: 'عرض العمل',
-  dt_nda: 'اتفاقية السرية (NDA)',
-  dt_asset_handover: 'نموذج تسليم العهدة',
+const DOC_TYPE_NAME_KEYS: Record<string, 'offerLetter' | 'nda' | 'assetHandover'> = {
+  dt_offer_letter: 'offerLetter',
+  dt_nda: 'nda',
+  dt_asset_handover: 'assetHandover',
 };
 
 const DOC_ROUTE_SEGMENT: Record<
@@ -44,15 +48,18 @@ function DocRow({
   signedUrl: string;
   onboardingId: string;
 }) {
+  const t = useTranslations('hr.onboarding.documents');
+  const tDocNames = useTranslations('hr.onboarding.docNames');
   const regenerate = useRegenerateDocument();
   const [regenerating, setRegenerating] = useState(false);
 
   const routeSegment = DOC_ROUTE_SEGMENT[typeId];
-  const displayLabel = DOC_TYPE_LABELS[typeId] ?? label;
+  const nameKey = DOC_TYPE_NAME_KEYS[typeId];
+  const displayLabel = nameKey ? tDocNames(nameKey) : label;
 
   async function handleRegenerate() {
     if (!routeSegment) {
-      toast.error('نوع المستند غير معروف');
+      toast.error(t('toasts.unknownDocType'));
       return;
     }
     setRegenerating(true);
@@ -61,9 +68,9 @@ function DocRow({
         onboardingId,
         docType: routeSegment,
       });
-      toast.success(`تم إعادة توليد ${displayLabel}`);
+      toast.success(t('toasts.regenerateSuccess', { label: displayLabel }));
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'فشل إعادة التوليد';
+      const msg = e instanceof Error ? e.message : t('toasts.regenerateFailedFallback');
       toast.error(msg);
     } finally {
       setRegenerating(false);
@@ -87,11 +94,11 @@ function DocRow({
           >
             <a href={signedUrl} target="_blank" rel="noopener noreferrer" download>
               <Download className="h-3.5 w-3.5" />
-              تحميل
+              {t('download')}
             </a>
           </Button>
         ) : (
-          <span className="text-xs text-muted-foreground">غير متاح</span>
+          <span className="text-xs text-muted-foreground">{t('notAvailable')}</span>
         )}
         <Button
           variant="ghost"
@@ -103,7 +110,7 @@ function DocRow({
           <RefreshCw
             className={`h-3.5 w-3.5 ${regenerating ? 'animate-spin' : ''}`}
           />
-          إعادة توليد
+          {t('regenerate')}
         </Button>
       </div>
     </div>
@@ -121,20 +128,23 @@ function MissingDocRow({
   typeId: string;
   onboardingId: string;
 }) {
+  const t = useTranslations('hr.onboarding.documents');
+  const tDocNames = useTranslations('hr.onboarding.docNames');
   const regenerate = useRegenerateDocument();
   const [regenerating, setRegenerating] = useState(false);
 
   const routeSegment = DOC_ROUTE_SEGMENT[typeId];
-  const displayLabel = DOC_TYPE_LABELS[typeId] ?? typeId;
+  const nameKey = DOC_TYPE_NAME_KEYS[typeId];
+  const displayLabel = nameKey ? tDocNames(nameKey) : typeId;
 
   async function handleGenerate() {
     if (!routeSegment) return;
     setRegenerating(true);
     try {
       await regenerate.mutateAsync({ onboardingId, docType: routeSegment });
-      toast.success(`تم توليد ${displayLabel}`);
+      toast.success(t('toasts.generateSuccess', { label: displayLabel }));
     } catch {
-      toast.error('فشل توليد المستند');
+      toast.error(t('toasts.generateFailed'));
     } finally {
       setRegenerating(false);
     }
@@ -145,7 +155,7 @@ function MissingDocRow({
       <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-muted-foreground">{displayLabel}</p>
-        <p className="text-xs text-muted-foreground">لم يُولَّد بعد</p>
+        <p className="text-xs text-muted-foreground">{t('notGeneratedYet')}</p>
       </div>
       <Button
         variant="outline"
@@ -155,7 +165,7 @@ function MissingDocRow({
         disabled={regenerating}
       >
         <RefreshCw className={`h-3.5 w-3.5 ${regenerating ? 'animate-spin' : ''}`} />
-        توليد
+        {t('generate')}
       </Button>
     </div>
   );
@@ -176,13 +186,14 @@ interface Props {
 }
 
 export function OnboardingDocuments({ onboarding }: Props) {
+  const t = useTranslations('hr.onboarding.documents');
   const docs = onboarding.documents ?? [];
   const docsByType = new Map(docs.map((d) => [d.type_id, d]));
 
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">مستندات التعيين</CardTitle>
+        <CardTitle className="text-base">{t('title')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {EXPECTED_DOC_TYPES.map((typeId) => {
