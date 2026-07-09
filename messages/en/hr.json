@@ -862,35 +862,57 @@
       },
       "attendanceLine": "Attendance: {present} present · {late} late · {absent} absent · {hours} hours",
       "kpis": {
-        "deliveries": "Completed Deliveries",
+        "deliveries": {
+          "label": "Deliveries",
+          "plain": "Tasks completed this month"
+        },
         "onTimePct": {
-          "label": "On-Time Rate",
-          "hint": "Based on first review submission"
+          "label": "On-time rate",
+          "plain": "Delivering on schedule?",
+          "hint": "Based on first review submission",
+          "states": {
+            "good": "Excellent",
+            "warn": "Fair",
+            "bad": "Weak",
+            "none": "No data"
+          }
+        },
+        "quality": {
+          "label": "Delivery quality",
+          "plain": "Revisions before approval — fewer is better",
+          "value": "{rounds} revisions",
+          "states": {
+            "good": "High",
+            "warn": "Good",
+            "bad": "Needs work",
+            "none": "No data"
+          }
         },
         "avgDelay": {
-          "label": "Average Delay",
+          "label": "Average delay",
           "value": "{days} days",
+          "plain": "Average days late",
           "hint": "{count} late task(s)"
         },
-        "avgRounds": {
-          "label": "Review Rounds",
-          "hint": "Average per delivery"
-        },
         "avgFirstSubmission": {
-          "label": "First Draft Speed",
+          "label": "First draft speed",
           "value": "{days} days",
-          "hint": "From task creation"
+          "plain": "Days to first submission"
         },
         "avgReviewWait": {
-          "label": "Your Review Wait",
+          "label": "Waiting on your review",
           "value": "{hours} hrs",
-          "hint": "Average per round"
+          "plain": "Work waiting for you to review — on you"
         },
         "openOverdue": {
-          "label": "Overdue & Not Submitted"
+          "label": "Overdue & open",
+          "plain": "Past deadline, still open"
         }
       },
-      "taskDetailsToggle": "Task details ({count})",
+      "overdueBanner": "{count} task(s) past deadline and still open — needs follow-up",
+      "noActivityYet": "No completed deliveries this month yet",
+      "secondaryTitle": "More numbers",
+      "taskDetailsToggle": "Tasks & numbers ({count})",
       "table": {
         "task": "Task",
         "deadline": "Deadline",

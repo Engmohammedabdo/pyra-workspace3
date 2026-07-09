@@ -862,35 +862,57 @@
       },
       "attendanceLine": "دوام: {present} حضور · {late} تأخير · {absent} غياب · {hours} ساعة",
       "kpis": {
-        "deliveries": "تسليمات مكتملة",
+        "deliveries": {
+          "label": "التسليمات",
+          "plain": "مهام خلّصت الشهر ده"
+        },
         "onTimePct": {
           "label": "الالتزام بالمواعيد",
-          "hint": "على أول رفع للمراجعة"
+          "plain": "بيسلّم في الميعاد؟",
+          "hint": "على أول رفع للمراجعة",
+          "states": {
+            "good": "ممتاز",
+            "warn": "متوسط",
+            "bad": "ضعيف",
+            "none": "لا بيانات"
+          }
+        },
+        "quality": {
+          "label": "جودة التسليم",
+          "plain": "التعديلات قبل القبول — أقل أحسن",
+          "value": "{rounds} تعديل",
+          "states": {
+            "good": "عالية",
+            "warn": "جيدة",
+            "bad": "محتاجة تحسين",
+            "none": "لا بيانات"
+          }
         },
         "avgDelay": {
           "label": "متوسط التأخير",
           "value": "{days} يوم",
+          "plain": "بيتأخر كام يوم في المتوسط",
           "hint": "{count} مهمة متأخرة"
-        },
-        "avgRounds": {
-          "label": "جولات التعديل",
-          "hint": "متوسط لكل تسليم"
         },
         "avgFirstSubmission": {
           "label": "سرعة أول نسخة",
           "value": "{days} يوم",
-          "hint": "من إنشاء المهمة"
+          "plain": "بياخد كام يوم لأول تسليم"
         },
         "avgReviewWait": {
           "label": "انتظار مراجعتك",
           "value": "{hours} س",
-          "hint": "متوسط لكل جولة"
+          "plain": "الشغل مستنيك تراجعه — ده عليك إنت"
         },
         "openOverdue": {
-          "label": "متأخرة ولم تُرفع"
+          "label": "متأخرة ومفتوحة",
+          "plain": "فات ميعادها ولسه مفتوحة"
         }
       },
-      "taskDetailsToggle": "تفاصيل المهام ({count})",
+      "overdueBanner": "{count} مهمة فات ميعادها ولسه مفتوحة — محتاجة متابعة",
+      "noActivityYet": "لسه مفيش تسليمات مكتملة الشهر ده",
+      "secondaryTitle": "أرقام إضافية",
+      "taskDetailsToggle": "تفاصيل المهام والأرقام ({count})",
       "table": {
         "task": "المهمة",
         "deadline": "الديدلاين",
