@@ -12,7 +12,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import {
   Network,
   ChevronDown,
-  ChevronLeft,
+  ChevronRight,
   Briefcase,
   Building2,
   Users,
@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
+import { useTranslations, useLocale } from 'next-intl';
 
 // ─── Types ──────────────────────────────────────────────────
 interface OrgUser {
@@ -39,7 +40,7 @@ interface TreeNode extends OrgUser {
 }
 
 // ─── Build tree from flat list ──────────────────────────────
-function buildTree(users: OrgUser[]): TreeNode[] {
+function buildTree(users: OrgUser[], locale: string): TreeNode[] {
   const map = new Map<string, TreeNode>();
 
   // Create tree nodes
@@ -59,10 +60,11 @@ function buildTree(users: OrgUser[]): TreeNode[] {
     }
   }
 
-  // Sort children alphabetically
+  // Sort children alphabetically (locale-aware — Phase 6a.4: was
+  // hardcoded 'ar', now sorts correctly for English display names too)
   const sortChildren = (nodes: TreeNode[]) => {
     nodes.sort((a, b) =>
-      (a.display_name || a.username).localeCompare(b.display_name || b.username, 'ar')
+      (a.display_name || a.username).localeCompare(b.display_name || b.username, locale)
     );
     for (const node of nodes) {
       sortChildren(node.children);
@@ -85,6 +87,7 @@ function OrgTreeNode({
   expandedNodes: Set<string>;
   toggleNode: (username: string) => void;
 }) {
+  const t = useTranslations('users.orgChart');
   const isExpanded = expandedNodes.has(node.username);
   const hasChildren = node.children.length > 0;
   const initials = (node.display_name || node.username || 'U')
@@ -112,7 +115,13 @@ function OrgTreeNode({
               {isExpanded ? (
                 <ChevronDown className="h-4 w-4" />
               ) : (
-                <ChevronLeft className="h-4 w-4" />
+                // LTR-semantic "expand forward" chevron + rtl:rotate-180
+                // mirrors it to visually point left in RTL — matches the
+                // CLAUDE.md Phase 15.1 lock #7 pattern. Byte-identical
+                // visual result in today's Arabic-only render (the
+                // previous hardcoded ChevronLeft already pointed left);
+                // this becomes correct once English (LTR) rendering ships.
+                <ChevronRight className="h-4 w-4 rtl:rotate-180" />
               )}
             </button>
           )}
@@ -147,7 +156,7 @@ function OrgTreeNode({
                     variant="secondary"
                     className="text-[10px] shrink-0"
                   >
-                    {node.children.length} تابعين
+                    {t('reportsCount', { count: node.children.length })}
                   </Badge>
                 )}
               </div>
@@ -200,6 +209,8 @@ function OrgTreeNode({
 
 // ─── Main Client ────────────────────────────────────────────
 export default function OrgChartClient() {
+  const t = useTranslations('users.orgChart');
+  const locale = useLocale();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [initialExpanded, setInitialExpanded] = useState(false);
 
@@ -220,7 +231,7 @@ export default function OrgChartClient() {
     setInitialExpanded(true);
   }
 
-  const tree = useMemo(() => buildTree(users), [users]);
+  const tree = useMemo(() => buildTree(users, locale), [users, locale]);
 
   const toggleNode = useCallback((username: string) => {
     setExpandedNodes((prev) => {
@@ -276,8 +287,8 @@ export default function OrgChartClient() {
       <div className="p-6">
         <EmptyState
           icon={Network}
-          title="لا يوجد بيانات"
-          description="لم يتم العثور على مستخدمين لعرض الهيكل التنظيمي"
+          title={t('empty.title')}
+          description={t('empty.description')}
         />
       </div>
     );
@@ -290,20 +301,20 @@ export default function OrgChartClient() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Network className="h-6 w-6 text-orange-500" aria-hidden="true" />
-            الهيكل التنظيمي
+            {t('heading')}
           </h1>
           <p className="text-sm text-muted-foreground">
-            عرض شجري للهيكل الإداري والتقارير المباشرة
+            {t('subheading')}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={expandAll}>
             <Plus className="h-4 w-4 me-1" />
-            توسيع الكل
+            {t('expandAll')}
           </Button>
           <Button variant="outline" size="sm" onClick={collapseAll}>
             <Minus className="h-4 w-4 me-1" />
-            طي الكل
+            {t('collapseAll')}
           </Button>
         </div>
       </div>
@@ -313,25 +324,25 @@ export default function OrgChartClient() {
         <Card>
           <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold text-orange-500">{stats.totalUsers}</p>
-            <p className="text-xs text-muted-foreground">إجمالي الأعضاء</p>
+            <p className="text-xs text-muted-foreground">{t('stats.totalMembers')}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold text-orange-500">{stats.rootCount}</p>
-            <p className="text-xs text-muted-foreground">المستوى الأعلى</p>
+            <p className="text-xs text-muted-foreground">{t('stats.topLevel')}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold text-orange-500">{stats.managers}</p>
-            <p className="text-xs text-muted-foreground">المديرون</p>
+            <p className="text-xs text-muted-foreground">{t('stats.managers')}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold text-orange-500">{stats.departments}</p>
-            <p className="text-xs text-muted-foreground">الأقسام</p>
+            <p className="text-xs text-muted-foreground">{t('stats.departments')}</p>
           </CardContent>
         </Card>
       </div>

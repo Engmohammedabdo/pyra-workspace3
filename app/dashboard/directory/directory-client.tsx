@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { getRoleColorClasses } from '@/lib/auth/rbac';
 import type { AuthSession } from '@/lib/auth/guards';
+import { useTranslations, useLocale } from 'next-intl';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 
 interface DirectoryUser {
   id: number;
@@ -43,22 +45,27 @@ interface DirectoryClientProps {
   session: AuthSession;
 }
 
-const EMPLOYMENT_TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  full_time: { label: 'دوام كامل', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
-  part_time: { label: 'دوام جزئي', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  contract: { label: 'متعاقد', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
-  freelance: { label: 'مستقل', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
-  intern: { label: 'متدرب', color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400' },
-};
-
-const WORK_LOCATION_LABELS: Record<string, string> = {
-  remote: 'عن بعد',
-  onsite: 'حضوري',
-  hybrid: 'هجين',
+// Phase 6a Task 4 — the old EMPLOYMENT_TYPE_LABELS + WORK_LOCATION_LABELS
+// shadow maps duplicated the canonical statuses.json `employmentType` /
+// `workLocation` entities with different wording per key (see the task
+// report's reconciliation table for the old-vs-canonical text diff).
+// Text now resolves via useStatusLabels() (converged); only the
+// Tailwind color-per-type mapping (non-translatable) stays local.
+const EMPLOYMENT_TYPE_COLORS: Record<string, string> = {
+  full_time: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  part_time: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  contract: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  freelance: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  intern: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
 };
 
 export default function DirectoryClient({ session }: DirectoryClientProps) {
   const [search, setSearch] = useState('');
+  const t = useTranslations('users.directory');
+  const locale = useLocale();
+  const accountTypeLabel = useStatusLabels('accountType');
+  const employmentTypeLabel = useStatusLabels('employmentType');
+  const workLocationLabel = useStatusLabels('workLocation');
 
   const { data: usersData, isLoading: loading } = useQuery<DirectoryUser[]>({
     queryKey: ['directory'],
@@ -97,15 +104,15 @@ export default function DirectoryClient({ session }: DirectoryClientProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">دليل الفريق</h1>
-          <p className="text-sm text-muted-foreground">{users.length} عضو في الفريق</p>
+          <h1 className="text-2xl font-bold">{t('heading')}</h1>
+          <p className="text-sm text-muted-foreground">{t('memberCount', { count: users.length })}</p>
         </div>
         <div className="relative w-72">
           <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="بحث بالاسم، المسمى الوظيفي..."
+            placeholder={t('searchPlaceholder')}
             className="ps-10"
           />
         </div>
@@ -115,8 +122,8 @@ export default function DirectoryClient({ session }: DirectoryClientProps) {
       {filtered.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="لا يوجد نتائج"
-          description="حاول تغيير كلمات البحث"
+          title={t('empty.title')}
+          description={t('empty.description')}
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -142,17 +149,19 @@ export default function DirectoryClient({ session }: DirectoryClientProps) {
                     )}
                   </div>
                   <Badge variant="outline" className={`text-[10px] ${getRoleColorClasses(role?.color || 'gray')}`}>
-                    {role?.name_ar || (user.role === 'admin' ? 'مسؤول' : 'موظف')}
+                    {role
+                      ? (locale === 'ar' ? role.name_ar : (role.name || role.name_ar))
+                      : (user.role === 'admin' ? accountTypeLabel('admin') : accountTypeLabel('employee'))}
                   </Badge>
                   <div className="flex flex-wrap items-center justify-center gap-1">
-                    {user.employment_type && EMPLOYMENT_TYPE_LABELS[user.employment_type] && (
-                      <Badge className={`text-[10px] border-0 ${EMPLOYMENT_TYPE_LABELS[user.employment_type].color}`}>
-                        {EMPLOYMENT_TYPE_LABELS[user.employment_type].label}
+                    {user.employment_type && (
+                      <Badge className={`text-[10px] border-0 ${EMPLOYMENT_TYPE_COLORS[user.employment_type] ?? ''}`}>
+                        {employmentTypeLabel(user.employment_type)}
                       </Badge>
                     )}
-                    {user.work_location && WORK_LOCATION_LABELS[user.work_location] && (
+                    {user.work_location && (
                       <Badge variant="outline" className="text-[10px]">
-                        {WORK_LOCATION_LABELS[user.work_location]}
+                        {workLocationLabel(user.work_location)}
                       </Badge>
                     )}
                     {user.department && (
@@ -176,7 +185,7 @@ export default function DirectoryClient({ session }: DirectoryClientProps) {
                     )}
                   </div>
                   {user.status === 'inactive' && (
-                    <Badge variant="secondary" className="text-[10px]">غير نشط</Badge>
+                    <Badge variant="secondary" className="text-[10px]">{t('inactiveBadge')}</Badge>
                   )}
                 </CardContent>
               </Card>

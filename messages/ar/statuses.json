@@ -49,6 +49,8 @@
     "evaluationCriteriaCategory": { "technical": "تقنية", "communication": "تواصل", "leadership": "قيادة", "productivity": "إنتاجية", "teamwork": "عمل جماعي", "creativity": "إبداع", "other": "أخرى" },
     "errorSeverity": { "error": "خطأ", "warning": "تحذير", "info": "معلومة" },
     "errorEnvironment": { "production": "إنتاج", "development": "تطوير" },
-    "resolvedState": { "resolved": "محلول", "unresolved": "غير محلول" }
+    "resolvedState": { "resolved": "محلول", "unresolved": "غير محلول" },
+    "accountType": { "admin": "مسؤول", "employee": "موظف", "sales_agent": "وكيل مبيعات" },
+    "paymentType": { "monthly_salary": "راتب شهري", "hourly": "بالساعة", "per_task": "بالمهمة", "commission": "عمولة" }
   }
 }

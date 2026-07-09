@@ -22,6 +22,8 @@ import {
   ClipboardList,
 } from 'lucide-react';
 import { UserDocumentsTab } from '@/components/hr/documents/UserDocumentsTab';
+import { useTranslations, useLocale } from 'next-intl';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 
 // ═══════════════════════════════════════════════════════════
 // Types
@@ -60,45 +62,14 @@ interface ProjectItem {
 }
 
 // ═══════════════════════════════════════════════════════════
-// Constants
+// Phase 6a Task 4 — the 5 shadow label maps that used to live here
+// (EMPLOYMENT_LABELS, WORK_LOCATION_LABELS, PAYMENT_TYPE_LABELS,
+// SOURCE_LABELS, ROLE_LABELS) are DELETED. Labels now resolve via
+// useStatusLabels() against the canonical statuses.json entities
+// (accountType / employmentType / workLocation / paymentType /
+// paymentSourceType) — see the reconciliation notes in the component
+// body below and the Phase 6a.4 task report for the wording decisions.
 // ═══════════════════════════════════════════════════════════
-
-const EMPLOYMENT_LABELS: Record<string, string> = {
-  full_time: 'دوام كامل',
-  part_time: 'دوام جزئي',
-  contract: 'عقد',
-  freelance: 'مستقل',
-  intern: 'متدرب',
-};
-
-const WORK_LOCATION_LABELS: Record<string, string> = {
-  onsite: 'في المكتب',
-  remote: 'عن بعد',
-  hybrid: 'هجين',
-};
-
-const PAYMENT_TYPE_LABELS: Record<string, string> = {
-  monthly_salary: 'راتب شهري',
-  hourly: 'بالساعة',
-  per_task: 'بالمهمة',
-  commission: 'عمولة',
-};
-
-const SOURCE_LABELS: Record<string, string> = {
-  task: 'مهمة',
-  bonus: 'مكافأة',
-  deduction: 'خصم',
-  commission: 'عمولة',
-  overtime: 'إضافي',
-  salary: 'راتب',
-};
-
-
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'مدير',
-  employee: 'موظف',
-  sales_agent: 'مبيعات',
-};
 
 // ═══════════════════════════════════════════════════════════
 // Component
@@ -108,6 +79,20 @@ export default function UserDetailClient() {
   const params = useParams();
   const router = useRouter();
   const username = params.username as string;
+
+  const t = useTranslations('users.detail');
+  const locale = useLocale();
+  // Reconciled shadow-map resolvers (Phase 6a.4) — see report for the
+  // per-enum wording decisions (accountType/employmentType/workLocation
+  // converge to the canonical statuses.json wording; paymentType is a new
+  // entity distinct from paymentSourceType since the two enums don't
+  // share a key set; SOURCE_LABELS maps 1:1 onto the existing
+  // paymentSourceType entity with zero wording conflicts).
+  const accountTypeLabel = useStatusLabels('accountType');
+  const employmentTypeLabel = useStatusLabels('employmentType');
+  const workLocationLabel = useStatusLabels('workLocation');
+  const paymentTypeLabel = useStatusLabels('paymentType');
+  const sourceTypeLabel = useStatusLabels('paymentSourceType');
 
   // ── Data (React Query hooks — no raw fetch) ──
   const { data: user, isLoading: loading, isError } = useUser<UserData>(username);
@@ -123,10 +108,10 @@ export default function UserDetailClient() {
   // Redirect back to the list when the user can't be loaded (404 / fetch error)
   useEffect(() => {
     if (isError) {
-      toast.error('فشل في تحميل بيانات الموظف');
+      toast.error(t('loadFailed'));
       router.push('/dashboard/users');
     }
-  }, [isError, router]);
+  }, [isError, router, t]);
 
   // ── Stats — grouped by currency to avoid summing across currencies ──
   const totalPaidByCurrency: Record<string, number> = {};
@@ -180,9 +165,9 @@ export default function UserDetailClient() {
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-bold">{user.display_name}</h1>
                 <Badge className={getStatusBadgeClass(user.status || 'active')}>
-                  {user.status === 'active' ? 'نشط' : user.status === 'suspended' ? 'موقوف' : 'غير نشط'}
+                  {user.status === 'active' ? t('status.active') : user.status === 'suspended' ? t('status.suspended') : t('status.inactive')}
                 </Badge>
-                <Badge variant="outline">{user.role_name_ar || ROLE_LABELS[user.role] || user.role}</Badge>
+                <Badge variant="outline">{user.role_name_ar || accountTypeLabel(user.role) || user.role}</Badge>
               </div>
               {user.job_title && <p className="text-sm text-muted-foreground mt-1">{user.job_title}</p>}
 
@@ -197,16 +182,16 @@ export default function UserDetailClient() {
                   <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{user.department}</span>
                 )}
                 {user.work_location && (
-                  <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{WORK_LOCATION_LABELS[user.work_location] || user.work_location}</span>
+                  <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{workLocationLabel(user.work_location)}</span>
                 )}
                 {user.hire_date && (
-                  <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />منذ {formatDate(user.hire_date)}</span>
+                  <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{t('hireSince', { date: formatDate(user.hire_date, undefined, locale) })}</span>
                 )}
                 {user.employment_type && (
-                  <span className="flex items-center gap-1"><Briefcase className="h-3 w-3" />{EMPLOYMENT_LABELS[user.employment_type] || user.employment_type}</span>
+                  <span className="flex items-center gap-1"><Briefcase className="h-3 w-3" />{employmentTypeLabel(user.employment_type)}</span>
                 )}
                 {user.payment_type && (
-                  <span className="flex items-center gap-1"><CreditCard className="h-3 w-3" />{PAYMENT_TYPE_LABELS[user.payment_type] || user.payment_type}</span>
+                  <span className="flex items-center gap-1"><CreditCard className="h-3 w-3" />{paymentTypeLabel(user.payment_type)}</span>
                 )}
               </div>
             </div>
@@ -217,12 +202,12 @@ export default function UserDetailClient() {
                 <Link href={`/dashboard/hr/onboarding/${user.onboarding_id}`}>
                   <Button variant="outline" size="sm" className="gap-1.5 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30">
                     <ClipboardList className="h-3.5 w-3.5" />
-                    عرض ملف التعيين
+                    {t('viewOnboarding')}
                   </Button>
                 </Link>
               )}
               <Link href="/dashboard/users">
-                <Button variant="outline" size="sm">رجوع</Button>
+                <Button variant="outline" size="sm">{t('backButton')}</Button>
               </Link>
             </div>
           </div>
@@ -234,7 +219,7 @@ export default function UserDetailClient() {
         <Card className="border-0 shadow-sm">
           <CardContent className="pt-4 pb-4 text-center">
             <Wallet className="h-5 w-5 mx-auto mb-1 text-emerald-500" />
-            <p className="text-[10px] text-muted-foreground">إجمالي المدفوع</p>
+            <p className="text-[10px] text-muted-foreground">{t('stats.totalPaid')}</p>
             {Object.entries(totalPaidByCurrency).length === 0 ? (
               <p className="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(0)}</p>
             ) : (
@@ -247,7 +232,7 @@ export default function UserDetailClient() {
         <Card className="border-0 shadow-sm">
           <CardContent className="pt-4 pb-4 text-center">
             <Clock className="h-5 w-5 mx-auto mb-1 text-yellow-500" />
-            <p className="text-[10px] text-muted-foreground">قيد المعالجة</p>
+            <p className="text-[10px] text-muted-foreground">{t('stats.pending')}</p>
             {Object.entries(totalPendingByCurrency).length === 0 ? (
               <p className="text-lg font-bold font-mono text-yellow-600 dark:text-yellow-400">{formatCurrency(0)}</p>
             ) : (
@@ -260,14 +245,14 @@ export default function UserDetailClient() {
         <Card className="border-0 shadow-sm">
           <CardContent className="pt-4 pb-4 text-center">
             <TrendingUp className="h-5 w-5 mx-auto mb-1 text-orange-500" />
-            <p className="text-[10px] text-muted-foreground">عدد الدفعات</p>
+            <p className="text-[10px] text-muted-foreground">{t('stats.paymentsCount')}</p>
             <p className="text-lg font-bold">{payments.length}</p>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-sm">
           <CardContent className="pt-4 pb-4 text-center">
             <FolderKanban className="h-5 w-5 mx-auto mb-1 text-blue-500" />
-            <p className="text-[10px] text-muted-foreground">المشاريع</p>
+            <p className="text-[10px] text-muted-foreground">{t('stats.projectsCount')}</p>
             <p className="text-lg font-bold">{projects.length}</p>
           </CardContent>
         </Card>
@@ -278,19 +263,19 @@ export default function UserDetailClient() {
         <TabsList className="bg-muted/50 p-1 h-auto flex-wrap">
           <TabsTrigger value="financial" className="gap-1.5 text-xs data-[state=active]:bg-orange-500/10 data-[state=active]:text-orange-600">
             <DollarSign className="h-3.5 w-3.5" />
-            كشف الحساب
+            {t('tabs.financial')}
           </TabsTrigger>
           <TabsTrigger value="projects" className="gap-1.5 text-xs data-[state=active]:bg-orange-500/10 data-[state=active]:text-orange-600">
             <FolderKanban className="h-3.5 w-3.5" />
-            المشاريع
+            {t('tabs.projects')}
           </TabsTrigger>
           <TabsTrigger value="info" className="gap-1.5 text-xs data-[state=active]:bg-orange-500/10 data-[state=active]:text-orange-600">
             <User className="h-3.5 w-3.5" />
-            البيانات
+            {t('tabs.info')}
           </TabsTrigger>
           <TabsTrigger value="documents" className="gap-1.5 text-xs data-[state=active]:bg-orange-500/10 data-[state=active]:text-orange-600">
             <FileText className="h-3.5 w-3.5" />
-            وثائق
+            {t('tabs.documents')}
           </TabsTrigger>
         </TabsList>
 
@@ -303,15 +288,15 @@ export default function UserDetailClient() {
           ) : payments.length === 0 ? (
             <EmptyState
               icon={Receipt}
-              title="لا توجد مدفوعات"
-              description="لم يتم تسجيل أي مدفوعات لهذا الموظف بعد"
+              title={t('financial.emptyTitle')}
+              description={t('financial.emptyDescription')}
             />
           ) : (
             <Card className="border-0 shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Receipt className="h-4 w-4" />
-                  سجل المدفوعات ({payments.length})
+                  {t('financial.recordsHeading', { count: payments.length })}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -319,26 +304,26 @@ export default function UserDetailClient() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border text-muted-foreground">
-                        <th className="text-start pb-3 pe-3 font-medium">التاريخ</th>
-                        <th className="text-start pb-3 pe-3 font-medium">النوع</th>
-                        <th className="text-start pb-3 pe-3 font-medium">الوصف</th>
-                        <th className="text-end pb-3 pe-3 font-medium">المبلغ</th>
-                        <th className="text-start pb-3 font-medium">الحالة</th>
+                        <th className="text-start pb-3 pe-3 font-medium">{t('financial.table.date')}</th>
+                        <th className="text-start pb-3 pe-3 font-medium">{t('financial.table.type')}</th>
+                        <th className="text-start pb-3 pe-3 font-medium">{t('financial.table.description')}</th>
+                        <th className="text-end pb-3 pe-3 font-medium">{t('financial.table.amount')}</th>
+                        <th className="text-start pb-3 font-medium">{t('financial.table.status')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {payments.map(p => (
                         <tr key={p.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
                           <td className="py-3 pe-3 text-xs text-muted-foreground">
-                            {formatDate(p.created_at)}
+                            {formatDate(p.created_at, undefined, locale)}
                           </td>
                           <td className="py-3 pe-3">
                             <Badge variant="outline" className="text-[10px]">
-                              {SOURCE_LABELS[p.source_type] || p.source_type}
+                              {sourceTypeLabel(p.source_type)}
                             </Badge>
                           </td>
                           <td className="py-3 pe-3 text-xs text-muted-foreground max-w-[250px] truncate">
-                            {p.description || '—'}
+                            {p.description || t('financial.noDescription')}
                           </td>
                           <td className={`py-3 pe-3 text-end font-mono font-medium ${
                             p.source_type === 'deduction' ? 'text-red-600 dark:text-red-400' : 'text-foreground'
@@ -347,7 +332,7 @@ export default function UserDetailClient() {
                           </td>
                           <td className="py-3">
                             <Badge className={`text-[10px] border-0 ${getStatusBadgeClass(p.status)}`}>
-                              {p.status === 'paid' ? 'مدفوع' : p.status === 'approved' ? 'معتمد' : p.status === 'pending' ? 'معلق' : p.status}
+                              {p.status === 'paid' ? t('financial.paymentStatus.paid') : p.status === 'approved' ? t('financial.paymentStatus.approved') : p.status === 'pending' ? t('financial.paymentStatus.pending') : p.status}
                             </Badge>
                           </td>
                         </tr>
@@ -358,7 +343,7 @@ export default function UserDetailClient() {
 
                 {/* Summary */}
                 <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">صافي المدفوعات</span>
+                  <span className="text-muted-foreground">{t('financial.netPaid')}</span>
                   <span className="font-bold font-mono text-lg">
                     {Object.entries(netPaidByCurrency).length === 0
                       ? formatCurrency(0)
@@ -381,8 +366,8 @@ export default function UserDetailClient() {
           ) : projects.length === 0 ? (
             <EmptyState
               icon={FolderKanban}
-              title="لا توجد مشاريع"
-              description="لم يتم ربط هذا الموظف بأي مشروع بعد"
+              title={t('projects.emptyTitle')}
+              description={t('projects.emptyDescription')}
             />
           ) : (
             <div className="space-y-2">
@@ -399,7 +384,7 @@ export default function UserDetailClient() {
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="text-[10px]">
-                          {p.status === 'active' ? 'نشط' : p.status === 'completed' ? 'مكتمل' : p.status}
+                          {p.status === 'active' ? t('projects.status.active') : p.status === 'completed' ? t('projects.status.completed') : p.status}
                         </Badge>
                         <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
                       </div>
@@ -419,15 +404,15 @@ export default function UserDetailClient() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Briefcase className="h-4 w-4" />
-                  معلومات التوظيف
+                  {t('info.employmentHeading')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <InfoRow label="نوع التوظيف" value={EMPLOYMENT_LABELS[user.employment_type || ''] || user.employment_type || '—'} />
-                <InfoRow label="مكان العمل" value={WORK_LOCATION_LABELS[user.work_location || ''] || user.work_location || '—'} />
-                <InfoRow label="القسم" value={user.department || '—'} />
-                <InfoRow label="تاريخ التعيين" value={user.hire_date ? formatDate(user.hire_date) : '—'} />
-                <InfoRow label="المدير المباشر" value={user.manager_username || '—'} />
+                <InfoRow label={t('info.fields.employmentType')} value={employmentTypeLabel(user.employment_type || '') || t('info.empty')} />
+                <InfoRow label={t('info.fields.workLocation')} value={workLocationLabel(user.work_location || '') || t('info.empty')} />
+                <InfoRow label={t('info.fields.department')} value={user.department || t('info.empty')} />
+                <InfoRow label={t('info.fields.hireDate')} value={user.hire_date ? formatDate(user.hire_date, undefined, locale) : t('info.empty')} />
+                <InfoRow label={t('info.fields.manager')} value={user.manager_username || t('info.empty')} />
               </CardContent>
             </Card>
 
@@ -436,14 +421,14 @@ export default function UserDetailClient() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <DollarSign className="h-4 w-4" />
-                  التعويضات
+                  {t('info.compensationHeading')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <InfoRow label="نوع الدفع" value={PAYMENT_TYPE_LABELS[user.payment_type || ''] || user.payment_type || '—'} />
-                {user.salary ? <InfoRow label="الراتب الشهري" value={formatCurrency(user.salary, user.salary_currency)} /> : null}
-                {user.hourly_rate ? <InfoRow label="سعر الساعة" value={formatCurrency(user.hourly_rate, user.salary_currency)} /> : null}
-                {user.commission_rate ? <InfoRow label="نسبة العمولة" value={`${user.commission_rate}%`} /> : null}
+                <InfoRow label={t('info.fields.paymentType')} value={paymentTypeLabel(user.payment_type || '') || t('info.empty')} />
+                {user.salary ? <InfoRow label={t('info.fields.monthlySalary')} value={formatCurrency(user.salary, user.salary_currency)} /> : null}
+                {user.hourly_rate ? <InfoRow label={t('info.fields.hourlyRate')} value={formatCurrency(user.hourly_rate, user.salary_currency)} /> : null}
+                {user.commission_rate ? <InfoRow label={t('info.fields.commissionRate')} value={`${user.commission_rate}%`} /> : null}
               </CardContent>
             </Card>
 
@@ -453,14 +438,14 @@ export default function UserDetailClient() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <CreditCard className="h-4 w-4" />
-                    بيانات بنكية
+                    {t('info.bankHeading')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {user.bank_details.bank && <InfoRow label="البنك" value={user.bank_details.bank} />}
-                  {user.bank_details.account_name && <InfoRow label="اسم الحساب" value={user.bank_details.account_name} />}
-                  {user.bank_details.account_no && <InfoRow label="رقم الحساب" value={user.bank_details.account_no} />}
-                  {user.bank_details.iban && <InfoRow label="IBAN" value={user.bank_details.iban} />}
+                  {user.bank_details.bank && <InfoRow label={t('info.fields.bank')} value={user.bank_details.bank} />}
+                  {user.bank_details.account_name && <InfoRow label={t('info.fields.accountName')} value={user.bank_details.account_name} />}
+                  {user.bank_details.account_no && <InfoRow label={t('info.fields.accountNumber')} value={user.bank_details.account_no} />}
+                  {user.bank_details.iban && <InfoRow label={t('info.fields.iban')} value={user.bank_details.iban} />}
                 </CardContent>
               </Card>
             )}

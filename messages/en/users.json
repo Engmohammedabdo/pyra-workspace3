@@ -1,3 +1,175 @@
 {
-  "users": {}
+  "users": {
+    "list": {
+      "meta": { "title": "Users | Pyra Workspace" },
+      "heading": "Users",
+      "subheading": "Manage user accounts and permissions",
+      "searchPlaceholder": "Search for a user...",
+      "filters": { "allRoles": "All Roles" },
+      "table": {
+        "username": "Username",
+        "displayName": "Display Name",
+        "role": "Role",
+        "jobTitle": "Job Title",
+        "status": "Status",
+        "createdAt": "Created At",
+        "empty": "No users found",
+        "viewOnboarding": "View onboarding record",
+        "assignedViaOnboarding": "Assigned via onboarding",
+        "moreActions": "More"
+      },
+      "status": { "active": "Active", "inactive": "Inactive", "suspended": "Suspended" },
+      "actions": {
+        "add": "Add User",
+        "edit": "Edit",
+        "changePassword": "Change Password",
+        "delete": "Delete",
+        "create": "Create",
+        "saveChanges": "Save Changes"
+      },
+      "saving": "Saving...",
+      "deleting": "Deleting...",
+      "sections": {
+        "accountInfo": "Account Information",
+        "basicInfo": "Basic Information",
+        "employeeInfo": "Employee Information",
+        "employmentData": "Employment Data"
+      },
+      "fields": {
+        "username": "Username",
+        "usernamePlaceholder": "username",
+        "displayName": "Display Name",
+        "displayNamePlaceholder": "Full name",
+        "password": "Password",
+        "passwordPlaceholder": "At least {min} characters",
+        "accountType": "Account Type",
+        "jobRole": "Job Role",
+        "noRoleSelected": "No role selected",
+        "jobTitle": "Job Title",
+        "jobTitlePlaceholder": "e.g. Software Developer",
+        "phone": "Phone Number",
+        "phonePlaceholder": "+971 50 000 0000",
+        "workSchedule": "Work Schedule",
+        "defaultSchedulePlaceholder": "— Default schedule —",
+        "status": "Status",
+        "manager": "Direct Manager",
+        "noManagerPlaceholder": "— No manager —",
+        "employmentType": "Employment Type",
+        "employmentTypePlaceholder": "Select employment type",
+        "workLocation": "Work Location",
+        "workLocationPlaceholder": "Select work location",
+        "paymentType": "Payment Type",
+        "paymentTypePlaceholder": "Select payment type",
+        "notSpecified": "Not specified",
+        "department": "Department",
+        "departmentPlaceholder": "e.g. Development",
+        "monthlySalary": "Monthly Salary",
+        "currency": "Currency",
+        "hourlyRate": "Hourly Rate",
+        "nationalId": "National ID / Passport",
+        "nationalIdPlaceholder": "e.g. 784-XXXX-XXXXXXX-X",
+        "commissionRate": "Commission Rate %",
+        "hireDate": "Hire Date",
+        "dateOfBirth": "Date of Birth"
+      },
+      "createDialog": { "title": "Add New User" },
+      "editDialog": { "title": "Edit User — @{username}" },
+      "extraPermissions": {
+        "heading": "Extra Permissions",
+        "description": "Permissions granted to this user in addition to their base role permissions",
+        "hide": "Hide",
+        "show": "Show",
+        "checkAll": "Check All",
+        "uncheckAll": "Uncheck All"
+      },
+      "passwordDialog": {
+        "title": "Change Password — @{username}",
+        "description": "Choose a strong password (at least {min} characters)",
+        "newPassword": "New Password",
+        "submit": "Change"
+      },
+      "deleteDialog": {
+        "title": "Delete User",
+        "confirmMessage": "Are you sure you want to delete the user <strong>@{username}</strong>? This action cannot be undone.",
+        "submit": "Delete"
+      },
+      "toast": {
+        "createSuccess": "User created successfully",
+        "updateSuccess": "User updated",
+        "passwordSuccess": "Password changed",
+        "deleteSuccess": "User deleted",
+        "genericError": "An error occurred"
+      }
+    },
+    "detail": {
+      "loadFailed": "Failed to load employee data",
+      "backButton": "Back",
+      "viewOnboarding": "View onboarding record",
+      "hireSince": "Since {date}",
+      "status": { "active": "Active", "suspended": "Suspended", "inactive": "Inactive" },
+      "stats": {
+        "totalPaid": "Total Paid",
+        "pending": "Pending",
+        "paymentsCount": "Payments Count",
+        "projectsCount": "Projects"
+      },
+      "tabs": { "financial": "Statement", "projects": "Projects", "info": "Info", "documents": "Documents" },
+      "financial": {
+        "emptyTitle": "No payments",
+        "emptyDescription": "No payments have been recorded for this employee yet",
+        "recordsHeading": "{count, plural, one {Payment Records (#)} other {Payment Records (#)}}",
+        "table": { "date": "Date", "type": "Type", "description": "Description", "amount": "Amount", "status": "Status" },
+        "noDescription": "—",
+        "netPaid": "Net Paid",
+        "paymentStatus": { "paid": "Paid", "approved": "Approved", "pending": "Pending" }
+      },
+      "projects": {
+        "emptyTitle": "No projects",
+        "emptyDescription": "This employee hasn't been linked to any project yet",
+        "status": { "active": "Active", "completed": "Completed" }
+      },
+      "info": {
+        "employmentHeading": "Employment Info",
+        "compensationHeading": "Compensation",
+        "bankHeading": "Bank Details",
+        "fields": {
+          "employmentType": "Employment Type",
+          "workLocation": "Work Location",
+          "department": "Department",
+          "hireDate": "Hire Date",
+          "manager": "Direct Manager",
+          "paymentType": "Payment Type",
+          "monthlySalary": "Monthly Salary",
+          "hourlyRate": "Hourly Rate",
+          "commissionRate": "Commission Rate",
+          "bank": "Bank",
+          "accountName": "Account Name",
+          "accountNumber": "Account Number",
+          "iban": "IBAN"
+        },
+        "empty": "—"
+      }
+    },
+    "directory": {
+      "heading": "Team Directory",
+      "memberCount": "{count, plural, one {# team member} other {# team members}}",
+      "searchPlaceholder": "Search by name, job title...",
+      "empty": { "title": "No results", "description": "Try changing your search terms" },
+      "inactiveBadge": "Inactive"
+    },
+    "orgChart": {
+      "heading": "Organization Chart",
+      "subheading": "Tree view of the management structure and direct reports",
+      "expandAll": "Expand All",
+      "collapseAll": "Collapse All",
+      "reportsCount": "{count, plural, one {# report} other {# reports}}",
+      "empty": { "title": "No data", "description": "No users found to display the organization chart" },
+      "stats": {
+        "totalMembers": "Total Members",
+        "topLevel": "Top Level",
+        "managers": "Managers",
+        "departments": "Departments"
+      }
+    }
+  }
 }

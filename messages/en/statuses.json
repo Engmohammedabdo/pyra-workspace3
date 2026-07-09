@@ -49,6 +49,8 @@
     "evaluationCriteriaCategory": { "technical": "Technical", "communication": "Communication", "leadership": "Leadership", "productivity": "Productivity", "teamwork": "Teamwork", "creativity": "Creativity", "other": "Other" },
     "errorSeverity": { "error": "Error", "warning": "Warning", "info": "Info" },
     "errorEnvironment": { "production": "Production", "development": "Development" },
-    "resolvedState": { "resolved": "Resolved", "unresolved": "Unresolved" }
+    "resolvedState": { "resolved": "Resolved", "unresolved": "Unresolved" },
+    "accountType": { "admin": "Admin", "employee": "Employee", "sales_agent": "Sales Agent" },
+    "paymentType": { "monthly_salary": "Monthly Salary", "hourly": "Hourly", "per_task": "Per Task", "commission": "Commission" }
   }
 }

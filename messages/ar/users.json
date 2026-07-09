@@ -1,3 +1,175 @@
 {
-  "users": {}
+  "users": {
+    "list": {
+      "meta": { "title": "المستخدمون | Pyra Workspace" },
+      "heading": "المستخدمون",
+      "subheading": "إدارة حسابات المستخدمين والصلاحيات",
+      "searchPlaceholder": "بحث عن مستخدم...",
+      "filters": { "allRoles": "جميع الأدوار" },
+      "table": {
+        "username": "المستخدم",
+        "displayName": "اسم العرض",
+        "role": "الدور",
+        "jobTitle": "المسمى الوظيفي",
+        "status": "الحالة",
+        "createdAt": "تاريخ الإنشاء",
+        "empty": "لا يوجد مستخدمون",
+        "viewOnboarding": "عرض ملف التعيين",
+        "assignedViaOnboarding": "معيّن عبر التعيين",
+        "moreActions": "المزيد"
+      },
+      "status": { "active": "نشط", "inactive": "غير نشط", "suspended": "معلق" },
+      "actions": {
+        "add": "إضافة مستخدم",
+        "edit": "تعديل",
+        "changePassword": "تغيير كلمة المرور",
+        "delete": "حذف",
+        "create": "إنشاء",
+        "saveChanges": "حفظ التغييرات"
+      },
+      "saving": "جارٍ الحفظ...",
+      "deleting": "جارٍ الحذف...",
+      "sections": {
+        "accountInfo": "معلومات الحساب",
+        "basicInfo": "المعلومات الأساسية",
+        "employeeInfo": "معلومات الموظف",
+        "employmentData": "بيانات التوظيف"
+      },
+      "fields": {
+        "username": "اسم المستخدم",
+        "usernamePlaceholder": "username",
+        "displayName": "اسم العرض",
+        "displayNamePlaceholder": "الاسم الكامل",
+        "password": "كلمة المرور",
+        "passwordPlaceholder": "{min} أحرف على الأقل",
+        "accountType": "نوع الحساب",
+        "jobRole": "الدور الوظيفي",
+        "noRoleSelected": "بدون دور محدد",
+        "jobTitle": "المسمى الوظيفي",
+        "jobTitlePlaceholder": "مثال: مطور برمجيات",
+        "phone": "رقم الهاتف",
+        "phonePlaceholder": "+971 50 000 0000",
+        "workSchedule": "جدول العمل",
+        "defaultSchedulePlaceholder": "— الجدول الافتراضي —",
+        "status": "الحالة",
+        "manager": "المدير المباشر",
+        "noManagerPlaceholder": "— بدون مدير —",
+        "employmentType": "نوع التوظيف",
+        "employmentTypePlaceholder": "اختر نوع التوظيف",
+        "workLocation": "مكان العمل",
+        "workLocationPlaceholder": "اختر مكان العمل",
+        "paymentType": "نوع الدفع",
+        "paymentTypePlaceholder": "اختر نوع الدفع",
+        "notSpecified": "غير محدد",
+        "department": "القسم",
+        "departmentPlaceholder": "مثال: التطوير",
+        "monthlySalary": "الراتب الشهري",
+        "currency": "العملة",
+        "hourlyRate": "سعر الساعة",
+        "nationalId": "رقم الهوية / الجواز",
+        "nationalIdPlaceholder": "مثال: 784-XXXX-XXXXXXX-X",
+        "commissionRate": "نسبة العمولة %",
+        "hireDate": "تاريخ التعيين",
+        "dateOfBirth": "تاريخ الميلاد"
+      },
+      "createDialog": { "title": "إضافة مستخدم جديد" },
+      "editDialog": { "title": "تعديل المستخدم — @{username}" },
+      "extraPermissions": {
+        "heading": "صلاحيات إضافية",
+        "description": "صلاحيات ممنوحة لهذا المستخدم بالإضافة إلى صلاحيات دوره الأساسي",
+        "hide": "إخفاء",
+        "show": "عرض",
+        "checkAll": "تحديد الكل",
+        "uncheckAll": "إلغاء الكل"
+      },
+      "passwordDialog": {
+        "title": "تغيير كلمة المرور — @{username}",
+        "description": "اختر كلمة مرور قوية ({min} أحرف على الأقل)",
+        "newPassword": "كلمة المرور الجديدة",
+        "submit": "تغيير"
+      },
+      "deleteDialog": {
+        "title": "حذف المستخدم",
+        "confirmMessage": "هل أنت متأكد من حذف المستخدم <strong>@{username}</strong>؟ هذا الإجراء لا يمكن التراجع عنه.",
+        "submit": "حذف"
+      },
+      "toast": {
+        "createSuccess": "تم إنشاء المستخدم بنجاح",
+        "updateSuccess": "تم تحديث المستخدم",
+        "passwordSuccess": "تم تغيير كلمة المرور",
+        "deleteSuccess": "تم حذف المستخدم",
+        "genericError": "حدث خطأ"
+      }
+    },
+    "detail": {
+      "loadFailed": "فشل في تحميل بيانات الموظف",
+      "backButton": "رجوع",
+      "viewOnboarding": "عرض ملف التعيين",
+      "hireSince": "منذ {date}",
+      "status": { "active": "نشط", "suspended": "موقوف", "inactive": "غير نشط" },
+      "stats": {
+        "totalPaid": "إجمالي المدفوع",
+        "pending": "قيد المعالجة",
+        "paymentsCount": "عدد الدفعات",
+        "projectsCount": "المشاريع"
+      },
+      "tabs": { "financial": "كشف الحساب", "projects": "المشاريع", "info": "البيانات", "documents": "وثائق" },
+      "financial": {
+        "emptyTitle": "لا توجد مدفوعات",
+        "emptyDescription": "لم يتم تسجيل أي مدفوعات لهذا الموظف بعد",
+        "recordsHeading": "{count, plural, one {سجل المدفوعات (#)} other {سجل المدفوعات (#)}}",
+        "table": { "date": "التاريخ", "type": "النوع", "description": "الوصف", "amount": "المبلغ", "status": "الحالة" },
+        "noDescription": "—",
+        "netPaid": "صافي المدفوعات",
+        "paymentStatus": { "paid": "مدفوع", "approved": "معتمد", "pending": "معلق" }
+      },
+      "projects": {
+        "emptyTitle": "لا توجد مشاريع",
+        "emptyDescription": "لم يتم ربط هذا الموظف بأي مشروع بعد",
+        "status": { "active": "نشط", "completed": "مكتمل" }
+      },
+      "info": {
+        "employmentHeading": "معلومات التوظيف",
+        "compensationHeading": "التعويضات",
+        "bankHeading": "بيانات بنكية",
+        "fields": {
+          "employmentType": "نوع التوظيف",
+          "workLocation": "مكان العمل",
+          "department": "القسم",
+          "hireDate": "تاريخ التعيين",
+          "manager": "المدير المباشر",
+          "paymentType": "نوع الدفع",
+          "monthlySalary": "الراتب الشهري",
+          "hourlyRate": "سعر الساعة",
+          "commissionRate": "نسبة العمولة",
+          "bank": "البنك",
+          "accountName": "اسم الحساب",
+          "accountNumber": "رقم الحساب",
+          "iban": "IBAN"
+        },
+        "empty": "—"
+      }
+    },
+    "directory": {
+      "heading": "دليل الفريق",
+      "memberCount": "{count, plural, one {# عضو في الفريق} other {# عضو في الفريق}}",
+      "searchPlaceholder": "بحث بالاسم، المسمى الوظيفي...",
+      "empty": { "title": "لا يوجد نتائج", "description": "حاول تغيير كلمات البحث" },
+      "inactiveBadge": "غير نشط"
+    },
+    "orgChart": {
+      "heading": "الهيكل التنظيمي",
+      "subheading": "عرض شجري للهيكل الإداري والتقارير المباشرة",
+      "expandAll": "توسيع الكل",
+      "collapseAll": "طي الكل",
+      "reportsCount": "{count, plural, one {# تابعين} other {# تابعين}}",
+      "empty": { "title": "لا يوجد بيانات", "description": "لم يتم العثور على مستخدمين لعرض الهيكل التنظيمي" },
+      "stats": {
+        "totalMembers": "إجمالي الأعضاء",
+        "topLevel": "المستوى الأعلى",
+        "managers": "المديرون",
+        "departments": "الأقسام"
+      }
+    }
+  }
 }

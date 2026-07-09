@@ -18,7 +18,9 @@ export type StatusEntity =
   | 'evaluationForm' | 'evaluationPeriod' | 'evaluationType'
   | 'evaluationCriteriaCategory'
   // Phase 6a — Admin/RBAC/Settings (error-logs)
-  | 'errorSeverity' | 'errorEnvironment' | 'resolvedState';
+  | 'errorSeverity' | 'errorEnvironment' | 'resolvedState'
+  // Phase 6a Task 4 — Users/Directory/Org-chart (shadow-map reconciliation)
+  | 'accountType' | 'paymentType';
 
 /**
  * Locale-aware status label lookup. Falls back to the raw status value when

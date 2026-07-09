@@ -53,6 +53,8 @@ import { cn } from '@/lib/utils/cn';
 import { getRoleColorClasses, PERMISSION_MODULES } from '@/lib/auth/rbac';
 import { useRbacLabels } from '@/lib/i18n/rbac-labels';
 import { useWorkSchedules } from '@/hooks/useWorkSchedules';
+import { useTranslations, useLocale } from 'next-intl';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 
 interface PyraRole {
   name: string;
@@ -104,6 +106,17 @@ export default function UsersClient() {
   // resolver reads messages/{ar,en}/rbac.json instead. Only the 2 read
   // sites below were touched (mechanical swap, not a full page migration).
   const { moduleLabel, permissionLabel } = useRbacLabels();
+  // Phase 6a Task 4 — page chrome + the shadow-map reconciliation:
+  // account-type (role) badge/select, employment-type/work-location selects
+  // now resolve via the canonical statuses.json entities instead of local
+  // literals, converging with user-detail-client.tsx + directory-client.tsx.
+  const t = useTranslations('users.list');
+  const tCommon = useTranslations('common');
+  const locale = useLocale();
+  const accountTypeLabel = useStatusLabels('accountType');
+  const employmentTypeLabel = useStatusLabels('employmentType');
+  const workLocationLabel = useStatusLabels('workLocation');
+  const paymentTypeLabel = useStatusLabels('paymentType');
   const queryClient = useQueryClient();
 
   // React Query hooks
@@ -190,26 +203,26 @@ export default function UsersClient() {
 
   const createMutation = useMutation({
     mutationFn: (data: object) => mutateAPI('/api/users', 'POST', data),
-    onSuccess: () => { setShowCreateDialog(false); resetFormData(); toast.success('تم إنشاء المستخدم بنجاح'); invalidate(); },
-    onError: (e: unknown) => toast.error(e instanceof Error && e.message ? e.message : 'حدث خطأ'),
+    onSuccess: () => { setShowCreateDialog(false); resetFormData(); toast.success(t('toast.createSuccess')); invalidate(); },
+    onError: (e: unknown) => toast.error(e instanceof Error && e.message ? e.message : t('toast.genericError')),
   });
 
   const editMutation = useMutation({
     mutationFn: ({ username, data }: { username: string; data: object }) => mutateAPI(`/api/users/${username}`, 'PATCH', data),
-    onSuccess: () => { setShowEditDialog(false); toast.success('تم تحديث المستخدم'); invalidate(); },
-    onError: (e: unknown) => toast.error(e instanceof Error && e.message ? e.message : 'حدث خطأ'),
+    onSuccess: () => { setShowEditDialog(false); toast.success(t('toast.updateSuccess')); invalidate(); },
+    onError: (e: unknown) => toast.error(e instanceof Error && e.message ? e.message : t('toast.genericError')),
   });
 
   const passwordMutation = useMutation({
     mutationFn: ({ username, password }: { username: string; password: string }) => mutateAPI(`/api/users/${username}/password`, 'POST', { password }),
-    onSuccess: () => { setShowPasswordDialog(false); setNewPassword(''); toast.success('تم تغيير كلمة المرور'); },
-    onError: (e: unknown) => toast.error(e instanceof Error && e.message ? e.message : 'حدث خطأ'),
+    onSuccess: () => { setShowPasswordDialog(false); setNewPassword(''); toast.success(t('toast.passwordSuccess')); },
+    onError: (e: unknown) => toast.error(e instanceof Error && e.message ? e.message : t('toast.genericError')),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (username: string) => mutateAPI(`/api/users/${username}`, 'DELETE'),
-    onSuccess: () => { setShowDeleteDialog(false); toast.success('تم حذف المستخدم'); invalidate(); },
-    onError: (e: unknown) => toast.error(e instanceof Error && e.message ? e.message : 'حدث خطأ'),
+    onSuccess: () => { setShowDeleteDialog(false); toast.success(t('toast.deleteSuccess')); invalidate(); },
+    onError: (e: unknown) => toast.error(e instanceof Error && e.message ? e.message : t('toast.genericError')),
   });
 
   const saving = createMutation.isPending || editMutation.isPending || passwordMutation.isPending || deleteMutation.isPending;
@@ -292,9 +305,9 @@ export default function UsersClient() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Users className="h-6 w-6" aria-hidden="true" />
-            المستخدمون
+            {t('heading')}
           </h1>
-          <p className="text-muted-foreground">إدارة حسابات المستخدمين والصلاحيات</p>
+          <p className="text-muted-foreground">{t('subheading')}</p>
         </div>
         {canManage && (
           <Button onClick={() => {
@@ -302,7 +315,7 @@ export default function UsersClient() {
             setShowCreateDialog(true);
           }}>
             <Plus className="h-4 w-4 me-2" />
-            إضافة مستخدم
+            {t('actions.add')}
           </Button>
         )}
       </div>
@@ -311,15 +324,15 @@ export default function UsersClient() {
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="بحث عن مستخدم..."
+          placeholder={t('searchPlaceholder')}
           className="flex-1 max-w-sm"
         />
         <Select value={roleFilter} onValueChange={setRoleFilter}>
           <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">جميع الأدوار</SelectItem>
-            <SelectItem value="admin">مسؤول</SelectItem>
-            <SelectItem value="employee">موظف</SelectItem>
+            <SelectItem value="all">{t('filters.allRoles')}</SelectItem>
+            <SelectItem value="admin">{accountTypeLabel('admin')}</SelectItem>
+            <SelectItem value="employee">{accountTypeLabel('employee')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -330,12 +343,12 @@ export default function UsersClient() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="text-start p-3 font-medium">المستخدم</th>
-                  <th className="text-start p-3 font-medium">اسم العرض</th>
-                  <th className="text-start p-3 font-medium">الدور</th>
-                  <th className="text-start p-3 font-medium">المسمى الوظيفي</th>
-                  <th className="text-start p-3 font-medium">الحالة</th>
-                  <th className="text-start p-3 font-medium">تاريخ الإنشاء</th>
+                  <th className="text-start p-3 font-medium">{t('table.username')}</th>
+                  <th className="text-start p-3 font-medium">{t('table.displayName')}</th>
+                  <th className="text-start p-3 font-medium">{t('table.role')}</th>
+                  <th className="text-start p-3 font-medium">{t('table.jobTitle')}</th>
+                  <th className="text-start p-3 font-medium">{t('table.status')}</th>
+                  <th className="text-start p-3 font-medium">{t('table.createdAt')}</th>
                   <th className="text-start p-3 font-medium w-[60px]"></th>
                 </tr>
               </thead>
@@ -351,7 +364,7 @@ export default function UsersClient() {
                     <td className="p-3"><Skeleton className="h-5 w-8" /></td>
                   </tr>
                 )) : users.length === 0 ? (
-                  <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">لا يوجد مستخدمون</td></tr>
+                  <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">{t('table.empty')}</td></tr>
                 ) : users.map(user => (
                   <tr key={user.id} className="border-b hover:bg-muted/30 transition-colors">
                     <td className="p-3">
@@ -371,11 +384,11 @@ export default function UsersClient() {
                           <Link
                             href={`/dashboard/hr/onboarding/${user.onboarding_id}`}
                             className="inline-flex items-center gap-1 text-[10px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
-                            title="عرض ملف التعيين"
+                            title={t('table.viewOnboarding')}
                             onClick={e => e.stopPropagation()}
                           >
                             <ClipboardList className="h-3 w-3" />
-                            معيّن عبر التعيين
+                            {t('table.assignedViaOnboarding')}
                           </Link>
                         )}
                       </div>
@@ -383,11 +396,11 @@ export default function UsersClient() {
                     <td className="p-3">
                       {user.pyra_roles ? (
                         <Badge variant="outline" className={getRoleColorClasses(user.pyra_roles.color)}>
-                          {user.pyra_roles.name_ar}
+                          {locale === 'ar' ? user.pyra_roles.name_ar : (user.pyra_roles.name || user.pyra_roles.name_ar)}
                         </Badge>
                       ) : (
                         <Badge variant={user.role === 'admin' ? 'default' : user.role === 'sales_agent' ? 'outline' : 'secondary'} className={user.role === 'sales_agent' ? 'border-orange-300 text-orange-700 dark:border-orange-600 dark:text-orange-400' : ''}>
-                          {user.role === 'admin' ? <><Shield className="h-3 w-3 me-1" /> مسؤول</> : user.role === 'sales_agent' ? 'وكيل مبيعات' : 'موظف'}
+                          {user.role === 'admin' ? <><Shield className="h-3 w-3 me-1" /> {accountTypeLabel('admin')}</> : accountTypeLabel(user.role)}
                         </Badge>
                       )}
                     </td>
@@ -402,26 +415,26 @@ export default function UsersClient() {
                           'bg-red-500': user.status === 'suspended',
                         })} />
                         <span className="text-xs">
-                          {user.status === 'active' ? 'نشط' : user.status === 'inactive' ? 'غير نشط' : 'معلق'}
+                          {user.status === 'active' ? t('status.active') : user.status === 'inactive' ? t('status.inactive') : t('status.suspended')}
                         </span>
                       </div>
                     </td>
-                    <td className="p-3 text-muted-foreground text-xs">{formatDate(user.created_at)}</td>
+                    <td className="p-3 text-muted-foreground text-xs">{formatDate(user.created_at, undefined, locale)}</td>
                     {canManage && (
                     <td className="p-3">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="المزيد"><MoreHorizontal className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={t('table.moreActions')}><MoreHorizontal className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => openEdit(user)}>
-                            <Pencil className="h-4 w-4 me-2" /> تعديل
+                            <Pencil className="h-4 w-4 me-2" /> {t('actions.edit')}
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => { setSelectedUser(user); setNewPassword(''); setShowPasswordDialog(true); }}>
-                            <Key className="h-4 w-4 me-2" /> تغيير كلمة المرور
+                            <Key className="h-4 w-4 me-2" /> {t('actions.changePassword')}
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => { setSelectedUser(user); setShowDeleteDialog(true); }} className="text-destructive focus:text-destructive">
-                            <Trash2 className="h-4 w-4 me-2" /> حذف
+                            <Trash2 className="h-4 w-4 me-2" /> {t('actions.delete')}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -438,35 +451,35 @@ export default function UsersClient() {
       {/* Create User */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>إضافة مستخدم جديد</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('createDialog.title')}</DialogTitle></DialogHeader>
           <div className="space-y-6 py-4">
             {/* Section 1: Account Info */}
             <div className="space-y-4">
-              <Label className="text-sm font-semibold text-muted-foreground">معلومات الحساب</Label>
+              <Label className="text-sm font-semibold text-muted-foreground">{t('sections.accountInfo')}</Label>
               <div className="space-y-2">
-                <FormLabel required>اسم المستخدم</FormLabel>
+                <FormLabel required>{t('fields.username')}</FormLabel>
                 <Input
                   value={formData.username}
                   onChange={e => setFormData(p => ({ ...p, username: e.target.value }))}
-                  placeholder="username"
+                  placeholder={t('fields.usernamePlaceholder')}
                   dir="ltr"
                 />
               </div>
               <div className="space-y-2">
-                <FormLabel required>اسم العرض</FormLabel>
+                <FormLabel required>{t('fields.displayName')}</FormLabel>
                 <Input
                   value={formData.display_name}
                   onChange={e => setFormData(p => ({ ...p, display_name: e.target.value }))}
-                  placeholder="الاسم الكامل"
+                  placeholder={t('fields.displayNamePlaceholder')}
                 />
               </div>
               <div className="space-y-2">
-                <FormLabel required>كلمة المرور</FormLabel>
+                <FormLabel required>{t('fields.password')}</FormLabel>
                 <Input
                   type="password"
                   value={formData.password}
                   onChange={e => setFormData(p => ({ ...p, password: e.target.value }))}
-                  placeholder={`${PASSWORD_MIN_LENGTH} أحرف على الأقل`}
+                  placeholder={t('fields.passwordPlaceholder', { min: PASSWORD_MIN_LENGTH })}
                   dir="ltr"
                 />
               </div>
@@ -474,28 +487,28 @@ export default function UsersClient() {
 
             {/* Section 2: Employee Info */}
             <div className="space-y-4 border-t pt-4">
-              <Label className="text-sm font-semibold text-muted-foreground">معلومات الموظف</Label>
+              <Label className="text-sm font-semibold text-muted-foreground">{t('sections.employeeInfo')}</Label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <FormLabel required>نوع الحساب</FormLabel>
+                  <FormLabel required>{t('fields.accountType')}</FormLabel>
                   <Select value={formData.role} onValueChange={v => setFormData(p => ({ ...p, role: v as 'admin' | 'employee' | 'sales_agent' }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="employee">موظف</SelectItem>
-                      <SelectItem value="sales_agent">وكيل مبيعات</SelectItem>
-                      <SelectItem value="admin">مسؤول</SelectItem>
+                      <SelectItem value="employee">{accountTypeLabel('employee')}</SelectItem>
+                      <SelectItem value="sales_agent">{accountTypeLabel('sales_agent')}</SelectItem>
+                      <SelectItem value="admin">{accountTypeLabel('admin')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <FormLabel>الدور الوظيفي</FormLabel>
+                  <FormLabel>{t('fields.jobRole')}</FormLabel>
                   <Select value={formData.role_id} onValueChange={v => setFormData(p => ({ ...p, role_id: v === '__none__' ? '' : v }))}>
-                    <SelectTrigger><SelectValue placeholder="بدون دور محدد" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t('fields.noRoleSelected')} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">بدون دور محدد</SelectItem>
+                      <SelectItem value="__none__">{t('fields.noRoleSelected')}</SelectItem>
                       {roles.map(role => (
                         <SelectItem key={role.id} value={role.id}>
-                          {role.name_ar}
+                          {locale === 'ar' ? role.name_ar : (role.name || role.name_ar)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -504,35 +517,35 @@ export default function UsersClient() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <FormLabel>المسمى الوظيفي</FormLabel>
+                  <FormLabel>{t('fields.jobTitle')}</FormLabel>
                   <Input
                     value={formData.job_title}
                     onChange={e => setFormData(p => ({ ...p, job_title: e.target.value }))}
-                    placeholder="مثال: مطور برمجيات"
+                    placeholder={t('fields.jobTitlePlaceholder')}
                   />
                 </div>
                 <div className="space-y-2">
-                  <FormLabel>رقم الهاتف</FormLabel>
+                  <FormLabel>{t('fields.phone')}</FormLabel>
                   <Input
                     value={formData.phone}
                     onChange={e => setFormData(p => ({ ...p, phone: e.target.value }))}
-                    placeholder="+971 50 000 0000"
+                    placeholder={t('fields.phonePlaceholder')}
                     dir="ltr"
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <FormLabel>جدول العمل</FormLabel>
+                <FormLabel>{t('fields.workSchedule')}</FormLabel>
                 <Select
                   value={formData.work_schedule_id || '__none__'}
                   onValueChange={v => setFormData(p => ({ ...p, work_schedule_id: v === '__none__' ? '' : v }))}
                 >
-                  <SelectTrigger><SelectValue placeholder="— الجدول الافتراضي —" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('fields.defaultSchedulePlaceholder')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">— الجدول الافتراضي —</SelectItem>
+                    <SelectItem value="__none__">{t('fields.defaultSchedulePlaceholder')}</SelectItem>
                     {workSchedules.map(ws => (
                       <SelectItem key={ws.id} value={ws.id}>
-                        {ws.name_ar}
+                        {locale === 'ar' ? ws.name_ar : (ws.name || ws.name_ar)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -541,9 +554,9 @@ export default function UsersClient() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>إلغاء</Button>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>{tCommon('actions.cancel')}</Button>
             <Button onClick={handleCreate} disabled={saving}>
-              {saving ? <><Loader2 className="h-4 w-4 me-2 animate-spin" /> جارٍ الحفظ...</> : 'إنشاء'}
+              {saving ? <><Loader2 className="h-4 w-4 me-2 animate-spin" /> {t('saving')}</> : t('actions.create')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -552,26 +565,26 @@ export default function UsersClient() {
       {/* Edit User */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>تعديل المستخدم — @{selectedUser?.username}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('editDialog.title', { username: selectedUser?.username ?? '' })}</DialogTitle></DialogHeader>
           <div className="space-y-6 py-4">
             {/* Section 1: Basic Info */}
             <div className="space-y-4">
-              <Label className="text-sm font-semibold text-muted-foreground">المعلومات الأساسية</Label>
+              <Label className="text-sm font-semibold text-muted-foreground">{t('sections.basicInfo')}</Label>
               <div className="space-y-2">
-                <FormLabel required>اسم العرض</FormLabel>
+                <FormLabel required>{t('fields.displayName')}</FormLabel>
                 <Input
                   value={formData.display_name}
                   onChange={e => setFormData(p => ({ ...p, display_name: e.target.value }))}
                 />
               </div>
               <div className="space-y-2">
-                <FormLabel required>الحالة</FormLabel>
+                <FormLabel required>{t('fields.status')}</FormLabel>
                 <Select value={editStatus} onValueChange={setEditStatus}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">نشط</SelectItem>
-                    <SelectItem value="inactive">غير نشط</SelectItem>
-                    <SelectItem value="suspended">معلق</SelectItem>
+                    <SelectItem value="active">{t('status.active')}</SelectItem>
+                    <SelectItem value="inactive">{t('status.inactive')}</SelectItem>
+                    <SelectItem value="suspended">{t('status.suspended')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -579,28 +592,28 @@ export default function UsersClient() {
 
             {/* Section 2: Employee Info */}
             <div className="space-y-4 border-t pt-4">
-              <Label className="text-sm font-semibold text-muted-foreground">معلومات الموظف</Label>
+              <Label className="text-sm font-semibold text-muted-foreground">{t('sections.employeeInfo')}</Label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <FormLabel required>نوع الحساب</FormLabel>
+                  <FormLabel required>{t('fields.accountType')}</FormLabel>
                   <Select value={formData.role} onValueChange={v => setFormData(p => ({ ...p, role: v as 'admin' | 'employee' | 'sales_agent' }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="employee">موظف</SelectItem>
-                      <SelectItem value="sales_agent">وكيل مبيعات</SelectItem>
-                      <SelectItem value="admin">مسؤول</SelectItem>
+                      <SelectItem value="employee">{accountTypeLabel('employee')}</SelectItem>
+                      <SelectItem value="sales_agent">{accountTypeLabel('sales_agent')}</SelectItem>
+                      <SelectItem value="admin">{accountTypeLabel('admin')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <FormLabel>الدور الوظيفي</FormLabel>
+                  <FormLabel>{t('fields.jobRole')}</FormLabel>
                   <Select value={formData.role_id} onValueChange={v => setFormData(p => ({ ...p, role_id: v === '__none__' ? '' : v }))}>
-                    <SelectTrigger><SelectValue placeholder="بدون دور محدد" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t('fields.noRoleSelected')} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">بدون دور محدد</SelectItem>
+                      <SelectItem value="__none__">{t('fields.noRoleSelected')}</SelectItem>
                       {roles.map(role => (
                         <SelectItem key={role.id} value={role.id}>
-                          {role.name_ar}
+                          {locale === 'ar' ? role.name_ar : (role.name || role.name_ar)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -609,32 +622,32 @@ export default function UsersClient() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <FormLabel>المسمى الوظيفي</FormLabel>
+                  <FormLabel>{t('fields.jobTitle')}</FormLabel>
                   <Input
                     value={formData.job_title}
                     onChange={e => setFormData(p => ({ ...p, job_title: e.target.value }))}
-                    placeholder="مثال: مطور برمجيات"
+                    placeholder={t('fields.jobTitlePlaceholder')}
                   />
                 </div>
                 <div className="space-y-2">
-                  <FormLabel>رقم الهاتف</FormLabel>
+                  <FormLabel>{t('fields.phone')}</FormLabel>
                   <Input
                     value={formData.phone}
                     onChange={e => setFormData(p => ({ ...p, phone: e.target.value }))}
-                    placeholder="+971 50 000 0000"
+                    placeholder={t('fields.phonePlaceholder')}
                     dir="ltr"
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <FormLabel>المدير المباشر</FormLabel>
+                <FormLabel>{t('fields.manager')}</FormLabel>
                 <Select
                   value={formData.manager_username || '__none__'}
                   onValueChange={v => setFormData(p => ({ ...p, manager_username: v === '__none__' ? '' : v }))}
                 >
-                  <SelectTrigger><SelectValue placeholder="— بدون مدير —" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('fields.noManagerPlaceholder')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">— بدون مدير —</SelectItem>
+                    <SelectItem value="__none__">{t('fields.noManagerPlaceholder')}</SelectItem>
                     {users
                       .filter(u => u.username !== selectedUser?.username)
                       .map(u => (
@@ -655,14 +668,14 @@ export default function UsersClient() {
                 className="flex items-center justify-between w-full text-start hover:opacity-80 transition-opacity"
               >
                 <div>
-                  <h3 className="text-sm font-semibold">صلاحيات إضافية</h3>
-                  <p className="text-xs text-muted-foreground">صلاحيات ممنوحة لهذا المستخدم بالإضافة إلى صلاحيات دوره الأساسي</p>
+                  <h3 className="text-sm font-semibold">{t('extraPermissions.heading')}</h3>
+                  <p className="text-xs text-muted-foreground">{t('extraPermissions.description')}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {extraPermissions.length > 0 && (
                     <Badge variant="secondary" className="text-xs">{extraPermissions.length}</Badge>
                   )}
-                  <span className="text-xs text-muted-foreground">{showExtraPermissions ? 'إخفاء' : 'عرض'}</span>
+                  <span className="text-xs text-muted-foreground">{showExtraPermissions ? t('extraPermissions.hide') : t('extraPermissions.show')}</span>
                 </div>
               </button>
               {showExtraPermissions && (
@@ -690,7 +703,7 @@ export default function UsersClient() {
                               }
                             }}
                           >
-                            {allChecked ? 'إلغاء الكل' : 'تحديد الكل'}
+                            {allChecked ? t('extraPermissions.uncheckAll') : t('extraPermissions.checkAll')}
                           </Button>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -725,62 +738,62 @@ export default function UsersClient() {
 
             {/* Section 3: Employment Data */}
             <div className="space-y-4 border-t pt-4">
-              <Label className="text-sm font-semibold text-muted-foreground">بيانات التوظيف</Label>
+              <Label className="text-sm font-semibold text-muted-foreground">{t('sections.employmentData')}</Label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <FormLabel>نوع التوظيف</FormLabel>
+                  <FormLabel>{t('fields.employmentType')}</FormLabel>
                   <Select value={formData.employment_type} onValueChange={v => setFormData(p => ({ ...p, employment_type: v === '__none__' ? '' : v }))}>
-                    <SelectTrigger><SelectValue placeholder="اختر نوع التوظيف" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t('fields.employmentTypePlaceholder')} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">غير محدد</SelectItem>
-                      <SelectItem value="full_time">دوام كامل</SelectItem>
-                      <SelectItem value="part_time">دوام جزئي</SelectItem>
-                      <SelectItem value="contract">متعاقد</SelectItem>
-                      <SelectItem value="freelance">مستقل</SelectItem>
-                      <SelectItem value="intern">متدرب</SelectItem>
+                      <SelectItem value="__none__">{t('fields.notSpecified')}</SelectItem>
+                      <SelectItem value="full_time">{employmentTypeLabel('full_time')}</SelectItem>
+                      <SelectItem value="part_time">{employmentTypeLabel('part_time')}</SelectItem>
+                      <SelectItem value="contract">{employmentTypeLabel('contract')}</SelectItem>
+                      <SelectItem value="freelance">{employmentTypeLabel('freelance')}</SelectItem>
+                      <SelectItem value="intern">{employmentTypeLabel('intern')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <FormLabel>مكان العمل</FormLabel>
+                  <FormLabel>{t('fields.workLocation')}</FormLabel>
                   <Select value={formData.work_location} onValueChange={v => setFormData(p => ({ ...p, work_location: v === '__none__' ? '' : v }))}>
-                    <SelectTrigger><SelectValue placeholder="اختر مكان العمل" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t('fields.workLocationPlaceholder')} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">غير محدد</SelectItem>
-                      <SelectItem value="remote">عن بعد</SelectItem>
-                      <SelectItem value="onsite">حضوري</SelectItem>
-                      <SelectItem value="hybrid">هجين</SelectItem>
+                      <SelectItem value="__none__">{t('fields.notSpecified')}</SelectItem>
+                      <SelectItem value="remote">{workLocationLabel('remote')}</SelectItem>
+                      <SelectItem value="onsite">{workLocationLabel('onsite')}</SelectItem>
+                      <SelectItem value="hybrid">{workLocationLabel('hybrid')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <FormLabel>نوع الدفع</FormLabel>
+                  <FormLabel>{t('fields.paymentType')}</FormLabel>
                   <Select value={formData.payment_type} onValueChange={v => setFormData(p => ({ ...p, payment_type: v === '__none__' ? '' : v }))}>
-                    <SelectTrigger><SelectValue placeholder="اختر نوع الدفع" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t('fields.paymentTypePlaceholder')} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">غير محدد</SelectItem>
-                      <SelectItem value="monthly_salary">راتب شهري</SelectItem>
-                      <SelectItem value="hourly">بالساعة</SelectItem>
-                      <SelectItem value="per_task">بالمهمة</SelectItem>
-                      <SelectItem value="commission">عمولة</SelectItem>
+                      <SelectItem value="__none__">{t('fields.notSpecified')}</SelectItem>
+                      <SelectItem value="monthly_salary">{paymentTypeLabel('monthly_salary')}</SelectItem>
+                      <SelectItem value="hourly">{paymentTypeLabel('hourly')}</SelectItem>
+                      <SelectItem value="per_task">{paymentTypeLabel('per_task')}</SelectItem>
+                      <SelectItem value="commission">{paymentTypeLabel('commission')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <FormLabel>القسم</FormLabel>
+                  <FormLabel>{t('fields.department')}</FormLabel>
                   <Input
                     value={formData.department}
                     onChange={e => setFormData(p => ({ ...p, department: e.target.value }))}
-                    placeholder="مثال: التطوير"
+                    placeholder={t('fields.departmentPlaceholder')}
                   />
                 </div>
               </div>
               {formData.payment_type === 'monthly_salary' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <FormLabel>الراتب الشهري</FormLabel>
+                    <FormLabel>{t('fields.monthlySalary')}</FormLabel>
                     <Input
                       type="number"
                       value={formData.salary}
@@ -791,7 +804,7 @@ export default function UsersClient() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <FormLabel>العملة</FormLabel>
+                    <FormLabel>{t('fields.currency')}</FormLabel>
                     <Select value={formData.salary_currency} onValueChange={v => setFormData(p => ({ ...p, salary_currency: v }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -804,7 +817,7 @@ export default function UsersClient() {
               {formData.payment_type === 'hourly' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <FormLabel>سعر الساعة</FormLabel>
+                    <FormLabel>{t('fields.hourlyRate')}</FormLabel>
                     <Input
                       type="number"
                       value={formData.hourly_rate}
@@ -815,7 +828,7 @@ export default function UsersClient() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <FormLabel>العملة</FormLabel>
+                    <FormLabel>{t('fields.currency')}</FormLabel>
                     <Select value={formData.salary_currency} onValueChange={v => setFormData(p => ({ ...p, salary_currency: v }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -827,16 +840,16 @@ export default function UsersClient() {
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <FormLabel>رقم الهوية / الجواز</FormLabel>
+                  <FormLabel>{t('fields.nationalId')}</FormLabel>
                   <Input
                     value={formData.national_id}
                     onChange={e => setFormData(p => ({ ...p, national_id: e.target.value }))}
-                    placeholder="مثال: 784-XXXX-XXXXXXX-X"
+                    placeholder={t('fields.nationalIdPlaceholder')}
                     dir="ltr"
                   />
                 </div>
                 <div className="space-y-2">
-                  <FormLabel>نسبة العمولة %</FormLabel>
+                  <FormLabel>{t('fields.commissionRate')}</FormLabel>
                   <Input
                     type="number"
                     value={formData.commission_rate}
@@ -850,7 +863,7 @@ export default function UsersClient() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <FormLabel>تاريخ التعيين</FormLabel>
+                  <FormLabel>{t('fields.hireDate')}</FormLabel>
                   <Input
                     type="date"
                     value={formData.hire_date}
@@ -859,7 +872,7 @@ export default function UsersClient() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <FormLabel>تاريخ الميلاد</FormLabel>
+                  <FormLabel>{t('fields.dateOfBirth')}</FormLabel>
                   <Input
                     type="date"
                     value={formData.date_of_birth ?? ''}
@@ -869,17 +882,17 @@ export default function UsersClient() {
                 </div>
               </div>
               <div className="space-y-2">
-                <FormLabel>جدول العمل</FormLabel>
+                <FormLabel>{t('fields.workSchedule')}</FormLabel>
                 <Select
                   value={formData.work_schedule_id || '__none__'}
                   onValueChange={v => setFormData(p => ({ ...p, work_schedule_id: v === '__none__' ? '' : v }))}
                 >
-                  <SelectTrigger><SelectValue placeholder="— الجدول الافتراضي —" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('fields.defaultSchedulePlaceholder')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">— الجدول الافتراضي —</SelectItem>
+                    <SelectItem value="__none__">{t('fields.defaultSchedulePlaceholder')}</SelectItem>
                     {workSchedules.map(ws => (
                       <SelectItem key={ws.id} value={ws.id}>
-                        {ws.name_ar}
+                        {locale === 'ar' ? ws.name_ar : (ws.name || ws.name_ar)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -888,9 +901,9 @@ export default function UsersClient() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)}>إلغاء</Button>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>{tCommon('actions.cancel')}</Button>
             <Button onClick={handleEdit} disabled={saving}>
-              {saving ? <><Loader2 className="h-4 w-4 me-2 animate-spin" /> جارٍ الحفظ...</> : 'حفظ التغييرات'}
+              {saving ? <><Loader2 className="h-4 w-4 me-2 animate-spin" /> {t('saving')}</> : t('actions.saveChanges')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -900,20 +913,20 @@ export default function UsersClient() {
       <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>تغيير كلمة المرور — @{selectedUser?.username}</DialogTitle>
-            <DialogDescription>{`اختر كلمة مرور قوية (${PASSWORD_MIN_LENGTH} أحرف على الأقل)`}</DialogDescription>
+            <DialogTitle>{t('passwordDialog.title', { username: selectedUser?.username ?? '' })}</DialogTitle>
+            <DialogDescription>{t('passwordDialog.description', { min: PASSWORD_MIN_LENGTH })}</DialogDescription>
           </DialogHeader>
           <form onSubmit={e => { e.preventDefault(); handlePasswordChange(); }} className="space-y-4 py-4">
             {/* Hidden username field for autofill accessibility */}
             <input type="text" name="username" autoComplete="username" defaultValue={selectedUser?.username || ''} className="sr-only" readOnly tabIndex={-1} />
             <div className="space-y-2">
-              <FormLabel required htmlFor="new-password">كلمة المرور الجديدة</FormLabel>
-              <Input id="new-password" name="new-password" type="password" autoComplete="new-password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder={`${PASSWORD_MIN_LENGTH} أحرف على الأقل`} dir="ltr" />
+              <FormLabel required htmlFor="new-password">{t('passwordDialog.newPassword')}</FormLabel>
+              <Input id="new-password" name="new-password" type="password" autoComplete="new-password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder={t('fields.passwordPlaceholder', { min: PASSWORD_MIN_LENGTH })} dir="ltr" />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowPasswordDialog(false)}>إلغاء</Button>
+              <Button type="button" variant="outline" onClick={() => setShowPasswordDialog(false)}>{tCommon('actions.cancel')}</Button>
               <Button type="submit" disabled={saving}>
-                {saving ? <><Loader2 className="h-4 w-4 me-2 animate-spin" /> جارٍ الحفظ...</> : 'تغيير'}
+                {saving ? <><Loader2 className="h-4 w-4 me-2 animate-spin" /> {t('saving')}</> : t('passwordDialog.submit')}
               </Button>
             </DialogFooter>
           </form>
@@ -923,14 +936,17 @@ export default function UsersClient() {
       {/* Delete Confirmation */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader><DialogTitle>حذف المستخدم</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('deleteDialog.title')}</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground py-4">
-            هل أنت متأكد من حذف المستخدم <strong>@{selectedUser?.username}</strong>؟ هذا الإجراء لا يمكن التراجع عنه.
+            {t.rich('deleteDialog.confirmMessage', {
+              strong: (chunks) => <strong>{chunks}</strong>,
+              username: selectedUser?.username ?? '',
+            })}
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>إلغاء</Button>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>{tCommon('actions.cancel')}</Button>
             <Button variant="destructive" onClick={handleDelete} disabled={saving}>
-              {saving ? <><Loader2 className="h-4 w-4 me-2 animate-spin" /> جارٍ الحذف...</> : 'حذف'}
+              {saving ? <><Loader2 className="h-4 w-4 me-2 animate-spin" /> {t('deleting')}</> : t('deleteDialog.submit')}
             </Button>
           </DialogFooter>
         </DialogContent>
