@@ -51,6 +51,9 @@
     "errorEnvironment": { "production": "Production", "development": "Development" },
     "resolvedState": { "resolved": "Resolved", "unresolved": "Unresolved" },
     "accountType": { "admin": "Admin", "employee": "Employee", "sales_agent": "Sales Agent" },
-    "paymentType": { "monthly_salary": "Monthly Salary", "hourly": "Hourly", "per_task": "Per Task", "commission": "Commission" }
+    "paymentType": { "monthly_salary": "Monthly Salary", "hourly": "Hourly", "per_task": "Per Task", "commission": "Commission" },
+    "projectStatus": { "active": "Active", "in_progress": "In Progress", "review": "Review", "completed": "Completed", "archived": "Archived" },
+    "fileCategory": { "image": "Images", "video": "Video", "audio": "Audio", "document": "Documents", "archive": "Archive", "code": "Code", "spreadsheet": "Spreadsheet", "text": "Text", "file": "File" },
+    "clientSource": { "manual": "Manual", "referral": "Referral", "website": "Website", "social": "Social Media", "import": "Import" }
   }
 }

@@ -511,6 +511,23 @@
       "nameAlreadyExists": "اسم الدور موجود مسبقاً",
       "cannotDeleteSystemRole": "لا يمكن حذف الأدوار الأساسية",
       "roleInUseByUsers": "هناك {count} مستخدمين بهذا الدور. يجب تحديد دور بديل."
+    },
+    "clients": {
+      "notFound": "العميل غير موجود",
+      "noDataToUpdate": "لا توجد بيانات للتحديث",
+      "noteNotFound": "الملاحظة غير موجودة"
+    },
+    "projects": {
+      "notFound": "المشروع غير موجود",
+      "accessDenied": "لا تملك صلاحية الوصول لهذا المشروع"
+    },
+    "files": {
+      "pathRequired": "مسار الملف مطلوب",
+      "notFound": "الملف غير موجود",
+      "filesListRequired": "قائمة الملفات مطلوبة"
+    },
+    "teams": {
+      "notFound": "الفريق غير موجود"
     }
   }
 }

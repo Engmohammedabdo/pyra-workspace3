@@ -51,6 +51,9 @@
     "errorEnvironment": { "production": "إنتاج", "development": "تطوير" },
     "resolvedState": { "resolved": "محلول", "unresolved": "غير محلول" },
     "accountType": { "admin": "مسؤول", "employee": "موظف", "sales_agent": "وكيل مبيعات" },
-    "paymentType": { "monthly_salary": "راتب شهري", "hourly": "بالساعة", "per_task": "بالمهمة", "commission": "عمولة" }
+    "paymentType": { "monthly_salary": "راتب شهري", "hourly": "بالساعة", "per_task": "بالمهمة", "commission": "عمولة" },
+    "projectStatus": { "active": "نشط", "in_progress": "قيد التنفيذ", "review": "مراجعة", "completed": "مكتمل", "archived": "مؤرشف" },
+    "fileCategory": { "image": "صور", "video": "فيديو", "audio": "صوت", "document": "مستندات", "archive": "أرشيف", "code": "أكواد", "spreadsheet": "جدول", "text": "نص", "file": "ملف" },
+    "clientSource": { "manual": "يدوي", "referral": "إحالة", "website": "موقع إلكتروني", "social": "تواصل اجتماعي", "import": "استيراد" }
   }
 }

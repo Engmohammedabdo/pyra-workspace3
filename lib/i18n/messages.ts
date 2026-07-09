@@ -9,7 +9,10 @@ import type { Locale } from './config';
  * 'finance'. Phase 5 adds 'hr'. Phase 6a adds 'settings', 'admin', 'users',
  * 'rbac'. Phase 6b adds 'guide' (module-guide catalog — 78 entries, keyed-
  * object tips/keywords; see lib/config/module-guide.ts + lib/i18n/
- * module-guide-labels.ts).
+ * module-guide-labels.ts). Phase 6c adds 'clients', 'projects', 'files',
+ * 'teams' (empty scaffolds at foundation time — filled by the UI-migration
+ * tasks in the same wave; `components/files/*` is shared dashboard+portal,
+ * so `files.*` must stay reachable from both shells).
  */
 export const NAMESPACE_FILES = [
   'common', 'nav', 'auth', 'statuses',
@@ -17,6 +20,7 @@ export const NAMESPACE_FILES = [
   'crm', 'finance', 'hr',
   'settings', 'admin', 'users', 'rbac',
   'guide',
+  'clients', 'projects', 'files', 'teams',
 ] as const;
 
 type Messages = Record<string, unknown>;

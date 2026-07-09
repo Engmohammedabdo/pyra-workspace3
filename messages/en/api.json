@@ -511,6 +511,23 @@
       "nameAlreadyExists": "This role name already exists",
       "cannotDeleteSystemRole": "System roles cannot be deleted",
       "roleInUseByUsers": "There are {count} user(s) with this role. Choose a replacement role."
+    },
+    "clients": {
+      "notFound": "Client not found",
+      "noDataToUpdate": "No data to update",
+      "noteNotFound": "Note not found"
+    },
+    "projects": {
+      "notFound": "Project not found",
+      "accessDenied": "You do not have access to this project"
+    },
+    "files": {
+      "pathRequired": "File path is required",
+      "notFound": "File not found",
+      "filesListRequired": "File list is required"
+    },
+    "teams": {
+      "notFound": "Team not found"
     }
   }
 }

@@ -20,7 +20,9 @@ export type StatusEntity =
   // Phase 6a — Admin/RBAC/Settings (error-logs)
   | 'errorSeverity' | 'errorEnvironment' | 'resolvedState'
   // Phase 6a Task 4 — Users/Directory/Org-chart (shadow-map reconciliation)
-  | 'accountType' | 'paymentType';
+  | 'accountType' | 'paymentType'
+  // Phase 6c Task 1 — Clients/Projects/Files/Teams foundation
+  | 'projectStatus' | 'fileCategory' | 'clientSource';
 
 /**
  * Locale-aware status label lookup. Falls back to the raw status value when
