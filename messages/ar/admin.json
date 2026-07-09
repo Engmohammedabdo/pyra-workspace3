@@ -1,3 +1,52 @@
 {
-  "admin": {}
+  "admin": {
+    "errorLogs": {
+      "meta": { "title": "سجل الأخطاء | Pyra Workspace" },
+      "heading": "سجل الأخطاء",
+      "subtitle": "الأخطاء التي يلتقطها مُجمِّع الـ observability من الـ APIs والمهام المجدولة و حدود الأخطاء. فلتر \"غير محلولة\" نشط افتراضياً.",
+      "refresh": "تحديث",
+      "filters": {
+        "resolvedStateLabel": "حالة الحل",
+        "severityLabel": "الخطورة",
+        "environmentLabel": "البيئة",
+        "periodLabel": "الفترة",
+        "userLabel": "المستخدم (username)",
+        "userPlaceholder": "مثال: ahmed.s",
+        "range7d": "آخر 7 أيام",
+        "range30d": "آخر 30 يوم",
+        "recordCount": "{total, plural, one {# سجل} other {# سجل}}",
+        "resetFilters": "إعادة تعيين الفلاتر"
+      },
+      "empty": {
+        "titleUnresolved": "لا توجد أخطاء غير محلولة",
+        "titleFiltered": "لا توجد أخطاء مطابقة",
+        "descriptionUnresolved": "كل ما تم التقاطه تم تحديده كمحلول. وسّع الفلاتر إن أردت رؤية المحلولة أو السجلات الأقدم.",
+        "descriptionFiltered": "استخدم زر \"إعادة تعيين الفلاتر\" أو وسّع الفترة الزمنية."
+      },
+      "pagination": {
+        "prev": "السابق",
+        "next": "التالي"
+      },
+      "detail": {
+        "type": "النوع",
+        "stackTrace": "Stack trace",
+        "context": "السياق",
+        "path": "المسار",
+        "user": "المستخدم",
+        "metadata": "بيانات إضافية (مُعقّمة من الـ PII)",
+        "resolutionDetails": "تفاصيل الحل",
+        "resolvedBy": "بواسطة",
+        "resolvedAt": "بتاريخ",
+        "notes": "ملاحظات",
+        "unknownUser": "غير معروف",
+        "markResolvedSection": "تحديد كمحلول",
+        "notesPlaceholder": "ملاحظات اختيارية (مثلاً: سبب الخطأ، التصحيح، رقم الـ commit)…",
+        "confirmResolve": "تأكيد الحل"
+      },
+      "toasts": {
+        "resolveSuccess": "تم تحديد الخطأ كمحلول",
+        "resolveError": "فشل تحديد الخطأ"
+      }
+    }
+  }
 }

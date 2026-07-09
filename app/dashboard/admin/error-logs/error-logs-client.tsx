@@ -18,6 +18,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { formatRelativeDate, formatDate } from '@/lib/utils/format';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import { toast } from 'sonner';
 import {
   useErrorLogs,
@@ -62,6 +64,12 @@ type DateRangeFilter = '7d' | '30d' | 'all';
 const PAGE_SIZE = 50;
 
 export function ErrorLogsClient() {
+  const t = useTranslations('admin.errorLogs');
+  const tCommon = useTranslations('common');
+  const resolvedLabel = useStatusLabels('resolvedState');
+  const severityLabelFn = useStatusLabels('errorSeverity');
+  const environmentLabelFn = useStatusLabels('errorEnvironment');
+
   // ── Filter state ──
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
   const [environmentFilter, setEnvironmentFilter] = useState<EnvironmentFilter>('all');
@@ -113,11 +121,10 @@ export function ErrorLogsClient() {
       <header className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Bug className="size-6 text-orange-500" /> سجل الأخطاء
+            <Bug className="size-6 text-orange-500" /> {t('heading')}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            الأخطاء التي يلتقطها مُجمِّع الـ observability من الـ APIs والمهام المجدولة و
-            حدود الأخطاء (Phase 14.1). فلتر "غير محلولة" نشط افتراضياً.
+            {t('subtitle')}
           </p>
         </div>
         <Button
@@ -133,7 +140,7 @@ export function ErrorLogsClient() {
           ) : (
             <RefreshCw className="size-3.5" />
           )}
-          تحديث
+          {t('refresh')}
         </Button>
       </header>
 
@@ -141,7 +148,7 @@ export function ErrorLogsClient() {
       <Card className="p-4 space-y-3">
         <div className="flex flex-col md:flex-row md:items-end gap-3">
           <div className="flex-1 space-y-1.5">
-            <label className="text-xs text-muted-foreground font-medium">حالة الحل</label>
+            <label className="text-xs text-muted-foreground font-medium">{t('filters.resolvedStateLabel')}</label>
             <FilterChipRow
               value={resolvedFilter}
               onChange={(v) => {
@@ -149,14 +156,14 @@ export function ErrorLogsClient() {
                 setPage(1);
               }}
               options={[
-                { key: 'unresolved', label: 'غير محلولة' },
-                { key: 'resolved', label: 'محلولة' },
-                { key: 'all', label: 'الكل' },
+                { key: 'unresolved', label: resolvedLabel('unresolved') },
+                { key: 'resolved', label: resolvedLabel('resolved') },
+                { key: 'all', label: tCommon('all') },
               ]}
             />
           </div>
           <div className="flex-1 space-y-1.5">
-            <label className="text-xs text-muted-foreground font-medium">الخطورة</label>
+            <label className="text-xs text-muted-foreground font-medium">{t('filters.severityLabel')}</label>
             <FilterChipRow
               value={severityFilter}
               onChange={(v) => {
@@ -164,17 +171,17 @@ export function ErrorLogsClient() {
                 setPage(1);
               }}
               options={[
-                { key: 'all', label: 'الكل' },
-                { key: 'error', label: 'خطأ' },
-                { key: 'warning', label: 'تحذير' },
-                { key: 'info', label: 'معلومة' },
+                { key: 'all', label: tCommon('all') },
+                { key: 'error', label: severityLabelFn('error') },
+                { key: 'warning', label: severityLabelFn('warning') },
+                { key: 'info', label: severityLabelFn('info') },
               ]}
             />
           </div>
         </div>
         <div className="flex flex-col md:flex-row md:items-end gap-3">
           <div className="flex-1 space-y-1.5">
-            <label className="text-xs text-muted-foreground font-medium">البيئة</label>
+            <label className="text-xs text-muted-foreground font-medium">{t('filters.environmentLabel')}</label>
             <FilterChipRow
               value={environmentFilter}
               onChange={(v) => {
@@ -182,14 +189,14 @@ export function ErrorLogsClient() {
                 setPage(1);
               }}
               options={[
-                { key: 'all', label: 'الكل' },
-                { key: 'production', label: 'إنتاج' },
-                { key: 'development', label: 'تطوير' },
+                { key: 'all', label: tCommon('all') },
+                { key: 'production', label: environmentLabelFn('production') },
+                { key: 'development', label: environmentLabelFn('development') },
               ]}
             />
           </div>
           <div className="flex-1 space-y-1.5">
-            <label className="text-xs text-muted-foreground font-medium">الفترة</label>
+            <label className="text-xs text-muted-foreground font-medium">{t('filters.periodLabel')}</label>
             <FilterChipRow
               value={dateRangeFilter}
               onChange={(v) => {
@@ -197,35 +204,35 @@ export function ErrorLogsClient() {
                 setPage(1);
               }}
               options={[
-                { key: '7d', label: 'آخر 7 أيام' },
-                { key: '30d', label: 'آخر 30 يوم' },
-                { key: 'all', label: 'الكل' },
+                { key: '7d', label: t('filters.range7d') },
+                { key: '30d', label: t('filters.range30d') },
+                { key: 'all', label: tCommon('all') },
               ]}
             />
           </div>
           <div className="flex-1 space-y-1.5">
-            <label className="text-xs text-muted-foreground font-medium">المستخدم (username)</label>
+            <label className="text-xs text-muted-foreground font-medium">{t('filters.userLabel')}</label>
             <Input
               value={userIdFilter}
               onChange={(e) => {
                 setUserIdFilter(e.target.value);
                 setPage(1);
               }}
-              placeholder="مثال: ahmed.s"
+              placeholder={t('filters.userPlaceholder')}
               className="h-9"
             />
           </div>
         </div>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span className="tabular-nums">
-            {total} {total === 1 ? 'سجل' : 'سجل'} · صفحة {page} من {totalPages}
+            {t('filters.recordCount', { total })} · {tCommon('pagination.pageOf', { page, totalPages })}
           </span>
           <button
             type="button"
             onClick={resetFilters}
             className="text-orange-600 dark:text-orange-400 hover:underline"
           >
-            إعادة تعيين الفلاتر
+            {t('filters.resetFilters')}
           </button>
         </div>
       </Card>
@@ -242,13 +249,13 @@ export function ErrorLogsClient() {
           icon={CheckCircle2}
           title={
             resolvedFilter === 'unresolved'
-              ? 'لا توجد أخطاء غير محلولة'
-              : 'لا توجد أخطاء مطابقة'
+              ? t('empty.titleUnresolved')
+              : t('empty.titleFiltered')
           }
           description={
             resolvedFilter === 'unresolved'
-              ? 'كل ما تم التقاطه تم تحديده كمحلول. وسّع الفلاتر إن أردت رؤية المحلولة أو السجلات الأقدم.'
-              : 'استخدم زر "إعادة تعيين الفلاتر" أو وسّع الفترة الزمنية.'
+              ? t('empty.descriptionUnresolved')
+              : t('empty.descriptionFiltered')
           }
         />
       ) : (
@@ -271,10 +278,10 @@ export function ErrorLogsClient() {
             className="gap-1.5"
           >
             <ChevronRight className="size-3.5" />
-            السابق
+            {t('pagination.prev')}
           </Button>
           <span className="text-xs text-muted-foreground tabular-nums">
-            صفحة {page} من {totalPages}
+            {tCommon('pagination.pageOf', { page, totalPages })}
           </span>
           <Button
             type="button"
@@ -284,7 +291,7 @@ export function ErrorLogsClient() {
             disabled={page >= totalPages || isFetching}
             className="gap-1.5"
           >
-            التالي
+            {t('pagination.next')}
             <ChevronLeft className="size-3.5" />
           </Button>
         </div>
@@ -316,6 +323,8 @@ export function ErrorLogsClient() {
 // ── List row ──────────────────────────────────────────────
 
 function LogRow({ log, onSelect }: { log: ErrorLog; onSelect: () => void }) {
+  const locale = useLocale();
+  const resolvedLabel = useStatusLabels('resolvedState');
   return (
     <li>
       <button
@@ -343,13 +352,13 @@ function LogRow({ log, onSelect }: { log: ErrorLog; onSelect: () => void }) {
                   className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/40 text-[10px]"
                 >
                   <CheckCircle2 className="size-3 me-1" />
-                  محلول
+                  {resolvedLabel('resolved')}
                 </Badge>
               )}
             </div>
             <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
-              <span title={formatDate(log.created_at, 'eeee dd-MM-yyyy HH:mm')} className="tabular-nums">
-                {formatRelativeDate(log.created_at)}
+              <span title={formatDate(log.created_at, 'eeee dd-MM-yyyy HH:mm', locale)} className="tabular-nums">
+                {formatRelativeDate(log.created_at, locale)}
               </span>
               <span>·</span>
               <EnvBadge environment={log.environment} />
@@ -390,6 +399,9 @@ function LogDetailPanel({
   log: ErrorLog;
   onResolved: (updated: ErrorLog) => void;
 }) {
+  const t = useTranslations('admin.errorLogs');
+  const locale = useLocale();
+  const resolvedLabel = useStatusLabels('resolvedState');
   const [notes, setNotes] = useState('');
   const resolve = useResolveErrorLog();
 
@@ -399,11 +411,11 @@ function LogDetailPanel({
         id: log.id,
         resolved_notes: notes.trim() || undefined,
       });
-      toast.success('تم تحديد الخطأ كمحلول');
+      toast.success(t('toasts.resolveSuccess'));
       onResolved(res.log);
     } catch (err) {
       console.error('Resolve failed:', err);
-      const msg = err instanceof Error ? err.message : 'فشل تحديد الخطأ';
+      const msg = err instanceof Error ? err.message : t('toasts.resolveError');
       toast.error(msg);
     }
   }
@@ -427,8 +439,8 @@ function LogDetailPanel({
           <span dir="auto">{log.message}</span>
         </SheetTitle>
         <SheetDescription className="flex items-center gap-2 flex-wrap text-xs">
-          <span title={formatDate(log.created_at, 'eeee dd-MM-yyyy HH:mm')} className="tabular-nums">
-            {formatRelativeDate(log.created_at)}
+          <span title={formatDate(log.created_at, 'eeee dd-MM-yyyy HH:mm', locale)} className="tabular-nums">
+            {formatRelativeDate(log.created_at, locale)}
           </span>
           <span>·</span>
           <EnvBadge environment={log.environment} />
@@ -438,7 +450,7 @@ function LogDetailPanel({
               className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/40"
             >
               <CheckCircle2 className="size-3 me-1" />
-              محلول
+              {resolvedLabel('resolved')}
             </Badge>
           )}
         </SheetDescription>
@@ -447,7 +459,7 @@ function LogDetailPanel({
       <div className="space-y-4 mt-4 text-sm">
         {/* ── Error type ── */}
         {log.error_type && (
-          <Section title="النوع">
+          <Section title={t('detail.type')}>
             <code className="font-mono text-xs bg-muted/50 px-2 py-0.5 rounded">
               {log.error_type}
             </code>
@@ -456,7 +468,7 @@ function LogDetailPanel({
 
         {/* ── Stack trace ── */}
         {log.stack_trace && (
-          <Section title="Stack trace">
+          <Section title={t('detail.stackTrace')}>
             <pre className="text-xs font-mono bg-muted/50 p-3 rounded-md overflow-x-auto max-h-[40vh] whitespace-pre-wrap break-all leading-relaxed">
               {log.stack_trace}
             </pre>
@@ -465,15 +477,15 @@ function LogDetailPanel({
 
         {/* ── Request context ── */}
         {(log.request_path || log.user_id) && (
-          <Section title="السياق">
+          <Section title={t('detail.context')}>
             <dl className="text-xs space-y-1">
               {log.request_method && log.request_path && (
-                <Row label="المسار">
+                <Row label={t('detail.path')}>
                   <span className="font-mono">{log.request_method} {log.request_path}</span>
                 </Row>
               )}
               {log.user_id && (
-                <Row label="المستخدم">
+                <Row label={t('detail.user')}>
                   @{log.user_id}
                   {log.user_role && <span className="text-muted-foreground"> · {log.user_role}</span>}
                 </Row>
@@ -483,7 +495,7 @@ function LogDetailPanel({
         )}
 
         {/* ── Metadata (already PII-redacted) ── */}
-        <Section title="بيانات إضافية (مُعقّمة من الـ PII)">
+        <Section title={t('detail.metadata')}>
           <pre className="text-xs font-mono bg-muted/50 p-3 rounded-md overflow-x-auto max-h-[30vh] whitespace-pre-wrap break-all leading-relaxed">
             {metadataString}
           </pre>
@@ -491,27 +503,27 @@ function LogDetailPanel({
 
         {/* ── Resolution ── */}
         {log.resolved ? (
-          <Section title="تفاصيل الحل">
+          <Section title={t('detail.resolutionDetails')}>
             <dl className="text-xs space-y-1">
-              <Row label="بواسطة">@{log.resolved_by ?? 'غير معروف'}</Row>
-              <Row label="بتاريخ">
+              <Row label={t('detail.resolvedBy')}>@{log.resolved_by ?? t('detail.unknownUser')}</Row>
+              <Row label={t('detail.resolvedAt')}>
                 {log.resolved_at
-                  ? formatDate(log.resolved_at, 'eeee dd-MM-yyyy HH:mm')
+                  ? formatDate(log.resolved_at, 'eeee dd-MM-yyyy HH:mm', locale)
                   : '—'}
               </Row>
               {log.resolved_notes && (
-                <Row label="ملاحظات">
+                <Row label={t('detail.notes')}>
                   <span className="whitespace-pre-wrap break-words">{log.resolved_notes}</span>
                 </Row>
               )}
             </dl>
           </Section>
         ) : (
-          <Section title="تحديد كمحلول">
+          <Section title={t('detail.markResolvedSection')}>
             <Textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="ملاحظات اختيارية (مثلاً: سبب الخطأ، التصحيح، رقم الـ commit)…"
+              placeholder={t('detail.notesPlaceholder')}
               rows={3}
               className="text-sm"
             />
@@ -526,7 +538,7 @@ function LogDetailPanel({
               ) : (
                 <CheckCircle2 className="size-3.5" />
               )}
-              تأكيد الحل
+              {t('detail.confirmResolve')}
             </Button>
           </Section>
         )}
@@ -589,21 +601,19 @@ function FilterChipRow({
 }
 
 function SeverityBadge({ severity }: { severity: ErrorLogSeverity }) {
+  const severityLabelFn = useStatusLabels('errorSeverity');
   const map = {
     error: {
       cls: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800/40',
       icon: AlertCircle,
-      label: 'خطأ',
     },
     warning: {
       cls: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/40',
       icon: AlertTriangle,
-      label: 'تحذير',
     },
     info: {
       cls: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800/40',
       icon: Info,
-      label: 'معلومة',
     },
   } as const;
   const cfg = map[severity];
@@ -611,19 +621,20 @@ function SeverityBadge({ severity }: { severity: ErrorLogSeverity }) {
   return (
     <Badge variant="outline" className={cn(cfg.cls, 'gap-1')}>
       <Icon className="size-3" />
-      {cfg.label}
+      {severityLabelFn(severity)}
     </Badge>
   );
 }
 
 function EnvBadge({ environment }: { environment: ErrorLogEnvironment }) {
+  const environmentLabelFn = useStatusLabels('errorEnvironment');
   if (environment === 'production') {
     return (
       <Badge
         variant="outline"
         className="bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800/40 text-[10px]"
       >
-        إنتاج
+        {environmentLabelFn('production')}
       </Badge>
     );
   }
@@ -632,7 +643,7 @@ function EnvBadge({ environment }: { environment: ErrorLogEnvironment }) {
       variant="outline"
       className="bg-stone-500/10 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700/40 text-[10px]"
     >
-      تطوير
+      {environmentLabelFn('development')}
     </Badge>
   );
 }

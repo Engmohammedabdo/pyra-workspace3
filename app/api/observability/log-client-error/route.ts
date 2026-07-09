@@ -19,6 +19,7 @@
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { getApiAuth } from '@/lib/api/auth';
 import { getPortalSession } from '@/lib/portal/auth';
 import { logError } from '@/lib/observability/log-error';
@@ -49,7 +50,8 @@ export async function POST(request: NextRequest) {
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    const t = await getTranslations('api');
+    return NextResponse.json({ error: t('observability.unauthorized') }, { status: 401 });
   }
 
   // Parse body defensively — boundary might POST a partial payload during

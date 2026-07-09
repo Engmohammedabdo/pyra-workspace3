@@ -442,6 +442,16 @@
       "updateRequired": "Settings must be provided to update",
       "disallowedKeys": "Disallowed keys: {keys}",
       "updateFailed": "Failed to update settings: {errors}"
+    },
+    "admin": {
+      "invalidLogId": "Invalid log ID",
+      "resolvedMustBeTrue": "resolved must be true",
+      "resolvedNotesMustBeString": "resolved_notes must be a string",
+      "logNotFound": "Log not found",
+      "logAlreadyResolved": "This log is already resolved"
+    },
+    "observability": {
+      "unauthorized": "Unauthorized"
     }
   }
 }

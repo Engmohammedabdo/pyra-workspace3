@@ -442,6 +442,16 @@
       "updateRequired": "يجب تقديم إعدادات للتحديث",
       "disallowedKeys": "مفاتيح غير مسموح بها: {keys}",
       "updateFailed": "فشل تحديث الإعدادات: {errors}"
+    },
+    "admin": {
+      "invalidLogId": "معرّف السجل غير صالح",
+      "resolvedMustBeTrue": "يجب أن يكون resolved = true",
+      "resolvedNotesMustBeString": "resolved_notes يجب أن تكون نص",
+      "logNotFound": "السجل غير موجود",
+      "logAlreadyResolved": "السجل محلول بالفعل"
+    },
+    "observability": {
+      "unauthorized": "غير مصرح"
     }
   }
 }

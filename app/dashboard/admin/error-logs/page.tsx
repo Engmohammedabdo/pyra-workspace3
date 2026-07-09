@@ -1,9 +1,12 @@
+import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { requirePermission } from '@/lib/auth/guards';
 import { ErrorLogsClient } from './error-logs-client';
 
-export const metadata = {
-  title: 'سجل الأخطاء | Pyra Workspace',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('admin');
+  return { title: t('errorLogs.meta.title') };
+}
 
 // Phase 14.1 Commit 3 — admin error log viewer. Server-side permission
 // gate is the authoritative check. requirePermission redirects on failure

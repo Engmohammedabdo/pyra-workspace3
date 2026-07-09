@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -49,24 +50,26 @@ export async function PATCH(
     const auth = await requireApiPermission('error_logs.manage');
     if (isApiError(auth)) return auth;
 
+    const t = await getTranslations('api');
+
     const { id } = await params;
     if (!id || typeof id !== 'string') {
-      return apiValidationError('معرّف السجل غير صالح');
+      return apiValidationError(t('admin.invalidLogId'));
     }
 
     const body = (await request.json().catch(() => null)) as PatchBody | null;
-    if (!body) return apiValidationError('JSON body مطلوب');
+    if (!body) return apiValidationError(t('common.jsonBodyRequired'));
 
     // Strict body validation — only accept the exact shape v1 supports.
     // The only allowed transition is unresolved → resolved.
     if (body.resolved !== true) {
-      return apiValidationError('يجب أن يكون resolved = true');
+      return apiValidationError(t('admin.resolvedMustBeTrue'));
     }
 
     let resolvedNotes: string | null = null;
     if (body.resolved_notes !== undefined && body.resolved_notes !== null) {
       if (typeof body.resolved_notes !== 'string') {
-        return apiValidationError('resolved_notes يجب أن تكون نص');
+        return apiValidationError(t('admin.resolvedNotesMustBeString'));
       }
       const trimmed = body.resolved_notes.trim();
       if (trimmed.length > 0) {
@@ -95,10 +98,10 @@ export async function PATCH(
       return apiServerError();
     }
 
-    if (!existing) return apiNotFound('السجل غير موجود');
+    if (!existing) return apiNotFound(t('admin.logNotFound'));
 
     if (existing.resolved) {
-      return apiValidationError('السجل محلول بالفعل');
+      return apiValidationError(t('admin.logAlreadyResolved'));
     }
 
     // ── Update — resolved_by + resolved_at server-controlled, never from body ──

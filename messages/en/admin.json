@@ -1,3 +1,52 @@
 {
-  "admin": {}
+  "admin": {
+    "errorLogs": {
+      "meta": { "title": "Error Log | Pyra Workspace" },
+      "heading": "Error Log",
+      "subtitle": "Errors captured by the observability collector from APIs, scheduled jobs, and error boundaries. The \"Unresolved\" filter is active by default.",
+      "refresh": "Refresh",
+      "filters": {
+        "resolvedStateLabel": "Resolution status",
+        "severityLabel": "Severity",
+        "environmentLabel": "Environment",
+        "periodLabel": "Period",
+        "userLabel": "User (username)",
+        "userPlaceholder": "e.g. ahmed.s",
+        "range7d": "Last 7 days",
+        "range30d": "Last 30 days",
+        "recordCount": "{total, plural, one {# record} other {# records}}",
+        "resetFilters": "Reset filters"
+      },
+      "empty": {
+        "titleUnresolved": "No unresolved errors",
+        "titleFiltered": "No matching errors",
+        "descriptionUnresolved": "Everything captured has been marked resolved. Widen the filters to see resolved errors or older records.",
+        "descriptionFiltered": "Use the \"Reset filters\" button or widen the date range."
+      },
+      "pagination": {
+        "prev": "Previous",
+        "next": "Next"
+      },
+      "detail": {
+        "type": "Type",
+        "stackTrace": "Stack trace",
+        "context": "Context",
+        "path": "Path",
+        "user": "User",
+        "metadata": "Additional data (PII-sanitized)",
+        "resolutionDetails": "Resolution details",
+        "resolvedBy": "By",
+        "resolvedAt": "On",
+        "notes": "Notes",
+        "unknownUser": "Unknown",
+        "markResolvedSection": "Mark as resolved",
+        "notesPlaceholder": "Optional notes (e.g. root cause, fix, commit hash)…",
+        "confirmResolve": "Confirm resolution"
+      },
+      "toasts": {
+        "resolveSuccess": "Error marked as resolved",
+        "resolveError": "Failed to mark error as resolved"
+      }
+    }
+  }
 }
