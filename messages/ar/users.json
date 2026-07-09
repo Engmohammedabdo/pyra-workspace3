@@ -170,6 +170,112 @@
         "managers": "المديرون",
         "departments": "الأقسام"
       }
+    },
+    "roles": {
+      "meta": { "title": "الأدوار | Pyra Workspace" },
+      "heading": "الأدوار والصلاحيات",
+      "subheading": "إدارة أدوار المستخدمين وصلاحياتهم في النظام",
+      "addButton": "إضافة دور",
+      "empty": {
+        "title": "لا توجد أدوار",
+        "description": "قم بإنشاء دور جديد لتنظيم صلاحيات المستخدمين",
+        "actionLabel": "إضافة دور"
+      },
+      "systemBadge": "نظام",
+      "card": {
+        "memberCount": "{count, plural, other {# مستخدم}}",
+        "allPermissions": "جميع الصلاحيات",
+        "permissionCount": "{count, plural, other {# صلاحية}}",
+        "edit": "تعديل",
+        "delete": "حذف"
+      },
+      "dialog": {
+        "editTitle": "تعديل دور: {name}",
+        "createTitle": "إضافة دور جديد",
+        "editSystemDescription": "الأدوار النظامية: يمكن تعديل الاسم والوصف واللون فقط",
+        "createDescription": "حدد اسم الدور والصلاحيات المطلوبة",
+        "nameEnLabel": "الاسم بالإنجليزية",
+        "nameEnPlaceholder": "e.g. project_manager",
+        "nameArLabel": "الاسم بالعربية",
+        "nameArPlaceholder": "مثال: مدير مشاريع",
+        "descriptionLabel": "الوصف",
+        "descriptionPlaceholder": "وصف مختصر للدور وصلاحياته",
+        "colorLabel": "اللون",
+        "iconLabel": "الأيقونة",
+        "permissionsLabel": "الصلاحيات",
+        "permissionsSelected": "{count, plural, other {# صلاحية محددة}}",
+        "saveChanges": "حفظ التعديلات",
+        "create": "إنشاء الدور"
+      },
+      "deleteDialog": {
+        "title": "حذف دور \"{name}\"؟",
+        "warningWithMembers": "{count, plural, other {هذا الدور مرتبط بـ # مستخدم. اختر دور بديل لنقل المستخدمين إليه.}}",
+        "warningNoMembers": "سيتم حذف هذا الدور نهائياً. هذا الإجراء لا يمكن التراجع عنه.",
+        "fallbackRoleLabel": "الدور البديل",
+        "fallbackPlaceholder": "اختر دور بديل...",
+        "submit": "حذف الدور"
+      },
+      "membersDialog": {
+        "title": "أعضاء دور \"{name}\"",
+        "description": "إدارة المستخدمين المعينين لهذا الدور",
+        "currentMembers": "{count, plural, other {الأعضاء الحاليون (#)}}",
+        "empty": "لا يوجد أعضاء معينون لهذا الدور",
+        "remove": "إزالة",
+        "addMember": "إضافة عضو",
+        "searchPlaceholder": "بحث عن مستخدم..."
+      },
+      "toast": {
+        "createSuccess": "تم إنشاء الدور بنجاح",
+        "updateSuccess": "تم تحديث الدور بنجاح",
+        "deleteSuccess": "تم حذف الدور بنجاح",
+        "nameArRequired": "اسم الدور بالعربية مطلوب",
+        "nameEnRequired": "اسم الدور بالإنجليزية مطلوب",
+        "assignSuccess": "تم تعيين المستخدم للدور",
+        "assignError": "فشل في تعيين المستخدم",
+        "unassignSuccess": "تم إزالة المستخدم من الدور",
+        "unassignError": "فشل في إزالة المستخدم"
+      }
+    },
+    "permissions": {
+      "meta": { "title": "الصلاحيات | Pyra Workspace" },
+      "heading": "الصلاحيات",
+      "subheading": "إدارة صلاحيات الوصول للملفات والمجلدات",
+      "addButton": "صلاحية جديدة",
+      "archivedBanner": {
+        "title": "هذه الصفحة مؤرشفة (Legacy)",
+        "description": "تم أرشفة جدول صلاحيات الملفات القديم (<code>pyra_file_permissions</code>). يتم التحكم بالوصول الآن عبر سلسلة الفريق → المشروع → مسار التخزين + نظام RBAC. هذه الصفحة تعرض فقط صلاحيات المسارات المحفوظة في بيانات المستخدمين."
+      },
+      "empty": {
+        "title": "لا توجد صلاحيات مخصصة",
+        "description": "أضف صلاحيات للمستخدمين أو الفرق للتحكم في الوصول",
+        "actionLabel": "صلاحية جديدة"
+      },
+      "table": {
+        "path": "المسار",
+        "type": "النوع",
+        "target": "الهدف",
+        "permissions": "الصلاحيات",
+        "targetUser": "مستخدم",
+        "targetTeam": "فريق",
+        "deleteAria": "حذف الصلاحية"
+      },
+      "badges": { "read": "قراءة", "write": "كتابة", "delete": "حذف", "share": "مشاركة" },
+      "createDialog": {
+        "title": "إضافة صلاحية جديدة",
+        "pathLabel": "مسار المجلد",
+        "targetTypeLabel": "نوع الهدف",
+        "targetUserFieldLabel": "المستخدم",
+        "targetTeamFieldLabel": "الفريق",
+        "targetPlaceholder": "اختر...",
+        "permissionsLabel": "الصلاحيات",
+        "submit": "إضافة"
+      },
+      "toast": {
+        "fillAllFields": "يرجى تعبئة جميع الحقول",
+        "addSuccess": "تمت إضافة الصلاحية",
+        "genericError": "حدث خطأ"
+      },
+      "saving": "جارٍ الحفظ..."
     }
   }
 }

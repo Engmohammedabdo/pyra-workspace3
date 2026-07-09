@@ -170,6 +170,112 @@
         "managers": "Managers",
         "departments": "Departments"
       }
+    },
+    "roles": {
+      "meta": { "title": "Roles | Pyra Workspace" },
+      "heading": "Roles & Permissions",
+      "subheading": "Manage user roles and their permissions in the system",
+      "addButton": "Add Role",
+      "empty": {
+        "title": "No roles",
+        "description": "Create a new role to organize user permissions",
+        "actionLabel": "Add Role"
+      },
+      "systemBadge": "System",
+      "card": {
+        "memberCount": "{count, plural, one {# user} other {# users}}",
+        "allPermissions": "All Permissions",
+        "permissionCount": "{count, plural, one {# permission} other {# permissions}}",
+        "edit": "Edit",
+        "delete": "Delete"
+      },
+      "dialog": {
+        "editTitle": "Edit Role: {name}",
+        "createTitle": "Add New Role",
+        "editSystemDescription": "System roles: only the name, description, and color can be edited",
+        "createDescription": "Set the role name and the required permissions",
+        "nameEnLabel": "English Name",
+        "nameEnPlaceholder": "e.g. project_manager",
+        "nameArLabel": "Arabic Name",
+        "nameArPlaceholder": "e.g. Project Manager",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "A brief description of the role and its permissions",
+        "colorLabel": "Color",
+        "iconLabel": "Icon",
+        "permissionsLabel": "Permissions",
+        "permissionsSelected": "{count, plural, one {# permission selected} other {# permissions selected}}",
+        "saveChanges": "Save Changes",
+        "create": "Create Role"
+      },
+      "deleteDialog": {
+        "title": "Delete role \"{name}\"?",
+        "warningWithMembers": "{count, plural, one {This role is linked to # user. Choose a replacement role to migrate the users to.} other {This role is linked to # users. Choose a replacement role to migrate the users to.}}",
+        "warningNoMembers": "This role will be permanently deleted. This action cannot be undone.",
+        "fallbackRoleLabel": "Replacement Role",
+        "fallbackPlaceholder": "Choose a replacement role...",
+        "submit": "Delete Role"
+      },
+      "membersDialog": {
+        "title": "Members of \"{name}\"",
+        "description": "Manage the users assigned to this role",
+        "currentMembers": "{count, plural, other {Current Members (#)}}",
+        "empty": "No members assigned to this role",
+        "remove": "Remove",
+        "addMember": "Add Member",
+        "searchPlaceholder": "Search for a user..."
+      },
+      "toast": {
+        "createSuccess": "Role created successfully",
+        "updateSuccess": "Role updated successfully",
+        "deleteSuccess": "Role deleted successfully",
+        "nameArRequired": "Arabic role name is required",
+        "nameEnRequired": "English role name is required",
+        "assignSuccess": "User assigned to role",
+        "assignError": "Failed to assign user",
+        "unassignSuccess": "User removed from role",
+        "unassignError": "Failed to remove user"
+      }
+    },
+    "permissions": {
+      "meta": { "title": "Permissions | Pyra Workspace" },
+      "heading": "Permissions",
+      "subheading": "Manage file and folder access permissions",
+      "addButton": "New Permission",
+      "archivedBanner": {
+        "title": "This page is archived (Legacy)",
+        "description": "The legacy file-permissions table (<code>pyra_file_permissions</code>) has been archived. Access is now controlled via the Team → Project → Storage Path chain + the RBAC system. This page only shows path permissions stored on user records."
+      },
+      "empty": {
+        "title": "No custom permissions",
+        "description": "Add permissions for users or teams to control access",
+        "actionLabel": "New Permission"
+      },
+      "table": {
+        "path": "Path",
+        "type": "Type",
+        "target": "Target",
+        "permissions": "Permissions",
+        "targetUser": "User",
+        "targetTeam": "Team",
+        "deleteAria": "Delete Permission"
+      },
+      "badges": { "read": "Read", "write": "Write", "delete": "Delete", "share": "Share" },
+      "createDialog": {
+        "title": "Add New Permission",
+        "pathLabel": "Folder Path",
+        "targetTypeLabel": "Target Type",
+        "targetUserFieldLabel": "User",
+        "targetTeamFieldLabel": "Team",
+        "targetPlaceholder": "Choose...",
+        "permissionsLabel": "Permissions",
+        "submit": "Add"
+      },
+      "toast": {
+        "fillAllFields": "Please fill in all fields",
+        "addSuccess": "Permission added",
+        "genericError": "An error occurred"
+      },
+      "saving": "Saving..."
     }
   }
 }

@@ -51,6 +51,7 @@ import { useRbacLabels } from '@/lib/i18n/rbac-labels';
 import { usePermission } from '@/hooks/usePermission';
 import { motion } from 'framer-motion';
 import type { PyraRole } from '@/types/database';
+import { useTranslations, useLocale } from 'next-intl';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Crown, Shield, Briefcase, Palette, Calculator, Eye,
@@ -76,14 +77,26 @@ const EMPTY_FORM: RoleFormData = {
   permissions: [],
 };
 
+// pyra_roles.name / name_ar are bilingual DB rows (admin-authored) — never
+// migrated through next-intl. Render locale-conditionally per the CLAUDE.md
+// "Bilingual DB rows" rule: AR shows name_ar; EN prefers name, falling back
+// to name_ar when the role has no English name set.
+function roleDisplayName(locale: string, role: { name: string; name_ar: string } | null | undefined): string {
+  if (!role) return '';
+  return locale === 'ar' ? role.name_ar : (role.name || role.name_ar);
+}
+
 export default function RolesClient() {
   const queryClient = useQueryClient();
   const { data: allUsers = [] } = useUsers() as { data: any[] };
   const canManage = usePermission('roles.manage');
   // Phase 6a Task 1 — labelAr was stripped from PERMISSION_MODULES; this
-  // resolver reads messages/{ar,en}/rbac.json instead. Only the 2 read
-  // sites below were touched (mechanical swap, not a full page migration).
+  // resolver reads messages/{ar,en}/rbac.json instead.
   const { moduleLabel, permissionLabel } = useRbacLabels();
+  // Phase 6a Task 5 — full page-chrome migration onto users.roles.*.
+  const t = useTranslations('users.roles');
+  const tCommon = useTranslations('common');
+  const locale = useLocale();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<PyraRole | null>(null);
@@ -108,7 +121,7 @@ export default function RolesClient() {
     mutationFn: (data: RoleFormData) => mutateAPI('/api/roles', 'POST', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
-      toast.success('تم إنشاء الدور بنجاح');
+      toast.success(t('toast.createSuccess'));
       closeDialog();
     },
     onError: (err: Error) => toast.error(err.message),
@@ -120,7 +133,7 @@ export default function RolesClient() {
       mutateAPI(`/api/roles/${id}`, 'PATCH', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
-      toast.success('تم تحديث الدور بنجاح');
+      toast.success(t('toast.updateSuccess'));
       closeDialog();
     },
     onError: (err: Error) => toast.error(err.message),
@@ -136,7 +149,7 @@ export default function RolesClient() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
-      toast.success('تم حذف الدور بنجاح');
+      toast.success(t('toast.deleteSuccess'));
       setDeleteDialogOpen(false);
       setDeletingRole(null);
     },
@@ -216,7 +229,7 @@ export default function RolesClient() {
 
   function handleSubmit() {
     if (!formData.name_ar.trim()) {
-      toast.error('اسم الدور بالعربية مطلوب');
+      toast.error(t('toast.nameArRequired'));
       return;
     }
     if (editingRole) {
@@ -233,7 +246,7 @@ export default function RolesClient() {
       updateMutation.mutate({ id: editingRole.id, data: updateData });
     } else {
       if (!formData.name.trim()) {
-        toast.error('اسم الدور بالإنجليزية مطلوب');
+        toast.error(t('toast.nameEnRequired'));
         return;
       }
       createMutation.mutate(formData);
@@ -247,22 +260,22 @@ export default function RolesClient() {
   async function assignUserToRole(username: string, roleId: string) {
     try {
       await mutateAPI(`/api/users/${username}`, 'PATCH', { role_id: roleId });
-      toast.success('تم تعيين المستخدم للدور');
+      toast.success(t('toast.assignSuccess'));
       fetchRoleMembers(roleId);
       queryClient.invalidateQueries({ queryKey: ['roles'] });
     } catch (err: any) {
-      toast.error(err.message || 'فشل في تعيين المستخدم');
+      toast.error(err.message || t('toast.assignError'));
     }
   }
 
   async function unassignUserFromRole(username: string, roleId: string) {
     try {
       await mutateAPI(`/api/users/${username}`, 'PATCH', { role_id: null });
-      toast.success('تم إزالة المستخدم من الدور');
+      toast.success(t('toast.unassignSuccess'));
       fetchRoleMembers(roleId);
       queryClient.invalidateQueries({ queryKey: ['roles'] });
     } catch (err: any) {
-      toast.error(err.message || 'فشل في إزالة المستخدم');
+      toast.error(err.message || t('toast.unassignError'));
     }
   }
 
@@ -281,13 +294,13 @@ export default function RolesClient() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">الأدوار والصلاحيات</h1>
-          <p className="text-muted-foreground text-sm mt-1">إدارة أدوار المستخدمين وصلاحياتهم في النظام</p>
+          <h1 className="text-2xl font-bold">{t('heading')}</h1>
+          <p className="text-muted-foreground text-sm mt-1">{t('subheading')}</p>
         </div>
         {canManage && (
           <Button onClick={openCreate} className="bg-orange-500 hover:bg-orange-600 text-white">
             <Plus className="h-4 w-4 me-2" />
-            إضافة دور
+            {t('addButton')}
           </Button>
         )}
       </div>
@@ -296,9 +309,9 @@ export default function RolesClient() {
       {roles.length === 0 ? (
         <EmptyState
           icon={Shield}
-          title="لا توجد أدوار"
-          description="قم بإنشاء دور جديد لتنظيم صلاحيات المستخدمين"
-          actionLabel="إضافة دور"
+          title={t('empty.title')}
+          description={t('empty.description')}
+          actionLabel={t('empty.actionLabel')}
           onAction={canManage ? openCreate : undefined}
         />
       ) : (
@@ -323,15 +336,15 @@ export default function RolesClient() {
                         <IconComp className="h-5 w-5" />
                       </div>
                       <div>
-                        <CardTitle className="text-base">{role.name_ar}</CardTitle>
-                        <p className="text-xs text-muted-foreground mt-0.5">{role.name}</p>
+                        <CardTitle className="text-base">{roleDisplayName(locale, role)}</CardTitle>
+                        <p className="text-xs text-muted-foreground mt-0.5">{locale === 'ar' ? role.name : role.name_ar}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
                       {role.is_system && (
                         <Badge variant="outline" className="text-[10px] gap-1">
                           <Lock className="h-3 w-3" />
-                          نظام
+                          {t('systemBadge')}
                         </Badge>
                       )}
                     </div>
@@ -351,22 +364,22 @@ export default function RolesClient() {
                       className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                     >
                       <Users className="h-4 w-4" />
-                      <span>{role.member_count ?? 0} مستخدم</span>
+                      <span>{t('card.memberCount', { count: role.member_count ?? 0 })}</span>
                     </button>
                     <Badge variant="secondary" className="text-[10px]">
-                      {isSuperAdmin ? 'جميع الصلاحيات' : `${role.permissions.length} صلاحية`}
+                      {isSuperAdmin ? t('card.allPermissions') : t('card.permissionCount', { count: role.permissions.length })}
                     </Badge>
                   </div>
                   {canManage && (
                     <div className="flex gap-2 pt-2 border-t">
                       <Button variant="ghost" size="sm" className="flex-1" onClick={() => openEdit(role)}>
                         <Edit2 className="h-3.5 w-3.5 me-1.5" />
-                        تعديل
+                        {t('card.edit')}
                       </Button>
                       {!role.is_system && (
                         <Button variant="ghost" size="sm" className="flex-1 text-destructive hover:text-destructive" onClick={() => openDelete(role)}>
                           <Trash2 className="h-3.5 w-3.5 me-1.5" />
-                          حذف
+                          {t('card.delete')}
                         </Button>
                       )}
                     </div>
@@ -383,9 +396,9 @@ export default function RolesClient() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingRole ? `تعديل دور: ${editingRole.name_ar}` : 'إضافة دور جديد'}</DialogTitle>
+            <DialogTitle>{editingRole ? t('dialog.editTitle', { name: roleDisplayName(locale, editingRole) }) : t('dialog.createTitle')}</DialogTitle>
             <DialogDescription>
-              {editingRole?.is_system ? 'الأدوار النظامية: يمكن تعديل الاسم والوصف واللون فقط' : 'حدد اسم الدور والصلاحيات المطلوبة'}
+              {editingRole?.is_system ? t('dialog.editSystemDescription') : t('dialog.createDescription')}
             </DialogDescription>
           </DialogHeader>
 
@@ -393,31 +406,31 @@ export default function RolesClient() {
             {/* Basic Info */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>الاسم بالإنجليزية</Label>
+                <Label>{t('dialog.nameEnLabel')}</Label>
                 <Input
                   value={formData.name}
                   onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g. project_manager"
+                  placeholder={t('dialog.nameEnPlaceholder')}
                   disabled={!!editingRole}
                   dir="ltr"
                 />
               </div>
               <div className="space-y-2">
-                <Label>الاسم بالعربية</Label>
+                <Label>{t('dialog.nameArLabel')}</Label>
                 <Input
                   value={formData.name_ar}
                   onChange={e => setFormData(prev => ({ ...prev, name_ar: e.target.value }))}
-                  placeholder="مثال: مدير مشاريع"
+                  placeholder={t('dialog.nameArPlaceholder')}
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label>الوصف</Label>
+              <Label>{t('dialog.descriptionLabel')}</Label>
               <Textarea
                 value={formData.description}
                 onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="وصف مختصر للدور وصلاحياته"
+                placeholder={t('dialog.descriptionPlaceholder')}
                 rows={2}
               />
             </div>
@@ -425,7 +438,7 @@ export default function RolesClient() {
             {/* Color & Icon */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>اللون</Label>
+                <Label>{t('dialog.colorLabel')}</Label>
                 <div className="flex flex-wrap gap-2">
                   {COLOR_OPTIONS.map(color => (
                     <button
@@ -444,7 +457,7 @@ export default function RolesClient() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>الأيقونة</Label>
+                <Label>{t('dialog.iconLabel')}</Label>
                 <Select
                   value={formData.icon}
                   onValueChange={v => setFormData(prev => ({ ...prev, icon: v }))}
@@ -470,8 +483,8 @@ export default function RolesClient() {
             {!(editingRole?.is_system) && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label className="text-base">الصلاحيات</Label>
-                  <span className="text-xs text-muted-foreground">{formData.permissions.length} صلاحية محددة</span>
+                  <Label className="text-base">{t('dialog.permissionsLabel')}</Label>
+                  <span className="text-xs text-muted-foreground">{t('dialog.permissionsSelected', { count: formData.permissions.length })}</span>
                 </div>
                 <div className="border rounded-lg divide-y">
                   {PERMISSION_MODULES.map((mod) => {
@@ -526,10 +539,10 @@ export default function RolesClient() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>إلغاء</Button>
+            <Button variant="outline" onClick={closeDialog}>{tCommon('actions.cancel')}</Button>
             <Button onClick={handleSubmit} disabled={isSaving} className="bg-orange-500 hover:bg-orange-600 text-white">
               {isSaving && <Loader2 className="h-4 w-4 me-2 animate-spin" />}
-              {editingRole ? 'حفظ التعديلات' : 'إنشاء الدور'}
+              {editingRole ? t('dialog.saveChanges') : t('dialog.create')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -539,26 +552,26 @@ export default function RolesClient() {
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>حذف دور &quot;{deletingRole?.name_ar}&quot;؟</DialogTitle>
+            <DialogTitle>{t('deleteDialog.title', { name: roleDisplayName(locale, deletingRole) })}</DialogTitle>
             <DialogDescription>
               {(deletingRole?.member_count ?? 0) > 0
-                ? `هذا الدور مرتبط بـ ${deletingRole?.member_count} مستخدم. اختر دور بديل لنقل المستخدمين إليه.`
-                : 'سيتم حذف هذا الدور نهائياً. هذا الإجراء لا يمكن التراجع عنه.'}
+                ? t('deleteDialog.warningWithMembers', { count: deletingRole?.member_count ?? 0 })
+                : t('deleteDialog.warningNoMembers')}
             </DialogDescription>
           </DialogHeader>
 
           {(deletingRole?.member_count ?? 0) > 0 && (
             <div className="space-y-2">
-              <Label>الدور البديل</Label>
+              <Label>{t('deleteDialog.fallbackRoleLabel')}</Label>
               <Select value={fallbackRoleId} onValueChange={setFallbackRoleId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="اختر دور بديل..." />
+                  <SelectValue placeholder={t('deleteDialog.fallbackPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {roles
                     .filter(r => r.id !== deletingRole?.id)
                     .map(r => (
-                      <SelectItem key={r.id} value={r.id}>{r.name_ar}</SelectItem>
+                      <SelectItem key={r.id} value={r.id}>{roleDisplayName(locale, r)}</SelectItem>
                     ))}
                 </SelectContent>
               </Select>
@@ -566,7 +579,7 @@ export default function RolesClient() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>إلغاء</Button>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>{tCommon('actions.cancel')}</Button>
             <Button
               variant="destructive"
               disabled={deleteMutation.isPending || ((deletingRole?.member_count ?? 0) > 0 && !fallbackRoleId)}
@@ -580,7 +593,7 @@ export default function RolesClient() {
               }}
             >
               {deleteMutation.isPending && <Loader2 className="h-4 w-4 me-2 animate-spin" />}
-              حذف الدور
+              {t('deleteDialog.submit')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -590,9 +603,9 @@ export default function RolesClient() {
       <Dialog open={membersDialogOpen} onOpenChange={setMembersDialogOpen}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>أعضاء دور &quot;{membersRole?.name_ar}&quot;</DialogTitle>
+            <DialogTitle>{t('membersDialog.title', { name: roleDisplayName(locale, membersRole) })}</DialogTitle>
             <DialogDescription>
-              إدارة المستخدمين المعينين لهذا الدور
+              {t('membersDialog.description')}
             </DialogDescription>
           </DialogHeader>
 
@@ -604,9 +617,9 @@ export default function RolesClient() {
             <div className="space-y-4">
               {/* Current Members */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium">الأعضاء الحاليون ({members.length})</Label>
+                <Label className="text-sm font-medium">{t('membersDialog.currentMembers', { count: members.length })}</Label>
                 {members.length === 0 ? (
-                  <EmptyState icon={Users} title="لا يوجد أعضاء معينون لهذا الدور" className="py-4" />
+                  <EmptyState icon={Users} title={t('membersDialog.empty')} className="py-4" />
                 ) : (
                   <div className="space-y-2">
                     {members.map((user: any) => (
@@ -628,7 +641,7 @@ export default function RolesClient() {
                             onClick={() => membersRole && unassignUserFromRole(user.username, membersRole.id)}
                           >
                             <UserMinus className="h-4 w-4 me-1" />
-                            إزالة
+                            {t('membersDialog.remove')}
                           </Button>
                         )}
                       </div>
@@ -640,11 +653,11 @@ export default function RolesClient() {
               {/* Add User */}
               {canManage && (
                 <div className="space-y-2 border-t pt-4">
-                  <Label className="text-sm font-medium">إضافة عضو</Label>
+                  <Label className="text-sm font-medium">{t('membersDialog.addMember')}</Label>
                   <Input
                     value={addUserSearch}
                     onChange={(e) => setAddUserSearch(e.target.value)}
-                    placeholder="بحث عن مستخدم..."
+                    placeholder={t('membersDialog.searchPlaceholder')}
                     className="mb-2"
                   />
                   <div className="max-h-[200px] overflow-y-auto space-y-1">

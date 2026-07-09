@@ -19,6 +19,7 @@ import {
 import { Shield, Plus, Trash2, FolderLock, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/ui/empty-state';
+import { useTranslations } from 'next-intl';
 
 interface Permission {
   id: string;
@@ -35,6 +36,12 @@ interface UserLite { username: string; display_name: string; }
 interface Team { id: string; name: string; }
 
 export default function PermissionsClient() {
+  // Phase 6a Task 5 — page-chrome migration onto users.permissions.*. This
+  // page is the legacy pyra_file_permissions viewer (archived table, per the
+  // banner below) — raw fetch()/useState data layer is intentionally left
+  // as-is per the task brief (string-externalize only, no React Query swap).
+  const t = useTranslations('users.permissions');
+  const tCommon = useTranslations('common');
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -87,7 +94,7 @@ export default function PermissionsClient() {
   }, [allUsers]);
 
   const handleCreate = async () => {
-    if (!form.target_id || !form.file_path) { toast.error('يرجى تعبئة جميع الحقول'); return; }
+    if (!form.target_id || !form.file_path) { toast.error(t('toast.fillAllFields')); return; }
     setSaving(true);
     try {
       // Update user permissions via PATCH /api/users/[username]
@@ -116,9 +123,9 @@ export default function PermissionsClient() {
 
       setShowCreate(false);
       setForm({ file_path: '', target_type: 'user', target_id: '', can_read: true, can_write: false, can_delete: false, can_share: false });
-      toast.success('تمت إضافة الصلاحية');
+      toast.success(t('toast.addSuccess'));
       refetchUsers();
-    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
+    } catch (err) { console.error(err); toast.error(t('toast.genericError')); } finally { setSaving(false); }
   };
 
   const removePermission = async (perm: Permission) => {
@@ -149,12 +156,12 @@ export default function PermissionsClient() {
           <AlertTriangle className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5 shrink-0" />
           <div className="space-y-1">
             <p className="font-semibold text-orange-800 dark:text-orange-300">
-              هذه الصفحة مؤرشفة (Legacy)
+              {t('archivedBanner.title')}
             </p>
             <p className="text-sm text-orange-700 dark:text-orange-400/80">
-              تم أرشفة جدول صلاحيات الملفات القديم (<code className="text-xs">pyra_file_permissions</code>).
-              يتم التحكم بالوصول الآن عبر سلسلة الفريق &rarr; المشروع &rarr; مسار التخزين + نظام RBAC.
-              هذه الصفحة تعرض فقط صلاحيات المسارات المحفوظة في بيانات المستخدمين.
+              {t.rich('archivedBanner.description', {
+                code: (chunks) => <code className="text-xs">{chunks}</code>,
+              })}
             </p>
             <p className="text-xs text-orange-600/70 dark:text-orange-400/60">
               File access is now controlled via Team &rarr; Project &rarr; Storage Path chain + RBAC roles.
@@ -166,11 +173,11 @@ export default function PermissionsClient() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Shield className="h-6 w-6" aria-hidden="true" /> الصلاحيات</h1>
-          <p className="text-muted-foreground">إدارة صلاحيات الوصول للملفات والمجلدات</p>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Shield className="h-6 w-6" aria-hidden="true" /> {t('heading')}</h1>
+          <p className="text-muted-foreground">{t('subheading')}</p>
         </div>
         <Button onClick={() => setShowCreate(true)}>
-          <Plus className="h-4 w-4 me-2" /> صلاحية جديدة
+          <Plus className="h-4 w-4 me-2" /> {t('addButton')}
         </Button>
       </div>
 
@@ -179,9 +186,9 @@ export default function PermissionsClient() {
       ) : permissions.length === 0 ? (
         <EmptyState
           icon={FolderLock}
-          title="لا توجد صلاحيات مخصصة"
-          description="أضف صلاحيات للمستخدمين أو الفرق للتحكم في الوصول"
-          actionLabel="صلاحية جديدة"
+          title={t('empty.title')}
+          description={t('empty.description')}
+          actionLabel={t('empty.actionLabel')}
           onAction={() => setShowCreate(true)}
         />
       ) : (
@@ -191,10 +198,10 @@ export default function PermissionsClient() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50">
-                    <th className="text-start p-3 font-medium">المسار</th>
-                    <th className="text-start p-3 font-medium">النوع</th>
-                    <th className="text-start p-3 font-medium">الهدف</th>
-                    <th className="text-start p-3 font-medium">الصلاحيات</th>
+                    <th className="text-start p-3 font-medium">{t('table.path')}</th>
+                    <th className="text-start p-3 font-medium">{t('table.type')}</th>
+                    <th className="text-start p-3 font-medium">{t('table.target')}</th>
+                    <th className="text-start p-3 font-medium">{t('table.permissions')}</th>
                     <th className="text-start p-3 font-medium w-[60px]"></th>
                   </tr>
                 </thead>
@@ -202,18 +209,18 @@ export default function PermissionsClient() {
                   {permissions.map(p => (
                     <tr key={p.id} className="border-b hover:bg-muted/30 transition-colors">
                       <td className="p-3 font-mono text-xs" dir="ltr">{p.file_path}</td>
-                      <td className="p-3"><Badge variant="outline">{p.target_type === 'user' ? 'مستخدم' : 'فريق'}</Badge></td>
+                      <td className="p-3"><Badge variant="outline">{p.target_type === 'user' ? t('table.targetUser') : t('table.targetTeam')}</Badge></td>
                       <td className="p-3 font-medium">{p.target_id}</td>
                       <td className="p-3">
                         <div className="flex gap-1 flex-wrap">
-                          {p.permissions.read && <Badge variant="secondary" className="text-[10px]">قراءة</Badge>}
-                          {p.permissions.write && <Badge variant="secondary" className="text-[10px]">كتابة</Badge>}
-                          {p.permissions.delete && <Badge variant="secondary" className="text-[10px]">حذف</Badge>}
-                          {p.permissions.share && <Badge variant="secondary" className="text-[10px]">مشاركة</Badge>}
+                          {p.permissions.read && <Badge variant="secondary" className="text-[10px]">{t('badges.read')}</Badge>}
+                          {p.permissions.write && <Badge variant="secondary" className="text-[10px]">{t('badges.write')}</Badge>}
+                          {p.permissions.delete && <Badge variant="secondary" className="text-[10px]">{t('badges.delete')}</Badge>}
+                          {p.permissions.share && <Badge variant="secondary" className="text-[10px]">{t('badges.share')}</Badge>}
                         </div>
                       </td>
                       <td className="p-3">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removePermission(p)} aria-label="حذف الصلاحية">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removePermission(p)} aria-label={t('table.deleteAria')}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </td>
@@ -228,59 +235,59 @@ export default function PermissionsClient() {
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>إضافة صلاحية جديدة</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('createDialog.title')}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>مسار المجلد</Label>
+              <Label>{t('createDialog.pathLabel')}</Label>
               <Input value={form.file_path} onChange={e => setForm(p => ({ ...p, file_path: e.target.value }))} placeholder="/path/to/folder" dir="ltr" />
             </div>
             <div className="space-y-2">
-              <Label>نوع الهدف</Label>
+              <Label>{t('createDialog.targetTypeLabel')}</Label>
               <Select value={form.target_type} onValueChange={v => setForm(p => ({ ...p, target_type: v as 'user' | 'team', target_id: '' }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">مستخدم</SelectItem>
-                  <SelectItem value="team">فريق</SelectItem>
+                  <SelectItem value="user">{t('table.targetUser')}</SelectItem>
+                  <SelectItem value="team">{t('table.targetTeam')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>{form.target_type === 'user' ? 'المستخدم' : 'الفريق'}</Label>
+              <Label>{form.target_type === 'user' ? t('createDialog.targetUserFieldLabel') : t('createDialog.targetTeamFieldLabel')}</Label>
               <Select value={form.target_id} onValueChange={v => setForm(p => ({ ...p, target_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="اختر..." /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={t('createDialog.targetPlaceholder')} /></SelectTrigger>
                 <SelectContent>
                   {form.target_type === 'user'
                     ? users.map(u => <SelectItem key={u.username} value={u.username}>{u.display_name}</SelectItem>)
-                    : teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)
+                    : teams.map(tm => <SelectItem key={tm.id} value={tm.id}>{tm.name}</SelectItem>)
                   }
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-3">
-              <Label>الصلاحيات</Label>
+              <Label>{t('createDialog.permissionsLabel')}</Label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="flex items-center gap-2">
                   <Checkbox checked={form.can_read} onCheckedChange={v => setForm(p => ({ ...p, can_read: !!v }))} />
-                  <Label className="font-normal">قراءة</Label>
+                  <Label className="font-normal">{t('badges.read')}</Label>
                 </div>
                 <div className="flex items-center gap-2">
                   <Checkbox checked={form.can_write} onCheckedChange={v => setForm(p => ({ ...p, can_write: !!v }))} />
-                  <Label className="font-normal">كتابة</Label>
+                  <Label className="font-normal">{t('badges.write')}</Label>
                 </div>
                 <div className="flex items-center gap-2">
                   <Checkbox checked={form.can_delete} onCheckedChange={v => setForm(p => ({ ...p, can_delete: !!v }))} />
-                  <Label className="font-normal">حذف</Label>
+                  <Label className="font-normal">{t('badges.delete')}</Label>
                 </div>
                 <div className="flex items-center gap-2">
                   <Checkbox checked={form.can_share} onCheckedChange={v => setForm(p => ({ ...p, can_share: !!v }))} />
-                  <Label className="font-normal">مشاركة</Label>
+                  <Label className="font-normal">{t('badges.share')}</Label>
                 </div>
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>إلغاء</Button>
-            <Button onClick={handleCreate} disabled={saving}>{saving ? 'جارٍ الحفظ...' : 'إضافة'}</Button>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>{tCommon('actions.cancel')}</Button>
+            <Button onClick={handleCreate} disabled={saving}>{saving ? t('saving') : t('createDialog.submit')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
