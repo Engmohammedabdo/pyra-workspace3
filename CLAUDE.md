@@ -480,7 +480,14 @@ import { INVOICE_STATUS, INVOICE_STATUS_LABELS, INVOICE_PAID_STATUSES } from '@/
 ```
 Entities with centralized statuses: Invoice, Quote, Contract, Expense, Leave, Payroll, PO, CreditNote, Subscription, Timesheet, FileApproval, PaymentMethod, BillingCycle, EmployeePayment, Evaluation, ContentPipeline, FollowUp, Client, Lead, Conversation.
 
-## i18n — Bilingual AR/EN (Phases 0–5 shipped)
+## i18n — Bilingual AR/EN (Phases 0–5 + 6a/6b shipped; 6c in progress)
+
+Phase 6 (admin tail) ships as 5 sub-waves: 6a admin/rbac/settings ✅ · 6b
+module-guide ✅ · 6c clients/projects/files/teams (foundation `be6ed04`;
+next: clients stack) · 6d content-ops · 6e misc + WhatsApp chat. Then
+Phases 7 portal → 8 notification templates → 9 recipient-language docs.
+Full task-by-task record: `.superpowers/sdd/progress.md` (committed) +
+plans in `docs/superpowers/plans/2026-07-*.md`.
 
 next-intl WITHOUT locale routing — URLs never change. Locale = `pyra_locale`
 cookie (cache) ← `pyra_users.preferred_language` / `pyra_clients.preferred_language`
