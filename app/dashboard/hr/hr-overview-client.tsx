@@ -10,6 +10,7 @@ import { HrAlerts } from '@/components/hr/overview/HrAlerts';
 import { HrKpiRow } from '@/components/hr/overview/HrKpiRow';
 import { HeadcountChart } from '@/components/hr/overview/HeadcountChart';
 import { PayrollTrendChart } from '@/components/hr/overview/PayrollTrendChart';
+import { DailyAttendanceRoster } from '@/components/hr/overview/DailyAttendanceRoster';
 import { UpcomingLeaveList } from '@/components/hr/overview/UpcomingLeaveList';
 import { EvaluationsStatusCard } from '@/components/hr/overview/EvaluationsStatusCard';
 import { CelebrationsCard } from '@/components/hr/overview/CelebrationsCard';
@@ -72,6 +73,12 @@ export default function HrOverviewClient() {
       {/* KPI row — 5 cards */}
       <motion.div variants={itemMotion}>
         <HrKpiRow data={data} />
+      </motion.div>
+
+      {/* Daily attendance roster — per-employee clock-in / lateness (the daily
+          "who's in, who's late" view an admin checks every morning) */}
+      <motion.div variants={itemMotion}>
+        <DailyAttendanceRoster roster={data.attendance_today.roster} />
       </motion.div>
 
       {/* Charts row — 2 columns on lg+ */}

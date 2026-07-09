@@ -17,7 +17,26 @@ export interface HROverview {
     departed_90d: number;
     departed_365d: number;
   };
-  attendance_today: { present: number; absent: number; late: number; on_leave: number; present_rate_pct: number };
+  attendance_today: {
+    present: number;
+    absent: number;
+    late: number;
+    on_leave: number;
+    present_rate_pct: number;
+    /** Per-employee daily roster — who clocked in, when, and how late (Dubai time). */
+    roster: Array<{
+      username: string;
+      display_name: string;
+      status: 'present' | 'late' | 'absent' | 'not_clocked_in' | 'on_leave' | string;
+      clock_in_time: string | null;
+      clock_out_time: string | null;
+      total_hours: number;
+      /** Scheduled start "HH:MM" (Dubai wall-clock). */
+      expected_start: string;
+      /** Minutes after the scheduled start the employee clocked in (0 if on time). */
+      late_minutes: number;
+    }>;
+  };
   leave: {
     pending: number;
     on_leave_today: Array<{ username: string; display_name: string; end_date: string }>;

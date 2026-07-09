@@ -791,6 +791,22 @@
           "subtitle": "Total inactive: {count}"
         }
       },
+      "dailyRoster": {
+        "title": "Daily attendance",
+        "subtitle": "Who clocked in today and when",
+        "openAria": "Open attendance page",
+        "empty": "No employees to show",
+        "shiftFrom": "Shift {time}",
+        "clockOut": "Out {time}",
+        "hours": "{hours} h",
+        "status": {
+          "present": "On time",
+          "late": "Late {minutes} min",
+          "notClockedIn": "Not in",
+          "onLeave": "On leave",
+          "absent": "Absent"
+        }
+      },
       "headcountChart": {
         "title": "Headcount by Department",
         "totalBadge": "{count} employees",

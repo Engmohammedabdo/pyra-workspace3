@@ -791,6 +791,22 @@
           "subtitle": "إجمالي غير نشط: {count}"
         }
       },
+      "dailyRoster": {
+        "title": "كشف الحضور اليومي",
+        "subtitle": "مين سجّل دخول النهاردة وامتى",
+        "openAria": "افتح صفحة الحضور",
+        "empty": "لا يوجد موظفون للعرض",
+        "shiftFrom": "الشيفت {time}",
+        "clockOut": "خروج {time}",
+        "hours": "{hours} س",
+        "status": {
+          "present": "في الميعاد",
+          "late": "متأخر {minutes} د",
+          "notClockedIn": "لم يسجّل",
+          "onLeave": "في إجازة",
+          "absent": "غياب"
+        }
+      },
       "headcountChart": {
         "title": "توزيع الموظفين بالأقسام",
         "totalBadge": "{count} موظف",

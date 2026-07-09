@@ -30,6 +30,23 @@ function daysFromNow(n: number): string {
   return dubaiDayKey(new Date(Date.now() + n * 24 * 60 * 60 * 1000));
 }
 
+// Dubai wall-clock "HH:MM" for a timestamptz (UTC+4, no DST — matches dubaiDayKey).
+function dubaiHHMM(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(new Date(iso).getTime() + 4 * 60 * 60 * 1000);
+  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+}
+
+// Minutes a clock-in lands after the schedule's start (Dubai wall-clock).
+// Mirrors the clock-in route's rule: strictly-greater = late, no grace period.
+function lateMinutesFrom(iso: string | null | undefined, startHHMMSS: string): number {
+  if (!iso) return 0;
+  const d = new Date(new Date(iso).getTime() + 4 * 60 * 60 * 1000);
+  const mins = d.getUTCHours() * 60 + d.getUTCMinutes();
+  const [sh, sm] = startHHMMSS.split(':').map(Number);
+  return Math.max(0, mins - (sh * 60 + sm));
+}
+
 export async function GET(request: NextRequest) {
   // 1. Auth gate — hr.view is admin-only; returns 401/403 NextResponse if not allowed
   const auth = await requireApiPermission('hr.view');
@@ -51,7 +68,7 @@ export async function GET(request: NextRequest) {
     // ── Headcount ──────────────────────────────────────────────────────────────
     const { data: allUsers, error: usersError } = await supabase
       .from('pyra_users')
-      .select('username, display_name, status, employment_type, department, hire_date, date_of_birth, role, deactivated_at, salary, salary_currency')
+      .select('username, display_name, status, employment_type, department, hire_date, date_of_birth, role, deactivated_at, salary, salary_currency, work_schedule_id')
       .neq('role', 'client');
 
     if (usersError) throw new Error(`pyra_users: ${usersError.message}`);
@@ -108,12 +125,21 @@ export async function GET(request: NextRequest) {
     // pyra_attendance.status values: 'present' | 'late' | 'absent' | etc.
     const { data: todayAttendance, error: attError } = await supabase
       .from('pyra_attendance')
-      .select('username, status')
+      .select('username, status, clock_in, clock_out, total_hours')
       .eq('date', todayKey);
 
     if (attError) throw new Error(`pyra_attendance: ${attError.message}`);
 
     const att = todayAttendance ?? [];
+
+    // Work schedules — power the per-employee daily roster (expected start +
+    // lateness). Each user's start time drives the "late by N min" figure.
+    const { data: schedules, error: schedError } = await supabase
+      .from('pyra_work_schedules')
+      .select('id, start_time, is_default');
+    if (schedError) throw new Error(`pyra_work_schedules: ${schedError.message}`);
+    const scheduleStartMap = new Map((schedules ?? []).map((s) => [s.id as string, s.start_time as string]));
+    const defaultStart = (schedules ?? []).find((s) => s.is_default)?.start_time ?? '09:00:00';
     const presentCount = att.filter((a) => a.status === 'present' || a.status === 'late').length;
     const lateCount = att.filter((a) => a.status === 'late').length;
     const absentCount = att.filter((a) => a.status === 'absent').length;
@@ -145,6 +171,45 @@ export async function GET(request: NextRequest) {
     const present_rate_pct = activeUsers.length
       ? Math.round((presentCount / activeUsers.length) * 100)
       : 0;
+
+    // ── Daily attendance roster (per-employee: who clocked in, when, late?) ──────
+    // The punch-clock-style view the admin checks daily. Covers active STAFF who
+    // clock in (admins don't clock in → excluded). Times are Dubai wall-clock
+    // (the schedule's reference tz); lateness matches the clock-in route's rule.
+    const attByUser = new Map(att.map((a) => [a.username, a]));
+    const rosterStatusOrder: Record<string, number> = {
+      late: 0, not_clocked_in: 1, present: 2, on_leave: 3,
+    };
+    const roster = activeUsers
+      .filter((u) => u.role !== 'admin')
+      .map((u) => {
+        const startFull = (u.work_schedule_id && scheduleStartMap.get(u.work_schedule_id)) || defaultStart;
+        const expected_start = startFull.slice(0, 5); // HH:MM
+        const a = attByUser.get(u.username);
+        if (a) {
+          return {
+            username: u.username,
+            display_name: u.display_name,
+            status: a.status as string,
+            clock_in_time: dubaiHHMM(a.clock_in),
+            clock_out_time: dubaiHHMM(a.clock_out),
+            total_hours: Number(a.total_hours) || 0,
+            expected_start,
+            late_minutes: a.status === 'late' ? lateMinutesFrom(a.clock_in, startFull) : 0,
+          };
+        }
+        return {
+          username: u.username,
+          display_name: u.display_name,
+          status: onLeaveTodayUsernames.has(u.username) ? 'on_leave' : 'not_clocked_in',
+          clock_in_time: null,
+          clock_out_time: null,
+          total_hours: 0,
+          expected_start,
+          late_minutes: 0,
+        };
+      })
+      .sort((a, b) => (rosterStatusOrder[a.status] ?? 9) - (rosterStatusOrder[b.status] ?? 9));
 
     // ── Leave ──────────────────────────────────────────────────────────────────
     const { data: pendingLeaveData, error: pendingLeaveError } = await supabase
@@ -376,6 +441,7 @@ export async function GET(request: NextRequest) {
         late: lateCount,
         on_leave: onLeaveTodayList.length,
         present_rate_pct,
+        roster,
       },
       leave: {
         pending: pendingLeaveCt,
