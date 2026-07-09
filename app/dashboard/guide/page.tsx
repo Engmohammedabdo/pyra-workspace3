@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -15,14 +16,17 @@ import {
   Shield,
   TrendingUp,
 } from 'lucide-react';
-import { MODULE_GUIDES, searchModuleGuides } from '@/lib/config/module-guide';
+import { useAllModuleGuides, useModuleGuideSearch } from '@/lib/i18n/module-guide-labels';
 import { ModuleCard } from '@/components/dashboard/guide/module-card';
 
+// `key` maps to `guide.ui.sections.<key>.title` in messages/{ar,en}/guide.json.
+// `hrefs` are pure route-path lists (structural, mirror the sidebar's
+// navGroup structure) — entries are MODULE_GUIDES OBJECT KEYS, not always
+// equal to a guide's `href` field (see the lead-detail tab walkthrough
+// entries and the admin pseudo-entries below).
 const SECTIONS = [
   {
     key: 'main',
-    title: 'الرئيسية',
-    titleEn: 'Main',
     icon: LayoutDashboard,
     color: 'text-blue-600 dark:text-blue-400',
     bgColor: 'bg-blue-500/10',
@@ -30,8 +34,6 @@ const SECTIONS = [
   },
   {
     key: 'work',
-    title: 'العمل',
-    titleEn: 'Work',
     icon: Briefcase,
     color: 'text-orange-600 dark:text-orange-400',
     bgColor: 'bg-orange-500/10',
@@ -54,8 +56,6 @@ const SECTIONS = [
   },
   {
     key: 'sales',
-    title: 'المبيعات',
-    titleEn: 'Sales',
     icon: TrendingUp,
     color: 'text-emerald-600 dark:text-emerald-400',
     bgColor: 'bg-emerald-500/10',
@@ -75,10 +75,8 @@ const SECTIONS = [
     ],
   },
   {
-    // Mirrors sidebar "الموارد البشرية" group — admin-level HR pages
+    // Mirrors sidebar "الموارد البشرية" group — admin-level HR pages // i18n-exempt: dev comment referencing legacy Arabic sidebar group name
     key: 'hr',
-    title: 'الموارد البشرية',
-    titleEn: 'HR',
     icon: Settings,
     color: 'text-indigo-600 dark:text-indigo-400',
     bgColor: 'bg-indigo-500/10',
@@ -96,10 +94,8 @@ const SECTIONS = [
     ],
   },
   {
-    // Mirrors sidebar "الخدمة الذاتية" group — self-service employee pages
+    // Mirrors sidebar "الخدمة الذاتية" group — self-service employee pages // i18n-exempt: dev comment referencing legacy Arabic sidebar group name
     key: 'self_service',
-    title: 'الخدمة الذاتية',
-    titleEn: 'Self-Service',
     icon: Settings,
     color: 'text-violet-600 dark:text-violet-400',
     bgColor: 'bg-violet-500/10',
@@ -117,8 +113,6 @@ const SECTIONS = [
   },
   {
     key: 'finance',
-    title: 'المالية',
-    titleEn: 'Finance',
     icon: Wallet,
     color: 'text-green-600 dark:text-green-400',
     bgColor: 'bg-green-500/10',
@@ -140,8 +134,6 @@ const SECTIONS = [
   },
   {
     key: 'admin',
-    title: 'الإدارة',
-    titleEn: 'Admin',
     icon: Shield,
     color: 'text-gray-600 dark:text-gray-400',
     bgColor: 'bg-gray-500/10',
@@ -164,17 +156,22 @@ const SECTIONS = [
       '/dashboard/admin/security-checklist',
     ],
   },
-];
+] as const;
 
 export default function GuidePage() {
+  const tCommonGuide = useTranslations('common.guide');
+  const tGuideUi = useTranslations('guide.ui');
   const [query, setQuery] = useState('');
+
+  const allGuides = useAllModuleGuides();
+  const searchResults = useModuleGuideSearch(query);
 
   const filteredGuides = useMemo(() => {
     if (!query.trim()) return null;
-    return searchModuleGuides(query);
-  }, [query]);
+    return searchResults;
+  }, [query, searchResults]);
 
-  const totalModules = Object.keys(MODULE_GUIDES).length;
+  const totalModules = Object.keys(allGuides).length;
 
   return (
     <div className="space-y-6">
@@ -183,16 +180,16 @@ export default function GuidePage() {
           href="/dashboard"
           className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors"
         >
-          <ArrowRight className="h-5 w-5" />
+          <ArrowRight className="h-5 w-5 rtl:rotate-180" />
         </Link>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
             <BookOpen className="h-5 w-5 text-orange-500" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">دليل الاستخدام</h1>
+            <h1 className="text-2xl font-bold">{tCommonGuide('title')}</h1>
             <p className="text-muted-foreground text-sm">
-              شرح لجميع وحدات النظام وطريقة استخدامها — {totalModules} وحدة
+              {tGuideUi('pageSubtitle', { count: totalModules })}
             </p>
           </div>
         </div>
@@ -202,7 +199,7 @@ export default function GuidePage() {
         <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           type="text"
-          placeholder="ابحث في الوحدات... (مثال: فواتير، ملفات، تقارير)"
+          placeholder={tGuideUi('searchPlaceholder')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="ps-9"
@@ -213,12 +210,12 @@ export default function GuidePage() {
         <div>
           <p className="text-sm text-muted-foreground mb-4">
             {filteredGuides.length > 0
-              ? `تم العثور على ${filteredGuides.length} نتيجة`
-              : 'لا توجد نتائج — جرّب كلمة بحث مختلفة'}
+              ? tGuideUi('resultsCount', { count: filteredGuides.length })
+              : tGuideUi('noResults')}
           </p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filteredGuides.map((guide) => (
-              <ModuleCard key={guide.href} guide={guide} color="text-orange-600 dark:text-orange-400" />
+              <ModuleCard key={guide.slug} guide={guide} color="text-orange-600 dark:text-orange-400" />
             ))}
           </div>
         </div>
@@ -226,7 +223,7 @@ export default function GuidePage() {
         <div className="space-y-8">
           {SECTIONS.map((section) => {
             const sectionGuides = section.hrefs
-              .map((href) => MODULE_GUIDES[href])
+              .map((href) => allGuides[href])
               .filter(Boolean);
 
             if (sectionGuides.length === 0) return null;
@@ -240,8 +237,7 @@ export default function GuidePage() {
                     <Icon className={`h-4 w-4 ${section.color}`} />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold">{section.title}</h2>
-                    <p className="text-xs text-muted-foreground">{section.titleEn}</p>
+                    <h2 className="text-lg font-bold">{tGuideUi(`sections.${section.key}.title`)}</h2>
                   </div>
                   <Badge variant="outline" className="ms-2 text-[10px]">
                     {sectionGuides.length}
@@ -249,7 +245,7 @@ export default function GuidePage() {
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {sectionGuides.map((guide) => (
-                    <ModuleCard key={guide.href} guide={guide} color={section.color} />
+                    <ModuleCard key={guide.slug} guide={guide} color={section.color} />
                   ))}
                 </div>
               </div>

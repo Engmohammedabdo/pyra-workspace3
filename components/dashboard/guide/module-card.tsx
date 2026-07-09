@@ -2,11 +2,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ExternalLink, Target, Lightbulb } from 'lucide-react';
-import type { ModuleGuide } from '@/lib/config/module-guide';
+import type { ResolvedModuleGuide } from '@/lib/i18n/module-guide-labels';
 
-export function ModuleCard({ guide, color }: { guide: ModuleGuide; color: string }) {
+export function ModuleCard({ guide, color }: { guide: ResolvedModuleGuide; color: string }) {
+  const tCommonGuide = useTranslations('common.guide');
+  const tGuideUi = useTranslations('guide.ui');
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -27,7 +30,6 @@ export function ModuleCard({ guide, color }: { guide: ModuleGuide; color: string
                 <ExternalLink className="h-3 w-3 text-muted-foreground hover:text-orange-500" />
               </Link>
             </CardTitle>
-            <p className="text-[10px] text-muted-foreground">{guide.descriptionEn}</p>
           </div>
         </div>
       </CardHeader>
@@ -41,7 +43,7 @@ export function ModuleCard({ guide, color }: { guide: ModuleGuide; color: string
           <div className="mt-3 pt-3 border-t space-y-1.5 animate-in fade-in-0 slide-in-from-top-1 duration-200">
             <div className={`flex items-center gap-1.5 text-xs font-semibold ${color}`}>
               <Lightbulb className="h-3.5 w-3.5" />
-              <span>نصائح الاستخدام</span>
+              <span>{tCommonGuide('tips')}</span>
             </div>
             <ul className="space-y-1">
               {guide.tips.map((tip, i) => (
@@ -56,7 +58,7 @@ export function ModuleCard({ guide, color }: { guide: ModuleGuide; color: string
 
         {!expanded && guide.tips.length > 0 && (
           <p className="text-[10px] text-muted-foreground/60 mt-1">
-            انقر لعرض {guide.tips.length} نصائح استخدام
+            {tGuideUi('clickToViewTips', { count: guide.tips.length })}
           </p>
         )}
       </CardContent>

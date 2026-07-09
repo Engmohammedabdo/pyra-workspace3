@@ -150,6 +150,14 @@ const MIGRATED_PATHS: string[] = [
   'app/api/observability',
   'app/api/users',
   'app/api/roles',
+  // Phase 6b — module-guide catalog + guide page
+  // NOTE: components/ui/page-guide.tsx + components/layout/sidebar.tsx +
+  // components/layout/mobile-nav.tsx were already listed above (Phase 1) —
+  // 6b re-wired their DATA source (MODULE_GUIDES) onto the guide.json
+  // catalog but they were already chrome-migrated.
+  'lib/config/module-guide.ts',
+  'app/dashboard/guide',
+  'components/dashboard/guide',
 ];
 
 const ARABIC = /[؀-ۿ]/; // i18n-exempt: Unicode range literal, not translatable text

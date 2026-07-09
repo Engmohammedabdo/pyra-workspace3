@@ -1,0 +1,1705 @@
+{
+  "guide": {
+    "dashboard": {
+      "description": "Overview of business status and key statistics",
+      "goal": "The main dashboard gives you a fast, comprehensive picture of your business status: files, projects, clients, revenue, and recent activity.",
+      "tips": {
+        "0": "Statistics update automatically — no manual refresh needed",
+        "1": "Charts are visible to managers only",
+        "2": "Use the quick actions at the bottom of the page to upload files or create a project quickly",
+        "3": "Click any stat card to jump straight to its page"
+      },
+      "keywords": {
+        "0": "dashboard",
+        "1": "الرئيسية",
+        "2": "إحصائيات",
+        "3": "ملخص",
+        "4": "home",
+        "5": "overview",
+        "6": "stats"
+      }
+    },
+    "dashboard_notifications": {
+      "description": "System notifications and important alerts",
+      "goal": "Keep track of everything happening in the workspace: new comments, pending approvals, project updates, and financial alerts.",
+      "tips": {
+        "0": "Unread notifications appear with a highlighted background",
+        "1": "You can mark all as read from the button at the top of the page",
+        "2": "Click a notification to jump straight to the related item"
+      },
+      "keywords": {
+        "0": "notifications",
+        "1": "إشعارات",
+        "2": "تنبيهات",
+        "3": "alerts"
+      }
+    },
+    "dashboard_files": {
+      "description": "Upload, organize, and share files and folders",
+      "goal": "A complete file repository for organizing all project and client files. Supports file uploads, folder creation, link sharing, and permission management.",
+      "tips": {
+        "0": "Drag and drop files directly to upload them",
+        "1": "Double-click to open folders",
+        "2": "You can share any file via an external link",
+        "3": "Add important files to favorites with one click",
+        "4": "Deleted files go to Trash and can be restored"
+      },
+      "keywords": {
+        "0": "files",
+        "1": "ملفات",
+        "2": "رفع",
+        "3": "مجلدات",
+        "4": "مشاركة",
+        "5": "upload",
+        "6": "folders",
+        "7": "sharing"
+      }
+    },
+    "dashboard_favorites": {
+      "description": "Bookmarked files and folders",
+      "goal": "Quick access to your most-used files and folders. Add any item to favorites from the file browser.",
+      "tips": {
+        "0": "Add a file to favorites by clicking the star icon",
+        "1": "Favorites are personal — each user has their own list",
+        "2": "Click an item to open it directly in the file browser"
+      },
+      "keywords": {
+        "0": "favorites",
+        "1": "مفضلة",
+        "2": "نجمة",
+        "3": "وصول سريع",
+        "4": "bookmark",
+        "5": "star",
+        "6": "quick access"
+      }
+    },
+    "dashboard_reviews": {
+      "description": "File review requests and approvals",
+      "goal": "Manage the file review cycle: request a review from the team, track status, and approve or reject files.",
+      "tips": {
+        "0": "You can request a review from any file's page",
+        "1": "Pending reviews appear first",
+        "2": "Add comments on the review to clarify feedback"
+      },
+      "keywords": {
+        "0": "reviews",
+        "1": "مراجعات",
+        "2": "موافقات",
+        "3": "اعتماد",
+        "4": "approvals"
+      }
+    },
+    "dashboard_trash": {
+      "description": "Deleted files with restore capability",
+      "goal": "Browse deleted files and restore them when needed. Files stay in Trash until permanently deleted.",
+      "tips": {
+        "0": "You can restore any file with one click",
+        "1": "Permanent deletion cannot be undone",
+        "2": "Use search to quickly find a deleted file"
+      },
+      "keywords": {
+        "0": "trash",
+        "1": "محذوفات",
+        "2": "استعادة",
+        "3": "حذف",
+        "4": "delete",
+        "5": "recycle bin"
+      }
+    },
+    "dashboard_storage": {
+      "description": "Storage usage statistics and analytics",
+      "goal": "An analytics dashboard for monitoring storage usage: total size, breakdown by file type, and the largest folders and files.",
+      "tips": {
+        "0": "The pie chart shows the breakdown by file type (images, video, PDF, etc.)",
+        "1": "The bar chart shows the 10 largest folders by size",
+        "2": "The largest-files table helps you identify which files consume the most space",
+        "3": "Statistics refresh automatically on every visit"
+      },
+      "keywords": {
+        "0": "storage",
+        "1": "تخزين",
+        "2": "مساحة",
+        "3": "حجم",
+        "4": "إحصائيات",
+        "5": "space",
+        "6": "size",
+        "7": "analytics"
+      }
+    },
+    "dashboard_projects": {
+      "description": "Manage projects, track progress and tasks",
+      "goal": "The project management hub: create new projects, assign the team, set a budget, and track progress with stages and percentages.",
+      "tips": {
+        "0": "Create a new project from the \"New Project\" button at the top of the page",
+        "1": "Link the project to a client to track revenue and expenses",
+        "2": "Updating the completion percentage shows up automatically in reports",
+        "3": "Add a budget to the project to track budget usage in financial reports"
+      },
+      "keywords": {
+        "0": "projects",
+        "1": "مشاريع",
+        "2": "مهام",
+        "3": "تقدم",
+        "4": "ميزانية",
+        "5": "tasks",
+        "6": "progress",
+        "7": "budget"
+      }
+    },
+    "dashboard_quotes": {
+      "description": "Create and manage client quotes",
+      "goal": "Create professional quotes with detailed line items, send them to clients for e-signature, and convert them to invoices with one click.",
+      "tips": {
+        "0": "Use the quote builder to add line items with prices and quantities",
+        "1": "The quote total is calculated automatically (subtotal + tax + total)",
+        "2": "The client can sign electronically through the portal",
+        "3": "Convert an accepted quote directly into an invoice",
+        "4": "Export the quote as a PDF to share it"
+      },
+      "keywords": {
+        "0": "quotes",
+        "1": "عروض أسعار",
+        "2": "تسعير",
+        "3": "توقيع",
+        "4": "pricing",
+        "5": "signature"
+      }
+    },
+    "dashboard_quotes_analytics": {
+      "description": "Quote analytics and performance metrics",
+      "goal": "Track conversion rates, the value of active quotes, signing speed, and sales agent performance.",
+      "tips": {
+        "0": "The conversion funnel shows the percentage of quotes that move from sent to signed to invoiced",
+        "1": "Average days to sign measures how fast clients respond",
+        "2": "Agent performance helps evaluate the sales team",
+        "3": "The value of active quotes gives a picture of the expected pipeline"
+      },
+      "keywords": {
+        "0": "analytics",
+        "1": "تحليلات",
+        "2": "تقارير",
+        "3": "أداء",
+        "4": "تحويل",
+        "5": "performance",
+        "6": "conversion"
+      }
+    },
+    "dashboard_invoices": {
+      "description": "Issue and track invoices and payments",
+      "goal": "Create professional invoices, track payment status, and send reminders to clients. Supports online payment via Stripe.",
+      "tips": {
+        "0": "Create an invoice from scratch or convert an accepted quote",
+        "1": "Invoice statuses: draft → sent → partially paid → paid",
+        "2": "The client can pay online through the client portal",
+        "3": "Export the invoice as a PDF with full Arabic support",
+        "4": "Overdue invoices show alerts on the dashboard"
+      },
+      "keywords": {
+        "0": "invoices",
+        "1": "فواتير",
+        "2": "مدفوعات",
+        "3": "دفع",
+        "4": "Stripe",
+        "5": "billing",
+        "6": "payments"
+      }
+    },
+    "dashboard_clients": {
+      "description": "Manage client accounts and their portal",
+      "goal": "A central point for creating and editing client accounts, managing tags, exporting data, and tracking financial relationships and projects.",
+      "tips": {
+        "0": "Use search and tags to find a client quickly",
+        "1": "Switch between table and card views from the toolbar",
+        "2": "Click the client's name to go to their full detail page",
+        "3": "Export client data as CSV from the export button",
+        "4": "Add colored tags to organize clients by type or sector"
+      },
+      "keywords": {
+        "0": "clients",
+        "1": "عملاء",
+        "2": "شركات",
+        "3": "تصنيفات",
+        "4": "تصدير",
+        "5": "بطاقات",
+        "6": "companies",
+        "7": "tags",
+        "8": "export",
+        "9": "cards"
+      }
+    },
+    "dashboard_clients_id": {
+      "description": "Client details and relationship management",
+      "goal": "A comprehensive view of client information: projects, invoices, quotes, notes, activity, and branding.",
+      "tips": {
+        "0": "Use notes to document meetings and important decisions",
+        "1": "Track each client's outstanding balance from the stat cards",
+        "2": "Add tags to clients to make filtering and organizing easier",
+        "3": "Customize the client portal's branding from the Branding tab"
+      },
+      "keywords": {
+        "0": "عميل",
+        "1": "تفاصيل",
+        "2": "ملاحظات",
+        "3": "مشاريع",
+        "4": "فواتير",
+        "5": "client",
+        "6": "details",
+        "7": "notes",
+        "8": "projects",
+        "9": "invoices",
+        "10": "branding"
+      }
+    },
+    "dashboard_script_reviews": {
+      "description": "Review and approve content scripts",
+      "goal": "Manage the content script review cycle: from submission through review to final approval.",
+      "tips": {
+        "0": "Upload the script and assign reviewers",
+        "1": "Track review status from the list",
+        "2": "Add notes and edits to each script"
+      },
+      "keywords": {
+        "0": "scripts",
+        "1": "سكريبتات",
+        "2": "محتوى",
+        "3": "مراجعة",
+        "4": "scripts",
+        "5": "content",
+        "6": "review"
+      }
+    },
+    "dashboard_guide": {
+      "description": "Comprehensive guide to all system modules",
+      "goal": "A reference guide explaining every module in the system with tips and goals. Use search to quickly find any module.",
+      "tips": {
+        "0": "Use search to find any module in Arabic or English",
+        "1": "Click any card to view usage tips",
+        "2": "Click the link icon to go straight to the module"
+      },
+      "keywords": {
+        "0": "دليل",
+        "1": "guide",
+        "2": "مساعدة",
+        "3": "help",
+        "4": "شرح",
+        "5": "modules",
+        "6": "search",
+        "7": "reference"
+      }
+    },
+    "dashboard_profile": {
+      "description": "Personal profile and settings management",
+      "goal": "Update your personal information, change your password, and view your role and permissions in the system.",
+      "tips": {
+        "0": "You can upload a profile picture that appears throughout the system",
+        "1": "Changing your password requires at least 8 characters",
+        "2": "Your permissions are view-only — contact the admin to change them",
+        "3": "You can review your active sessions and end any suspicious session"
+      },
+      "keywords": {
+        "0": "ملف شخصي",
+        "1": "profile",
+        "2": "كلمة مرور",
+        "3": "صورة",
+        "4": "avatar",
+        "5": "إعدادات",
+        "6": "password",
+        "7": "permissions",
+        "8": "sessions"
+      }
+    },
+    "dashboard_boards": {
+      "description": "Task management boards — Kanban, Pipeline & List views",
+      "goal": "A unified task management system supporting 3 views: Kanban (drag and drop), Pipeline (sequential stages with % progress), and List (a sortable table). Each board can be linked to a project and a team.",
+      "tips": {
+        "0": "Choose between Kanban or Pipeline when creating the board — you can change it later from Settings",
+        "1": "6 ready-made templates: General, Content, Design, Campaigns, Video, Social Media",
+        "2": "The Pipeline view calculates the progress percentage automatically and shows it with a progress bar",
+        "3": "Use the toolbar to filter by members, labels, priority, or due date",
+        "4": "Click + at the bottom of a column to add a quick task without opening a dialog",
+        "5": "Click any card to open the task details: description, attachments, @mention comments, and checklist",
+        "6": "Pipeline boards support Stage Gates — stages that require approval before moving on",
+        "7": "The List view supports multi-select + bulk actions (move, priority, archive)",
+        "8": "Updates appear instantly via Supabase Realtime — no manual refresh needed"
+      },
+      "keywords": {
+        "0": "لوحات",
+        "1": "كانبان",
+        "2": "boards",
+        "3": "kanban",
+        "4": "pipeline",
+        "5": "مهام",
+        "6": "tasks",
+        "7": "سحب",
+        "8": "drag",
+        "9": "أعمدة",
+        "10": "مراحل",
+        "11": "columns",
+        "12": "stages",
+        "13": "list view"
+      }
+    },
+    "dashboard_my_tasks": {
+      "description": "Personal task dashboard — all tasks assigned to you",
+      "goal": "See all tasks assigned to you across every board and project in one place. Automatic grouping by date, with the option to group by board, priority, or project.",
+      "tips": {
+        "0": "Tasks are auto-categorized: overdue, today, this week, upcoming, completed",
+        "1": "Use the grouping buttons (date | board | priority | project) for a different view",
+        "2": "Pipeline boards show a dedicated progress bar for completion percentage",
+        "3": "Click any task to go straight to its board",
+        "4": "Overdue tasks appear in red with a counter in the statistics"
+      },
+      "keywords": {
+        "0": "مهامي",
+        "1": "مهام",
+        "2": "my-tasks",
+        "3": "tasks",
+        "4": "معيّنة",
+        "5": "شخصية",
+        "6": "assigned",
+        "7": "personal"
+      }
+    },
+    "dashboard_directory": {
+      "description": "Team member directory",
+      "goal": "View all team members with their contact information and roles. You can search and filter by team or role.",
+      "tips": {
+        "0": "Click an employee's card to view their details",
+        "1": "Use the team filter to view members of a specific team",
+        "2": "Roles are shown as colored badges based on the color set in the role's settings"
+      },
+      "keywords": {
+        "0": "دليل",
+        "1": "فريق",
+        "2": "موظفين",
+        "3": "directory",
+        "4": "team",
+        "5": "تواصل",
+        "6": "members",
+        "7": "roles",
+        "8": "contact"
+      }
+    },
+    "dashboard_hr": {
+      "description": "HR Overview dashboard — admin only",
+      "goal": "A quick, comprehensive overview of HR health: today's attendance, paid-leave liability, payroll cost, active evaluations, urgent alerts, and upcoming events — all in one admin-only dashboard.",
+      "tips": {
+        "0": "This page is admin-only and requires the hr.view permission — regular employees don't see this dashboard.",
+        "1": "The \"Today's Attendance Rate\" card shows how many are present out of total employees + the live percentage.",
+        "2": "The \"Paid Leave Liability\" card automatically calculates the monetary value of accrued unused days by multiplying the daily salary × leave balance — useful for monthly financial planning.",
+        "3": "The \"Monthly Payroll Cost\" card shows the actual spend for the current month with a 6-month trend chart.",
+        "4": "The \"Active Evaluations\" section shows currently open evaluation periods — click to go to /dashboard/evaluations to manage evaluations.",
+        "5": "The \"Alerts\" section collects urgent cases: employees without a direct manager, leave requests pending for a long time, and contracts nearing expiry.",
+        "6": "The \"Celebrations\" section shows upcoming birthdays and work anniversaries in the next seven days — useful for team morale and culture.",
+        "7": "All figures are computed in real time from the database — no manual refresh needed.",
+        "8": "To go to the details of any section (attendance, leave, payroll, evaluations), use the quick links under each card."
+      },
+      "keywords": {
+        "0": "hr",
+        "1": "موارد بشرية",
+        "2": "نظرة عامة",
+        "3": "حضور",
+        "4": "إجازات",
+        "5": "رواتب",
+        "6": "تقييمات",
+        "7": "overview",
+        "8": "لوحة إدارية",
+        "9": "التزام مالي",
+        "10": "payroll cost",
+        "11": "liability"
+      }
+    },
+    "dashboard_hr_productivity": {
+      "description": "Monthly production-team productivity report — deliveries, on-time rate, revision rounds, speed, and attendance",
+      "goal": "Find out at month-end who delivered what, how late they were, and whose work keeps getting sent back for revision.",
+      "tips": {
+        "0": "Pick the month from the month picker at the top of the page — defaults to the current month (Dubai time)",
+        "1": "\"On-time rate\" is measured against the FIRST submission for review — not the final delivery — so your review time doesn't count against the employee",
+        "2": "\"Waiting on your review\" is YOUR number: the average time from a version being submitted to your decision (approve/request changes)",
+        "3": "Click \"Task Details\" under any employee for a table of every task and its journey — every number on the cards is traceable to its source",
+        "4": "\"Overdue, not submitted\" = tasks that passed their deadline without any review version — this is the first thing to ask about",
+        "5": "All figures are derived from the task stage-movement log (pyra_task_stage_history) — moves via buttons or drag-and-drop are both recorded"
+      },
+      "keywords": {
+        "0": "إنتاجية",
+        "1": "تقرير",
+        "2": "مواعيد",
+        "3": "تسليم",
+        "4": "مراجعة",
+        "5": "productivity",
+        "6": "report",
+        "7": "deadlines",
+        "8": "production",
+        "9": "on-time",
+        "10": "rework"
+      }
+    },
+    "dashboard_approvals": {
+      "description": "Team leave, expense, and timesheet approvals",
+      "goal": "One place to review all requests from your direct reports: leave, expenses, and timesheets. Approve or reject with a single click.",
+      "tips": {
+        "0": "Here you only see requests from employees under your direct management",
+        "1": "Admin sees every request in the system",
+        "2": "Rejecting requires a reason so the employee understands and can fix it",
+        "3": "As soon as you approve a leave request, the balance is deducted automatically",
+        "4": "The badge next to the name counts all pending requests across the 3 types"
+      },
+      "keywords": {
+        "0": "موافقات",
+        "1": "إجازات",
+        "2": "مصاريف",
+        "3": "مدير",
+        "4": "فريق",
+        "5": "approvals",
+        "6": "manager",
+        "7": "team",
+        "8": "expenses",
+        "9": "leave",
+        "10": "timesheet"
+      }
+    },
+    "dashboard_timesheet": {
+      "description": "Track work hours, periods, and overtime",
+      "goal": "Log your daily work hours linked to projects and tasks. Group hours into weekly or monthly periods and submit them for approval. Overtime is detected automatically.",
+      "tips": {
+        "0": "Log your hours daily for accurate reports",
+        "1": "Link hours to specific tasks for more precise tracking",
+        "2": "Submit your weekly period for approval before the end of the week",
+        "3": "Overtime is calculated automatically based on your work schedule",
+        "4": "The overtime summary appears as a separate card with the approved multiplier",
+        "5": "You can review your monthly totals in reports"
+      },
+      "keywords": {
+        "0": "ساعات",
+        "1": "عمل",
+        "2": "timesheet",
+        "3": "وقت",
+        "4": "تسجيل",
+        "5": "اعتماد",
+        "6": "عمل إضافي",
+        "7": "overtime",
+        "8": "hours",
+        "9": "periods"
+      }
+    },
+    "dashboard_announcements": {
+      "description": "Internal announcements and alerts",
+      "goal": "Follow company announcements and the latest updates. Urgent announcements appear as a banner at the top of the dashboard.",
+      "tips": {
+        "0": "Pinned announcements always appear at the top",
+        "1": "Unread announcements are shown with special highlighting",
+        "2": "Admins can create and edit announcements",
+        "3": "An announcement can be targeted to specific teams"
+      },
+      "keywords": {
+        "0": "إعلانات",
+        "1": "تنبيهات",
+        "2": "announcements",
+        "3": "أخبار",
+        "4": "داخلية",
+        "5": "news",
+        "6": "internal"
+      }
+    },
+    "dashboard_leave": {
+      "description": "Leave requests and balances",
+      "goal": "Submit leave requests and track their status. View your leave balance by custom leave type, with support for annual balance carry-over.",
+      "tips": {
+        "0": "Check your balance before submitting a request",
+        "1": "Add a clear reason to speed up approval",
+        "2": "You can cancel a pending request, or even an approved leave, by stating a reason",
+        "3": "The system automatically detects overlapping team leave when you create a new request",
+        "4": "The balance carried over from the previous year appears on each leave type's card",
+        "5": "The team calendar shows who is on leave"
+      },
+      "keywords": {
+        "0": "إجازة",
+        "1": "leave",
+        "2": "رصيد",
+        "3": "طلب",
+        "4": "سنوية",
+        "5": "مرضية",
+        "6": "إلغاء",
+        "7": "ترحيل",
+        "8": "balance",
+        "9": "request",
+        "10": "cancel"
+      }
+    },
+    "dashboard_leave_settings": {
+      "description": "Manage leave types and settings",
+      "goal": "Create and edit custom leave types (annual, sick, personal, and others) with a default balance and carry-over policy.",
+      "tips": {
+        "0": "Set the default number of days for each leave type",
+        "1": "Enable automatic carry-over with a maximum cap",
+        "2": "Some leave types require attachments (like sick leave)",
+        "3": "Order leave types to display them in the desired sequence"
+      },
+      "keywords": {
+        "0": "أنواع إجازات",
+        "1": "leave types",
+        "2": "ترحيل",
+        "3": "carry-over",
+        "4": "إعدادات",
+        "5": "default balance"
+      }
+    },
+    "dashboard_hr_leave_balances": {
+      "description": "View and adjust employee leave balances by year — admin only",
+      "goal": "Review every employee's balance for each leave type in a given year (total, used, carried over, and remaining) and adjust it manually when needed — e.g. correcting a balance after an admin error or granting extra days.",
+      "tips": {
+        "0": "Pick the year from the dropdown at the top of the page (previous, current, or next) — the table updates instantly for the selected year.",
+        "1": "Every active employee (employee or sales agent) appears in the table even if they have no recorded balance yet for this year — they show a zero balance.",
+        "2": "Remaining balance is calculated as: total balance + carried-over days − used days. A red number means a negative balance (over the allowed limit).",
+        "3": "Click \"Edit\" next to the employee's name to open a dialog for adjusting their balance across all leave types at once.",
+        "4": "Balance carry-over from one year to the next happens automatically on January 1st via a scheduled job (cron) — no need to run it manually under normal circumstances.",
+        "5": "Unpaid leave is not deducted from any balance — only adjust its balance if you want to track days taken for statistical purposes.",
+        "6": "Any manual balance adjustment is recorded in the activity log for easy review later.",
+        "7": "The \"Leave Settings\" page (leave/settings) controls the default balance and carry-over policy for each type — use it to change the defaults for future years."
+      },
+      "keywords": {
+        "0": "أرصدة الإجازات",
+        "1": "leave balances",
+        "2": "رصيد",
+        "3": "ترحيل",
+        "4": "carry-over",
+        "5": "تعديل رصيد",
+        "6": "متبقي",
+        "7": "adjust",
+        "8": "remaining"
+      }
+    },
+    "dashboard_attendance": {
+      "description": "Clock in/out and attendance tracking",
+      "goal": "Clock in and out daily. Track your monthly attendance record with statistics on lateness, absence, and total hours worked.",
+      "tips": {
+        "0": "Press the \"Clock In\" button at the start of your shift",
+        "1": "Press \"Clock Out\" at the end of your shift — the time is calculated automatically",
+        "2": "The monthly calendar shows attendance days in different colors based on status",
+        "3": "Monthly statistics include: days present, lateness, absences, and total hours",
+        "4": "Admins can view the attendance of all employees"
+      },
+      "keywords": {
+        "0": "حضور",
+        "1": "attendance",
+        "2": "تسجيل دخول",
+        "3": "clock",
+        "4": "دوام",
+        "5": "انصراف",
+        "6": "late",
+        "7": "absent"
+      }
+    },
+    "dashboard_org_chart": {
+      "description": "Organization chart and reporting hierarchy",
+      "goal": "A tree view of the organizational structure showing the manager-and-reports chain. Helps you understand the reporting and approval line.",
+      "tips": {
+        "0": "The tree starts from the general manager and branches downward",
+        "1": "Click any employee to view their details",
+        "2": "The reporting line determines who approves leave and attendance records",
+        "3": "An admin can set the direct manager from the user settings"
+      },
+      "keywords": {
+        "0": "هيكل تنظيمي",
+        "1": "org chart",
+        "2": "مدير",
+        "3": "تقارير",
+        "4": "شجرة",
+        "5": "hierarchy",
+        "6": "manager",
+        "7": "reports"
+      }
+    },
+    "dashboard_my_payslips": {
+      "description": "View and download monthly payslips",
+      "goal": "View your monthly payslips with details of base salary, task payments, overtime, bonuses, and deductions.",
+      "tips": {
+        "0": "A payslip becomes available after the monthly payroll run is approved",
+        "1": "You can download the payslip as a PDF",
+        "2": "The breakdown includes: base salary + task payments + overtime + bonuses − deductions = net pay"
+      },
+      "keywords": {
+        "0": "كشف راتب",
+        "1": "payslip",
+        "2": "راتب",
+        "3": "salary",
+        "4": "مرتب",
+        "5": "payroll"
+      }
+    },
+    "dashboard_finance": {
+      "description": "Comprehensive financial management dashboard",
+      "goal": "An overview of the financial position: revenue, expenses, profit, financial alerts, and a quick summary of every finance section.",
+      "tips": {
+        "0": "The top cards show a quick summary of revenue and expenses",
+        "1": "Financial alerts show overdue invoices and subscriptions nearing expiry",
+        "2": "Click any section to go to its detail page"
+      },
+      "keywords": {
+        "0": "finance",
+        "1": "مالية",
+        "2": "إيرادات",
+        "3": "مصاريف",
+        "4": "أرباح",
+        "5": "revenue",
+        "6": "profit"
+      }
+    },
+    "dashboard_finance_expenses": {
+      "description": "Record and categorize operational expenses",
+      "goal": "Record all company expenses with category and linked project. Supports tax and multiple currencies.",
+      "tips": {
+        "0": "Add a new expense from the button at the top of the page",
+        "1": "Link the expense to a project to calculate project profitability",
+        "2": "Add the VAT amount for accurate tax reports",
+        "3": "Use categories to analyze spending patterns",
+        "4": "You can manage categories from the \"Categories\" page"
+      },
+      "keywords": {
+        "0": "expenses",
+        "1": "مصاريف",
+        "2": "إنفاق",
+        "3": "ضريبة",
+        "4": "spending",
+        "5": "VAT"
+      }
+    },
+    "dashboard_finance_expenses_categories": {
+      "description": "Manage expense categories",
+      "goal": "Create and edit expense categories to better organize and analyze spending.",
+      "tips": {
+        "0": "Create categories that fit the nature of your business",
+        "1": "Categories are used when creating expenses and in reports",
+        "2": "You can edit or delete any category"
+      },
+      "keywords": {
+        "0": "تصنيفات",
+        "1": "categories",
+        "2": "مصاريف",
+        "3": "فئات",
+        "4": "expenses"
+      }
+    },
+    "dashboard_finance_client_statement": {
+      "description": "Client financial statement",
+      "goal": "View a detailed account statement for each client, including invoices, payments, and the remaining balance.",
+      "tips": {
+        "0": "Select a client to view their statement",
+        "1": "The statement includes invoices, payments, and balance",
+        "2": "You can export the statement as a file"
+      },
+      "keywords": {
+        "0": "كشف حساب",
+        "1": "statement",
+        "2": "عميل",
+        "3": "رصيد",
+        "4": "مالي",
+        "5": "invoices",
+        "6": "payments"
+      }
+    },
+    "dashboard_finance_cards": {
+      "description": "Manage payment and company cards",
+      "goal": "Register company cards and track the expenses linked to each card.",
+      "tips": {
+        "0": "Add a new card with its details",
+        "1": "Link expenses to a specific card to track spending",
+        "2": "Track the card limit and the balance used"
+      },
+      "keywords": {
+        "0": "cards",
+        "1": "بطاقات",
+        "2": "دفع",
+        "3": "visa",
+        "4": "limit"
+      }
+    },
+    "dashboard_finance_contracts": {
+      "description": "Manage contracts — retainers and milestones",
+      "goal": "Track all contracts: monthly retainers with automatic billing, or milestone contracts that generate an invoice for each completed milestone.",
+      "tips": {
+        "0": "A \"monthly retainer\" contract creates automatic billing once activated",
+        "1": "Set the monthly amount, the billing cycle, and the billing day",
+        "2": "Changing the contract status to \"active\" enables automatic billing",
+        "3": "Cancelling or completing the contract stops recurring billing",
+        "4": "A \"milestone\" contract lets you generate an invoice for each completed milestone",
+        "5": "Add scope-of-work items from the contract edit page — they appear on invoices and in the portal"
+      },
+      "keywords": {
+        "0": "contracts",
+        "1": "عقود",
+        "2": "retainer",
+        "3": "اشتراك شهري",
+        "4": "دفع شهري",
+        "5": "مراحل",
+        "6": "نطاق العمل",
+        "7": "بنود",
+        "8": "scope",
+        "9": "billing cycle"
+      }
+    },
+    "dashboard_finance_credit_notes": {
+      "description": "Manage credit notes — refunds and adjustments",
+      "goal": "Create credit notes to adjust or cancel issued invoices, with the option to apply them to reduce the amount due.",
+      "tips": {
+        "0": "Create a credit note from the invoice page or directly",
+        "1": "Credit note statuses: draft → issued → applied or voided",
+        "2": "Applying the credit note reduces the amount due on the linked invoice",
+        "3": "The credit note can be linked to a specific invoice, or created unlinked"
+      },
+      "keywords": {
+        "0": "credit notes",
+        "1": "إشعارات دائنة",
+        "2": "مرتجع",
+        "3": "تعديل فاتورة",
+        "4": "رد مبلغ",
+        "5": "refund",
+        "6": "void"
+      }
+    },
+    "dashboard_finance_suppliers": {
+      "description": "Manage suppliers and their banking details",
+      "goal": "Register the suppliers the company works with, and link them to expenses and purchase orders to track payments.",
+      "tips": {
+        "0": "Add the supplier's banking details to make payments easier",
+        "1": "The supplier can be linked to expenses when creating them",
+        "2": "Deactivating a supplier hides them from lists without deleting their data",
+        "3": "Add the Tax Registration Number (TRN) for tax compliance"
+      },
+      "keywords": {
+        "0": "suppliers",
+        "1": "موردين",
+        "2": "vendor",
+        "3": "بائع",
+        "4": "مورد",
+        "5": "بيانات بنكية",
+        "6": "bank details",
+        "7": "TRN"
+      }
+    },
+    "dashboard_finance_purchase_orders": {
+      "description": "Create and manage purchase orders for suppliers",
+      "goal": "Issue formal purchase orders to suppliers and track order status from creation through receipt and invoicing.",
+      "tips": {
+        "0": "Order statuses: draft → sent → confirmed → received → invoiced",
+        "1": "Select the supplier from the registry to auto-fill the details",
+        "2": "The purchase order can be linked to a specific project",
+        "3": "Purchase orders cannot be deleted after they've been sent"
+      },
+      "keywords": {
+        "0": "purchase orders",
+        "1": "أوامر شراء",
+        "2": "PO",
+        "3": "طلب شراء",
+        "4": "مشتريات",
+        "5": "status",
+        "6": "received"
+      }
+    },
+    "dashboard_finance_recurring": {
+      "description": "Set up automatic recurring invoices",
+      "goal": "Create invoice templates that are issued automatically on a set schedule (monthly, quarterly, annual).",
+      "tips": {
+        "0": "Set the client, line items, and recurrence cycle",
+        "1": "The invoice is generated automatically on the scheduled date",
+        "2": "You can pause or edit the recurring invoice at any time"
+      },
+      "keywords": {
+        "0": "recurring",
+        "1": "فواتير متكررة",
+        "2": "تلقائي",
+        "3": "جدولة",
+        "4": "template",
+        "5": "schedule"
+      }
+    },
+    "dashboard_finance_reports": {
+      "description": "Detailed financial reports and profitability analytics",
+      "goal": "Comprehensive financial analysis including: profit & loss, cash flow, tax, client profitability, and project profitability.",
+      "tips": {
+        "0": "Choose the time period from the date filter",
+        "1": "The \"Profit & Loss\" tab shows revenue and expenses for each period",
+        "2": "The \"Cash Flow\" tab shows money in (receipts) versus money out (expenses + refunds) month by month, with the cumulative balance and expected collections",
+        "3": "The \"Tax\" tab calculates the net VAT due",
+        "4": "The \"Client Profitability\" tab ranks clients by profit",
+        "5": "The \"Project Profitability\" tab tracks budget usage for each project",
+        "6": "Export the report as a file to share"
+      },
+      "keywords": {
+        "0": "reports",
+        "1": "تقارير",
+        "2": "أرباح",
+        "3": "خسائر",
+        "4": "ضريبة",
+        "5": "ربحية",
+        "6": "cash flow",
+        "7": "P&L"
+      }
+    },
+    "dashboard_finance_targets": {
+      "description": "Set and track revenue targets",
+      "goal": "Set monthly or annual revenue targets and track progress toward achieving them.",
+      "tips": {
+        "0": "Set a revenue target for each period",
+        "1": "The progress bar updates automatically with paid invoices",
+        "2": "Compare actual performance against the set target"
+      },
+      "keywords": {
+        "0": "targets",
+        "1": "أهداف",
+        "2": "إيرادات",
+        "3": "أداء",
+        "4": "revenue",
+        "5": "progress"
+      }
+    },
+    "dashboard_payroll": {
+      "description": "Monthly payroll management",
+      "goal": "Create a monthly payroll run that combines: base salary + task payments + overtime + bonuses − deductions. Approve it and pay out salaries.",
+      "tips": {
+        "0": "Create a new payroll run for each month",
+        "1": "The \"Calculate\" button computes all employee line items automatically",
+        "2": "You can add manual bonuses or deductions for each employee",
+        "3": "Approve the run, then record the disbursement to issue payslips",
+        "4": "Export each employee's payslip as a PDF"
+      },
+      "keywords": {
+        "0": "رواتب",
+        "1": "payroll",
+        "2": "مسير",
+        "3": "صرف",
+        "4": "مكافأة",
+        "5": "خصم",
+        "6": "run",
+        "7": "bonus",
+        "8": "deduction"
+      }
+    },
+    "dashboard_evaluations": {
+      "description": "Employee performance evaluations and KPIs",
+      "goal": "Create periodic evaluation cycles and rate employee performance against defined criteria. Track KPIs and achieve goals.",
+      "tips": {
+        "0": "Create an evaluation period (quarterly or annual), then add evaluations",
+        "1": "Each evaluation includes scores across multiple criteria (quality, productivity, communication...)",
+        "2": "The radar chart shows strengths and areas for improvement",
+        "3": "Set KPI targets for each employee and track progress — from the \"KPIs\" tab, click \"Update Progress\" next to any KPI to record the new actual value",
+        "4": "The employee sees their evaluation and acknowledges having reviewed it",
+        "5": "If the employee's rating is 3.5 stars or higher, a \"Recommend Bonus\" button appears in the evaluation details — it calculates the bonus automatically (5%/10%/15% of salary based on the grade) and creates a pending payment in the employee's salary currency",
+        "6": "The \"Performance Trend\" tab shows a line chart of one employee's ratings across all periods + the average + a \"low performance\" alert if any rating drops below 3.0"
+      },
+      "keywords": {
+        "0": "تقييم",
+        "1": "أداء",
+        "2": "evaluation",
+        "3": "KPI",
+        "4": "مراجعة",
+        "5": "أهداف",
+        "6": "مكافأة",
+        "7": "bonus",
+        "8": "اتجاه الأداء",
+        "9": "criteria",
+        "10": "trend"
+      }
+    },
+    "dashboard_evaluations_settings": {
+      "description": "Manage evaluation criteria and periods",
+      "goal": "Customize performance evaluation criteria (technical and behavioral) and their weights. Manage evaluation periods and their statuses.",
+      "tips": {
+        "0": "Add new criteria and set their weight and category (technical or behavioral)",
+        "1": "Default criteria: work quality, productivity, communication, teamwork",
+        "2": "You can disable a criterion without deleting it"
+      },
+      "keywords": {
+        "0": "معايير تقييم",
+        "1": "criteria",
+        "2": "فترات",
+        "3": "أوزان",
+        "4": "weights"
+      }
+    },
+    "dashboard_hr_documents": {
+      "description": "Employee documents management with expiry tracking and alerts — admin only",
+      "goal": "Upload employee documents (passports, work permits, contracts, certificates...) and track their expiry dates. The system sends automatic alerts 30 and 7 days before expiry. Documents are protected with private signed URLs (private bucket).",
+      "tips": {
+        "0": "This page is admin-only and requires the documents.manage permission — employees only see their own documents via the \"My Documents\" page.",
+        "1": "To upload a document: select the employee → choose the document type from the customizable list → set the expiry date → upload the file.",
+        "2": "Document types are customizable from system settings — e.g. passport, work permit, residency, employment contract, professional certificate.",
+        "3": "The system sends an automatic alert 30 days before a document expires, and another 7 days before — no manual follow-up needed.",
+        "4": "Expired documents show a red \"Expired\" badge and are collected in the admin's urgent alerts list.",
+        "5": "All documents are stored in a private bucket and a time-limited signed URL is issued for access — no one can reach the file without permission.",
+        "6": "Use the \"Employee\", \"Document Type\", or \"Status\" (valid/expiring soon/expired) filter to quickly narrow the list.",
+        "7": "Click a document's card to preview or download the file — the link is generated on the spot and is valid for one hour.",
+        "8": "You can edit the expiry date or replace the uploaded file from the same card without deleting and re-uploading the document."
+      },
+      "keywords": {
+        "0": "وثائق الموظفين",
+        "1": "documents",
+        "2": "جواز",
+        "3": "رخصة عمل",
+        "4": "انتهاء",
+        "5": "expiry",
+        "6": "تنبيهات",
+        "7": "signed URL",
+        "8": "private bucket",
+        "9": "passport",
+        "10": "certificate"
+      }
+    },
+    "dashboard_hr_documents_settings": {
+      "description": "Manage employee document type catalogue — admin only",
+      "goal": "Customize the list of document types used by the document vault. Add new types, edit existing ones, or disable them without changing any code.",
+      "tips": {
+        "0": "Each document type has an Arabic + English name and a \"requires expiry date\" setting — enable it for types like passport and residency.",
+        "1": "Disabled types (is_active=false) don't appear in the new-upload list — you can disable a type instead of deleting it to preserve old documents.",
+        "2": "Default types: employment contract, Emirates ID, passport, residency/visa, certificate, other.",
+        "3": "Display order is controlled by the sort_order field — smaller numbers appear first.",
+        "4": "These settings affect the Employee Documents page (/dashboard/hr/documents) and the Onboarding wizard (/dashboard/hr/onboarding)."
+      },
+      "keywords": {
+        "0": "أنواع الوثائق",
+        "1": "document types",
+        "2": "فئات",
+        "3": "إعدادات",
+        "4": "جواز",
+        "5": "إقامة",
+        "6": "انتهاء",
+        "7": "catalogue",
+        "8": "expiry",
+        "9": "sort order"
+      }
+    },
+    "dashboard_hr_onboarding": {
+      "description": "New hire onboarding — auto-generate offer letter, NDA, asset handover PDF + task checklist",
+      "goal": "Automate the new-hire onboarding process: enter personal, job, salary, and asset-custody data → the system creates the account, generates documents (offer letter + NDA + asset handover form), and starts the onboarding task checklist.",
+      "tips": {
+        "0": "Click \"New Employee\" and follow the 5 steps: personal info → job → compensation → clauses & assets → review → complete.",
+        "1": "Base salary is required — the monthly total is calculated automatically from (base + housing + transport + communication + other allowances).",
+        "2": "Enable \"Sales employee\" in the Job step to show the commission rate and monthly target fields in the Compensation step.",
+        "3": "Custom clauses appear at the end of the offer letter PDF — use them for confidentiality terms or special notes.",
+        "4": "After onboarding is created, click the row to open the detail page: update checklist tasks, download documents, and formally complete the onboarding.",
+        "5": "If a document fails to generate, the page shows it as \"Not generated yet\" with a \"Generate\" button to retry without recreating the user.",
+        "6": "To formally complete onboarding: finish every checklist task, then click \"Complete Onboarding\" on the detail page.",
+        "7": "This page is for the full onboarding of a new employee with the contract PDF, NDA, and asset handover form — if you just want to create an account without documents, use /dashboard/users directly.",
+        "8": "The onboarding detail page has a \"View Employee Profile\" link to open the new employee's account directly in /dashboard/users once onboarding is complete."
+      },
+      "keywords": {
+        "0": "onboarding",
+        "1": "تعيين",
+        "2": "موظف جديد",
+        "3": "عرض عمل",
+        "4": "NDA",
+        "5": "عهدة",
+        "6": "مستندات",
+        "7": "PDF",
+        "8": "إيبورد",
+        "9": "new hire",
+        "10": "offer letter"
+      }
+    },
+    "dashboard_hr_work_schedules": {
+      "description": "Manage weekly work schedules and assign them to employees",
+      "goal": "Create multiple work schedules (e.g. a regular Monday–Saturday schedule, a seasonal schedule...) and assign each employee to their own schedule. The start time is used automatically to calculate lateness in the attendance record.",
+      "tips": {
+        "0": "Click \"Add Schedule\", then enter the name in Arabic and English, choose the work days, and the start and end times.",
+        "1": "The default work days for a new schedule are Monday–Saturday (the company's weekend is Sunday only) — change the selection if needed.",
+        "2": "The start time is used directly to calculate lateness — an employee who clocks in after this time is marked \"late\" in the attendance record.",
+        "3": "The default schedule (is_default) is applied automatically to any employee who hasn't been assigned a specific schedule — always keep exactly one default schedule.",
+        "4": "To assign a schedule to an employee: open /dashboard/users → edit the user → the \"Employment Info\" section → choose \"Work Schedule\".",
+        "5": "The default schedule cannot be deleted — make another schedule the default first before deleting.",
+        "6": "A schedule assigned to employees cannot be deleted — reassign those employees to another schedule first from the users page.",
+        "7": "The overtime multiplier and weekend multiplier are used later in payroll calculations."
+      },
+      "keywords": {
+        "0": "جداول العمل",
+        "1": "work schedules",
+        "2": "حضور",
+        "3": "أيام العمل",
+        "4": "وقت البداية",
+        "5": "افتراضي",
+        "6": "تأخر",
+        "7": "ساعات",
+        "8": "default schedule"
+      }
+    },
+    "dashboard_my_documents": {
+      "description": "My documents — self-service view of personal documents uploaded by admin",
+      "goal": "View all your personal documents (passport, residency, contract...) uploaded on your behalf by admin. See each document's status and download the file directly. The system reminds you automatically as any document nears expiry.",
+      "tips": {
+        "0": "This page shows only your own documents — you won't see your colleagues' documents.",
+        "1": "Documents are ordered by status: valid → expiring soon → expired.",
+        "2": "The yellow \"Expiring soon\" badge means less than 30 days remain — contact admin to renew the document.",
+        "3": "The red \"Expired\" badge means it has expired — you're advised to contact admin immediately.",
+        "4": "Click the document's card or the download button to get a secure (signed URL) link and download the file directly.",
+        "5": "Generated links are valid for one hour only — if a link expires, click download again for a new one.",
+        "6": "You'll receive an in-system notification 30 days before, and again 7 days before, any document expires.",
+        "7": "You cannot upload or edit documents from this page — edits are made by admin only via the \"Employee Documents\" page."
+      },
+      "keywords": {
+        "0": "وثائقي",
+        "1": "my documents",
+        "2": "وثائق",
+        "3": "جواز",
+        "4": "إقامة",
+        "5": "انتهاء",
+        "6": "تحميل",
+        "7": "self-service",
+        "8": "expiring",
+        "9": "download"
+      }
+    },
+    "dashboard_content_pipeline": {
+      "description": "Content production pipeline from script to delivery",
+      "goal": "Track content production stages: scriptwriting → review → revision → filming → editing → client review → delivery.",
+      "tips": {
+        "0": "Create a new content item and set the project and type (video, photos...)",
+        "1": "The Kanban board shows the stages as sequential columns",
+        "2": "Assign an owner to each stage to distribute the work",
+        "3": "Log notes on each stage to document decisions",
+        "4": "Link the content to a script review for full traceability"
+      },
+      "keywords": {
+        "0": "محتوى",
+        "1": "إنتاج",
+        "2": "pipeline",
+        "3": "فيديو",
+        "4": "مراحل",
+        "5": "كانبان",
+        "6": "production",
+        "7": "stages"
+      }
+    },
+    "dashboard_teams": {
+      "description": "Create and manage work teams",
+      "goal": "Organize your staff into work teams with file access permissions per team.",
+      "tips": {
+        "0": "Create a new team and add members",
+        "1": "Each team can access specific folders",
+        "2": "Assign a lead to each team to manage its members"
+      },
+      "keywords": {
+        "0": "teams",
+        "1": "فرق",
+        "2": "مجموعات",
+        "3": "أعضاء",
+        "4": "lead",
+        "5": "access"
+      }
+    },
+    "dashboard_users": {
+      "description": "Manage users and assign roles",
+      "goal": "Add new users, assign them roles and permissions, and set the management structure (manager → reports) for the approval chain.",
+      "tips": {
+        "0": "Create a user: enter a username (≥ 3 characters) + password (≥ 8 characters — the PASSWORD_MIN_LENGTH constant) + display name + role",
+        "1": "Role has 3 options: admin (everything) / employee (base + self-service HR) / sales_agent (CRM + WhatsApp + everything in employee)",
+        "2": "manager_username sets the direct manager — used in approvals (leave, expenses, timesheet) via canApproveFor()",
+        "3": "extra_permissions adds extra permissions on top of the role — exact matches only from the PERMISSIONS catalog; wildcards (* or module.*) are forbidden (Phase D-1 lock)",
+        "4": "HR fields: employment_type / work_location / payment_type / salary / hire_date — these appear on the payslip",
+        "5": "You cannot delete the last admin — the system blocks it",
+        "6": "Deactivating an account (status=inactive) is better than deleting — it preserves history",
+        "7": "Change password: admin → users → … → \"Change Password\" (rate-limited 5/15min/IP)",
+        "8": "If you're hiring a new employee and need to auto-generate an offer letter PDF, an NDA, and an asset handover form, use the onboarding wizard at /dashboard/hr/onboarding instead of adding a user directly here.",
+        "9": "Employees created via the onboarding wizard show a \"Created via onboarding\" marker on their row, linking directly to the onboarding record."
+      },
+      "keywords": {
+        "0": "users",
+        "1": "مستخدمون",
+        "2": "حسابات",
+        "3": "أدوار",
+        "4": "permissions",
+        "5": "صلاحيات",
+        "6": "manager",
+        "7": "مدير",
+        "8": "extra_permissions",
+        "9": "onboarding",
+        "10": "تعيين",
+        "11": "accounts",
+        "12": "role"
+      }
+    },
+    "dashboard_roles": {
+      "description": "Manage custom roles and permissions",
+      "goal": "Create custom roles with specific permissions for each module in the system. Roles are the auditable way to grant broad permissions (wildcards). Individual per-employee permissions belong in extra_permissions (no wildcards).",
+      "tips": {
+        "0": "System roles (is_system=true) cannot be deleted — admin + employee + sales_agent",
+        "1": "Create a custom role: Arabic + English name + color + icon + a selected list of permissions",
+        "2": "Permissions are grouped by module in an organized catalog (lib/auth/rbac.ts PERMISSION_CATALOG)",
+        "3": "Every role automatically inherits BASE_EMPLOYEE (self-service HR — leave/attendance/timesheet/payroll.view) — no need to worry about them",
+        "4": "The `*` wildcard (super-admin) or `module.*` must live in the role, never in extra_permissions",
+        "5": "Changing permissions takes effect immediately — every user with the same role gets the change on their next request",
+        "6": "The ROLE_EXTRAS map in rbac.ts defines the legacy roles; custom DB roles take precedence over it"
+      },
+      "keywords": {
+        "0": "roles",
+        "1": "أدوار",
+        "2": "صلاحيات",
+        "3": "RBAC",
+        "4": "permissions",
+        "5": "wildcard",
+        "6": "BASE_EMPLOYEE",
+        "7": "custom role"
+      }
+    },
+    "dashboard_permissions": {
+      "description": "Manage file and folder permissions",
+      "goal": "Control who can access specific files and folders. Assign read, write, delete, and share permissions to each user or team.",
+      "tips": {
+        "0": "Assign permissions to a user or team on a specific folder",
+        "1": "You can set an expiry date for a temporary permission",
+        "2": "Permissions: read, write, delete, share",
+        "3": "Delete a permission to remove a user's access to a given folder"
+      },
+      "keywords": {
+        "0": "صلاحيات",
+        "1": "permissions",
+        "2": "وصول",
+        "3": "ملفات",
+        "4": "أمان",
+        "5": "access",
+        "6": "folder"
+      }
+    },
+    "dashboard_reports": {
+      "description": "Comprehensive reports on projects, clients, and team",
+      "goal": "The general reports hub: project reports, client reports, storage, revenue, and team performance.",
+      "tips": {
+        "0": "Choose the report type from the available cards",
+        "1": "Every report shows up-to-date data",
+        "2": "Reports can be exported as files"
+      },
+      "keywords": {
+        "0": "reports",
+        "1": "تقارير",
+        "2": "تحليلات",
+        "3": "performance"
+      }
+    },
+    "dashboard_automations": {
+      "description": "Set up workflow automation and notifications",
+      "goal": "Automate repetitive tasks: send automatic notifications, update statuses, and run actions based on specific events.",
+      "tips": {
+        "0": "Create a new automation rule with a condition and a trigger",
+        "1": "Choose the action: notification, status update, or webhook",
+        "2": "Track the execution log for each rule",
+        "3": "You can temporarily disable a rule without deleting it"
+      },
+      "keywords": {
+        "0": "automations",
+        "1": "أتمتة",
+        "2": "قواعد",
+        "3": "تلقائي",
+        "4": "rules",
+        "5": "trigger"
+      }
+    },
+    "dashboard_knowledge_base": {
+      "description": "Knowledge base for FAQs and documentation",
+      "goal": "Create knowledge articles for clients and the team. Articles appear in the client portal as a help center.",
+      "tips": {
+        "0": "Create categories to organize articles",
+        "1": "Published articles appear in the client portal",
+        "2": "Use the editor to format articles easily"
+      },
+      "keywords": {
+        "0": "knowledge",
+        "1": "معرفة",
+        "2": "مقالات",
+        "3": "أسئلة شائعة",
+        "4": "articles",
+        "5": "help center"
+      }
+    },
+    "dashboard_integrations": {
+      "description": "Connect external services via Webhooks",
+      "goal": "Connect the workspace to external services (Slack, Zapier, etc.) via webhooks to exchange data automatically.",
+      "tips": {
+        "0": "Create a new webhook with the external service's URL",
+        "1": "Choose the events you want to send",
+        "2": "Track the delivery log and the success/failure of each request"
+      },
+      "keywords": {
+        "0": "integrations",
+        "1": "تكاملات",
+        "2": "webhooks",
+        "3": "API",
+        "4": "events"
+      }
+    },
+    "dashboard_activity": {
+      "description": "Comprehensive log of all system activities",
+      "goal": "Monitor everything happening in the workspace: from file uploads to project edits and invoice creation.",
+      "tips": {
+        "0": "Filter by user or activity type",
+        "1": "Activities are sorted from newest to oldest",
+        "2": "Click an activity to see the details"
+      },
+      "keywords": {
+        "0": "activity",
+        "1": "نشاط",
+        "2": "سجل",
+        "3": "تتبع",
+        "4": "log"
+      }
+    },
+    "dashboard_login_history": {
+      "description": "User login history log",
+      "goal": "Track who logged in, when, and where, to keep accounts secure.",
+      "tips": {
+        "0": "Watch for suspicious login attempts",
+        "1": "Track each user's last activity",
+        "2": "Geographic locations appear when available"
+      },
+      "keywords": {
+        "0": "login",
+        "1": "تسجيل دخول",
+        "2": "أمان",
+        "3": "سجل",
+        "4": "history"
+      }
+    },
+    "dashboard_sessions": {
+      "description": "Manage active user sessions",
+      "goal": "Browse active sessions and end any suspicious session to protect accounts.",
+      "tips": {
+        "0": "Active sessions show device and browser information",
+        "1": "You can end any user's session",
+        "2": "The current session is marked and cannot be ended from here"
+      },
+      "keywords": {
+        "0": "sessions",
+        "1": "جلسات",
+        "2": "أمان",
+        "3": "أجهزة",
+        "4": "devices"
+      }
+    },
+    "dashboard_admin_error_logs": {
+      "description": "System error log viewer",
+      "goal": "Browse the errors captured by the observability collector from APIs, crons, webhooks, and client-side error boundaries. Start with the \"unresolved\" filter to focus on what needs attention. PII is sanitized, with automatic 90-day retention.",
+      "tips": {
+        "0": "Triage workflow: start with \"unresolved\" + \"production\" + \"7 days\" → inspect → mark resolved with notes → repeat",
+        "1": "Click any row to see the full stack trace + request_headers + request_body + user context",
+        "2": "Severity filter: critical/error/warning/info — start with critical + error",
+        "3": "PII is sanitized before storage — it appears as [EMAIL] / [PHONE] / [REDACTED]",
+        "4": "Arabic-Indic numerals (٠-٩) + spaced/parens-formatted phone numbers are sanitized too (Phase D-3 hardening)",
+        "5": "Retention is 90 days — a daily 03:00 Dubai cron automatically deletes older rows (Phase D-3)",
+        "6": "The \"production\" filter hides noise coming from the local development environment",
+        "7": "Every change (resolve / reopen) is recorded on the row with resolved_by + resolved_at + resolved_notes",
+        "8": "Two separate permissions: error_logs.view (read) + error_logs.manage (PATCH/edit) — admin only"
+      },
+      "keywords": {
+        "0": "errors",
+        "1": "logs",
+        "2": "observability",
+        "3": "debugging",
+        "4": "monitoring",
+        "5": "أخطاء",
+        "6": "سجل",
+        "7": "مراقبة",
+        "8": "تصحيح",
+        "9": "PII",
+        "10": "retention",
+        "11": "90 يوم",
+        "12": "stack trace",
+        "13": "severity"
+      }
+    },
+    "dashboard_settings": {
+      "description": "General system settings and customizations",
+      "goal": "Customize workspace settings: company information + business entities (multi-license) + invoice/quote prefixes + banking details + WhatsApp instances + agent WhatsApp routing + portal + API keys.",
+      "tips": {
+        "0": "\"General\" tab: default company data + multiple business entities (each invoice/quote picks an entity) + prefixes + banking details",
+        "1": "\"API Keys\" tab: create keys for external integrations (n8n crons, Telegram bot, Evolution webhook). Each key has a permissions list — use '*' for a super-key or specify cron.<name> for crons",
+        "2": "\"WhatsApp Instances\" tab: create + connect (QR code) + disconnect — each instance stores status + last_connected_at",
+        "3": "\"Agent WhatsApp Settings\" tab: link each agent to an instance + recipient_phone — used by the follow-up reminders cron (Phase 11 Refinement)",
+        "4": "\"Portal\" tab: welcome message + client branding customization",
+        "5": "\"System Settings\" tab: quick links to sales, leave, evaluation, leave-types settings, etc.",
+        "6": "Changes take effect immediately after saving — no restart needed",
+        "7": "API keys must be stored externally (n8n credential) — there is no way to retrieve them after creation (only a hash is shown)"
+      },
+      "keywords": {
+        "0": "settings",
+        "1": "إعدادات",
+        "2": "تخصيص",
+        "3": "شعار",
+        "4": "فاتورة",
+        "5": "بنك",
+        "6": "API",
+        "7": "بورتال",
+        "8": "whatsapp",
+        "9": "instance",
+        "10": "agent routing",
+        "11": "multi-license",
+        "12": "company info",
+        "13": "banking"
+      }
+    },
+    "dashboard_crm": {
+      "description": "Sales performance overview dashboard",
+      "goal": "View sales statistics: total leads, new leads, converted leads, pending follow-ups, and pipeline distribution.",
+      "tips": {
+        "0": "The top cards show a quick summary of sales status",
+        "1": "The sales pipeline shows how leads are distributed across stages",
+        "2": "Recent leads shows the newest additions",
+        "3": "Use reports to identify your best lead sources"
+      },
+      "keywords": {
+        "0": "sales",
+        "1": "مبيعات",
+        "2": "leads",
+        "3": "عملاء محتملين",
+        "4": "pipeline",
+        "5": "crm",
+        "6": "reports",
+        "7": "تقارير",
+        "8": "إحصائيات",
+        "9": "أداء",
+        "10": "analytics",
+        "11": "statistics"
+      }
+    },
+    "dashboard_crm_pipeline": {
+      "description": "Manage sales leads with Kanban and table views",
+      "goal": "The full lead lifecycle in one place: from creation, through qualification across the pipeline stages, to conversion into an actual client. Drag leads between stages or open any lead to see all its details.",
+      "tips": {
+        "0": "Lifecycle: create (\"+ New Lead\" button) → qualify (drag between stages) → close (closed_won requires admin approval) → convert (\"Convert to Client\" button on the lead page)",
+        "1": "Use Kanban to drag leads between stages — mobile uses the \"Move Stage\" button instead of dragging",
+        "2": "A pending closed_won stage waits for admin approval — it moves to approved (auto-converts) or rejected",
+        "3": "Admin can filter by priority + source + assigned agent; an agent only sees their own leads (strict scoping)",
+        "4": "Every lead opens a detail page with 6 tabs: overview, activity, tasks, deals, attachments, notes",
+        "5": "Click \"Link to Existing Client\" to link a lead to a client already in the system (used when the client has purchased before)",
+        "6": "Reassignment (admin only): from the lead page use \"Change Owner\", or for bulk reassignment click \"Select Multiple\" in the Pipeline, pick several leads, then \"Assign To\". The new owner gets a notification and the change is logged in the activity timeline — in both cases"
+      },
+      "keywords": {
+        "0": "leads",
+        "1": "عملاء محتملين",
+        "2": "kanban",
+        "3": "pipeline",
+        "4": "مبيعات",
+        "5": "lifecycle",
+        "6": "تحويل",
+        "7": "closed won",
+        "8": "تأهيل",
+        "9": "إعادة إسناد",
+        "10": "تغيير المسؤول",
+        "11": "lead",
+        "12": "qualify"
+      }
+    },
+    "dashboard_crm_leads_archived": {
+      "description": "Archived (soft-deleted) leads",
+      "goal": "Archived leads are hidden from the pipeline and lists but not permanently deleted. From here you can review them and restore any of them. Archiving itself is done from the \"Archive\" button on the lead detail page.",
+      "tips": {
+        "0": "Archiving (admin or anyone with the leads.delete permission): from the lead detail page → the admin actions row → \"Archive\" button → confirm",
+        "1": "An archived lead disappears instantly from the pipeline and lists (without permanent deletion) — you can restore it at any time",
+        "2": "Restore: from this page click the \"Restore\" button next to the lead → it goes back to the normal pipeline",
+        "3": "Each row shows the archive date and who archived it; click the name to open the lead's details",
+        "4": "An agent only sees their own archived leads (strict scoping); admin sees all of them"
+      },
+      "keywords": {
+        "0": "أرشيف",
+        "1": "مؤرشف",
+        "2": "archive",
+        "3": "archived",
+        "4": "استرجاع",
+        "5": "restore",
+        "6": "leads",
+        "7": "soft delete",
+        "8": "حذف",
+        "9": "restore"
+      }
+    },
+    "dashboard_calendar": {
+      "description": "Unified calendar over tasks, follow-ups, and meetings",
+      "goal": "A unified calendar combining 3 sources in one view: lead tasks (with a due date) + follow-ups + meetings logged as activity. The calendar is read-only — clicking any event opens the source for editing in its natural place.",
+      "tips": {
+        "0": "4 views: month (default on desktop) / week / day / agenda (default on mobile)",
+        "1": "Click a day number in month view to jump to day view; click the day name in week view for the same",
+        "2": "The filters (tasks/follow-ups/meetings) hide the types you don't need — the URL remembers your selection",
+        "3": "The URL remembers the view + date + filters — copy it or use the browser's back button",
+        "4": "Clicking any event takes you to its source: task → the Tasks tab / follow-up → Overview with highlight / meeting → Activity with highlight",
+        "5": "An overdue event appears in red; a completed one shows a strikethrough + reduced opacity",
+        "6": "The calendar always uses Dubai time (+04:00) — no DST",
+        "7": "The maximum date range is 62 days — the API rejects anything larger (to avoid huge queries)"
+      },
+      "keywords": {
+        "0": "calendar",
+        "1": "تقويم",
+        "2": "مواعيد",
+        "3": "agenda",
+        "4": "جدول",
+        "5": "مهام",
+        "6": "متابعات",
+        "7": "اجتماعات",
+        "8": "شهر",
+        "9": "أسبوع",
+        "10": "يوم",
+        "11": "agenda",
+        "12": "views"
+      }
+    },
+    "dashboard_crm_leads_id_tab_tasks": {
+      "description": "Per-lead tasks tab",
+      "goal": "Track the tasks tied to each lead — a follow-up call, preparing a quote, sending an email. Lead tasks are independent from board tasks — each stays in its natural place. They appear in \"My Tasks\" + the calendar automatically.",
+      "tips": {
+        "0": "Quick create: click \"+ Add Task\" (h-11 touch target) → type the title → pick a due date + priority → \"Add\"",
+        "1": "Quick status toggle: click the checkbox — it switches between pending ↔ completed (completed items move to the end automatically)",
+        "2": "Quick title edit: click the task title → type the edit → Enter to save or Escape to cancel",
+        "3": "Edit all details: click the ⋮ (3-dot) menu → \"Edit Details\" → opens a sheet with every field",
+        "4": "Delete: ⋮ → \"Delete\" → confirm (admin or the task's creator only — no window.confirm, a proper dialog)",
+        "5": "Priorities: urgent (red) / high (orange) / medium (amber) / low (gray) — no priority hides the chip",
+        "6": "Due dates: overdue by N days (red) / today (orange) / tomorrow (amber) / in N days (yellow) / an absolute date (gray)",
+        "7": "Tasks appear in \"My Tasks\" with a sticky-note icon + a \"Lead\" tag to distinguish them from board tasks",
+        "8": "Tasks appear in the calendar's unified view — clicking a task in the calendar brings you back here"
+      },
+      "keywords": {
+        "0": "مهام",
+        "1": "tasks",
+        "2": "lead",
+        "3": "متابعة",
+        "4": "todo",
+        "5": "إدارة المهام",
+        "6": "أولوية",
+        "7": "حالة",
+        "8": "checklist"
+      }
+    },
+    "dashboard_crm_leads_id_tab_activity": {
+      "description": "Lead activity timeline + @-mentions",
+      "goal": "A complete timeline of everything that happened on the lead: notes, calls, meetings, stage changes, file attachments, and any field update. You can mention colleagues with @username and they'll get a notification + a direct link to the mentioned activity.",
+      "tips": {
+        "0": "Add a quick note: type in the composer above the timeline → choose the type (note/call/meeting/email) → save",
+        "1": "@-mentions: type @ then the employee's name (instant search across admin + sales agents); after posting, they get a notification + a direct link",
+        "2": "The link in the notification opens here with an automatic scroll + an orange flash highlight on the mentioned activity (for two seconds)",
+        "3": "Every activity has a distinct icon + color: note (sticky note), call (phone), meeting (calendar clock), email (mail)",
+        "4": "System activities (stage_change, lead_created, etc.) are written automatically — you can't add them manually",
+        "5": "Cursor pagination: click \"Load More\" to see older activities (50 per page)"
+      },
+      "keywords": {
+        "0": "نشاط",
+        "1": "activity",
+        "2": "mentions",
+        "3": "mention",
+        "4": "ذكر",
+        "5": "timeline",
+        "6": "ملاحظات",
+        "7": "مكالمات",
+        "8": "اجتماعات",
+        "9": "notes",
+        "10": "calls"
+      }
+    },
+    "dashboard_crm_leads_id_tab_files": {
+      "description": "Lead attachments — images + voice notes",
+      "goal": "Attach images + voice notes to any lead. Designed mobile-first (Sayed on iPhone) — direct camera capture, voice recording, or picking from the gallery.",
+      "tips": {
+        "0": "Camera 📷: opens the phone's camera directly (capture=environment) — no need to save the photo and re-upload it",
+        "1": "Gallery 🖼️: pick more than one photo at once (supports HEIC on iOS — converted to JPEG automatically)",
+        "2": "Voice recording 🎤: click to start → a pulsing indicator appears + an MM:SS counter; click Stop to save or Cancel to discard",
+        "3": "Hard limits: 5 MB per file (after automatic image resize to 1920×1920) + 10 attachments per lead (shared between images and voice)",
+        "4": "Images are saved with EXIF stripped (geo-metadata is wiped automatically)",
+        "5": "Voice recording limit: 5 minutes (auto-stops at 4:30 with a warning) — enough for a quick note",
+        "6": "Delete: admin or the original uploader only",
+        "7": "Files open in a side sheet for the full view + preview + a download button"
+      },
+      "keywords": {
+        "0": "attachments",
+        "1": "مرفقات",
+        "2": "صور",
+        "3": "كاميرا",
+        "4": "gallery",
+        "5": "voice",
+        "6": "ملاحظات صوتية",
+        "7": "تسجيل",
+        "8": "photos",
+        "9": "recording"
+      }
+    },
+    "dashboard_sales_chat": {
+      "description": "Embedded WhatsApp chat interface",
+      "goal": "Communicate with clients over WhatsApp directly from the system. Messages are stored locally and automatically linked to leads.",
+      "tips": {
+        "0": "Select a conversation from the list to view its messages",
+        "1": "Messages refresh automatically every 5 seconds",
+        "2": "Incoming messages are automatically linked to a lead by phone number"
+      },
+      "keywords": {
+        "0": "chat",
+        "1": "whatsapp",
+        "2": "واتساب",
+        "3": "محادثات",
+        "4": "رسائل",
+        "5": "conversations"
+      }
+    },
+    "dashboard_sales_approvals": {
+      "description": "Quote approval workflow management",
+      "goal": "Review and approve quotes submitted by sales staff before they're sent to clients.",
+      "tips": {
+        "0": "Quotes from sales staff need admin approval before sending",
+        "1": "You can add a comment along with approving or rejecting",
+        "2": "Once approved, the quote becomes ready to send"
+      },
+      "keywords": {
+        "0": "approvals",
+        "1": "موافقات",
+        "2": "عروض أسعار",
+        "3": "quotes",
+        "4": "مراجعة",
+        "5": "review"
+      }
+    },
+    "dashboard_crm_follow_ups": {
+      "description": "Follow-up reminders and task tracking",
+      "goal": "All scheduled follow-ups with leads in one place — upcoming, overdue, completed. Every follow-up has a due time + an optional WhatsApp reminder that reaches the assigned agent 30 minutes before the appointment.",
+      "tips": {
+        "0": "Basic workflow: create (from the lead page) → receive a reminder 30 minutes before → do the follow-up → click \"Done\"",
+        "1": "Icons: upcoming (blue clock) / today (orange) / overdue (red) / completed (green checkmark) / cancelled (gray X)",
+        "2": "The WhatsApp reminder goes to the assigned AGENT (not the client) — it requires Phase 11.5 routing configured in settings",
+        "3": "Quick create from the central page or from the lead's own page",
+        "4": "Quick complete: a single click on ✓ in the row; triggers an optimistic update + invalidates the React Query cache",
+        "5": "Follow-ups appear in the calendar automatically + in the \"My Calendar\" widget on the dashboard",
+        "6": "Snooze is still in v1.1 — for now you can only complete or cancel"
+      },
+      "keywords": {
+        "0": "follow-ups",
+        "1": "متابعات",
+        "2": "تذكيرات",
+        "3": "reminders",
+        "4": "whatsapp reminder",
+        "5": "workflow",
+        "6": "upcoming",
+        "7": "overdue"
+      }
+    },
+    "dashboard_sales_whatsapp_analytics": {
+      "description": "WhatsApp conversation analytics and performance metrics",
+      "goal": "View customer satisfaction (CSAT) and service level (SLA) statistics for WhatsApp conversations, with date filtering.",
+      "tips": {
+        "0": "Use the date filter to compare performance across periods",
+        "1": "The CSAT rating shows average satisfaction and the rating breakdown per agent",
+        "2": "SLA shows compliance with first-response time and resolution time"
+      },
+      "keywords": {
+        "0": "whatsapp",
+        "1": "analytics",
+        "2": "تحليلات",
+        "3": "واتساب",
+        "4": "CSAT",
+        "5": "SLA",
+        "6": "رضا العملاء",
+        "7": "satisfaction"
+      }
+    },
+    "dashboard_sales_settings": {
+      "description": "Sales module settings and configuration",
+      "goal": "Manage pipeline stages + tags + linking WhatsApp numbers to staff + canned responses + SLA policies. Note: this will fold into /dashboard/crm/settings in v1.1.",
+      "tips": {
+        "0": "Pipeline stages: custom order + colors + a minimum expected-value threshold (for qualification)",
+        "1": "closed_won = a special stage — it requires admin approval before auto-converting to a client",
+        "2": "Lead classification: source (manual / facebook / instagram / whatsapp / referral / etc.) + priority + tags",
+        "3": "WhatsApp instances: link each employee to a dedicated instance (1-to-1)",
+        "4": "Agent WhatsApp Settings (Phase 11 Refinement): more flexible — a shared instance can serve multiple agents, each with a different recipient_phone",
+        "5": "Use the QR code for the initial WhatsApp instance connection — it opens a 60-second waiting window",
+        "6": "Canned responses: quick message templates for staff in the WhatsApp shared inbox",
+        "7": "SLA policies: first-response time and resolution time limits for each conversation priority"
+      },
+      "keywords": {
+        "0": "settings",
+        "1": "إعدادات",
+        "2": "pipeline",
+        "3": "whatsapp",
+        "4": "مراحل",
+        "5": "canned",
+        "6": "SLA",
+        "7": "agent settings",
+        "8": "stages",
+        "9": "tags"
+      }
+    },
+    "dashboard_admin_backup_procedure": {
+      "description": "Database backup procedure reference",
+      "goal": "How to take backups of the Postgres database with GPG encryption + the restore procedure. The procedure is manual and fully documented in docs/MIGRATIONS.md §10.",
+      "tips": {
+        "0": "Backup command: pnpm db:backup [<label>] — example: pnpm db:backup pre-019",
+        "1": "Output lands in backups/<TS>_<label>.sql.gz or .sql.gz.gpg (gitignored)",
+        "2": "Encryption is opt-in: set BACKUP_ENCRYPTION_PASSPHRASE in .env.local to enable GPG AES256 (Phase D-4)",
+        "3": "gpg must be installed: brew install gnupg (mac) / apt install gnupg (linux) / Gpg4win (windows)",
+        "4": "Restoring an encrypted backup: gpg --batch --quiet --decrypt --passphrase-fd 3 --output - \"$FILE\" 3<<<\"$PASS\" | gunzip | psql \"$URL\"",
+        "5": "Restoring an unencrypted (legacy) backup: gunzip -c \"$FILE\" | psql \"$URL\"",
+        "6": "Safe retention — manually keep important backups (before big migrations) off-machine until offsite storage lands in v1.1",
+        "7": "Don't commit backups/ — .gitignore protects you"
+      },
+      "keywords": {
+        "0": "backup",
+        "1": "نسخة احتياطية",
+        "2": "restore",
+        "3": "استعادة",
+        "4": "gpg",
+        "5": "encryption",
+        "6": "تشفير",
+        "7": "pg_dump",
+        "8": "migrations",
+        "9": "GPG"
+      }
+    },
+    "dashboard_admin_security_checklist": {
+      "description": "Security checklist reference (Phase D + 14.3 locks)",
+      "goal": "A quick security reference: the locked patterns in CLAUDE.md + the practices required of admin. Read this before changing any security-sensitive routes.",
+      "tips": {
+        "0": "extra_permissions is exact-match only — wildcards (*, module.*) are forbidden in the UI + API (Phase D-1)",
+        "1": "Search input in APIs must go through escapePostgrestValue(escapeLike(...)) — any custom regex strip is an injection risk (Phase D-1)",
+        "2": "Auth endpoints (login + reset + 2FA) are protected by a dual rate limiter: IP + email account lockout (Phase D-2)",
+        "3": "Every secret comparison must use timingSafeEqual with a length-guard before it (Phase 14.3 + D-4)",
+        "4": "Backups have an optional passphrase — but with real data, enable it (Phase D-4)",
+        "5": "Error logs have automatic 90-day retention + 5-layer PII redaction (Phase 14.1 + D-3)",
+        "6": "The minimum password length is 8 characters, unified across the system (Phase 14.3 #5 lock)",
+        "7": "Task descriptions are plain text only — no markdown rendering (Phase 14.3 XSS fix)",
+        "8": "If you see data in error logs that looks sensitive, flag the row \"needs PII review\" in notes",
+        "9": "2FA is currently disabled (deferred to v1.1 — needs encrypt + enforce together)"
+      },
+      "keywords": {
+        "0": "security",
+        "1": "أمان",
+        "2": "checklist",
+        "3": "practices",
+        "4": "phase D",
+        "5": "phase 14.3",
+        "6": "locks",
+        "7": "XSS",
+        "8": "injection",
+        "9": "timing",
+        "10": "rate limit"
+      }
+    },
+    "ui": {
+      "pageSubtitle": "Explanation of all system modules and how to use them — {count} modules",
+      "searchPlaceholder": "Search modules... (e.g. invoices, files, reports)",
+      "resultsCount": "Found {count} results",
+      "noResults": "No results — try a different search term",
+      "clickToViewTips": "Click to view {count} usage tips",
+      "sections": {
+        "main": {
+          "title": "Main"
+        },
+        "work": {
+          "title": "Work"
+        },
+        "sales": {
+          "title": "Sales"
+        },
+        "hr": {
+          "title": "HR"
+        },
+        "self_service": {
+          "title": "Self-Service"
+        },
+        "finance": {
+          "title": "Finance"
+        },
+        "admin": {
+          "title": "Admin"
+        }
+      }
+    }
+  }
+}

@@ -10,7 +10,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/s
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Menu, HelpCircle } from 'lucide-react';
 import { hasPermission } from '@/lib/auth/rbac';
-import { MODULE_GUIDES } from '@/lib/config/module-guide';
+import { useAllModuleGuides } from '@/lib/i18n/module-guide-labels';
 import { NAV_GROUPS } from './nav-config';
 
 interface MobileNavProps {
@@ -27,6 +27,7 @@ export function MobileNav({ user }: MobileNavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const userPerms = user.rolePermissions ?? (user.role === 'admin' ? ['*'] : ['dashboard.view', 'files.view']);
+  const allGuides = useAllModuleGuides();
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -70,7 +71,7 @@ export function MobileNav({ user }: MobileNavProps) {
                       const isActive = pathname === item.href ||
                         (item.href !== '/dashboard' && pathname.startsWith(item.href));
                       const Icon = item.icon;
-                      const guideDesc = MODULE_GUIDES[item.href]?.description;
+                      const guideDesc = allGuides[item.href]?.description;
 
                       return (
                         <Link

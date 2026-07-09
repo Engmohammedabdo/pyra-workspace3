@@ -8,7 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { HelpCircle, Lightbulb, Target, BookOpen } from 'lucide-react';
-import { getModuleGuide } from '@/lib/config/module-guide';
+import { useModuleGuide } from '@/lib/i18n/module-guide-labels';
 import { cn } from '@/lib/utils/cn';
 
 interface PageGuideProps {
@@ -28,7 +28,7 @@ interface PageGuideProps {
 export function PageGuide({ modulePath, className, variant = 'icon' }: PageGuideProps) {
   const t = useTranslations('common.guide');
   const pathname = usePathname();
-  const guide = getModuleGuide(modulePath || pathname);
+  const guide = useModuleGuide(modulePath || pathname);
   const [open, setOpen] = useState(false);
 
   if (!guide) return null;
@@ -63,7 +63,7 @@ export function PageGuide({ modulePath, className, variant = 'icon' }: PageGuide
             </div>
             <div>
               <h4 className="text-sm font-semibold">{t('title')}</h4>
-              <p className="text-[10px] text-muted-foreground">{guide.descriptionEn}</p>
+              <p className="text-[10px] text-muted-foreground">{guide.description}</p>
             </div>
           </div>
         </div>

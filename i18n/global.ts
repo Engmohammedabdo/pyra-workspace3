@@ -13,11 +13,13 @@ import type settings from '../messages/ar/settings.json';
 import type admin from '../messages/ar/admin.json';
 import type users from '../messages/ar/users.json';
 import type rbac from '../messages/ar/rbac.json';
+import type guide from '../messages/ar/guide.json';
 
 type Messages = typeof common & typeof nav & typeof auth & typeof statuses
   & typeof mywork & typeof boards & typeof calendar & typeof api
   & typeof crm & typeof finance & typeof hr
-  & typeof settings & typeof admin & typeof users & typeof rbac;
+  & typeof settings & typeof admin & typeof users & typeof rbac
+  & typeof guide;
 
 declare module 'next-intl' {
   interface AppConfig {

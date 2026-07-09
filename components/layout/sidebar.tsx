@@ -15,7 +15,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { hasPermission } from '@/lib/auth/rbac';
-import { MODULE_GUIDES } from '@/lib/config/module-guide';
+import { useAllModuleGuides } from '@/lib/i18n/module-guide-labels';
 import { useSidebarBadges } from '@/hooks/useSidebarBadges';
 import { NAV_GROUPS, ALL_NAV_ITEMS, type NavItemConfig } from './nav-config';
 import {
@@ -90,6 +90,7 @@ export function Sidebar({ user }: SidebarProps) {
   const [favorites, setFavorites] = useState<string[]>([]);
   const userPerms = user.rolePermissions ?? (user.role === 'admin' ? ['*'] : ['dashboard.view']);
   const badges = useSidebarBadges();
+  const allGuides = useAllModuleGuides();
 
   // Load state from localStorage on mount
   useEffect(() => {
@@ -160,7 +161,7 @@ export function Sidebar({ user }: SidebarProps) {
     const isActive = pathname === item.href ||
       (item.href !== '/dashboard' && pathname.startsWith(item.href));
     const Icon = item.icon;
-    const guideDesc = MODULE_GUIDES[item.href]?.description;
+    const guideDesc = allGuides[item.href]?.description;
     const badgeCount = getBadgeCount(item);
     const isFav = favorites.includes(item.href);
 
