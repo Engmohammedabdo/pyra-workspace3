@@ -1079,7 +1079,7 @@ function PeriodsTab({ canManage }: { canManage: boolean }) {
               <Input
                 value={newPeriod.name_ar}
                 onChange={(e) => setNewPeriod((p) => ({ ...p, name_ar: e.target.value }))}
-                placeholder="مراجعة الربع الأول 2025"
+                placeholder="مراجعة الربع الأول 2025" // i18n-exempt: Arabic example placeholder for name_ar data field
                 className="mt-1"
               />
             </div>

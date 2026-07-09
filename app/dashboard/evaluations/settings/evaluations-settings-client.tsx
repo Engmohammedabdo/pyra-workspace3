@@ -243,7 +243,7 @@ export default function EvaluationsSettingsClient({ session: _session }: { sessi
               <Input
                 value={formData.name_ar}
                 onChange={(e) => setFormData((p) => ({ ...p, name_ar: e.target.value }))}
-                placeholder="المهارات التقنية"
+                placeholder="المهارات التقنية" // i18n-exempt: Arabic example placeholder for name_ar data field
                 className="mt-1"
               />
             </div>
