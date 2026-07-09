@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -130,8 +131,9 @@ export async function POST(req: NextRequest) {
     const auth = await requireApiPermission('settings.manage');
     if (isApiError(auth)) return auth;
 
+    const t = await getTranslations('api');
     const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!body) return apiValidationError('JSON body مطلوب');
+    if (!body) return apiValidationError(t('common.jsonBodyRequired'));
 
     const agentUsername =
       typeof body.agent_username === 'string' ? body.agent_username.trim() : '';
@@ -141,9 +143,7 @@ export async function POST(req: NextRequest) {
       typeof body.recipient_phone === 'string' ? body.recipient_phone.trim() : '';
 
     if (!agentUsername || !senderInstanceName || !recipientPhone) {
-      return apiValidationError(
-        'agent_username و sender_instance_name و recipient_phone مطلوبة',
-      );
+      return apiValidationError(t('settings.agentUsernameInstancePhoneRequired'));
     }
 
     const isActive =
@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
       .eq('username', agentUsername)
       .maybeSingle();
     if (!userRow) {
-      return apiValidationError(`الموظف "${agentUsername}" غير موجود`);
+      return apiValidationError(t('settings.agentNotFound', { username: agentUsername }));
     }
 
     const insertId = generateId('aws');
@@ -183,10 +183,7 @@ export async function POST(req: NextRequest) {
     if (error) {
       // Postgres UNIQUE-violation code (23505) → 409 with helpful hint.
       if ((error as { code?: string }).code === '23505') {
-        return apiError(
-          'هذا الموظف لديه إعداد بالفعل — استخدم تعديل بدلاً من إضافة',
-          409,
-        );
+        return apiError(t('settings.agentSettingAlreadyExists'), 409);
       }
       console.error('[POST /api/settings/agent-whatsapp-settings] insert error:', error.message);
       return apiServerError();

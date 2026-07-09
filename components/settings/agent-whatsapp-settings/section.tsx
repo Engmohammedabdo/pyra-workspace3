@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { Info, MessageCircle, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,8 @@ const itemMotion = {
  * Decisions" before changing UX semantics here (Q-R-1 .. Q-R-7).
  */
 export default function AgentWhatsAppSettingsSection() {
+  const t = useTranslations('settings.agentWhatsapp');
+  const tSettings = useTranslations('settings');
   const canManage = usePermission('settings.manage');
 
   // Data + mutations from the hooks file (commit 851b70e)
@@ -113,7 +116,7 @@ export default function AgentWhatsAppSettingsSection() {
           is_active: input.is_active,
           notes: input.notes,
         });
-        toast.success('تم التحديث');
+        toast.success(t('updatedToast'));
       } else {
         await createMutation.mutateAsync({
           agent_username: input.agent_username,
@@ -122,24 +125,24 @@ export default function AgentWhatsAppSettingsSection() {
           is_active: input.is_active,
           notes: input.notes ?? undefined,
         });
-        toast.success('تم الإنشاء');
+        toast.success(t('createdToast'));
       }
       closeDialog();
     } catch (err) {
-      // mutateAPI's ApiError carries the server's Arabic message via
+      // mutateAPI's ApiError carries the server's localized message via
       // pickServerMessage(body.error) — the 409 conflict hint
-      // ("استخدم تعديل بدلاً من إضافة") and 422 validation messages
-      // both surface here directly without further extraction.
-      toast.error(err instanceof Error ? err.message : 'حدث خطأ');
+      // (api.settings.agentSettingAlreadyExists) and 422 validation
+      // messages both surface here directly without further extraction.
+      toast.error(err instanceof Error ? err.message : t('genericErrorToast'));
     }
   };
 
   const handleToggleActive = async (row: AgentWhatsAppSetting) => {
     try {
       await updateMutation.mutateAsync({ id: row.id, is_active: !row.is_active });
-      toast.success(row.is_active ? 'تم التعطيل' : 'تم التفعيل');
+      toast.success(row.is_active ? t('disabledToast') : t('enabledToast'));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'فشل التحديث');
+      toast.error(err instanceof Error ? err.message : t('updateFailedToast'));
     }
   };
 
@@ -147,10 +150,10 @@ export default function AgentWhatsAppSettingsSection() {
     if (!deleteTarget) return;
     try {
       await deleteMutation.mutateAsync(deleteTarget.id);
-      toast.success('تم الحذف');
+      toast.success(t('deletedToast'));
       setDeleteTarget(null);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'فشل الحذف');
+      toast.error(err instanceof Error ? err.message : t('deleteFailedToast'));
     }
   };
 
@@ -166,11 +169,9 @@ export default function AgentWhatsAppSettingsSection() {
         <div className="flex items-start gap-3 rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/30 px-4 py-3">
           <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
           <div className="text-xs text-blue-700 dark:text-blue-400 leading-relaxed space-y-1">
-            <p className="font-medium">إلى أين يصل تنبيه المتابعة لكل موظف؟</p>
+            <p className="font-medium">{t('infoTitle')}</p>
             <p>
-              اربط كل عضو في الفريق بـ Evolution Instance + رقم WhatsApp المستلم.
-              الـ Cron يقرأ من هنا ويرسل تذكير المتابعة على واتساب الموظف. Instance
-              واحد ممكن يخدم عدة موظفين، كل واحد على رقمه الخاص.
+              {t('infoDescription')}
             </p>
           </div>
         </div>
@@ -183,7 +184,9 @@ export default function AgentWhatsAppSettingsSection() {
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-md">
               <MessageCircle className="h-4 w-4 text-white" />
             </div>
-            <h3 className="font-bold text-sm flex-1">إعدادات WhatsApp للفريق</h3>
+            {/* Reuses the "agent-whatsapp" tab label (identical Arabic text
+                in settings-client.tsx) — see settings.tabs.agent-whatsapp. */}
+            <h3 className="font-bold text-sm flex-1">{tSettings('tabs.agent-whatsapp')}</h3>
             {canManage && (
               <Button
                 variant="outline"
@@ -192,7 +195,7 @@ export default function AgentWhatsAppSettingsSection() {
                 className="rounded-xl"
               >
                 <Plus className="h-4 w-4 me-1" />
-                إضافة إعداد
+                {t('addButton')}
               </Button>
             )}
           </div>

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -33,10 +34,11 @@ export async function POST(req: NextRequest) {
     const auth = await requireApiPermission('settings.manage');
     if (isApiError(auth)) return auth;
 
+    const t = await getTranslations('api');
     const body = await req.json();
     const { name_en, name_ar, license_no, logo_url, is_default } = body;
 
-    if (!name_en || !name_ar) return apiValidationError('الاسم بالعربي والإنجليزي مطلوب');
+    if (!name_en || !name_ar) return apiValidationError(t('settings.businessEntityNamesRequired'));
 
     const supabase = createServiceRoleClient();
 
@@ -76,9 +78,10 @@ export async function PATCH(req: NextRequest) {
     const auth = await requireApiPermission('settings.manage');
     if (isApiError(auth)) return auth;
 
+    const t = await getTranslations('api');
     const body = await req.json();
     const { id, ...updates } = body;
-    if (!id) return apiValidationError('ID مطلوب');
+    if (!id) return apiValidationError(t('settings.idRequired'));
 
     const supabase = createServiceRoleClient();
 
@@ -109,9 +112,10 @@ export async function DELETE(req: NextRequest) {
     const auth = await requireApiPermission('settings.manage');
     if (isApiError(auth)) return auth;
 
+    const t = await getTranslations('api');
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
-    if (!id) return apiValidationError('ID مطلوب');
+    if (!id) return apiValidationError(t('settings.idRequired'));
 
     const supabase = createServiceRoleClient();
     const { error } = await supabase.from('pyra_business_entities').delete().eq('id', id);

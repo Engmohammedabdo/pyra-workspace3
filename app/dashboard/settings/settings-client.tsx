@@ -24,6 +24,7 @@ import {
   MessageCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslations, useLocale } from 'next-intl';
 import { usePermission } from '@/hooks/usePermission';
 import Link from 'next/link';
 import AgentWhatsAppSettingsSection from '@/components/settings/agent-whatsapp-settings/section';
@@ -33,85 +34,84 @@ interface SettingsMap {
 }
 
 /* ═══════════════════════════════════════════════════════
-   Setting definitions with groups + tips
+   Setting definitions with groups (non-translatable metadata only —
+   label/description/placeholder live in messages/{ar,en}/settings.json
+   under settings.fields.<key> and are looked up via t() at render time)
    ═══════════════════════════════════════════════════════ */
-const SETTING_LABELS: Record<string, {
-  label: string;
-  description: string;
+const FIELD_META: Record<string, {
   group: string;
   dir?: 'ltr';
-  placeholder?: string;
 }> = {
   // Company
-  company_name: { label: 'اسم الشركة', description: 'يظهر في الفواتير والعروض والمستندات الرسمية', group: 'company', placeholder: 'مثال: بيراميديا إكس' },
-  company_logo: { label: 'رابط الشعار', description: 'رابط مباشر لصورة الشعار بصيغة PNG أو SVG', group: 'company', dir: 'ltr', placeholder: 'https://example.com/logo.png' },
+  company_name: { group: 'company' },
+  company_logo: { group: 'company', dir: 'ltr' },
   // Quotes
-  quote_prefix: { label: 'بادئة عرض السعر', description: 'يظهر قبل رقم العرض — مثال: QT-0001', group: 'quotes', dir: 'ltr', placeholder: 'QT' },
-  quote_expiry_days: { label: 'صلاحية عرض السعر (أيام)', description: 'المدة الافتراضية قبل انتهاء صلاحية العرض', group: 'quotes', placeholder: '30' },
-  vat_rate: { label: 'نسبة الضريبة (%)', description: 'ضريبة القيمة المضافة — تُطبق تلقائياً على الفواتير والعروض', group: 'quotes', placeholder: '5' },
+  quote_prefix: { group: 'quotes', dir: 'ltr' },
+  quote_expiry_days: { group: 'quotes' },
+  vat_rate: { group: 'quotes' },
   // Invoices
-  invoice_prefix: { label: 'بادئة الفاتورة', description: 'يظهر قبل رقم الفاتورة — مثال: INV-0001', group: 'invoices', dir: 'ltr', placeholder: 'INV' },
-  payment_terms_days: { label: 'مدة الدفع (أيام)', description: 'يُستخدم لحساب تاريخ الاستحقاق تلقائياً', group: 'invoices', placeholder: '30' },
-  default_currency: { label: 'العملة الافتراضية', description: 'العملات المدعومة: AED, USD, EUR, SAR, GBP', group: 'invoices', dir: 'ltr', placeholder: 'AED' },
-  default_early_payment_discount_percent: { label: 'خصم الدفع المبكر (%)', description: 'خصم يُمنح للعميل عند الدفع قبل الموعد', group: 'invoices', placeholder: '2' },
-  default_early_payment_discount_days: { label: 'أيام الدفع المبكر', description: 'عدد الأيام المطلوبة للاستفادة من الخصم', group: 'invoices', placeholder: '10' },
-  credit_note_prefix: { label: 'بادئة الإشعار الدائن', description: 'يظهر قبل رقم الإشعار — مثال: CN-0001', group: 'invoices', dir: 'ltr', placeholder: 'CN' },
-  po_prefix: { label: 'بادئة أمر الشراء', description: 'يظهر قبل رقم أمر الشراء — مثال: PO-0001', group: 'invoices', dir: 'ltr', placeholder: 'PO' },
+  invoice_prefix: { group: 'invoices', dir: 'ltr' },
+  payment_terms_days: { group: 'invoices' },
+  default_currency: { group: 'invoices', dir: 'ltr' },
+  default_early_payment_discount_percent: { group: 'invoices' },
+  default_early_payment_discount_days: { group: 'invoices' },
+  credit_note_prefix: { group: 'invoices', dir: 'ltr' },
+  po_prefix: { group: 'invoices', dir: 'ltr' },
   // Bank
-  bank_name: { label: 'اسم البنك', description: 'يظهر في بيانات التحويل على الفواتير', group: 'bank', placeholder: 'مثال: بنك أبوظبي الأول' },
-  bank_account_name: { label: 'اسم صاحب الحساب', description: 'الاسم المسجل في البنك', group: 'bank', placeholder: 'مثال: Pyramedia X LLC' },
-  bank_account_no: { label: 'رقم الحساب', description: 'رقم الحساب البنكي', group: 'bank', dir: 'ltr', placeholder: '1234567890' },
-  bank_iban: { label: 'IBAN', description: 'رقم الحساب الدولي (International Bank Account Number)', group: 'bank', dir: 'ltr', placeholder: 'AE070331234567890123456' },
+  bank_name: { group: 'bank' },
+  bank_account_name: { group: 'bank' },
+  bank_account_no: { group: 'bank', dir: 'ltr' },
+  bank_iban: { group: 'bank', dir: 'ltr' },
   // Storage
-  max_upload_size_mb: { label: 'أقصى حجم رفع (MB)', description: 'الحد الأقصى لحجم الملف الواحد', group: 'storage', placeholder: '50' },
-  max_storage_gb: { label: 'أقصى مساحة تخزين (GB)', description: 'المساحة الكلية المتاحة لجميع الملفات', group: 'storage', placeholder: '100' },
-  kpi_storage_warning_percent: { label: 'نسبة تنبيه التخزين (%)', description: 'يظهر تنبيه عند تجاوز هذه النسبة من المساحة', group: 'storage', placeholder: '80' },
+  max_upload_size_mb: { group: 'storage' },
+  max_storage_gb: { group: 'storage' },
+  kpi_storage_warning_percent: { group: 'storage' },
   // Portal
-  portal_enabled: { label: 'تفعيل بورتال العملاء', description: 'عند التعطيل، لن يتمكن العملاء من تسجيل الدخول', group: 'portal' },
-  portal_welcome_message: { label: 'رسالة الترحيب', description: 'تظهر للعميل في صفحة البورتال الرئيسية', group: 'portal', placeholder: 'مرحباً بك في بوابة العملاء' },
+  portal_enabled: { group: 'portal' },
+  portal_welcome_message: { group: 'portal' },
   // Dunning
-  dunning_enabled: { label: 'تفعيل نظام التحصيل', description: 'تذكيرات تلقائية بالبريد للفواتير المتأخرة', group: 'dunning' },
-  late_penalty_rate: { label: 'نسبة غرامة التأخير (%)', description: 'تُضاف تلقائياً على الفواتير المتأخرة', group: 'dunning', placeholder: '2' },
-  late_penalty_grace_days: { label: 'أيام السماح', description: 'فترة سماح بعد تاريخ الاستحقاق', group: 'dunning', placeholder: '7' },
-  dunning_reminder_interval_days: { label: 'الفترة بين التذكيرات (أيام)', description: 'المدة بين كل تذكير تحصيل وآخر', group: 'dunning', placeholder: '7' },
+  dunning_enabled: { group: 'dunning' },
+  late_penalty_rate: { group: 'dunning' },
+  late_penalty_grace_days: { group: 'dunning' },
+  dunning_reminder_interval_days: { group: 'dunning' },
   // Expenses
-  expense_approval_required: { label: 'اعتماد المصروفات', description: 'عند التفعيل، تحتاج المصروفات الجديدة موافقة مدير', group: 'expenses' },
+  expense_approval_required: { group: 'expenses' },
   // Commissions
-  commission_rate: { label: 'نسبة العمولة الافتراضية (%)', description: 'تُستخدم إذا لم يكن للموظف نسبة خاصة', group: 'commissions', placeholder: '5' },
-  commission_trigger: { label: 'توقيت الاحتساب', description: 'payment = عند الدفع، invoice = عند إصدار الفاتورة', group: 'commissions', dir: 'ltr', placeholder: 'payment' },
-  commission_auto_calculate: { label: 'احتساب تلقائي', description: 'حساب العمولات تلقائياً عند تسجيل الدفع (يدوي + Stripe)', group: 'commissions' },
+  commission_rate: { group: 'commissions' },
+  commission_trigger: { group: 'commissions', dir: 'ltr' },
+  commission_auto_calculate: { group: 'commissions' },
   // Stripe
-  stripe_enabled: { label: 'تفعيل الدفع الإلكتروني', description: 'تمكين أو تعطيل الدفع عبر Stripe', group: 'stripe' },
-  stripe_publishable_key: { label: 'Publishable Key', description: 'المفتاح العام — يبدأ بـ pk_live_ أو pk_test_', group: 'stripe', dir: 'ltr', placeholder: 'pk_live_...' },
-  stripe_secret_key: { label: 'Secret Key', description: 'المفتاح السري — لا تشاركه مع أحد', group: 'stripe', dir: 'ltr', placeholder: 'sk_live_...' },
-  stripe_webhook_secret: { label: 'Webhook Secret', description: 'سر التحقق من إشعارات Stripe', group: 'stripe', dir: 'ltr', placeholder: 'whsec_...' },
+  stripe_enabled: { group: 'stripe' },
+  stripe_publishable_key: { group: 'stripe', dir: 'ltr' },
+  stripe_secret_key: { group: 'stripe', dir: 'ltr' },
+  stripe_webhook_secret: { group: 'stripe', dir: 'ltr' },
   // File Management
-  auto_version_on_upload: { label: 'تفعيل الإصدارات التلقائية', description: 'عند الرفع، يُنشئ إصداراً جديداً بدلاً من الاستبدال', group: 'files' },
-  max_versions_per_file: { label: 'أقصى عدد إصدارات لكل ملف', description: 'الإصدارات الأقدم تُحذف تلقائياً عند تجاوز الحد', group: 'files', placeholder: '10' },
-  trash_auto_purge_days: { label: 'مدة حذف سلة المهملات (أيام)', description: 'الملفات المحذوفة تُزال نهائياً بعد هذه المدة', group: 'files', placeholder: '30' },
-  allow_public_shares: { label: 'السماح بروابط مشاركة عامة', description: 'عند التعطيل، لا يمكن إنشاء روابط مشاركة خارجية', group: 'files' },
-  share_default_expiry_hours: { label: 'انتهاء صلاحية الرابط (ساعات)', description: 'المدة الافتراضية لصلاحية رابط المشاركة', group: 'files', placeholder: '72' },
+  auto_version_on_upload: { group: 'files' },
+  max_versions_per_file: { group: 'files' },
+  trash_auto_purge_days: { group: 'files' },
+  allow_public_shares: { group: 'files' },
+  share_default_expiry_hours: { group: 'files' },
   // Boards
-  board_default_template: { label: 'القالب الافتراضي', description: 'القالب المستخدم عند إنشاء لوحة جديدة', group: 'boards', placeholder: 'general' },
-  board_auto_create_with_project: { label: 'إنشاء لوحة تلقائياً مع المشروع', description: 'عند إنشاء مشروع جديد، تُنشأ لوحة مهام تلقائياً', group: 'boards' },
-  board_require_due_date: { label: 'إلزام تاريخ الاستحقاق', description: 'لا يمكن إنشاء مهمة بدون تاريخ استحقاق', group: 'boards' },
-  board_enable_time_tracking: { label: 'تفعيل تتبع الوقت', description: 'إظهار حقول الساعات المقدرة والفعلية في المهام', group: 'boards' },
-  board_overdue_notification: { label: 'إشعار المهام المتأخرة', description: 'إرسال إشعار تلقائي عند تأخر المهمة', group: 'boards' },
-  board_notify_on_assign: { label: 'إشعار عند التعيين', description: 'إرسال إشعار للعضو عند تعيينه على مهمة', group: 'boards' },
-  board_notify_on_comment: { label: 'إشعار عند التعليق', description: 'إرسال إشعار عند إضافة تعليق على مهمة معينة', group: 'boards' },
-  board_client_portal_visible: { label: 'عرض للعملاء في البورتال', description: 'السماح للعملاء بمشاهدة لوحات مشاريعهم (قراءة فقط)', group: 'boards' },
-  board_max_attachments_mb: { label: 'أقصى حجم مرفقات المهمة (MB)', description: 'الحد الأقصى لحجم المرفقات لكل مهمة', group: 'boards', placeholder: '25' },
-  board_done_auto_archive_days: { label: 'أرشفة تلقائية (أيام)', description: 'أرشفة المهام المكتملة تلقائياً بعد هذه المدة (0 = معطّل)', group: 'boards', placeholder: '0' },
+  board_default_template: { group: 'boards' },
+  board_auto_create_with_project: { group: 'boards' },
+  board_require_due_date: { group: 'boards' },
+  board_enable_time_tracking: { group: 'boards' },
+  board_overdue_notification: { group: 'boards' },
+  board_notify_on_assign: { group: 'boards' },
+  board_notify_on_comment: { group: 'boards' },
+  board_client_portal_visible: { group: 'boards' },
+  board_max_attachments_mb: { group: 'boards' },
+  board_done_auto_archive_days: { group: 'boards' },
   // Security
-  session_timeout_minutes: { label: 'مهلة الجلسة (دقائق)', description: 'يتم تسجيل الخروج تلقائياً بعد فترة عدم النشاط', group: 'security', placeholder: '60' },
-  max_failed_logins: { label: 'أقصى محاولات دخول فاشلة', description: 'يتم قفل الحساب بعد هذا العدد من المحاولات', group: 'security', placeholder: '5' },
-  lockout_duration_minutes: { label: 'مدة القفل (دقائق)', description: 'مدة قفل الحساب بعد تجاوز المحاولات المسموحة', group: 'security', placeholder: '15' },
+  session_timeout_minutes: { group: 'security' },
+  max_failed_logins: { group: 'security' },
+  lockout_duration_minutes: { group: 'security' },
   // Email / SMTP
-  smtp_host: { label: 'خادم البريد (SMTP Host)', description: 'عنوان خادم البريد الصادر', group: 'email', dir: 'ltr', placeholder: 'smtp.gmail.com' },
-  smtp_port: { label: 'المنفذ (Port)', description: 'عادة 587 (TLS) أو 465 (SSL)', group: 'email', dir: 'ltr', placeholder: '587' },
-  smtp_user: { label: 'اسم المستخدم', description: 'البريد الإلكتروني أو اسم المستخدم للمصادقة', group: 'email', dir: 'ltr', placeholder: 'user@example.com' },
-  smtp_pass: { label: 'كلمة المرور', description: 'كلمة مرور البريد أو App Password', group: 'email', dir: 'ltr', placeholder: '••••••••' },
-  smtp_from: { label: 'البريد المرسل', description: 'عنوان البريد الذي يظهر كمرسل للإشعارات', group: 'email', dir: 'ltr', placeholder: 'noreply@company.com' },
+  smtp_host: { group: 'email', dir: 'ltr' },
+  smtp_port: { group: 'email', dir: 'ltr' },
+  smtp_user: { group: 'email', dir: 'ltr' },
+  smtp_pass: { group: 'email', dir: 'ltr' },
+  smtp_from: { group: 'email', dir: 'ltr' },
 };
 
 /* ═══════════════════════════════════════════════════════
@@ -119,66 +119,56 @@ const SETTING_LABELS: Record<string, {
    ═══════════════════════════════════════════════════════ */
 interface GroupDef {
   key: string;
-  label: string;
   icon: React.ComponentType<{ className?: string }>;
   gradient: string;
-  tip: string;
   category: 'business' | 'finance' | 'system';
 }
 
+// label/tip are looked up via t(`groups.${key}.label`) / t(`groups.${key}.tip`)
+// at render time — see messages/{ar,en}/settings.json → settings.groups.
 const GROUPS: GroupDef[] = [
   // Business
-  { key: 'company', label: 'معلومات الشركة', icon: Building2, gradient: 'from-orange-500 to-amber-600', category: 'business',
-    tip: 'هذه البيانات تظهر في رأس الفواتير والعروض والمستندات الرسمية. تأكد من دقتها.' },
-  { key: 'bank', label: 'البيانات البنكية', icon: Landmark, gradient: 'from-violet-500 to-purple-600', category: 'business',
-    tip: 'تظهر في ذيل الفواتير لتسهيل التحويل البنكي. تأكد من صحة رقم IBAN.' },
-  { key: 'portal', label: 'بورتال العملاء', icon: Globe, gradient: 'from-cyan-500 to-sky-600', category: 'business',
-    tip: 'البورتال يتيح للعملاء متابعة مشاريعهم وفواتيرهم. يمكنك تعطيله مؤقتاً عند الحاجة.' },
-  { key: 'boards', label: 'لوحات العمل', icon: Kanban, gradient: 'from-blue-500 to-cyan-600', category: 'business',
-    tip: 'إعدادات لوحات المهام والمشاريع. تتحكم في القوالب الافتراضية والإشعارات وتتبع الوقت.' },
+  { key: 'company', icon: Building2, gradient: 'from-orange-500 to-amber-600', category: 'business' },
+  { key: 'bank', icon: Landmark, gradient: 'from-violet-500 to-purple-600', category: 'business' },
+  { key: 'portal', icon: Globe, gradient: 'from-cyan-500 to-sky-600', category: 'business' },
+  { key: 'boards', icon: Kanban, gradient: 'from-blue-500 to-cyan-600', category: 'business' },
   // Finance
-  { key: 'quotes', label: 'عروض الأسعار', icon: FileText, gradient: 'from-blue-500 to-indigo-600', category: 'finance',
-    tip: 'البادئة ونسبة الضريبة تُطبق تلقائياً عند إنشاء عرض سعر جديد.' },
-  { key: 'invoices', label: 'الفواتير والمستندات', icon: Receipt, gradient: 'from-emerald-500 to-teal-600', category: 'finance',
-    tip: 'هذه الإعدادات تتحكم في الترقيم التلقائي ومدة الدفع والخصومات لجميع المستندات المالية.' },
-  { key: 'dunning', label: 'التحصيل والتذكيرات', icon: Bell, gradient: 'from-red-500 to-rose-600', category: 'finance',
-    tip: 'نظام التحصيل يرسل تذكيرات تلقائية بالبريد للفواتير المتأخرة ويطبق غرامات التأخير.' },
-  { key: 'expenses', label: 'المصروفات', icon: ArrowDownCircle, gradient: 'from-amber-500 to-yellow-600', category: 'finance',
-    tip: 'عند تفعيل الاعتماد، المصروفات الجديدة تكون بحالة "معلّقة" حتى يوافق عليها المدير.' },
-  { key: 'commissions', label: 'العمولات', icon: Percent, gradient: 'from-emerald-500 to-teal-600', category: 'finance',
-    tip: 'العمولات تُحسب تلقائياً عند تسجيل الدفع. يمكن تخصيص نسبة لكل موظف من ملفه الشخصي.' },
+  { key: 'quotes', icon: FileText, gradient: 'from-blue-500 to-indigo-600', category: 'finance' },
+  { key: 'invoices', icon: Receipt, gradient: 'from-emerald-500 to-teal-600', category: 'finance' },
+  { key: 'dunning', icon: Bell, gradient: 'from-red-500 to-rose-600', category: 'finance' },
+  { key: 'expenses', icon: ArrowDownCircle, gradient: 'from-amber-500 to-yellow-600', category: 'finance' },
+  { key: 'commissions', icon: Percent, gradient: 'from-emerald-500 to-teal-600', category: 'finance' },
   // System
-  { key: 'storage', label: 'التخزين', icon: HardDrive, gradient: 'from-rose-500 to-pink-600', category: 'system',
-    tip: 'حدود التخزين تحمي من الاستهلاك المفرط. نسبة التنبيه تظهر إشعاراً في لوحة التحكم.' },
-  { key: 'stripe', label: 'الدفع الإلكتروني', icon: CreditCard, gradient: 'from-indigo-500 to-purple-600', category: 'system',
-    tip: 'احصل على المفاتيح من dashboard.stripe.com. استخدم مفاتيح test_ أثناء التجربة.' },
-  { key: 'files', label: 'إدارة الملفات', icon: FileText, gradient: 'from-teal-500 to-cyan-600', category: 'system',
-    tip: 'إعدادات الإصدارات والمشاركة وسلة المهملات. تؤثر على جميع الملفات في النظام.' },
-  { key: 'security', label: 'الأمان', icon: Lock, gradient: 'from-red-500 to-rose-600', category: 'system',
-    tip: 'إعدادات حماية الحسابات — مهلة الجلسة وقفل المحاولات الفاشلة. تُطبق على جميع المستخدمين.' },
-  { key: 'email', label: 'البريد الإلكتروني', icon: Mail, gradient: 'from-blue-500 to-sky-600', category: 'system',
-    tip: 'إعدادات SMTP لإرسال الإشعارات والتذكيرات. إذا لم تُعبأ، يستخدم النظام الإعدادات الافتراضية.' },
+  { key: 'storage', icon: HardDrive, gradient: 'from-rose-500 to-pink-600', category: 'system' },
+  { key: 'stripe', icon: CreditCard, gradient: 'from-indigo-500 to-purple-600', category: 'system' },
+  { key: 'files', icon: FileText, gradient: 'from-teal-500 to-cyan-600', category: 'system' },
+  { key: 'security', icon: Lock, gradient: 'from-red-500 to-rose-600', category: 'system' },
+  { key: 'email', icon: Mail, gradient: 'from-blue-500 to-sky-600', category: 'system' },
 ];
 
+// label looked up via t(`categories.${key}`) — see settings.categories.
 const CATEGORIES = [
-  { key: 'business', label: 'الشركة والأعمال', icon: Building2 },
-  { key: 'finance', label: 'المالية والفوترة', icon: Receipt },
-  { key: 'system', label: 'النظام والتقنية', icon: HardDrive },
+  { key: 'business', icon: Building2 },
+  { key: 'finance', icon: Receipt },
+  { key: 'system', icon: HardDrive },
 ] as const;
 
 /* ── Sub-settings navigation ── */
+// label/description looked up via t(`subSettings.${key}.label`) /
+// t(`subSettings.${key}.description`) — see settings.subSettings.
 const SUB_SETTINGS = [
-  { href: '/dashboard/sales/settings', label: 'إعدادات المبيعات', icon: TrendingUp, gradient: 'from-orange-500 to-amber-600', description: 'مراحل Pipeline والتصنيفات وأرقام WhatsApp' },
-  { href: '/dashboard/leave/settings', label: 'إعدادات الإجازات', icon: CalendarDays, gradient: 'from-emerald-500 to-teal-600', description: 'أنواع الإجازات والأرصدة والترحيل' },
-  { href: '/dashboard/evaluations/settings', label: 'إعدادات التقييم', icon: Award, gradient: 'from-violet-500 to-purple-600', description: 'معايير التقييم والأوزان والفئات' },
+  { key: 'sales', href: '/dashboard/sales/settings', icon: TrendingUp, gradient: 'from-orange-500 to-amber-600' },
+  { key: 'leave', href: '/dashboard/leave/settings', icon: CalendarDays, gradient: 'from-emerald-500 to-teal-600' },
+  { key: 'evaluations', href: '/dashboard/evaluations/settings', icon: Award, gradient: 'from-violet-500 to-purple-600' },
 ];
 
 /* ── Tabs ── */
+// label looked up via t(`tabs.${key}`) — see settings.tabs.
 const TABS = [
-  { key: 'general', label: 'عام', icon: Settings },
-  { key: 'api-keys', label: 'مفاتيح API', icon: Key },
-  { key: 'agent-whatsapp', label: 'إعدادات WhatsApp للفريق', icon: MessageCircle },
-  { key: 'modules', label: 'إعدادات الأنظمة', icon: Sparkles },
+  { key: 'general', icon: Settings },
+  { key: 'api-keys', icon: Key },
+  { key: 'agent-whatsapp', icon: MessageCircle },
+  { key: 'modules', icon: Sparkles },
 ];
 
 /* ── Secret fields ── */
@@ -241,9 +231,16 @@ function SectionCard({ icon: Icon, title, gradient, tip, children, id }: {
 /* ═══════════════════════════════════════════════════════
    Settings Field Component
    ═══════════════════════════════════════════════════════ */
+interface TranslatedFieldMeta {
+  label: string;
+  description: string;
+  dir?: 'ltr';
+  placeholder?: string;
+}
+
 function SettingField({ settingKey, meta, value, onChange, canManage, visibleSecrets, toggleSecret }: {
   settingKey: string;
-  meta: typeof SETTING_LABELS[string];
+  meta: TranslatedFieldMeta;
   value: string;
   onChange: (key: string, val: string) => void;
   canManage: boolean;
@@ -324,9 +321,11 @@ function SettingsSidebar({ activeGroup, onSelect, settings }: {
   onSelect: (key: string) => void;
   settings: SettingsMap;
 }) {
+  const t = useTranslations('settings');
+
   // Calculate completion per group
   const getCompletion = useCallback((groupKey: string) => {
-    const groupSettings = Object.entries(SETTING_LABELS).filter(([, v]) => v.group === groupKey);
+    const groupSettings = Object.entries(FIELD_META).filter(([, v]) => v.group === groupKey);
     if (groupSettings.length === 0) return 100;
     const filled = groupSettings.filter(([key]) => {
       const val = settings[key];
@@ -344,7 +343,7 @@ function SettingsSidebar({ activeGroup, onSelect, settings }: {
             <div className="flex items-center gap-2 px-3 py-2 mb-1">
               <category.icon className="h-3.5 w-3.5 text-muted-foreground/60" />
               <span className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wide">
-                {category.label}
+                {t(`categories.${category.key}`)}
               </span>
             </div>
             {categoryGroups.map(group => {
@@ -367,9 +366,9 @@ function SettingsSidebar({ activeGroup, onSelect, settings }: {
                   }`}>
                     <group.icon className={`h-3.5 w-3.5 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
                   </div>
-                  <span className="flex-1 text-start truncate">{group.label}</span>
+                  <span className="flex-1 text-start truncate">{t(`groups.${group.key}.label` as Parameters<typeof t>[0])}</span>
                   {completion < 100 && (
-                    <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center shrink-0" title={`${completion}% مكتمل`}>
+                    <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center shrink-0" title={t('general.completionPercent', { percent: completion })}>
                       <span className="text-[9px] font-bold text-muted-foreground">{completion}</span>
                     </div>
                   )}
@@ -390,6 +389,7 @@ function MobileGroupSelector({ activeGroup, onSelect }: {
   activeGroup: string;
   onSelect: (key: string) => void;
 }) {
+  const t = useTranslations('settings');
   const [open, setOpen] = useState(false);
   const currentGroup = GROUPS.find(g => g.key === activeGroup);
 
@@ -405,7 +405,7 @@ function MobileGroupSelector({ activeGroup, onSelect }: {
               <currentGroup.icon className="h-3.5 w-3.5 text-white" />
             </div>
           )}
-          <span>{currentGroup?.label || 'اختر القسم'}</span>
+          <span>{currentGroup ? t(`groups.${currentGroup.key}.label` as Parameters<typeof t>[0]) : t('general.selectSection')}</span>
         </div>
         {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
       </button>
@@ -434,7 +434,7 @@ function MobileGroupSelector({ activeGroup, onSelect }: {
                   }`}>
                     <group.icon className={`h-3 w-3 ${activeGroup === group.key ? 'text-white' : 'text-muted-foreground'}`} />
                   </div>
-                  {group.label}
+                  {t(`groups.${group.key}.label` as Parameters<typeof t>[0])}
                 </button>
               ))}
             </div>
@@ -453,6 +453,7 @@ function GeneralSettingsTab({ settings, setSettings, canManage }: {
   setSettings: React.Dispatch<React.SetStateAction<SettingsMap>>;
   canManage: boolean;
 }) {
+  const t = useTranslations('settings');
   const [activeGroup, setActiveGroup] = useState(GROUPS[0].key);
   const [searchQuery, setSearchQuery] = useState('');
   const [visibleSecrets, setVisibleSecrets] = useState<Set<string>>(new Set());
@@ -469,19 +470,33 @@ function GeneralSettingsTab({ settings, setSettings, canManage }: {
     setSettings(prev => ({ ...prev, [key]: value }));
   }, [setSettings]);
 
+  // Translated field entries — built once per locale change from the
+  // non-translatable FIELD_META + the settings.fields.<key> catalog.
+  const fieldEntries = useMemo(() => {
+    return Object.entries(FIELD_META).map(([key, meta]) => {
+      const placeholder = t(`fields.${key}.placeholder` as Parameters<typeof t>[0]);
+      return [key, {
+        ...meta,
+        label: t(`fields.${key}.label` as Parameters<typeof t>[0]),
+        description: t(`fields.${key}.description` as Parameters<typeof t>[0]),
+        placeholder: placeholder || undefined,
+      }] as const;
+    });
+  }, [t]);
+
   // Search filter
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return null;
     const q = searchQuery.toLowerCase();
-    return Object.entries(SETTING_LABELS).filter(([key, meta]) =>
+    return fieldEntries.filter(([key, meta]) =>
       meta.label.toLowerCase().includes(q) ||
       meta.description.toLowerCase().includes(q) ||
       key.toLowerCase().includes(q)
     );
-  }, [searchQuery]);
+  }, [searchQuery, fieldEntries]);
 
   const currentGroup = GROUPS.find(g => g.key === activeGroup);
-  const currentGroupSettings = Object.entries(SETTING_LABELS).filter(([, v]) => v.group === activeGroup);
+  const currentGroupSettings = fieldEntries.filter(([, v]) => v.group === activeGroup);
 
   return (
     <div className="space-y-4">
@@ -491,7 +506,7 @@ function GeneralSettingsTab({ settings, setSettings, canManage }: {
         <Input
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
-          placeholder="ابحث في الإعدادات..."
+          placeholder={t('general.searchPlaceholder')}
           className="ps-10 rounded-xl"
         />
         {searchQuery && (
@@ -499,7 +514,7 @@ function GeneralSettingsTab({ settings, setSettings, canManage }: {
             onClick={() => setSearchQuery('')}
             className="absolute end-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
           >
-            مسح
+            {t('general.clearSearch')}
           </button>
         )}
       </div>
@@ -510,13 +525,13 @@ function GeneralSettingsTab({ settings, setSettings, canManage }: {
           {searchResults.length === 0 ? (
             <EmptyState
               icon={Search}
-              title="لا توجد نتائج"
-              description={`لم يتم العثور على إعدادات تطابق "${searchQuery}"`}
+              title={t('general.noResultsTitle')}
+              description={t('general.noResultsDescription', { query: searchQuery })}
             />
           ) : (
             <SectionCard
               icon={Search}
-              title={`نتائج البحث (${searchResults.length})`}
+              title={t('general.searchResultsTitle', { count: searchResults.length })}
               gradient="from-gray-500 to-slate-600"
             >
               <div className="space-y-5">
@@ -568,9 +583,9 @@ function GeneralSettingsTab({ settings, setSettings, canManage }: {
                     <SectionCard
                       id={`group-${activeGroup}`}
                       icon={currentGroup.icon}
-                      title={currentGroup.label}
+                      title={t(`groups.${currentGroup.key}.label` as Parameters<typeof t>[0])}
                       gradient={currentGroup.gradient}
-                      tip={currentGroup.tip}
+                      tip={t(`groups.${currentGroup.key}.tip` as Parameters<typeof t>[0])}
                     >
                       <div className="space-y-5">
                         {currentGroupSettings.map(([key, meta]) => (
@@ -612,8 +627,10 @@ interface ApiKey {
   created_at: string;
 }
 
+// value='*' renders via common.all at the usage site — see 'perm.value === "*"'
+// checks below. Its `label` here is a non-rendered technical fallback.
 const AVAILABLE_PERMISSIONS = [
-  { value: '*', label: 'الكل' },
+  { value: '*', label: '*' },
   // Phase 11 cron permissions (2026-05) — keep in sync with the
   // permission strings checked in app/api/cron/*/route.ts.
   { value: 'cron.follow-up-reminders', label: 'cron.follow-up-reminders' },
@@ -628,6 +645,9 @@ const AVAILABLE_PERMISSIONS = [
 ];
 
 function ApiKeysSection() {
+  const t = useTranslations('settings');
+  const tCommon = useTranslations('common');
+  const locale = useLocale();
   const [newKeyName, setNewKeyName] = useState('');
   const [newKeyPermissions, setNewKeyPermissions] = useState<string[]>([]);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
@@ -651,23 +671,23 @@ function ApiKeysSection() {
     onSuccess: (json: any) => {
       setRevealedKey(json?.key || null);
       setCopiedKey(false);
-      toast.success('تم إنشاء مفتاح API بنجاح');
+      toast.success(t('apiKeys.createdSuccess'));
       setNewKeyName('');
       setNewKeyPermissions([]);
       refetchApiKeys();
     },
-    onError: (err) => { console.error(err); toast.error('فشل إنشاء المفتاح'); },
+    onError: (err) => { console.error(err); toast.error(t('apiKeys.createFailed')); },
   });
 
   const toggleActiveMutation = useMutation({
     mutationFn: (key: ApiKey) => mutateAPI<any>(`/api/settings/api-keys/${key.id}`, 'PATCH', { is_active: !key.is_active }),
-    onError: (err) => { console.error(err); toast.error('فشل تحديث حالة المفتاح'); },
+    onError: (err) => { console.error(err); toast.error(t('apiKeys.statusUpdateFailed')); },
   });
 
   const deleteKeyMutation = useMutation({
     mutationFn: (key: ApiKey) => mutateAPI<any>(`/api/settings/api-keys/${key.id}`, 'DELETE'),
-    onSuccess: () => { toast.success('تم حذف المفتاح'); refetchApiKeys(); },
-    onError: (err) => { console.error(err); toast.error('فشل حذف المفتاح'); },
+    onSuccess: () => { toast.success(t('apiKeys.deletedSuccess')); refetchApiKeys(); },
+    onError: (err) => { console.error(err); toast.error(t('apiKeys.deleteFailed')); },
   });
 
   const handlePermissionToggle = (perm: string) => {
@@ -682,8 +702,8 @@ function ApiKeysSection() {
   };
 
   const handleCreateKey = async () => {
-    if (!newKeyName.trim()) { toast.error('يرجى إدخال اسم المفتاح'); return; }
-    if (newKeyPermissions.length === 0) { toast.error('يرجى اختيار صلاحية واحدة على الأقل'); return; }
+    if (!newKeyName.trim()) { toast.error(t('apiKeys.nameRequired')); return; }
+    if (newKeyPermissions.length === 0) { toast.error(t('apiKeys.permissionRequired')); return; }
     createKeyMutation.mutate({ name: newKeyName.trim(), permissions: newKeyPermissions });
   };
 
@@ -694,16 +714,16 @@ function ApiKeysSection() {
     try {
       await navigator.clipboard.writeText(revealedKey);
       setCopiedKey(true);
-      toast.success('تم نسخ المفتاح');
+      toast.success(t('apiKeys.copiedSuccess'));
       setTimeout(() => setCopiedKey(false), 3000);
-    } catch { toast.error('فشل نسخ المفتاح'); }
+    } catch { toast.error(t('apiKeys.copyFailed')); }
   };
 
   const handleToggleActive = async (key: ApiKey) => {
     setTogglingId(key.id);
     try {
       await toggleActiveMutation.mutateAsync(key);
-      toast.success(key.is_active ? 'تم تعطيل المفتاح' : 'تم تفعيل المفتاح');
+      toast.success(key.is_active ? t('apiKeys.disabledSuccess') : t('apiKeys.enabledSuccess'));
       refetchApiKeys();
     } finally { setTogglingId(null); }
   };
@@ -725,9 +745,16 @@ function ApiKeysSection() {
     }
   };
 
+  // Locale-parameterized in place (Phase 6a.2 fix) — this used to hardcode
+  // 'ar-SA' and shadow the shared lib/utils/format.ts `formatDate` helper.
+  // The shape here (date + time, short month) differs from the shared
+  // helper's date-fns pattern default, so the fix keeps the same
+  // toLocaleDateString shape and only parametrizes the locale, matching the
+  // codebase-wide `locale === 'ar' ? 'ar-XX' : 'en-GB'` convention (see e.g.
+  // components/boards/task-sheet.tsx, app/dashboard/my-payslips/*).
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return new Date(dateStr).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-GB', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
   return (
@@ -737,18 +764,20 @@ function ApiKeysSection() {
         <div className="flex items-start gap-3 rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/30 px-4 py-3">
           <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
           <div className="text-xs text-blue-700 dark:text-blue-400 leading-relaxed space-y-1">
-            <p className="font-medium">كيف تستخدم مفاتيح API؟</p>
-            <p>أنشئ مفتاح API لربط النظام مع أنظمتك الخارجية مثل n8n أو Telegram bot. أرسل المفتاح في هيدر <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded" dir="ltr">x-api-key</code> مع كل طلب.</p>
+            <p className="font-medium">{t('apiKeys.howToUseTitle')}</p>
+            <p>{t.rich('apiKeys.howToUseDescription', {
+              code: (chunks) => <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded" dir="ltr">{chunks}</code>,
+            })}</p>
           </div>
         </div>
       </motion.div>
 
-      <SectionCard icon={Shield} title="مفاتيح API الخارجية" gradient="from-amber-500 to-orange-600">
+      <SectionCard icon={Shield} title={t('apiKeys.sectionTitle')} gradient="from-amber-500 to-orange-600">
         <div className="space-y-6">
           {/* Header with create button */}
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              {apiKeys.length > 0 ? `${apiKeys.length} مفتاح مسجّل` : 'لم يتم إنشاء أي مفاتيح بعد'}
+              {apiKeys.length > 0 ? t('apiKeys.keysRegisteredCount', { count: apiKeys.length }) : t('apiKeys.noKeysYet')}
             </p>
             <Button
               variant="outline"
@@ -757,7 +786,7 @@ function ApiKeysSection() {
               className="rounded-xl"
             >
               <Plus className="h-4 w-4 me-1" />
-              مفتاح جديد
+              {t('apiKeys.newKeyButton')}
             </Button>
           </div>
 
@@ -766,7 +795,7 @@ function ApiKeysSection() {
             <div className="rounded-xl border-2 border-yellow-500/60 bg-yellow-50 dark:bg-yellow-950/30 p-4 space-y-3">
               <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-400 font-semibold text-sm">
                 <Key className="h-4 w-4" />
-                هذا المفتاح لن يظهر مرة أخرى — احفظه الآن
+                {t('apiKeys.revealedKeyWarning')}
               </div>
               <div className="flex items-center gap-2">
                 <code className="flex-1 bg-yellow-100 dark:bg-yellow-900/50 rounded-lg px-3 py-2 text-sm font-mono break-all select-all" dir="ltr">
@@ -782,19 +811,19 @@ function ApiKeysSection() {
           {/* Create Form */}
           {showCreateForm && (
             <div className="rounded-xl border border-border/60 bg-muted/30 p-4 space-y-4">
-              <h4 className="font-semibold text-sm">إنشاء مفتاح API جديد</h4>
+              <h4 className="font-semibold text-sm">{t('apiKeys.createFormTitle')}</h4>
               <div className="space-y-2">
-                <FormLabel htmlFor="api-key-name" required>اسم المفتاح</FormLabel>
+                <FormLabel htmlFor="api-key-name" required>{t('apiKeys.keyNameLabel')}</FormLabel>
                 <Input
                   id="api-key-name"
-                  placeholder="مثال: تكامل نظام المحاسبة"
+                  placeholder={t('apiKeys.keyNamePlaceholder')}
                   value={newKeyName}
                   onChange={e => setNewKeyName(e.target.value)}
                   className="rounded-xl"
                 />
               </div>
               <div className="space-y-2">
-                <Label>الصلاحيات</Label>
+                <Label>{t('apiKeys.permissionsLabel')}</Label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {AVAILABLE_PERMISSIONS.map(perm => (
                     <div key={perm.value} className="flex items-center gap-2">
@@ -804,7 +833,7 @@ function ApiKeysSection() {
                         onCheckedChange={() => handlePermissionToggle(perm.value)}
                       />
                       <Label htmlFor={`perm-${perm.value}`} className="text-sm font-normal cursor-pointer">
-                        {perm.label}
+                        {perm.value === '*' ? tCommon('all') : perm.label}
                       </Label>
                     </div>
                   ))}
@@ -813,12 +842,12 @@ function ApiKeysSection() {
               <div className="flex gap-2 pt-2">
                 <Button onClick={handleCreateKey} disabled={creatingKey} size="sm" className="rounded-xl">
                   <Key className="h-4 w-4 me-1" />
-                  {creatingKey ? 'جارٍ الإنشاء...' : 'إنشاء المفتاح'}
+                  {creatingKey ? t('apiKeys.creating') : t('apiKeys.createButton')}
                 </Button>
                 <Button variant="ghost" size="sm" className="rounded-xl"
                   onClick={() => { setShowCreateForm(false); setNewKeyName(''); setNewKeyPermissions([]); }}
                 >
-                  إلغاء
+                  {tCommon('actions.cancel')}
                 </Button>
               </div>
             </div>
@@ -832,8 +861,8 @@ function ApiKeysSection() {
           ) : apiKeys.length === 0 ? (
             <EmptyState
               icon={Key}
-              title="لا توجد مفاتيح API"
-              description="أنشئ مفتاح API للتكامل مع أنظمتك الخارجية مثل n8n أو Telegram"
+              title={t('apiKeys.emptyTitle')}
+              description={t('apiKeys.emptyDescription')}
             />
           ) : (
             <div className="space-y-3">
@@ -849,7 +878,7 @@ function ApiKeysSection() {
                           <Key className="h-3.5 w-3.5 text-white" />
                         </div>
                         <span className="font-medium text-sm truncate">{key.name}</span>
-                        {!key.is_active && <Badge variant="secondary" className="text-xs">معطّل</Badge>}
+                        {!key.is_active && <Badge variant="secondary" className="text-xs">{t('disabledBadge')}</Badge>}
                       </div>
                       <div className="text-xs text-muted-foreground font-mono ps-9" dir="ltr">
                         {key.key_prefix}••••••••
@@ -860,14 +889,14 @@ function ApiKeysSection() {
                         checked={key.is_active}
                         onCheckedChange={() => handleToggleActive(key)}
                         disabled={togglingId === key.id}
-                        aria-label={key.is_active ? 'تعطيل المفتاح' : 'تفعيل المفتاح'}
+                        aria-label={key.is_active ? t('apiKeys.disableAria') : t('apiKeys.enableAria')}
                       />
                       <Button
                         variant="ghost" size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive"
                         onClick={() => handleDeleteKey(key)}
                         disabled={deletingId === key.id}
-                        aria-label="حذف المفتاح"
+                        aria-label={t('apiKeys.deleteAria')}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -876,13 +905,13 @@ function ApiKeysSection() {
                   <div className="flex flex-wrap gap-1.5 ps-9">
                     {key.permissions.map(perm => (
                       <Badge key={perm} variant="outline" className="text-xs font-mono rounded-lg">
-                        {perm === '*' ? 'الكل (*)' : perm}
+                        {perm === '*' ? t('apiKeys.allPermissionLabel') : perm}
                       </Badge>
                     ))}
                   </div>
                   <div className="flex gap-4 text-xs text-muted-foreground ps-9">
-                    <span>أُنشئ: {formatDate(key.created_at)}</span>
-                    <span>آخر استخدام: {formatDate(key.last_used_at)}</span>
+                    <span>{t('apiKeys.createdAt', { date: formatDate(key.created_at) })}</span>
+                    <span>{t('apiKeys.lastUsed', { date: formatDate(key.last_used_at) })}</span>
                   </div>
                 </div>
               ))}
@@ -894,15 +923,15 @@ function ApiKeysSection() {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogTitle>{t('apiKeys.deleteConfirmTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              هل أنت متأكد من حذف المفتاح &quot;{deleteTargetKey?.name}&quot;؟ لا يمكن التراجع عن هذا الإجراء.
+              {t('apiKeys.deleteConfirmDescription', { name: deleteTargetKey?.name ?? '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogCancel>{tCommon('actions.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteKey} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              حذف
+              {t('apiKeys.deleteButton')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -915,13 +944,14 @@ function ApiKeysSection() {
    Module Settings Tab
    ═══════════════════════════════════════════════════════ */
 function ModuleSettingsTab() {
+  const t = useTranslations('settings');
   return (
     <motion.div variants={containerMotion} initial="hidden" animate="show" className="space-y-4">
       <motion.div variants={itemMotion}>
         <div className="flex items-start gap-3 rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/30 px-4 py-3">
           <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
           <p className="text-xs text-blue-700 dark:text-blue-400 leading-relaxed">
-            كل نظام فرعي له صفحة إعدادات خاصة. اضغط على البطاقة للانتقال مباشرة.
+            {t('modules.infoText')}
           </p>
         </div>
       </motion.div>
@@ -936,10 +966,10 @@ function ModuleSettingsTab() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-sm">{item.label}</h3>
+                      <h3 className="font-bold text-sm">{t(`subSettings.${item.key}.label` as Parameters<typeof t>[0])}</h3>
                       <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{item.description}</p>
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{t(`subSettings.${item.key}.description` as Parameters<typeof t>[0])}</p>
                   </div>
                   <ChevronLeft className="h-4 w-4 text-muted-foreground/40 group-hover:text-orange-500 transition-colors shrink-0 mt-1" />
                 </div>
@@ -956,6 +986,7 @@ function ModuleSettingsTab() {
    Main Settings Page
    ═══════════════════════════════════════════════════════ */
 export default function SettingsClient() {
+  const t = useTranslations('settings');
   const canManage = usePermission('settings.manage');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -976,9 +1007,9 @@ export default function SettingsClient() {
     try {
       await updateSettingsMutation.mutateAsync(settings);
       setSaved(true);
-      toast.success('تم حفظ الإعدادات بنجاح');
+      toast.success(t('saveBar.savedToast'));
       setTimeout(() => setSaved(false), 3000);
-    } catch (err) { console.error(err); toast.error('حدث خطأ أثناء الحفظ'); } finally { setSaving(false); }
+    } catch (err) { console.error(err); toast.error(t('saveBar.errorToast')); } finally { setSaving(false); }
   };
 
   if (loading) {
@@ -1007,8 +1038,8 @@ export default function SettingsClient() {
               <Settings className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">الإعدادات</h1>
-              <p className="text-sm text-muted-foreground">تخصيص النظام والتكوين العام</p>
+              <h1 className="text-xl font-bold">{t('page.heading')}</h1>
+              <p className="text-sm text-muted-foreground">{t('page.subheading')}</p>
             </div>
           </div>
           {canManage && activeTab === 'general' && (
@@ -1018,7 +1049,7 @@ export default function SettingsClient() {
               className={`rounded-xl shadow-md dark:shadow-black/15 transition-all ${saved ? 'bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800' : ''}`}
             >
               {saved ? <Check className="h-4 w-4 me-2" /> : <Save className="h-4 w-4 me-2" />}
-              {saving ? 'جارٍ الحفظ...' : saved ? 'تم الحفظ!' : 'حفظ الإعدادات'}
+              {saving ? t('saveBar.saving') : saved ? t('saveBar.saved') : t('saveBar.save')}
             </Button>
           )}
         </div>
@@ -1037,7 +1068,7 @@ export default function SettingsClient() {
             }`}
           >
             <tab.icon className="h-4 w-4" />
-            {tab.label}
+            {t(`tabs.${tab.key}` as Parameters<typeof t>[0])}
           </button>
         ))}
       </div>
@@ -1066,7 +1097,7 @@ export default function SettingsClient() {
             className={`w-full rounded-xl shadow-md dark:shadow-black/15 ${saved ? 'bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800' : ''}`}
           >
             {saved ? <Check className="h-4 w-4 me-2" /> : <Save className="h-4 w-4 me-2" />}
-            {saving ? 'جارٍ الحفظ...' : saved ? 'تم الحفظ!' : 'حفظ الإعدادات'}
+            {saving ? t('saveBar.saving') : saved ? t('saveBar.saved') : t('saveBar.save')}
           </Button>
         </div>
       )}

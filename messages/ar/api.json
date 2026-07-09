@@ -424,6 +424,24 @@
     "overtime": {
       "monthRequired": "الشهر مطلوب بصيغة YYYY-MM",
       "monthFormatInvalid": "صيغة الشهر غير صالحة"
+    },
+    "settings": {
+      "agentUsernameImmutable": "لا يمكن تعديل agent_username — احذف الإعداد وأنشئه من جديد",
+      "senderInstanceEmpty": "sender_instance_name لا يمكن أن يكون فارغ",
+      "recipientPhoneEmpty": "recipient_phone لا يمكن أن يكون فارغ",
+      "noValidFieldsToUpdate": "لا توجد حقول صالحة للتعديل",
+      "agentWhatsappSettingNotFound": "الإعداد غير موجود",
+      "agentUsernameInstancePhoneRequired": "agent_username و sender_instance_name و recipient_phone مطلوبة",
+      "agentNotFound": "الموظف \"{username}\" غير موجود",
+      "agentSettingAlreadyExists": "هذا الموظف لديه إعداد بالفعل — استخدم تعديل بدلاً من إضافة",
+      "apiKeyNotFound": "مفتاح API غير موجود",
+      "apiKeyNameRequired": "اسم المفتاح مطلوب",
+      "apiKeyPermissionsRequired": "الصلاحيات مطلوبة",
+      "businessEntityNamesRequired": "الاسم بالعربي والإنجليزي مطلوب",
+      "idRequired": "ID مطلوب",
+      "updateRequired": "يجب تقديم إعدادات للتحديث",
+      "disallowedKeys": "مفاتيح غير مسموح بها: {keys}",
+      "updateFailed": "فشل تحديث الإعدادات: {errors}"
     }
   }
 }

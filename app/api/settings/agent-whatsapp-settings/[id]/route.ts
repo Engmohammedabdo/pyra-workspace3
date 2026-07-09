@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -46,25 +47,24 @@ export async function PATCH(
 
     const { id } = await params;
     const supabase = createServiceRoleClient();
+    const t = await getTranslations('api');
 
     const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!body) return apiValidationError('JSON body مطلوب');
+    if (!body) return apiValidationError(t('common.jsonBodyRequired'));
 
     if ('agent_username' in body) {
-      return apiValidationError(
-        'لا يمكن تعديل agent_username — احذف الإعداد وأنشئه من جديد',
-      );
+      return apiValidationError(t('settings.agentUsernameImmutable'));
     }
 
     const updates: Record<string, unknown> = {};
     if (typeof body.sender_instance_name === 'string') {
       const v = body.sender_instance_name.trim();
-      if (!v) return apiValidationError('sender_instance_name لا يمكن أن يكون فارغ');
+      if (!v) return apiValidationError(t('settings.senderInstanceEmpty'));
       updates.sender_instance_name = v;
     }
     if (typeof body.recipient_phone === 'string') {
       const v = body.recipient_phone.trim();
-      if (!v) return apiValidationError('recipient_phone لا يمكن أن يكون فارغ');
+      if (!v) return apiValidationError(t('settings.recipientPhoneEmpty'));
       updates.recipient_phone = v;
     }
     if (typeof body.is_active === 'boolean') {
@@ -76,7 +76,7 @@ export async function PATCH(
     }
 
     if (Object.keys(updates).length === 0) {
-      return apiValidationError('لا توجد حقول صالحة للتعديل');
+      return apiValidationError(t('settings.noValidFieldsToUpdate'));
     }
 
     const { data, error } = await supabase
@@ -90,7 +90,7 @@ export async function PATCH(
       console.error('[PATCH /api/settings/agent-whatsapp-settings] update error:', error.message);
       return apiServerError();
     }
-    if (!data) return apiNotFound('الإعداد غير موجود');
+    if (!data) return apiNotFound(t('settings.agentWhatsappSettingNotFound'));
 
     logActivity(
       auth.pyraUser.username,
@@ -132,13 +132,14 @@ export async function DELETE(
 
     const { id } = await params;
     const supabase = createServiceRoleClient();
+    const t = await getTranslations('api');
 
     const { data: existing } = await supabase
       .from('pyra_agent_whatsapp_settings')
       .select('agent_username, sender_instance_name')
       .eq('id', id)
       .maybeSingle();
-    if (!existing) return apiNotFound('الإعداد غير موجود');
+    if (!existing) return apiNotFound(t('settings.agentWhatsappSettingNotFound'));
 
     const { error } = await supabase
       .from('pyra_agent_whatsapp_settings')

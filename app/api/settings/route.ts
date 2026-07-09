@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -152,17 +153,18 @@ export async function PATCH(request: NextRequest) {
     const auth = await requireApiPermission('settings.manage');
     if (isApiError(auth)) return auth;
 
+    const t = await getTranslations('api');
     const body = await request.json();
 
     if (!body || typeof body !== 'object' || Object.keys(body).length === 0) {
-      return apiValidationError('يجب تقديم إعدادات للتحديث');
+      return apiValidationError(t('settings.updateRequired'));
     }
 
     // ── Validate keys against whitelist ────────────────────
     const invalidKeys = Object.keys(body).filter((k) => !ALLOWED_KEYS.has(k.trim()));
     if (invalidKeys.length > 0) {
       return apiValidationError(
-        `مفاتيح غير مسموح بها: ${invalidKeys.join(', ')}`
+        t('settings.disallowedKeys', { keys: invalidKeys.join(', ') })
       );
     }
 
@@ -193,7 +195,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (errors.length > 0) {
-      return apiServerError(`فشل تحديث الإعدادات: ${errors.join(', ')}`);
+      return apiServerError(t('settings.updateFailed', { errors: errors.join(', ') }));
     }
 
     // Return the updated settings

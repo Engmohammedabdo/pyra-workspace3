@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiNotFound, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -20,6 +21,7 @@ export async function PATCH(
 
     const { id } = await params;
     const supabase = createServiceRoleClient();
+    const t = await getTranslations('api');
     const body = await req.json();
 
     const updates: Record<string, unknown> = {};
@@ -35,7 +37,7 @@ export async function PATCH(
       .select(API_KEY_FIELDS)
       .single();
 
-    if (error || !data) return apiNotFound('مفتاح API غير موجود');
+    if (error || !data) return apiNotFound(t('settings.apiKeyNotFound'));
 
     // Activity log
     supabase.from('pyra_activity_log').insert({
@@ -69,6 +71,7 @@ export async function DELETE(
 
     const { id } = await params;
     const supabase = createServiceRoleClient();
+    const t = await getTranslations('api');
 
     // Fetch key name for activity log before deleting
     const { data: existing } = await supabase
@@ -77,7 +80,7 @@ export async function DELETE(
       .eq('id', id)
       .maybeSingle();
 
-    if (!existing) return apiNotFound('مفتاح API غير موجود');
+    if (!existing) return apiNotFound(t('settings.apiKeyNotFound'));
 
     const { error } = await supabase
       .from('pyra_api_keys')

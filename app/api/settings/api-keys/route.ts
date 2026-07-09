@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -46,15 +47,16 @@ export async function POST(req: NextRequest) {
     if (isApiError(auth)) return auth;
 
     const supabase = createServiceRoleClient();
+    const t = await getTranslations('api');
     const body = await req.json();
 
     const { name, permissions, expires_at } = body;
 
     if (!name || !name.trim()) {
-      return apiError('اسم المفتاح مطلوب', 422);
+      return apiError(t('settings.apiKeyNameRequired'), 422);
     }
     if (!permissions || !Array.isArray(permissions) || permissions.length === 0) {
-      return apiError('الصلاحيات مطلوبة', 422);
+      return apiError(t('settings.apiKeyPermissionsRequired'), 422);
     }
 
     // Generate the raw API key

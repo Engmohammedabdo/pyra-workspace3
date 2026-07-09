@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -62,7 +63,8 @@ export interface AddEditDialogProps {
     is_active: boolean;
     notes: string | null;
   }) => Promise<void> | void;
-  /** mutation pending — disable submit + cancel; show "جارٍ الحفظ..." */
+  /** mutation pending — disable submit + cancel; show the saving label
+   *  (settings.agentWhatsapp.dialog.saving) */
   submitting: boolean;
 }
 
@@ -95,6 +97,8 @@ export function AddEditDialog({
   onSubmit,
   submitting,
 }: AddEditDialogProps) {
+  const t = useTranslations('settings.agentWhatsapp.dialog');
+  const tCommon = useTranslations('common');
   const isEdit = target !== null;
 
   // Form state. NOTE: isActive defaults `false` to match the DB column
@@ -133,15 +137,15 @@ export function AddEditDialog({
     // Client-side validation — fast feedback before round-tripping to API.
     // Server returns 422 with similar Arabic messages as a second line.
     if (!isEdit && !agentUsername) {
-      toast.error('اختر الموظف');
+      toast.error(t('agentPlaceholder'));
       return;
     }
     if (!senderInstance.trim()) {
-      toast.error('اسم Instance مطلوب');
+      toast.error(t('instanceNameRequired'));
       return;
     }
     if (!recipientPhone.trim()) {
-      toast.error('رقم WhatsApp المستلم مطلوب');
+      toast.error(t('recipientPhoneRequired'));
       return;
     }
     // Parent catches errors from the mutation — we don't try/catch here so
@@ -175,24 +179,24 @@ export function AddEditDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {isEdit ? 'تعديل إعداد WhatsApp' : 'إضافة إعداد WhatsApp'}
+            {isEdit ? t('editTitle') : t('addTitle')}
           </DialogTitle>
           <DialogDescription>
-            اربط الموظف بـ Evolution Instance ورقم WhatsApp يستقبل التذكيرات.
+            {t('description')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Agent select — disabled in EDIT mode (identity immutable per Q-R-1) */}
           <div className="space-y-2">
-            <Label htmlFor="agent-select">الموظف</Label>
+            <Label htmlFor="agent-select">{t('agentLabel')}</Label>
             <Select
               value={agentUsername}
               onValueChange={setAgentUsername}
               disabled={isEdit}
             >
               <SelectTrigger id="agent-select" className="rounded-xl">
-                <SelectValue placeholder="اختر الموظف" />
+                <SelectValue placeholder={t('agentPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {agents.map((agent) => (
@@ -207,7 +211,7 @@ export function AddEditDialog({
             </Select>
             {isEdit && (
               <p className="text-xs text-muted-foreground">
-                لا يمكن تعديل الموظف. للتغيير، احذف الإعداد وأنشئه من جديد.
+                {t('agentLockedHint')}
               </p>
             )}
           </div>
@@ -230,13 +234,12 @@ export function AddEditDialog({
               ))}
             </datalist>
             <p className="text-xs text-muted-foreground">
-              Instance اللي ترسل منه الرسالة. ممكن تكتب اسم لم يُنشأ بعد —
-              التحقق يحدث عند تشغيل الـ Cron.
+              {t('instanceHint')}
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="recipient-phone">رقم WhatsApp المستلم</Label>
+            <Label htmlFor="recipient-phone">{t('recipientLabel')}</Label>
             <Input
               id="recipient-phone"
               dir="ltr"
@@ -246,7 +249,7 @@ export function AddEditDialog({
               className="rounded-xl font-mono"
             />
             <p className="text-xs text-muted-foreground">
-              بدون + أو مسافات — أرقام فقط (مع كود الدولة).
+              {t('recipientHint')}
             </p>
           </div>
 
@@ -254,10 +257,10 @@ export function AddEditDialog({
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
                 <Label htmlFor="is-active" className="cursor-pointer">
-                  تفعيل
+                  {t('activeLabel')}
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  عند التفعيل، الـ Cron يبدأ يستخدم هذا الإعداد فوراً.
+                  {t('activeHint')}
                 </p>
               </div>
               <Switch
@@ -269,7 +272,7 @@ export function AddEditDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">ملاحظات (اختياري)</Label>
+            <Label htmlFor="notes">{t('notesLabel')}</Label>
             <Textarea
               id="notes"
               rows={2}
@@ -287,7 +290,7 @@ export function AddEditDialog({
             disabled={submitting}
             className="rounded-xl"
           >
-            إلغاء
+            {tCommon('actions.cancel')}
           </Button>
           <Button
             onClick={handleSubmit}
@@ -295,10 +298,10 @@ export function AddEditDialog({
             className="rounded-xl"
           >
             {submitting
-              ? 'جارٍ الحفظ...'
+              ? t('saving')
               : isEdit
-                ? 'حفظ التعديلات'
-                : 'إنشاء الإعداد'}
+                ? t('saveEdits')
+                : t('createSetting')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -317,6 +320,8 @@ export function DeleteConfirmDialog({
   onConfirm,
   deleting,
 }: DeleteConfirmDialogProps) {
+  const t = useTranslations('settings.agentWhatsapp.dialog');
+  const tCommon = useTranslations('common');
   const handleOpenChange = (next: boolean) => {
     if (!next) onClose();
   };
@@ -327,21 +332,22 @@ export function DeleteConfirmDialog({
     <AlertDialog open={target !== null} onOpenChange={handleOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>حذف إعداد WhatsApp</AlertDialogTitle>
+          <AlertDialogTitle>{t('deleteTitle')}</AlertDialogTitle>
           <AlertDialogDescription>
-            هل تريد حذف إعداد WhatsApp للموظف <strong>{displayName}</strong>؟ لن
-            يتلقى تذكيرات المتابعة على WhatsApp بعد الحذف (التنبيه داخل التطبيق
-            يبقى يعمل).
+            {t.rich('deleteDescription', {
+              name: displayName,
+              strong: (chunks) => <strong>{chunks}</strong>,
+            })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={deleting}>إلغاء</AlertDialogCancel>
+          <AlertDialogCancel disabled={deleting}>{tCommon('actions.cancel')}</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
             disabled={deleting}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            حذف نهائي
+            {t('deleteConfirmButton')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

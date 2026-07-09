@@ -424,6 +424,24 @@
     "overtime": {
       "monthRequired": "Month is required in YYYY-MM format",
       "monthFormatInvalid": "Invalid month format"
+    },
+    "settings": {
+      "agentUsernameImmutable": "agent_username cannot be changed — delete the setting and recreate it",
+      "senderInstanceEmpty": "sender_instance_name cannot be empty",
+      "recipientPhoneEmpty": "recipient_phone cannot be empty",
+      "noValidFieldsToUpdate": "No valid fields to update",
+      "agentWhatsappSettingNotFound": "The setting was not found",
+      "agentUsernameInstancePhoneRequired": "agent_username, sender_instance_name, and recipient_phone are required",
+      "agentNotFound": "Employee \"{username}\" not found",
+      "agentSettingAlreadyExists": "This employee already has a setting — use edit instead of add",
+      "apiKeyNotFound": "API key not found",
+      "apiKeyNameRequired": "Key name is required",
+      "apiKeyPermissionsRequired": "Permissions are required",
+      "businessEntityNamesRequired": "Arabic and English names are required",
+      "idRequired": "ID is required",
+      "updateRequired": "Settings must be provided to update",
+      "disallowedKeys": "Disallowed keys: {keys}",
+      "updateFailed": "Failed to update settings: {errors}"
     }
   }
 }

@@ -5,6 +5,7 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,9 @@ export function SettingsList({
   onToggleActive,
   toggleDisabled,
 }: SettingsListProps) {
+  const t = useTranslations('settings.agentWhatsapp');
+  const tSettings = useTranslations('settings');
+
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -54,8 +58,8 @@ export function SettingsList({
     return (
       <EmptyState
         icon={MessageCircle}
-        title="لا توجد إعدادات حتى الآن"
-        description="ابدأ بربط أول موظف برقم WhatsApp المستلم — الـ Cron سيستخدم هذا الإعداد على الفور بمجرد تفعيله."
+        title={t('emptyTitle')}
+        description={t('emptyDescription')}
       />
     );
   }
@@ -93,7 +97,7 @@ export function SettingsList({
                     <Badge variant="outline" className="font-mono text-[11px]" dir="ltr">
                       @{row.agent_username}
                     </Badge>
-                    {!row.is_active && <Badge variant="secondary">معطّل</Badge>}
+                    {!row.is_active && <Badge variant="secondary">{tSettings('disabledBadge')}</Badge>}
                   </div>
                 </div>
               </div>
@@ -103,7 +107,7 @@ export function SettingsList({
                   checked={row.is_active}
                   onCheckedChange={() => onToggleActive(row)}
                   disabled={!canManage || toggleDisabled}
-                  aria-label={row.is_active ? 'تعطيل' : 'تفعيل'}
+                  aria-label={row.is_active ? t('disableAria') : t('enableAria')}
                 />
                 {canManage && (
                   <>
@@ -112,7 +116,7 @@ export function SettingsList({
                       size="icon"
                       className="h-8 w-8"
                       onClick={() => onEdit(row)}
-                      aria-label="تعديل"
+                      aria-label={t('editAria')}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -121,7 +125,7 @@ export function SettingsList({
                       size="icon"
                       className="h-8 w-8 text-destructive hover:text-destructive"
                       onClick={() => onDelete(row)}
-                      aria-label="حذف"
+                      aria-label={t('deleteAria')}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -144,7 +148,7 @@ export function SettingsList({
                   </span>
                 ) : instanceMissing ? (
                   <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400">
-                    <AlertCircle className="h-3 w-3" /> غير موجود
+                    <AlertCircle className="h-3 w-3" /> {t('instanceNotFound')}
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
@@ -158,10 +162,11 @@ export function SettingsList({
                * could feed a copy-paste-into-Edit corruption: copying the
                * displayed "+971..." and pasting into the Edit dialog would
                * save "+971..." → next render "++971...". Helper text in the
-               * dialog ("بدون + أو مسافات") already conveys the format.
+               * dialog (settings.agentWhatsapp.dialog.recipientHint) already
+               * conveys the format.
                */}
               <div>
-                الرقم المستلم:{' '}
+                {t('recipientNumberLabel')}{' '}
                 <code
                   className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground"
                   dir="ltr"
