@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -9,7 +10,7 @@ import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supab
 import { generateId } from '@/lib/utils/id';
 import { PASSWORD_MIN_LENGTH, EMPLOYMENT_TYPES, WORK_LOCATIONS, PAYMENT_TYPES, SALARY_CURRENCIES } from '@/lib/constants/auth';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
-import { validateExtraPermissions } from '@/lib/auth/rbac';
+import { validateExtraPermissions, type ApiTranslator } from '@/lib/auth/rbac';
 import { createEmployeeUser } from '@/lib/hr/create-employee';
 
 // =============================================================
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest) {
   try {
     const auth = await requireApiPermission('users.view');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const searchParams = request.nextUrl.searchParams;
     const search = searchParams.get('search') || '';
@@ -53,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Users list error:', error);
-      return apiServerError('فشل في جلب قائمة المستخدمين');
+      return apiServerError(t('users.listFailed'));
     }
 
     return apiSuccess(users || [], { total: (users || []).length });
@@ -72,6 +74,7 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await requireApiPermission('users.manage');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const body = await request.json();
     const {
@@ -82,55 +85,58 @@ export async function POST(request: NextRequest) {
 
     // --- Validation ---
     if (!username || typeof username !== 'string' || username.trim().length < 3) {
-      return apiValidationError('اسم المستخدم مطلوب (3 أحرف على الأقل)');
+      return apiValidationError(t('users.usernameMinLength'));
     }
 
     if (!password || typeof password !== 'string' || password.length < PASSWORD_MIN_LENGTH) {
-      return apiValidationError(`كلمة المرور مطلوبة (${PASSWORD_MIN_LENGTH} أحرف على الأقل)`);
+      return apiValidationError(t('users.passwordMinRequired', { min: PASSWORD_MIN_LENGTH }));
     }
 
     if (!role || !['admin', 'employee', 'sales_agent'].includes(role)) {
-      return apiValidationError('الدور يجب أن يكون admin أو employee أو sales_agent');
+      return apiValidationError(t('users.roleInvalid'));
     }
 
     if (!display_name || typeof display_name !== 'string' || display_name.trim().length === 0) {
-      return apiValidationError('اسم العرض مطلوب');
+      return apiValidationError(t('users.displayNameRequired'));
     }
 
     if (role_id !== undefined && role_id !== null && typeof role_id !== 'string') {
-      return apiValidationError('معرّف الدور الوظيفي غير صالح');
+      return apiValidationError(t('users.roleIdInvalid'));
     }
 
     // --- New / previously-orphan field validation ---
     if (salary_currency !== undefined && salary_currency !== null &&
         !(SALARY_CURRENCIES as readonly string[]).includes(salary_currency)) {
-      return apiValidationError(`عملة الراتب غير صالحة. القيم المسموح بها: ${SALARY_CURRENCIES.join('، ')}`);
+      return apiValidationError(t('users.salaryCurrencyInvalid', { allowed: SALARY_CURRENCIES.join('، ') })); // i18n-exempt: pre-existing Arabic-comma list separator (legacy, unchanged)
     }
     if (commission_rate !== undefined && commission_rate !== null) {
       if (typeof commission_rate !== 'number' || Number.isNaN(commission_rate) || commission_rate < 0 || commission_rate > 100) {
-        return apiValidationError('نسبة العمولة يجب أن تكون رقم بين 0 و 100');
+        return apiValidationError(t('users.commissionRateInvalid'));
       }
     }
     if (national_id !== undefined && national_id !== null && typeof national_id !== 'string') {
-      return apiValidationError('رقم الهوية الوطنية غير صالح');
+      return apiValidationError(t('users.nationalIdInvalid'));
     }
     if (work_schedule_id !== undefined && work_schedule_id !== null && typeof work_schedule_id !== 'string') {
-      return apiValidationError('معرّف جدول العمل غير صالح');
+      return apiValidationError(t('users.workScheduleIdInvalid'));
     }
     if (bank_details !== undefined && bank_details !== null &&
         (typeof bank_details !== 'object' || Array.isArray(bank_details))) {
-      return apiValidationError('بيانات البنك يجب أن تكون كائن JSON');
+      return apiValidationError(t('users.bankDetailsInvalid'));
     }
     if (salary_breakdown !== undefined && salary_breakdown !== null &&
         (typeof salary_breakdown !== 'object' || Array.isArray(salary_breakdown))) {
-      return apiValidationError('تفاصيل الراتب يجب أن تكون كائن JSON');
+      return apiValidationError(t('users.salaryBreakdownInvalid'));
     }
 
     // Validate extra_permissions — Phase D Commit 1 (audit P2 #1):
     // exact-match whitelist against PERMISSIONS catalog; reject wildcards.
     // Closes admin foot-gun where phished admin / typo could grant `["*"]`
     // and silently promote a user to super-admin.
-    const extraPermsResult = validateExtraPermissions(extra_permissions);
+    // next-intl's translator narrows `key` to known message keys, which
+    // doesn't structurally satisfy validateExtraPermissions' looser
+    // ApiTranslator param type (contravariance) — safe explicit cast.
+    const extraPermsResult = validateExtraPermissions(extra_permissions, t as ApiTranslator);
     if (!extraPermsResult.ok) {
       return apiValidationError(extraPermsResult.error);
     }

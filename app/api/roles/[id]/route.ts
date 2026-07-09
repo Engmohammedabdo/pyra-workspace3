@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { hasPermission } from '@/lib/auth/rbac';
@@ -12,6 +13,7 @@ export async function GET(
   try {
     const auth = await requireApiPermission('roles.view');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
     const supabase = await createServerSupabaseClient();
@@ -23,7 +25,7 @@ export async function GET(
       .single();
 
     if (error || !role) {
-      return NextResponse.json({ error: 'الدور غير موجود' }, { status: 404 });
+      return NextResponse.json({ error: t('roles.notFound') }, { status: 404 });
     }
 
     const { count } = await supabase
@@ -46,6 +48,7 @@ export async function PATCH(
   try {
     const auth = await requireApiPermission('roles.manage');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
     const body = await request.json();
@@ -59,7 +62,7 @@ export async function PATCH(
       .single();
 
     if (!currentRole) {
-      return NextResponse.json({ error: 'الدور غير موجود' }, { status: 404 });
+      return NextResponse.json({ error: t('roles.notFound') }, { status: 404 });
     }
 
     // Build update object
@@ -80,7 +83,7 @@ export async function PATCH(
           const unauthorized = (body.permissions as string[]).filter((p: string) => !hasPermission(userPerms, p));
           if (unauthorized.length > 0) {
             return NextResponse.json(
-              { error: `لا يمكنك منح صلاحيات لا تملكها: ${unauthorized.join(', ')}` },
+              { error: t('roles.cannotGrantUnownedPermissions', { list: unauthorized.join(', ') }) },
               { status: 403 }
             );
           }
@@ -98,7 +101,7 @@ export async function PATCH(
 
     if (error) {
       if (error.code === '23505') {
-        return NextResponse.json({ error: 'اسم الدور موجود مسبقاً' }, { status: 409 });
+        return NextResponse.json({ error: t('roles.nameAlreadyExists') }, { status: 409 });
       }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -126,6 +129,7 @@ export async function DELETE(
   try {
     const auth = await requireApiPermission('roles.manage');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
     const supabase = await createServerSupabaseClient();
@@ -138,11 +142,11 @@ export async function DELETE(
       .single();
 
     if (!role) {
-      return NextResponse.json({ error: 'الدور غير موجود' }, { status: 404 });
+      return NextResponse.json({ error: t('roles.notFound') }, { status: 404 });
     }
 
     if (role.is_system) {
-      return NextResponse.json({ error: 'لا يمكن حذف الأدوار الأساسية' }, { status: 403 });
+      return NextResponse.json({ error: t('roles.cannotDeleteSystemRole') }, { status: 403 });
     }
 
     // Check if users are assigned
@@ -158,7 +162,7 @@ export async function DELETE(
 
       if (!fallbackRoleId) {
         return NextResponse.json(
-          { error: `هناك ${count} مستخدمين بهذا الدور. يجب تحديد دور بديل.`, requires_fallback: true },
+          { error: t('roles.roleInUseByUsers', { count }), requires_fallback: true },
           { status: 400 }
         );
       }

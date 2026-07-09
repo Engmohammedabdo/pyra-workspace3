@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -29,6 +30,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const auth = await requireApiPermission('users.manage');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const { username } = await params;
     const isSelf = auth.pyraUser.username === username;
@@ -38,7 +40,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Validate password
     if (!password || typeof password !== 'string' || password.length < PASSWORD_MIN_LENGTH) {
-      return apiValidationError(`كلمة المرور مطلوبة (${PASSWORD_MIN_LENGTH} أحرف على الأقل)`);
+      return apiValidationError(t('users.passwordMinRequired', { min: PASSWORD_MIN_LENGTH }));
     }
 
     const supabase = await createServerSupabaseClient();
@@ -51,7 +53,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (findError || !targetUser) {
-      return apiNotFound('المستخدم غير موجود');
+      return apiNotFound(t('users.notFound'));
     }
 
     // Resolve Supabase Auth user ID (heals legacy users missing from pyra_auth_mapping)
@@ -59,24 +61,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const authUserId = await resolveAuthUserId(serviceClient, username);
 
     if (!authUserId) {
-      return apiServerError('لم يتم العثور على حساب المصادقة لهذا المستخدم');
+      return apiServerError(t('users.authAccountNotFound'));
     }
 
     // For self-change, verify current password
     if (isSelf) {
       if (!current_password) {
-        return apiValidationError('كلمة المرور الحالية مطلوبة');
+        return apiValidationError(t('users.currentPasswordRequired'));
       }
       const { data: authUser } = await serviceClient.auth.admin.getUserById(authUserId);
       if (!authUser?.user?.email) {
-        return apiServerError('لم يتم العثور على بيانات المصادقة');
+        return apiServerError(t('users.authDataNotFound'));
       }
       const { error: verifyError } = await serviceClient.auth.signInWithPassword({
         email: authUser.user.email,
         password: current_password,
       });
       if (verifyError) {
-        return apiValidationError('كلمة المرور الحالية غير صحيحة');
+        return apiValidationError(t('users.currentPasswordIncorrect'));
       }
     }
     const { error: updateError } = await serviceClient.auth.admin.updateUserById(
@@ -86,7 +88,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (updateError) {
       console.error('Password update error:', updateError);
-      return apiServerError(`فشل في تحديث كلمة المرور: ${updateError.message}`);
+      return apiServerError(t('users.passwordUpdateFailed', { message: updateError.message }));
     }
 
     // Log the activity
@@ -104,7 +106,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
     });
 
-    return apiSuccess({ message: 'تم تغيير كلمة المرور بنجاح' });
+    return apiSuccess({ message: t('users.passwordChangeSuccess') });
   } catch (err) {
     console.error('Password POST error:', err);
     return apiServerError();

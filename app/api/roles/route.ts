@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { hasPermission } from '@/lib/auth/rbac';
@@ -52,16 +53,17 @@ export async function POST(request: Request) {
   try {
     const auth = await requireApiPermission('roles.manage');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const body = await request.json();
     const { name, name_ar, description, permissions, color, icon } = body;
 
     if (!name || !name_ar) {
-      return NextResponse.json({ error: 'الاسم مطلوب' }, { status: 400 });
+      return NextResponse.json({ error: t('roles.nameRequired') }, { status: 400 });
     }
 
     if (!permissions || !Array.isArray(permissions) || permissions.length === 0) {
-      return NextResponse.json({ error: 'يجب تحديد صلاحية واحدة على الأقل' }, { status: 400 });
+      return NextResponse.json({ error: t('roles.permissionRequired') }, { status: 400 });
     }
 
     // Prevent privilege escalation: user cannot grant permissions they don't have
@@ -70,7 +72,7 @@ export async function POST(request: Request) {
       const unauthorized = permissions.filter((p: string) => !hasPermission(userPerms, p));
       if (unauthorized.length > 0) {
         return NextResponse.json(
-          { error: `لا يمكنك منح صلاحيات لا تملكها: ${unauthorized.join(', ')}` },
+          { error: t('roles.cannotGrantUnownedPermissions', { list: unauthorized.join(', ') }) },
           { status: 403 }
         );
       }
@@ -95,7 +97,7 @@ export async function POST(request: Request) {
 
     if (error) {
       if (error.code === '23505') {
-        return NextResponse.json({ error: 'اسم الدور موجود مسبقاً' }, { status: 409 });
+        return NextResponse.json({ error: t('roles.nameAlreadyExists') }, { status: 409 });
       }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }

@@ -1,3 +1,4 @@
+import { getTranslations } from 'next-intl/server';
 import { getApiAuth } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -15,6 +16,7 @@ export async function GET() {
   try {
     const auth = await getApiAuth();
     if (!auth) return apiUnauthorized();
+    const t = await getTranslations('api');
 
     const supabase = await createServerSupabaseClient();
 
@@ -30,7 +32,7 @@ export async function GET() {
 
     if (error) {
       console.error('Users lite list error:', error);
-      return apiServerError('فشل في جلب قائمة المستخدمين');
+      return apiServerError(t('users.listFailed'));
     }
 
     return apiSuccess(users || []);

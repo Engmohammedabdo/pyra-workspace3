@@ -247,11 +247,26 @@ export interface ValidateExtraPermissionsOk {
 }
 export interface ValidateExtraPermissionsErr {
   ok: false;
-  /** Arabic-message error suitable for `apiValidationError(...)`. */
+  /** Localized error message suitable for `apiValidationError(...)`. */
   error: string;
   /** The first invalid permission encountered, included for debugging. */
   rejected?: string;
 }
+
+/**
+ * Minimal translator shape accepted by `validateExtraPermissions` —
+ * structurally compatible with next-intl's `getTranslations('api')` return
+ * value. Kept local (no next-intl import) so this file stays
+ * framework-agnostic. (Phase 6a.6 i18n — string source only, same
+ * validation logic as before.)
+ *
+ * next-intl's real translator narrows `key` to the literal union of known
+ * message keys, which TypeScript's strict function-parameter contravariance
+ * won't structurally assign to this looser `(key: string) => string` shape.
+ * Callers pass it via `t as ApiTranslator` (exported for that cast) — see
+ * app/api/users/route.ts and app/api/users/[username]/route.ts.
+ */
+export type ApiTranslator = (key: string, values?: Record<string, string | number>) => string;
 
 /**
  * Validate an `extra_permissions` input from an admin request body.
@@ -272,12 +287,13 @@ export interface ValidateExtraPermissionsErr {
  */
 export function validateExtraPermissions(
   input: unknown,
+  t: ApiTranslator,
 ): ValidateExtraPermissionsOk | ValidateExtraPermissionsErr {
   if (input === undefined || input === null) {
     return { ok: true, value: [] };
   }
   if (!Array.isArray(input)) {
-    return { ok: false, error: 'extra_permissions يجب أن تكون مصفوفة' };
+    return { ok: false, error: t('users.extraPermissionsNotArray') };
   }
   const seen = new Set<string>();
   const out: string[] = [];
@@ -285,7 +301,7 @@ export function validateExtraPermissions(
     if (typeof item !== 'string') {
       return {
         ok: false,
-        error: 'extra_permissions يجب أن تحتوي على نصوص فقط',
+        error: t('users.extraPermissionsStringsOnly'),
       };
     }
     const v = item.trim();
@@ -294,14 +310,14 @@ export function validateExtraPermissions(
     if (v === '*' || v.endsWith('.*')) {
       return {
         ok: false,
-        error: 'الصلاحيات الشاملة (wildcards) غير مسموحة هنا — استخدم نظام الأدوار',
+        error: t('users.extraPermissionsWildcardsNotAllowed'),
         rejected: v,
       };
     }
     if (!ALLOWED_EXTRA_PERMISSIONS.has(v)) {
       return {
         ok: false,
-        error: `صلاحية غير معروفة: ${v}`,
+        error: t('users.extraPermissionUnknown', { permission: v }),
         rejected: v,
       };
     }
