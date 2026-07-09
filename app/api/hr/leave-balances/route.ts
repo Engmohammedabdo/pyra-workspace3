@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -22,7 +23,7 @@ import { dubaiDayKey } from '@/lib/utils/format';
 //        stable column set (one column per active leave type).
 //
 // POST — upsert ONE (username, year, leave_type_id) balance row. Used by
-//        the admin "تعديل" dialog (one call per leave-type row changed).
+//        the admin "تعديل" dialog (one call per leave-type row changed). i18n-exempt: comment only
 //
 // Both gated: leave.manage (admin-only), gate-then-service-role.
 // ────────────────────────────────────────────────────────────────────────────
@@ -68,6 +69,7 @@ export async function GET(request: NextRequest) {
   try {
     const auth = await requireApiPermission('leave.manage');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const supabase = createServiceRoleClient();
     const { searchParams } = new URL(request.url);
@@ -77,7 +79,7 @@ export async function GET(request: NextRequest) {
     const usernameFilter = searchParams.get('username');
 
     if (!Number.isFinite(year)) {
-      return apiValidationError('سنة غير صالحة');
+      return apiValidationError(t('hr.leaveBalanceYearInvalid'));
     }
 
     // Active leave types drive the fixed column set.
@@ -173,12 +175,13 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await requireApiPermission('leave.manage');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const supabase = createServiceRoleClient();
     const body = await request.json().catch(() => null);
 
     if (!body || typeof body !== 'object') {
-      return apiValidationError('بيانات غير صالحة');
+      return apiValidationError(t('hr.bodyInvalid'));
     }
 
     const { username, year, leave_type_id, total_days, used_days, carried_over } = body as Record<
@@ -187,13 +190,13 @@ export async function POST(request: NextRequest) {
     >;
 
     if (typeof username !== 'string' || !username.trim()) {
-      return apiValidationError('username مطلوب');
+      return apiValidationError(t('common.usernameRequired'));
     }
     if (typeof leave_type_id !== 'string' || !leave_type_id.trim()) {
-      return apiValidationError('leave_type_id مطلوب');
+      return apiValidationError(t('hr.leaveTypeIdRequired'));
     }
     if (typeof year !== 'number' || !Number.isFinite(year)) {
-      return apiValidationError('year مطلوب ويجب أن يكون رقماً');
+      return apiValidationError(t('hr.yearRequired'));
     }
     for (const [key, value] of [
       ['total_days', total_days],
@@ -201,7 +204,7 @@ export async function POST(request: NextRequest) {
       ['carried_over', carried_over],
     ] as const) {
       if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
-        return apiValidationError(`${key} يجب أن يكون رقماً صحيحاً أكبر من أو يساوي صفر`);
+        return apiValidationError(t('hr.fieldMustBeNonNegativeInteger', { field: key }));
       }
     }
 
@@ -238,7 +241,7 @@ export async function POST(request: NextRequest) {
 
       if (updateErr || !updated) {
         console.error('[hr/leave-balances POST] update failed:', updateErr?.message);
-        return apiServerError('فشل تحديث الرصيد');
+        return apiServerError(t('hr.balanceUpdateFailed'));
       }
       updatedRow = updated;
     } else {
@@ -258,7 +261,7 @@ export async function POST(request: NextRequest) {
 
       if (insertErr || !inserted) {
         console.error('[hr/leave-balances POST] insert failed:', insertErr?.message);
-        return apiServerError('فشل إنشاء الرصيد');
+        return apiServerError(t('hr.balanceInsertFailed'));
       }
       updatedRow = inserted;
     }

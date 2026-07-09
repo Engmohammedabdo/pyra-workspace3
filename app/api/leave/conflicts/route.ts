@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -12,13 +13,14 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 export async function GET(req: NextRequest) {
   const auth = await requireApiPermission('leave.view');
   if (isApiError(auth)) return auth;
+  const t = await getTranslations('api');
 
   const { searchParams } = new URL(req.url);
   const startDate = searchParams.get('start_date');
   const endDate = searchParams.get('end_date');
 
   if (!startDate || !endDate) {
-    return apiValidationError('start_date و end_date مطلوبان');
+    return apiValidationError(t('leave.startEndDateRequired'));
   }
 
   try {

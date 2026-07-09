@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -39,6 +40,7 @@ export async function PATCH(
     const auth = await requireApiPermission('documents.manage');
     if (isApiError(auth)) return auth;
     authForLogging = auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
     const supabase = createServiceRoleClient();
@@ -48,7 +50,7 @@ export async function PATCH(
     try {
       body = await request.json();
     } catch {
-      return apiError('طلب غير صالح', 400);
+      return apiError(t('hr.invalidRequestBody'), 400);
     }
 
     // ── Allowlist — only accept known fields ──
@@ -61,7 +63,7 @@ export async function PATCH(
     }
 
     if (Object.keys(updateData).length === 0) {
-      return apiError('لا توجد حقول صالحة للتحديث', 400);
+      return apiError(t('finance.noValidFieldsToUpdate'), 400);
     }
 
     // ── CRITICAL: if expiry_date is being changed, re-arm both alert flags ──
@@ -86,7 +88,7 @@ export async function PATCH(
     if (updateError) {
       // PGRST116 = no rows matched the .eq('id', id) filter → not found
       if (updateError.code === 'PGRST116') {
-        return apiNotFound('الوثيقة غير موجودة');
+        return apiNotFound(t('hr.documentNotFound'));
       }
       logError({
         error: updateError,
@@ -95,10 +97,10 @@ export async function PATCH(
         metadata: { source: 'hr_document_update', document_id: id },
       });
       console.error('[hr/documents PATCH] update error:', updateError.message);
-      return apiServerError('فشل تحديث الوثيقة');
+      return apiServerError(t('hr.documentUpdateFailed'));
     }
 
-    if (!updated) return apiNotFound('الوثيقة غير موجودة');
+    if (!updated) return apiNotFound(t('hr.documentNotFound'));
 
     // ── Audit log (Phase 11.5 pattern: action_type from constants + specificity
     // in metadata.source) ──
@@ -144,6 +146,7 @@ export async function DELETE(
     const auth = await requireApiPermission('documents.manage');
     if (isApiError(auth)) return auth;
     authForLogging = auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
     const supabase = createServiceRoleClient();
@@ -166,7 +169,7 @@ export async function DELETE(
       return apiServerError();
     }
 
-    if (!row) return apiNotFound('الوثيقة غير موجودة');
+    if (!row) return apiNotFound(t('hr.documentNotFound'));
 
     // ── Best-effort storage cleanup ──
     // Log warning on failure but continue — the DB row delete is the user-facing
@@ -204,7 +207,7 @@ export async function DELETE(
         metadata: { source: 'hr_document_delete', document_id: id, stage: 'db_delete' },
       });
       console.error('[hr/documents DELETE] delete error:', deleteError.message);
-      return apiServerError('فشل حذف الوثيقة');
+      return apiServerError(t('hr.documentDeleteFailed'));
     }
 
     // ── Audit log ──

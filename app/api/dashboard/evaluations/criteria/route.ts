@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -39,11 +40,12 @@ export async function POST(req: NextRequest) {
     const auth = await requireApiPermission('evaluations.manage');
     if (isApiError(auth)) return auth;
 
+    const t = await getTranslations('api');
     const body = await req.json().catch(() => ({}));
     const { name, name_ar, description, weight, category } = body;
 
     if (!name || !name_ar) {
-      return apiValidationError('الاسم والاسم بالعربية مطلوبان');
+      return apiValidationError(t('evaluations.criteriaNameRequired'));
     }
 
     const supabase = createServiceRoleClient();

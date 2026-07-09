@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -33,9 +34,9 @@ const DOC_BUCKET = 'pyra-private';
 
 // Map URL segment → canonical type_id and Arabic label prefix
 const DOC_TYPE_MAP: Record<string, { typeId: string; labelPrefix: string }> = {
-  offer_letter:   { typeId: 'dt_offer_letter',   labelPrefix: 'عرض عمل' },
-  nda:            { typeId: 'dt_nda',             labelPrefix: 'اتفاقية سرية' },
-  asset_handover: { typeId: 'dt_asset_handover',  labelPrefix: 'نموذج تسليم عهدة' },
+  offer_letter:   { typeId: 'dt_offer_letter',   labelPrefix: 'عرض عمل' }, // i18n-exempt: PDF document label (Phase 9 scope)
+  nda:            { typeId: 'dt_nda',             labelPrefix: 'اتفاقية سرية' }, // i18n-exempt: PDF document label (Phase 9 scope)
+  asset_handover: { typeId: 'dt_asset_handover',  labelPrefix: 'نموذج تسليم عهدة' }, // i18n-exempt: PDF document label (Phase 9 scope)
 };
 
 export async function POST(
@@ -47,6 +48,7 @@ export async function POST(
     const auth = await requireApiPermission('hr.manage');
     if (isApiError(auth)) return auth;
     authForLogging = auth;
+    const t = await getTranslations('api');
 
     const { id, docType } = await params;
 
@@ -54,7 +56,7 @@ export async function POST(
     const docMeta = DOC_TYPE_MAP[docType];
     if (!docMeta) {
       return apiError(
-        `docType غير صالح — القيم المقبولة: offer_letter, nda, asset_handover`,
+        t('hr.regenerateDocTypeInvalid'),
         400,
       );
     }
@@ -80,7 +82,7 @@ export async function POST(
       return apiServerError();
     }
 
-    if (!onboarding) return apiNotFound('سجل التعيين غير موجود');
+    if (!onboarding) return apiNotFound(t('hr.onboardingNotFound'));
 
     const employeeUsername = onboarding.employee_username;
     // offer_data is a JSON object stored in the DB
@@ -256,7 +258,7 @@ export async function POST(
         },
       });
       console.error('[hr/onboarding regenerate] store error:', storeResult.error);
-      return apiServerError('فشل حفظ الوثيقة المُعاد توليدها');
+      return apiServerError(t('hr.regenerateStoreFailed'));
     }
 
     // ── 8. Return doc_id + type_id — NEVER storage_path ──────────────────────

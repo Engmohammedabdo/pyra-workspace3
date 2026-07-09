@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiValidationError, apiError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -20,6 +21,7 @@ export async function GET(
   try {
     const auth = await requireApiPermission('evaluations.view');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
     const supabase = createServiceRoleClient();
@@ -31,13 +33,13 @@ export async function GET(
       .eq('id', id)
       .single();
 
-    if (error || !evaluation) return apiNotFound('التقييم غير موجود');
+    if (error || !evaluation) return apiNotFound(t('evaluations.notFound'));
 
     // Non-admins can only view their own evaluations
     const canManage = hasPermission(auth.pyraUser.rolePermissions, 'evaluations.manage');
     if (!canManage) {
       if (evaluation.employee_username !== auth.pyraUser.username && evaluation.evaluator_username !== auth.pyraUser.username) {
-        return apiError('ليس لديك صلاحية لعرض هذا التقييم', 403);
+        return apiError(t('evaluations.viewForbidden'), 403);
       }
     }
 
@@ -129,6 +131,7 @@ export async function PATCH(
   try {
     const auth = await requireApiPermission('evaluations.view');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
@@ -142,7 +145,7 @@ export async function PATCH(
       .eq('id', id)
       .single();
 
-    if (fetchError || !evaluation) return apiNotFound('التقييم غير موجود');
+    if (fetchError || !evaluation) return apiNotFound(t('evaluations.notFound'));
 
     const canManage = hasPermission(auth.pyraUser.rolePermissions, 'evaluations.manage');
     const isEvaluator = evaluation.evaluator_username === auth.pyraUser.username;
@@ -151,10 +154,10 @@ export async function PATCH(
     // Handle submit action
     if (body.action === 'submit') {
       if (!isEvaluator && !canManage) {
-        return apiError('فقط المقيّم يمكنه تقديم التقييم', 403);
+        return apiError(t('evaluations.submitForbidden'), 403);
       }
       if (evaluation.status !== EVALUATION_STATUS.DRAFT) {
-        return apiError('لا يمكن تقديم تقييم تم تقديمه مسبقاً', 409);
+        return apiError(t('evaluations.alreadySubmitted'), 409);
       }
 
       const { data, error } = await supabase
@@ -185,8 +188,8 @@ export async function PATCH(
       await notify(supabase, {
         to: evaluation.employee_username,
         type: 'evaluation_submitted',
-        title: 'تم تقديم تقييم أدائك',
-        message: 'راجع تقييمك وأكّد اطّلاعك عليه',
+        title: 'تم تقديم تقييم أدائك', // i18n-exempt: notification content (Phase 8)
+        message: 'راجع تقييمك وأكّد اطّلاعك عليه', // i18n-exempt: notification content (Phase 8)
         link: '/dashboard/evaluations',
         entity: { type: 'evaluation', id },
         from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
@@ -198,12 +201,12 @@ export async function PATCH(
     // Handle recommend_bonus action
     if (body.action === 'recommend_bonus') {
       if (!canManage) {
-        return apiError('فقط المسؤول يمكنه التوصية بمكافأة', 403);
+        return apiError(t('evaluations.bonusForbidden'), 403);
       }
 
       const overallRating = Number(evaluation.overall_rating);
       if (!overallRating || overallRating < 3.5) {
-        return apiError('التقييم لا يستحق مكافأة', 400);
+        return apiError(t('evaluations.notEligibleForBonus'), 400);
       }
 
       // Idempotency: a bonus was already recommended for THIS evaluation — don't
@@ -216,7 +219,7 @@ export async function PATCH(
         .eq('source_id', evaluation.id)
         .limit(1);
       if (existingBonus && existingBonus.length > 0) {
-        return apiError('تمت التوصية بمكافأة لهذا التقييم مسبقاً', 409);
+        return apiError(t('evaluations.bonusAlreadyRecommended'), 409);
       }
 
       // Fetch employee salary (+ currency — the workspace is multi-currency;
@@ -228,14 +231,14 @@ export async function PATCH(
         .single();
 
       if (empError || !employee) {
-        return apiError('لم يتم العثور على بيانات الموظف', 404);
+        return apiError(t('evaluations.employeeNotFound'), 404);
       }
 
       const currency = employee.salary_currency || 'AED';
 
       const salary = Number(employee.salary);
       if (!salary || salary <= 0) {
-        return apiError('لا يوجد راتب محدد للموظف — لا يمكن حساب المكافأة', 400);
+        return apiError(t('evaluations.noSalaryConfigured'), 400);
       }
 
       // Calculate bonus percentage based on rating
@@ -258,7 +261,7 @@ export async function PATCH(
         .single();
 
       const periodLabel = period?.name_ar || period?.name || '';
-      const description = `مكافأة أداء — تقييم ${periodLabel}`.trim();
+      const description = `مكافأة أداء — تقييم ${periodLabel}`.trim(); // i18n-exempt: stored data (employee_payments.description), computed-per-request
 
       // Create employee payment record
       const { data: payment, error: paymentError } = await supabase
@@ -278,7 +281,7 @@ export async function PATCH(
 
       if (paymentError) {
         console.error('Bonus payment insert error:', paymentError);
-        return apiServerError('فشل في إنشاء سجل المكافأة');
+        return apiServerError(t('evaluations.bonusInsertFailed'));
       }
 
       // Activity log
@@ -300,7 +303,7 @@ export async function PATCH(
       });
 
       return apiSuccess({
-        message: `تمت التوصية بمكافأة بمبلغ ${bonusAmount} ${currency}`,
+        message: t('evaluations.bonusRecommendedSuccess', { amount: bonusAmount, currency }),
         payment,
         bonus_amount: bonusAmount,
         bonus_percent: bonusPercent * 100,
@@ -310,10 +313,10 @@ export async function PATCH(
     // Handle acknowledge action
     if (body.action === 'acknowledge') {
       if (!isEmployee && !canManage) {
-        return apiError('فقط الموظف يمكنه الاعتراف بالتقييم', 403);
+        return apiError(t('evaluations.acknowledgeForbidden'), 403);
       }
       if (evaluation.status !== 'submitted') {
-        return apiError('يجب أن يكون التقييم في حالة "مقدم" للاعتراف به', 409);
+        return apiError(t('evaluations.mustBeSubmittedToAcknowledge'), 409);
       }
 
       const { data, error } = await supabase
@@ -344,8 +347,8 @@ export async function PATCH(
       await notify(supabase, {
         to: evaluation.evaluator_username,
         type: 'evaluation_acknowledged',
-        title: 'تم الاعتراف بالتقييم',
-        message: `${auth.pyraUser.display_name} اطّلع على التقييم وأكّده`,
+        title: 'تم الاعتراف بالتقييم', // i18n-exempt: notification content (Phase 8)
+        message: `${auth.pyraUser.display_name} اطّلع على التقييم وأكّده`, // i18n-exempt: notification content (Phase 8)
         link: '/dashboard/evaluations',
         entity: { type: 'evaluation', id },
         from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
@@ -356,7 +359,7 @@ export async function PATCH(
 
     // Regular update (comments, strengths, improvements, overall_rating)
     if (!isEvaluator && !canManage) {
-      return apiError('فقط المقيّم أو المسؤول يمكنهم تعديل التقييم', 403);
+      return apiError(t('evaluations.editForbidden'), 403);
     }
 
     const updates: Record<string, unknown> = {};
@@ -366,7 +369,7 @@ export async function PATCH(
     if (body.overall_rating !== undefined) updates.overall_rating = body.overall_rating;
 
     if (Object.keys(updates).length === 0) {
-      return apiValidationError('لا توجد بيانات للتحديث');
+      return apiValidationError(t('evaluations.noFieldsToUpdate'));
     }
 
     const { data, error } = await supabase

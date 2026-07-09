@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -16,6 +17,7 @@ export async function PATCH(
   try {
     const auth = await requireApiPermission('evaluations.manage');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
@@ -30,17 +32,17 @@ export async function PATCH(
       .single();
 
     if (fetchError || !existing) {
-      return apiNotFound('فترة التقييم غير موجودة');
+      return apiNotFound(t('evaluations.periodNotFound'));
     }
 
     // Validate status if provided
     if (body.status && !['draft', 'active', 'closed'].includes(body.status)) {
-      return apiValidationError('الحالة غير صالحة — يجب أن تكون: draft, active, closed');
+      return apiValidationError(t('evaluations.periodInvalidStatus'));
     }
 
     // Validate dates if provided
     if (body.start_date && body.end_date && new Date(body.start_date) >= new Date(body.end_date)) {
-      return apiValidationError('تاريخ البداية يجب أن يكون قبل تاريخ النهاية');
+      return apiValidationError(t('finance.dateRangeInvalid'));
     }
 
     // Build update object
@@ -52,7 +54,7 @@ export async function PATCH(
     if (body.end_date) updates.end_date = body.end_date;
 
     if (Object.keys(updates).length === 0) {
-      return apiValidationError('لا توجد بيانات للتحديث');
+      return apiValidationError(t('evaluations.noFieldsToUpdate'));
     }
 
     const { data, error } = await supabase

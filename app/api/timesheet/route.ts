@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiUnauthorized } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -129,12 +130,13 @@ export async function POST(req: NextRequest) {
   // Gate first, then service-role client (Gap #3 Phase 5 pattern).
   const auth = await getApiAuth();
   if (!auth) return apiUnauthorized();
+  const t = await getTranslations('api');
 
   const body = await req.json();
   const { project_id, task_id, date, hours, description, period_id, is_billable, billing_rate } = body;
 
-  if (!date || !hours) return apiValidationError('التاريخ والساعات مطلوبة');
-  if (hours <= 0 || hours > 24) return apiValidationError('الساعات يجب أن تكون بين 0 و 24');
+  if (!date || !hours) return apiValidationError(t('timesheet.dateAndHoursRequired'));
+  if (hours <= 0 || hours > 24) return apiValidationError(t('timesheet.hoursRange'));
 
   const supabase = createServiceRoleClient();
 

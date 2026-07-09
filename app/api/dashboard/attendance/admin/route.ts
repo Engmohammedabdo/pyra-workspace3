@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiError, apiServerError } from '@/lib/api/response'; // apiError retained for 422 validation responses
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -16,6 +17,7 @@ export async function POST(request: NextRequest) {
   // 1. Permission gate first — service-role client only after auth confirmed.
   const auth = await requireApiPermission('attendance.manage');
   if (isApiError(auth)) return auth;
+  const t = await getTranslations('api');
 
   try {
     const body = await request.json().catch(() => ({}));
@@ -30,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     // 2. Validate required fields.
     if (!username || !date || !status) {
-      return apiError('الموظف والتاريخ والحالة مطلوبة', 422);
+      return apiError(t('attendance.adminFieldsRequired'), 422);
     }
 
     // 3. Recompute total_hours when both timestamps present.
@@ -64,7 +66,7 @@ export async function POST(request: NextRequest) {
         .single();
       if (error) {
         logError({ error, metadata: { action: 'admin_attendance_update', username, date } });
-        return apiServerError('فشل تحديث سجل الحضور');
+        return apiServerError(t('attendance.adminUpdateFailed'));
       }
       row = data;
     } else {
@@ -84,7 +86,7 @@ export async function POST(request: NextRequest) {
         .single();
       if (error) {
         logError({ error, metadata: { action: 'admin_attendance_insert', username, date } });
-        return apiServerError('فشل إنشاء سجل الحضور');
+        return apiServerError(t('attendance.adminInsertFailed'));
       }
       row = data;
     }
@@ -102,6 +104,6 @@ export async function POST(request: NextRequest) {
 
     return apiSuccess(row);
   } catch (err) {
-    return apiServerError('خطأ في تعديل الحضور', err, request);
+    return apiServerError(t('attendance.adminGenericError'), err, request);
   }
 }

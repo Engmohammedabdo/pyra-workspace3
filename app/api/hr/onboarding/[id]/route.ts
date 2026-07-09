@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -43,6 +44,7 @@ export async function GET(
     const auth = await requireApiPermission('hr.manage');
     if (isApiError(auth)) return auth;
     authForLogging = auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
     const supabase = createServiceRoleClient();
@@ -67,7 +69,7 @@ export async function GET(
       return apiServerError();
     }
 
-    if (!onboarding) return apiNotFound('سجل التعيين غير موجود');
+    if (!onboarding) return apiNotFound(t('hr.onboardingNotFound'));
 
     // ── 2. Fetch tasks ordered by sort_order ──────────────────────────────────
     const { data: tasks, error: tasksError } = await supabase
@@ -151,6 +153,7 @@ export async function PATCH(
     const auth = await requireApiPermission('hr.manage');
     if (isApiError(auth)) return auth;
     authForLogging = auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
 
@@ -159,14 +162,14 @@ export async function PATCH(
     try {
       body = await request.json();
     } catch {
-      return apiValidationError('طلب غير صالح — يجب أن يكون JSON');
+      return apiValidationError(t('hr.invalidJsonBody'));
     }
 
     const { action, notes } = body;
 
     // ── Validate action ───────────────────────────────────────────────────────
     if (action !== 'complete' && action !== 'cancel') {
-      return apiValidationError('action يجب أن يكون "complete" أو "cancel"');
+      return apiValidationError(t('hr.onboardingActionInvalid'));
     }
 
     const supabase = createServiceRoleClient();
@@ -189,7 +192,7 @@ export async function PATCH(
       return apiServerError();
     }
 
-    if (!existing) return apiNotFound('سجل التعيين غير موجود');
+    if (!existing) return apiNotFound(t('hr.onboardingNotFound'));
 
     // ── Build update payload ──────────────────────────────────────────────────
     const newStatus =

@@ -11,8 +11,8 @@
  *
  *   await notifyApprovers(supabase, auth.pyraUser.username, {
  *     type: 'leave_request_pending',
- *     title: `طلب إجازة جديد من ${auth.pyraUser.display_name}`,
- *     message: `${days_count} يوم`,
+ *     title: `طلب إجازة جديد من ${auth.pyraUser.display_name}`, i18n-exempt: JSDoc example only
+ *     message: `${days_count} يوم`, i18n-exempt: JSDoc example only
  *     link: '/dashboard/approvals',
  *     entity: { type: 'leave_request', id: data.id },
  *     from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },

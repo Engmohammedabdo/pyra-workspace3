@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -58,24 +59,25 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await requireApiPermission('payroll.manage');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const body = await req.json().catch(() => ({}));
     const { month, year, notes, currency: currencyInput } = body;
 
     // Validate month
     if (!month || !Number.isInteger(month) || month < 1 || month > 12) {
-      return apiValidationError('الشهر يجب أن يكون بين 1 و 12');
+      return apiValidationError(t('payroll.monthOutOfRange'));
     }
 
     // Validate year
     if (!year || !Number.isInteger(year) || year < 2020 || year > 2100) {
-      return apiValidationError('السنة غير صالحة');
+      return apiValidationError(t('payroll.yearInvalid'));
     }
 
     // Resolve and validate currency — default to AED when not provided
     const resolvedCurrency: string = currencyInput ?? 'AED';
     if (!(SALARY_CURRENCIES as readonly string[]).includes(resolvedCurrency)) {
-      return apiValidationError(`العملة غير صالحة. القيم المسموحة: ${SALARY_CURRENCIES.join('، ')}`);
+      return apiValidationError(t('payroll.currencyInvalid', { allowed: SALARY_CURRENCIES.join('، ') })); // i18n-exempt: pre-existing Arabic-comma list separator (legacy, unchanged)
     }
 
     const supabase = createServiceRoleClient();
@@ -91,7 +93,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (existing) {
-      return apiError(`يوجد مسير رواتب بعملة ${resolvedCurrency} لهذا الشهر بالفعل`, 409);
+      return apiError(t('payroll.runAlreadyExistsForCurrency', { currency: resolvedCurrency }), 409);
     }
 
     const id = generateId('pr');

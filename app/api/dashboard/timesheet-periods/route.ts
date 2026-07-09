@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -49,16 +50,17 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await requireApiPermission('timesheet.view');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const body = await req.json();
     const { start_date, end_date, period_type } = body;
 
     if (!start_date || !end_date) {
-      return apiValidationError('تاريخ البداية والنهاية مطلوبان');
+      return apiValidationError(t('timesheet.periodDatesRequired'));
     }
 
     if (new Date(end_date) <= new Date(start_date)) {
-      return apiValidationError('تاريخ النهاية يجب أن يكون بعد تاريخ البداية');
+      return apiValidationError(t('timesheet.periodEndAfterStart'));
     }
 
     const serviceClient = createServiceRoleClient();

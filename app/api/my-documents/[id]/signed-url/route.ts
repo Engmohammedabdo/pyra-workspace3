@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
 import { apiSuccess, apiForbidden, apiNotFound, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -32,9 +33,10 @@ export async function GET(
     const auth = await requireApiPermission('documents.view');
     if (isApiError(auth)) return auth;
     authForLogging = auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
-    if (!id) return apiNotFound('معرّف الوثيقة مفقود');
+    if (!id) return apiNotFound(t('myDocuments.idMissing'));
 
     // Service-role client after the gate (RLS bypass — ownership enforced below)
     const supabase = createServiceRoleClient();
@@ -48,14 +50,14 @@ export async function GET(
 
     if (error || !row) {
       // .single() returns error when 0 rows — treat as 404
-      return apiNotFound('الوثيقة غير موجودة');
+      return apiNotFound(t('myDocuments.notFound'));
     }
 
     // Ownership check — 403 if the doc belongs to a different employee.
     // This is the critical own-scope guard: even with documents.view permission,
     // an employee can ONLY get signed URLs for their OWN documents.
     if (row.employee_username !== auth.pyraUser.username) {
-      return apiForbidden('لا يمكنك الوصول إلى وثائق موظف آخر');
+      return apiForbidden(t('myDocuments.forbiddenOtherEmployee'));
     }
 
     // Generate a fresh signed URL
@@ -71,7 +73,7 @@ export async function GET(
         metadata: { source: 'my_documents_signed_url', document_id: id },
       });
       console.error('[my-documents/[id]/signed-url GET] sign error:', signError?.message);
-      return apiServerError('فشل إنشاء رابط الوصول');
+      return apiServerError(t('myDocuments.signUrlFailed'));
     }
 
     return apiSuccess({ signed_url: urlData.signedUrl });

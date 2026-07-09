@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiValidationError, apiError } from '@/lib/api/response';
 import { hasPermission } from '@/lib/auth/rbac';
@@ -15,6 +16,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     const auth = await requireApiPermission('payroll.view');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
     const { searchParams } = new URL(req.url);
@@ -23,11 +25,11 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     // Access control: non-managers can only view their own payslip
     const canManage = hasPermission(auth.pyraUser.rolePermissions, 'payroll.manage');
     if (!canManage && username !== auth.pyraUser.username) {
-      return apiError('لا يمكنك عرض بيانات موظف آخر', 403);
+      return apiError(t('payroll.payslipForbiddenOtherEmployee'), 403);
     }
 
     if (!username) {
-      return apiValidationError('اسم المستخدم مطلوب');
+      return apiValidationError(t('payroll.payslipUsernameRequired'));
     }
 
     // Service role: payroll tables are service-role-only (Gap #3 Tier-2). The
@@ -41,7 +43,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       .eq('id', id)
       .single();
 
-    if (runError || !run) return apiNotFound('مسير الرواتب غير موجود');
+    if (runError || !run) return apiNotFound(t('payroll.runNotFound'));
 
     // Fetch the payroll item for this user
     const { data: item, error: itemError } = await supabase
@@ -51,7 +53,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       .eq('username', username)
       .single();
 
-    if (itemError || !item) return apiNotFound('كشف الراتب غير موجود لهذا الموظف');
+    if (itemError || !item) return apiNotFound(t('payroll.payslipNotFoundForEmployee'));
 
     // Fetch user info
     const { data: user } = await supabase

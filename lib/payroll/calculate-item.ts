@@ -90,7 +90,7 @@ export function calculatePayrollItem(
     for (const leave of input.unpaidLeave) {
       const amount = round2(dailyRate * leave.days);
       deductions += amount;
-      deductionDetails.push({ type: 'unpaid_leave', amount, reason: `${leave.typeName} — ${leave.days} يوم` });
+      deductionDetails.push({ type: 'unpaid_leave', amount, reason: `${leave.typeName} — ${leave.days} يوم` }); // i18n-exempt: stored data (pyra_payroll_items.deduction_details), computed-per-request
     }
   }
 

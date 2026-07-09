@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiServerError, apiError } from '@/lib/api/response';
@@ -14,6 +15,7 @@ export async function POST(req: NextRequest) {
     // Self-service: every employee can clock out for themselves.
     const auth = await requireApiPermission('attendance.create');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const body = await req.json().catch(() => ({}));
     const notes = body.notes || null;
@@ -36,11 +38,11 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (!existing) {
-      return apiError('لم تسجل الدخول اليوم بعد', 404);
+      return apiError(t('attendance.notClockedInYet'), 404);
     }
 
     if (existing.clock_out) {
-      return apiError('لقد سجلت الانصراف مسبقاً', 409);
+      return apiError(t('attendance.alreadyClockedOut'), 409);
     }
 
     // Calculate total hours

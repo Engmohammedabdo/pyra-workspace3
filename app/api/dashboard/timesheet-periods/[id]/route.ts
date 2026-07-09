@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError, getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiError, apiUnauthorized, apiValidationError } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
@@ -11,13 +12,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const auth = await getApiAuth();
     if (!auth) return apiUnauthorized();
+    const t = await getTranslations('api');
 
     const { id } = await params;
     const body = await req.json();
     const { action, rejection_note } = body;
 
     if (!action || !['submit', 'approve', 'reject'].includes(action)) {
-      return apiValidationError('الإجراء غير صالح. القيم المسموحة: submit, approve, reject');
+      return apiValidationError(t('timesheet.periodActionInvalid'));
     }
 
     const supabase = await createServerSupabaseClient();
@@ -30,7 +32,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       .eq('id', id)
       .single();
 
-    if (fetchError || !period) return apiNotFound('الفترة غير موجودة');
+    if (fetchError || !period) return apiNotFound(t('timesheet.periodNotFound'));
 
     const isOwner = period.username === auth.pyraUser.username;
     const canApprove = hasPermission(auth.pyraUser.rolePermissions, 'timesheet.approve');
@@ -41,20 +43,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     if (action === 'submit') {
       if (!isOwner && !canManage) {
-        return apiError('فقط صاحب الفترة يمكنه إرسالها', 403);
+        return apiError(t('timesheet.periodSubmitOwnerOnly'), 403);
       }
       if (period.status !== 'open' && period.status !== 'rejected') {
-        return apiError('لا يمكن إرسال فترة بالحالة الحالية', 400);
+        return apiError(t('timesheet.periodCannotSubmitStatus'), 400);
       }
       updates.status = 'submitted';
       updates.submitted_at = new Date().toISOString();
     } else if (action === 'approve' || action === 'reject') {
       if (!canApprove) {
-        return apiError('ليس لديك صلاحية الاعتماد', 403);
+        return apiError(t('timesheet.periodNoApprovalPermission'), 403);
       }
       if (period.status !== 'submitted') {
         return apiError(
-          action === 'approve' ? 'لا يمكن اعتماد فترة لم يتم إرسالها' : 'لا يمكن رفض فترة لم يتم إرسالها',
+          action === 'approve' ? t('timesheet.periodCannotApproveNotSubmitted') : t('timesheet.periodCannotRejectNotSubmitted'),
           400,
         );
       }
@@ -67,7 +69,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         period.username,
       );
       if (!allowedToApprove) {
-        return apiError('يمكنك فقط اعتماد جداول الموظفين تحت إدارتك المباشرة', 403);
+        return apiError(t('leave.approvalScopeDenied', { noun: t('timesheet.scopeNounPeriods') }), 403);
       }
       updates.status = action === 'approve' ? 'approved' : 'rejected';
       if (action === 'reject') {
@@ -112,8 +114,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (action === 'submit') {
       await notifyApprovers(serviceClient, period.username, {
         type: 'timesheet_pending',
-        title: `جدول دوام بانتظار الاعتماد من ${auth.pyraUser.display_name}`,
-        message: `الفترة من ${period.start_date} إلى ${period.end_date}`,
+        title: `جدول دوام بانتظار الاعتماد من ${auth.pyraUser.display_name}`, // i18n-exempt: notification content (Phase 8)
+        message: `الفترة من ${period.start_date} إلى ${period.end_date}`, // i18n-exempt: notification content (Phase 8)
         link: '/dashboard/approvals',
         entity: { type: 'timesheet_period', id },
         from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },

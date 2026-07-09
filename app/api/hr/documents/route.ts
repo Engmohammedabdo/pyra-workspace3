@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -163,6 +164,7 @@ export async function POST(request: NextRequest) {
     const auth = await requireApiPermission('documents.manage');
     if (isApiError(auth)) return auth;
     authForLogging = auth;
+    const t = await getTranslations('api');
 
     // Layer 3 — service-role client (RLS bypassed — gate already enforced above)
     const supabase = createServiceRoleClient();
@@ -178,28 +180,28 @@ export async function POST(request: NextRequest) {
 
     // Layer 5 — required-field validation
     if (typeof employee_username !== 'string' || !employee_username.trim()) {
-      return apiValidationError('employee_username مطلوب');
+      return apiValidationError(t('hr.docUsernameRequired'));
     }
     // Path-traversal guard: reject '/', '..', null bytes, spaces, and any
     // characters outside the safe username alphabet before the value is
     // embedded in the storage path.
     if (!/^[a-zA-Z0-9._-]+$/.test(employee_username)) {
-      return apiValidationError('اسم المستخدم غير صالح');
+      return apiValidationError(t('hr.usernameInvalid'));
     }
     if (typeof type_id !== 'string' || !type_id.trim()) {
-      return apiValidationError('type_id مطلوب');
+      return apiValidationError(t('hr.docTypeIdRequired'));
     }
     if (!(file instanceof File)) {
-      return apiValidationError('الملف مطلوب');
+      return apiValidationError(t('hr.fileRequired'));
     }
 
     // Layer 6 — size checks
     if (file.size <= 0) {
-      return apiValidationError('الملف فارغ');
+      return apiValidationError(t('hr.fileEmpty'));
     }
     if (file.size > MAX_DOC_SIZE) {
       return apiError(
-        `حجم الملف يتجاوز الحد الأقصى (20 ميجابايت). حجم الملف الحالي: ${(file.size / 1024 / 1024).toFixed(2)} MB`,
+        t('hr.fileSizeExceeds', { actualMb: (file.size / 1024 / 1024).toFixed(2) }),
         413,
       );
     }
@@ -207,7 +209,7 @@ export async function POST(request: NextRequest) {
     // Layer 7 — MIME allowlist (SVG explicitly rejected)
     if (!ALLOWED_DOC_MIME.has(file.type)) {
       return apiError(
-        `نوع الملف "${file.type}" غير مدعوم. الأنواع المسموح بها: PDF, JPG, PNG, WebP`,
+        t('hr.fileMimeUnsupported', { mime: file.type }),
         415,
       );
     }
@@ -229,7 +231,7 @@ export async function POST(request: NextRequest) {
           employee_username,
         },
       });
-      return apiServerError('خطأ داخلي في تحديد نوع الملف');
+      return apiServerError(t('hr.fileExtLookupFailed'));
     }
 
     // Layer 9 — server-generated storage path (zero user control)
@@ -259,7 +261,7 @@ export async function POST(request: NextRequest) {
         },
       });
       console.error('[hr/documents POST] storage upload error:', uploadError.message);
-      return apiServerError(`فشل رفع الملف: ${uploadError.message}`);
+      return apiServerError(t('hr.fileUploadFailed', { message: uploadError.message }));
     }
 
     // Layer 11 — DB insert
@@ -299,7 +301,7 @@ export async function POST(request: NextRequest) {
         },
       });
       console.error('[hr/documents POST] insert error:', insertError?.message);
-      return apiServerError('فشل تسجيل الوثيقة');
+      return apiServerError(t('hr.documentInsertFailed'));
     }
 
     // Layer 12 — signed URL for immediate use in response
@@ -330,8 +332,8 @@ export async function POST(request: NextRequest) {
     await notify(supabase, {
       to: inserted.employee_username,
       type: 'document_uploaded',
-      title: 'تم إضافة وثيقة إلى ملفك',
-      message: 'أضاف قسم الموارد البشرية وثيقة جديدة إلى مستنداتك',
+      title: 'تم إضافة وثيقة إلى ملفك', // i18n-exempt: notification content (Phase 8)
+      message: 'أضاف قسم الموارد البشرية وثيقة جديدة إلى مستنداتك', // i18n-exempt: notification content (Phase 8)
       link: '/dashboard/my-documents',
       entity: { type: 'document', id: docId },
       from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiValidationError, apiError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -20,13 +21,14 @@ export async function POST(
   try {
     const auth = await requireApiPermission('evaluations.view');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
     const { scores } = body;
 
     if (!scores || !Array.isArray(scores) || scores.length === 0) {
-      return apiValidationError('يجب توفير قائمة الدرجات');
+      return apiValidationError(t('evaluations.scoresRequired'));
     }
 
     const supabase = createServiceRoleClient();
@@ -38,28 +40,28 @@ export async function POST(
       .eq('id', id)
       .single();
 
-    if (fetchError || !evaluation) return apiNotFound('التقييم غير موجود');
+    if (fetchError || !evaluation) return apiNotFound(t('evaluations.notFound'));
 
     // Permission check: must be evaluator or have manage permission
     const canManage = hasPermission(auth.pyraUser.rolePermissions, 'evaluations.manage');
     const isEvaluator = evaluation.evaluator_username === auth.pyraUser.username;
 
     if (!isEvaluator && !canManage) {
-      return apiError('ليس لديك صلاحية لتقييم هذا الموظف', 403);
+      return apiError(t('evaluations.scoreEditForbidden'), 403);
     }
 
     // Only allow scoring draft evaluations
     if (evaluation.status !== 'draft') {
-      return apiError('لا يمكن تعديل درجات تقييم تم تقديمه', 409);
+      return apiError(t('evaluations.scoresLockedAfterSubmit'), 409);
     }
 
     // Validate each score
     for (const s of scores) {
       if (!s.criteria_id || s.score === undefined || s.score === null) {
-        return apiValidationError('كل درجة يجب أن تحتوي على معرف المعيار والدرجة');
+        return apiValidationError(t('evaluations.scoreFieldsRequired'));
       }
       if (s.score < 1 || s.score > 5) {
-        return apiValidationError('الدرجة يجب أن تكون بين 1 و 5');
+        return apiValidationError(t('evaluations.scoreOutOfRange'));
       }
     }
 

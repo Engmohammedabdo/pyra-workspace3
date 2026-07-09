@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiServerError, apiValidationError, apiError } from '@/lib/api/response';
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
     // Self-service: every employee can clock in for themselves.
     const auth = await requireApiPermission('attendance.create');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const body = await req.json().catch(() => ({}));
     const notes = body.notes || null;
@@ -95,7 +97,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (existing) {
-      return apiError('لقد سجلت الدخول مسبقاً اليوم', 409);
+      return apiError(t('attendance.alreadyClockedIn'), 409);
     }
 
     // Get user's work schedule

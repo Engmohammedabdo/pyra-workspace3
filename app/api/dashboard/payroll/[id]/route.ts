@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiValidationError, apiError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     const auth = await requireApiPermission('payroll.manage');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
 
@@ -34,7 +36,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       .eq('id', id)
       .single();
 
-    if (runError || !run) return apiNotFound('مسير الرواتب غير موجود');
+    if (runError || !run) return apiNotFound(t('payroll.runNotFound'));
 
     // Fetch items for this payroll run
     const { data: items, error: itemsError } = await supabase
@@ -89,13 +91,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   try {
     const auth = await requireApiPermission('payroll.manage');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
     const { action, notes } = body;
 
     if (!action || !['approve', 'pay'].includes(action)) {
-      return apiValidationError('الإجراء يجب أن يكون approve أو pay');
+      return apiValidationError(t('payroll.actionMustBeApproveOrPay'));
     }
 
     const supabase = createServiceRoleClient();
@@ -107,11 +110,11 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       .eq('id', id)
       .single();
 
-    if (runError || !run) return apiNotFound('مسير الرواتب غير موجود');
+    if (runError || !run) return apiNotFound(t('payroll.runNotFound'));
 
     if (action === 'approve') {
       if (run.status !== PAYROLL_STATUS.CALCULATED) {
-        return apiError('لا يمكن اعتماد مسير رواتب غير محسوب', 400);
+        return apiError(t('payroll.cannotApproveUncalculated'), 400);
       }
 
       const { data, error } = await supabase
@@ -181,7 +184,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
           return {
             id: generateId('exp'),
-            description: `راتب شهر ${run.month}/${run.year} — ${nameMap[item.username] || item.username}`,
+            description: `راتب شهر ${run.month}/${run.year} — ${nameMap[item.username] || item.username}`, // i18n-exempt: stored data (expenses.description)
             amount: item.net_pay,
             currency: run.currency || 'AED',
             category_id: 'ec_salaries',
@@ -197,7 +200,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         // Defensive: ensure the salaries expense category exists (referenced as category_id above)
         await supabase
           .from('pyra_expense_categories')
-          .upsert({ id: 'ec_salaries', name: 'Salaries', name_ar: 'الرواتب' }, { onConflict: 'id' });
+          .upsert({ id: 'ec_salaries', name: 'Salaries', name_ar: 'الرواتب' }, { onConflict: 'id' }); // i18n-exempt: DB seed data (expense category name_ar)
         // Delete any existing payroll expenses for this run (re-approval case)
         await supabase.from('pyra_expenses').delete().eq('payroll_run_id', id);
         // Insert new expense records
@@ -221,7 +224,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     if (action === 'pay') {
       if (run.status !== PAYROLL_STATUS.APPROVED) {
-        return apiError('لا يمكن صرف مسير رواتب غير معتمد', 400);
+        return apiError(t('payroll.cannotPayUnapproved'), 400);
       }
 
       const { data, error } = await supabase
@@ -277,8 +280,8 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
           .map((it: { username: string; net_pay: number; currency: string | null }) => ({
             to: it.username,
             type: 'payroll_paid',
-            title: 'تم صرف راتبك',
-            message: `راتب شهر ${monthLabel}: ${it.net_pay} ${it.currency || 'AED'} — كشف الراتب جاهز`,
+            title: 'تم صرف راتبك', // i18n-exempt: notification content (Phase 8)
+            message: `راتب شهر ${monthLabel}: ${it.net_pay} ${it.currency || 'AED'} — كشف الراتب جاهز`, // i18n-exempt: notification content (Phase 8)
             link: '/dashboard/my-payslips',
             entity: { type: 'payroll', id },
             from: { username: 'system' },
@@ -288,7 +291,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       return apiSuccess(data);
     }
 
-    return apiError('إجراء غير معروف', 400);
+    return apiError(t('payroll.unknownAction'), 400);
   } catch (err) {
     logError({ error: err, request: req, metadata: { route: 'payroll/[id]', method: 'PATCH' } });
     console.error('PATCH /api/dashboard/payroll/[id] error:', err);
@@ -305,6 +308,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
   try {
     const auth = await requireApiPermission('payroll.manage');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
     const supabase = createServiceRoleClient();
@@ -316,10 +320,10 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       .eq('id', id)
       .single();
 
-    if (runError || !run) return apiNotFound('مسير الرواتب غير موجود');
+    if (runError || !run) return apiNotFound(t('payroll.runNotFound'));
 
     if (run.status !== PAYROLL_STATUS.DRAFT) {
-      return apiError(`لا يمكن حذف مسير بحالة "${run.status}"، يمكن حذف المسيرات المسودة فقط`, 400);
+      return apiError(t('payroll.cannotDeleteNonDraft', { status: run.status }), 400);
     }
 
     // 1. Unlink any employee_payments FIRST (preserve the payment records; only

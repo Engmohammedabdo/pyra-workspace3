@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -18,6 +19,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     const auth = await requireApiPermission('payroll.manage');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
     const supabase = createServiceRoleClient();
@@ -29,11 +31,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       .eq('id', id)
       .single();
 
-    if (runError || !run) return apiNotFound('مسير الرواتب غير موجود');
+    if (runError || !run) return apiNotFound(t('payroll.runNotFound'));
 
     // Verify status is draft or calculated (allow recalculation)
     if (!['draft', 'calculated'].includes(run.status)) {
-      return apiError('لا يمكن حساب مسير رواتب بحالة: ' + run.status, 400);
+      return apiError(t('payroll.cannotCalculateInStatus', { status: run.status }), 400);
     }
 
     const { month, year } = run;
@@ -72,7 +74,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     if (empError) return apiServerError(empError.message);
     if (!employees || employees.length === 0) {
-      return apiError('لا يوجد موظفون نشطون', 400);
+      return apiError(t('payroll.noActiveEmployees'), 400);
     }
 
     // Filter out employees with no meaningful compensation
@@ -91,7 +93,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     );
 
     if (activeEmployees.length === 0) {
-      return apiError('لا يوجد موظفون بعملة هذا المسير', 400);
+      return apiError(t('payroll.noEmployeesInRunCurrency'), 400);
     }
 
     // Build date range for this month
@@ -161,7 +163,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         const days = leaveOverlapDays(lr.start_date, lr.end_date, startDate, endDate);
         if (days <= 0) continue;
         if (!unpaidLeaveByUser[lr.username]) unpaidLeaveByUser[lr.username] = [];
-        unpaidLeaveByUser[lr.username].push({ days, typeName: 'إجازة غير مدفوعة' });
+        unpaidLeaveByUser[lr.username].push({ days, typeName: 'إجازة غير مدفوعة' }); // i18n-exempt: stored data — feeds lib/payroll/calculate-item.ts's (c)-classified deduction_details.reason, never returned as a top-level response message itself
       }
     }
 
@@ -352,7 +354,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     // Build optional warnings array for the caller
     const warnings: string[] = [];
     if (skippedMismatchedPayments > 0) {
-      warnings.push(`${skippedMismatchedPayments} دفعة بعملة مختلفة تم تجاهلها`);
+      warnings.push(t('payroll.mismatchedCurrencyWarning', { count: skippedMismatchedPayments }));
     }
 
     return apiSuccess({ ...updatedRun, items: enrichedItems, warnings });

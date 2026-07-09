@@ -82,7 +82,7 @@ export async function storeGeneratedDocument(
 
   if (uploadError) {
     console.error('[storeGeneratedDocument] storage upload error:', uploadError.message);
-    return { ok: false, error: `فشل رفع الملف: ${uploadError.message}` };
+    return { ok: false, error: `فشل رفع الملف: ${uploadError.message}` }; // i18n-exempt: internal — never surfaced verbatim to an HTTP caller on current call paths (see census)
   }
 
   // ── DB insert ─────────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ export async function storeGeneratedDocument(
     // Orphan cleanup — remove the uploaded storage object before returning error
     void serviceClient.storage.from(DOC_BUCKET).remove([storagePath]);
     console.error('[storeGeneratedDocument] DB insert error:', insertError.message);
-    return { ok: false, error: `فشل تسجيل الوثيقة: ${insertError.message}` };
+    return { ok: false, error: `فشل تسجيل الوثيقة: ${insertError.message}` }; // i18n-exempt: internal — never surfaced verbatim to an HTTP caller on current call paths (see census)
   }
 
   return { ok: true, storage_path: storagePath, doc_id: docId };

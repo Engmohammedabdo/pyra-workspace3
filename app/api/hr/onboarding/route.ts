@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -11,7 +12,7 @@ import { generateId } from '@/lib/utils/id';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 import { logError } from '@/lib/observability/log-error';
 import { notify } from '@/lib/notifications/notify';
-import { createEmployeeUser, reactivateEmployeeUser } from '@/lib/hr/create-employee';
+import { createEmployeeUser, reactivateEmployeeUser, type ApiT } from '@/lib/hr/create-employee';
 import { storeGeneratedDocument } from '@/lib/hr/store-generated-document';
 import {
   loadServerPdfFonts,
@@ -140,13 +141,14 @@ export async function POST(request: NextRequest) {
     const auth = await requireApiPermission('hr.manage');
     if (isApiError(auth)) return auth;
     authForLogging = auth;
+    const t = await getTranslations('api');
 
     // ── Parse body ────────────────────────────────────────────────────────────
     let body: Record<string, unknown>;
     try {
       body = await request.json();
     } catch {
-      return apiValidationError('طلب غير صالح — يجب أن يكون JSON');
+      return apiValidationError(t('hr.invalidJsonBody'));
     }
 
     const {
@@ -202,7 +204,7 @@ export async function POST(request: NextRequest) {
         !(SALARY_CURRENCIES as readonly string[]).includes(currency)
       ) {
         return apiValidationError(
-          `عملة غير صالحة — القيم المقبولة: ${SALARY_CURRENCIES.join(', ')}`,
+          t('hr.onboardingCurrencyInvalid', { allowed: SALARY_CURRENCIES.join(', ') }),
         );
       }
     }
@@ -220,11 +222,11 @@ export async function POST(request: NextRequest) {
         )
       ) {
         return apiValidationError(
-          `قائمة الوثائق غير صالحة — القيم المقبولة: ${ONBOARDING_DOC_KEYS.join(', ')}`,
+          t('hr.documentsListInvalid', { allowed: ONBOARDING_DOC_KEYS.join(', ') }),
         );
       }
       if (documents.length === 0) {
-        return apiValidationError('اختر وثيقة واحدة على الأقل');
+        return apiValidationError(t('hr.documentsListEmpty'));
       }
       docsToGenerate = new Set(documents as OnboardingDocKey[]);
     }
@@ -241,7 +243,7 @@ export async function POST(request: NextRequest) {
     if (basic === undefined || basic === null || typeof basic !== 'number') missing.push('basic');
 
     if (missing.length > 0) {
-      return apiValidationError(`الحقول التالية مطلوبة: ${missing.join(', ')}`);
+      return apiValidationError(t('hr.requiredFieldsMissing', { fields: missing.join(', ') }));
     }
 
     // Safe casts for validated primitives
@@ -336,23 +338,23 @@ export async function POST(request: NextRequest) {
         return apiServerError();
       }
       if (!existingUser) {
-        return apiError('الموظف غير موجود', 404);
+        return apiError(t('hr.employeeNotFound'), 404);
       }
       if (existingUser.status !== 'active') {
         return apiError(
-          'الموظف غير نشط — استخدم مسار التعيين الجديد لإعادة التفعيل',
+          t('hr.employeeInactive'),
           409,
         );
       }
       if (existingUser.onboarding_id) {
-        return apiError('لدى الموظف سجل onboarding بالفعل', 409);
+        return apiError(t('hr.employeeAlreadyOnboarding'), 409);
       }
       // Fail-loud multi-currency doctrine: the offer letter documents the salary,
       // which is denominated in the employee's payroll currency — a mismatch would
       // produce an HR document contradicting the payroll record.
       if (existingUser.salary_currency && cleanCurrency !== existingUser.salary_currency) {
         return apiError(
-          `عملة العرض (${cleanCurrency}) لا تطابق عملة راتب الموظف (${existingUser.salary_currency})`,
+          t('hr.currencyMismatch', { offerCurrency: cleanCurrency, salaryCurrency: existingUser.salary_currency }),
           422,
         );
       }
@@ -369,12 +371,12 @@ export async function POST(request: NextRequest) {
       let createResult;
       if (existingU) {
         if (existingU.status === 'active') {
-          return apiError('اسم المستخدم مستخدم بالفعل لموظف نشط', 409);
+          return apiError(t('hr.usernameTakenActive'), 409);
         }
         // Re-hire: reactivate the existing account with updated details
-        createResult = await reactivateEmployeeUser(supabase, employeeInput);
+        createResult = await reactivateEmployeeUser(supabase, employeeInput, t as unknown as ApiT);
       } else {
-        createResult = await createEmployeeUser(supabase, employeeInput);
+        createResult = await createEmployeeUser(supabase, employeeInput, t as unknown as ApiT);
       }
 
       if (!createResult.ok) {
@@ -447,7 +449,7 @@ export async function POST(request: NextRequest) {
       });
       console.error('[hr/onboarding POST] onboarding insert error:', onbInsertError.message);
       return apiServerError(
-        `تم إنشاء المستخدم لكن فشل إنشاء سجل الإيبورد. يُرجى التواصل مع المسؤول. (${onbInsertError.message})`,
+        t('hr.onboardingInsertPartialFailure', { dbMessage: onbInsertError.message }),
       );
     }
 
@@ -489,7 +491,7 @@ export async function POST(request: NextRequest) {
               metadata: { source: 'onboarding_link_rollback', onboarding_id: onboardingId },
             });
           }
-          return apiServerError('فشل ربط سجل الـ onboarding بالموظف — لم يتم إنشاء أي شيء، أعد المحاولة');
+          return apiServerError(t('hr.onboardingLinkRollbackFailed'));
         }
         // New-hire path: non-fatal, continue
       }
@@ -558,12 +560,12 @@ export async function POST(request: NextRequest) {
         const offerStoreResult = await storeGeneratedDocument(supabase, {
           employeeUsername: employeeUsername,
           typeId:      'dt_offer_letter',
-          label:       `عرض عمل — ${cleanNameAr}`,
+          label:       `عرض عمل — ${cleanNameAr}`, // i18n-exempt: PDF document label (Phase 9 scope)
           pdf:         offerBuffer,
           uploadedBy:  auth.pyraUser.username,
         });
         if (offerStoreResult.ok) {
-          storedDocuments.push({ type_id: 'dt_offer_letter', label: `عرض عمل — ${cleanNameAr}`, doc_id: offerStoreResult.doc_id });
+          storedDocuments.push({ type_id: 'dt_offer_letter', label: t('hr.docLabelOffer', { name: cleanNameAr }), doc_id: offerStoreResult.doc_id });
         } else {
           logError({
             error: new Error(offerStoreResult.error),
@@ -594,12 +596,12 @@ export async function POST(request: NextRequest) {
         const ndaStoreResult = await storeGeneratedDocument(supabase, {
           employeeUsername: employeeUsername,
           typeId:      'dt_nda',
-          label:       `اتفاقية سرية — ${cleanNameAr}`,
+          label:       `اتفاقية سرية — ${cleanNameAr}`, // i18n-exempt: PDF document label (Phase 9 scope)
           pdf:         ndaBuffer,
           uploadedBy:  auth.pyraUser.username,
         });
         if (ndaStoreResult.ok) {
-          storedDocuments.push({ type_id: 'dt_nda', label: `اتفاقية سرية — ${cleanNameAr}`, doc_id: ndaStoreResult.doc_id });
+          storedDocuments.push({ type_id: 'dt_nda', label: t('hr.docLabelNda', { name: cleanNameAr }), doc_id: ndaStoreResult.doc_id });
         } else {
           logError({
             error: new Error(ndaStoreResult.error),
@@ -632,12 +634,12 @@ export async function POST(request: NextRequest) {
         const assetStoreResult = await storeGeneratedDocument(supabase, {
           employeeUsername: employeeUsername,
           typeId:      'dt_asset_handover',
-          label:       `نموذج تسليم عهدة — ${cleanNameAr}`,
+          label:       `نموذج تسليم عهدة — ${cleanNameAr}`, // i18n-exempt: PDF document label (Phase 9 scope)
           pdf:         assetBuffer,
           uploadedBy:  auth.pyraUser.username,
         });
         if (assetStoreResult.ok) {
-          storedDocuments.push({ type_id: 'dt_asset_handover', label: `نموذج تسليم عهدة — ${cleanNameAr}`, doc_id: assetStoreResult.doc_id });
+          storedDocuments.push({ type_id: 'dt_asset_handover', label: t('hr.docLabelAssetHandover', { name: cleanNameAr }), doc_id: assetStoreResult.doc_id });
         } else {
           logError({
             error: new Error(assetStoreResult.error),
@@ -697,8 +699,8 @@ export async function POST(request: NextRequest) {
 
       return apiServerError(
         isExisting
-          ? 'فشل توليد المستندات — لم يتم إنشاء سجل التعيين. حاول مرة أخرى.'
-          : 'تم إنشاء المستخدم لكن فشل توليد المستندات. المستخدم مُنشأ — يُرجى رفع المستندات يدوياً عبر صفحة إدارة الموظفين.',
+          ? t('hr.documentGenerationFailedExisting')
+          : t('hr.documentGenerationFailedNewHire'),
       );
     }
 
@@ -746,7 +748,7 @@ export async function POST(request: NextRequest) {
           });
         }
       }
-      return apiServerError('فشل في إنشاء مستندات التعيين');
+      return apiServerError(t('hr.allDocumentsGenerationFailed'));
     }
 
     // ── Step 8: Seed onboarding checklist tasks (new hires only) ──────────────
@@ -806,8 +808,8 @@ export async function POST(request: NextRequest) {
       void notify(supabase, {
         to:    employeeUsername,
         type:  'system',
-        title: 'مرحباً بك في Pyra Workspace! 🎉',
-        message: `نرحب بك في ${companyName}. تم إعداد حسابك بنجاح.`,
+        title: 'مرحباً بك في Pyra Workspace! 🎉', // i18n-exempt: notification content (Phase 8)
+        message: `نرحب بك في ${companyName}. تم إعداد حسابك بنجاح.`, // i18n-exempt: notification content (Phase 8)
         link:  '/dashboard',
         from: {
           username:    auth.pyraUser.username,

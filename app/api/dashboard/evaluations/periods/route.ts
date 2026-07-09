@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -39,15 +40,16 @@ export async function POST(req: NextRequest) {
     const auth = await requireApiPermission('evaluations.manage');
     if (isApiError(auth)) return auth;
 
+    const t = await getTranslations('api');
     const body = await req.json().catch(() => ({}));
     const { name, name_ar, start_date, end_date } = body;
 
     if (!name || !name_ar || !start_date || !end_date) {
-      return apiValidationError('جميع الحقول مطلوبة: الاسم، الاسم بالعربية، تاريخ البداية، تاريخ النهاية');
+      return apiValidationError(t('evaluations.periodFieldsRequired'));
     }
 
     if (new Date(start_date) >= new Date(end_date)) {
-      return apiValidationError('تاريخ البداية يجب أن يكون قبل تاريخ النهاية');
+      return apiValidationError(t('finance.dateRangeInvalid'));
     }
 
     const supabase = createServiceRoleClient();

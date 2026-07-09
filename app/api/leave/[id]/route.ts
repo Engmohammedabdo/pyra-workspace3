@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiError, apiUnauthorized } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
@@ -15,13 +16,14 @@ import { dubaiDayKey } from '@/lib/utils/format';
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getApiAuth();
   if (!auth) return apiUnauthorized();
+  const t = await getTranslations('api');
 
   const { id } = await params;
   const body = await req.json();
   const supabase = await createServerSupabaseClient();
 
   const { data: existing } = await supabase.from('pyra_leave_requests').select('*').eq('id', id).single();
-  if (!existing) return apiNotFound('الطلب غير موجود');
+  if (!existing) return apiNotFound(t('leave.notFound'));
 
   // Handle approval/rejection
   if (body.status === LEAVE_STATUS.APPROVED || body.status === LEAVE_STATUS.REJECTED) {
@@ -32,7 +34,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // Either alone is insufficient: a custom HR role might have leave.approve
     // org-wide, but should still only approve THEIR direct reports.
     if (!hasPermission(auth.pyraUser.rolePermissions, 'leave.approve')) {
-      return apiError('غير مصرح بالاعتماد', 403);
+      return apiError(t('leave.notAuthorizedToApprove'), 403);
     }
     const allowed = await canApproveFor(
       supabase,
@@ -41,7 +43,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       existing.username,
     );
     if (!allowed) {
-      return apiError('يمكنك فقط اعتماد طلبات الموظفين تحت إدارتك المباشرة', 403);
+      return apiError(t('leave.approvalScopeDenied', { noun: t('leave.scopeNounRequests') }), 403);
     }
 
     const updates: Record<string, unknown> = {
@@ -114,13 +116,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       to: existing.username,
       type: body.status === LEAVE_STATUS.APPROVED ? 'leave_approved' : 'leave_rejected',
       title: body.status === LEAVE_STATUS.APPROVED
-        ? 'تمت الموافقة على طلب إجازتك'
-        : 'تم رفض طلب إجازتك',
+        ? 'تمت الموافقة على طلب إجازتك' // i18n-exempt: notification content (Phase 8)
+        : 'تم رفض طلب إجازتك', // i18n-exempt: notification content (Phase 8)
       message: body.review_note
         ? body.review_note
         : body.status === LEAVE_STATUS.APPROVED
-          ? `وافق ${auth.pyraUser.display_name} على طلب إجازتك`
-          : `رفض ${auth.pyraUser.display_name} طلب إجازتك`,
+          ? `وافق ${auth.pyraUser.display_name} على طلب إجازتك` // i18n-exempt: notification content (Phase 8)
+          : `رفض ${auth.pyraUser.display_name} طلب إجازتك`, // i18n-exempt: notification content (Phase 8)
       link: '/dashboard/leave',
       entity: { type: 'leave_request', id },
       from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
@@ -162,8 +164,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // Notify the manager/approver that the leave was cancelled
     await notifyApprovers(createServiceRoleClient(), existing.username, {
       type: 'leave_cancelled',
-      title: `تم إلغاء إجازة — ${existing.username}`,
-      message: `${existing.type} من ${existing.start_date} إلى ${existing.end_date}`,
+      title: `تم إلغاء إجازة — ${existing.username}`, // i18n-exempt: notification content (Phase 8)
+      message: `${existing.type} من ${existing.start_date} إلى ${existing.end_date}`, // i18n-exempt: notification content (Phase 8)
       link: '/dashboard/approvals',
       entity: { type: 'leave_request', id },
       from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
@@ -176,19 +178,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (body.action === 'cancel') {
     const cancellationReason = body.cancellation_reason?.trim();
     if (!cancellationReason) {
-      return apiError('سبب الإلغاء مطلوب', 400);
+      return apiError(t('leave.cancellationReasonRequired'), 400);
     }
 
     // Only allow cancellation of pending or approved requests
     if (existing.status !== LEAVE_STATUS.PENDING && existing.status !== LEAVE_STATUS.APPROVED) {
-      return apiError('لا يمكن إلغاء طلب بهذه الحالة', 400);
+      return apiError(t('leave.cannotCancelThisStatus'), 400);
     }
 
     // Permission: owner can cancel their own, or user with leave.approve permission
     const isOwner = existing.username === auth.pyraUser.username;
     const canApprove = hasPermission(auth.pyraUser.rolePermissions, 'leave.approve');
     if (!isOwner && !canApprove) {
-      return apiError('غير مصرح بإلغاء هذا الطلب', 403);
+      return apiError(t('leave.notAuthorizedToCancel'), 403);
     }
 
     const wasApproved = existing.status === LEAVE_STATUS.APPROVED;
@@ -260,8 +262,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // Notify the manager/approver that the leave was cancelled
     await notifyApprovers(createServiceRoleClient(), existing.username, {
       type: 'leave_cancelled',
-      title: `تم إلغاء إجازة — ${existing.username}`,
-      message: `${existing.type} من ${existing.start_date} إلى ${existing.end_date}`,
+      title: `تم إلغاء إجازة — ${existing.username}`, // i18n-exempt: notification content (Phase 8)
+      message: `${existing.type} من ${existing.start_date} إلى ${existing.end_date}`, // i18n-exempt: notification content (Phase 8)
       link: '/dashboard/approvals',
       entity: { type: 'leave_request', id },
       from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
@@ -270,5 +272,5 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return apiSuccess(updated);
   }
 
-  return apiError('عملية غير مدعومة', 400);
+  return apiError(t('leave.unsupportedOperation'), 400);
 }

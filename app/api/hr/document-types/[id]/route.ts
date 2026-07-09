@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiServerError, apiNotFound, apiValidationError } from '@/lib/api/response';
@@ -16,6 +17,7 @@ export async function PATCH(
     const auth = await requireApiPermission('documents.manage');
     if (isApiError(auth)) return auth;
 
+    const t = await getTranslations('api');
     const { id } = await params;
     const body = await req.json();
 
@@ -32,7 +34,7 @@ export async function PATCH(
     }
 
     if (Object.keys(updates).length === 0) {
-      return apiValidationError('لا توجد حقول لتحديثها');
+      return apiValidationError(t('hr.noFieldsToUpdate'));
     }
 
     const supabase = createServiceRoleClient();
@@ -45,7 +47,7 @@ export async function PATCH(
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') return apiNotFound('نوع المستند غير موجود');
+      if (error.code === 'PGRST116') return apiNotFound(t('hr.documentTypeNotFound'));
       return apiServerError(error.message);
     }
 
@@ -75,6 +77,7 @@ export async function DELETE(
   try {
     const auth = await requireApiPermission('documents.manage');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
 
@@ -88,7 +91,7 @@ export async function DELETE(
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') return apiNotFound('نوع المستند غير موجود');
+      if (error.code === 'PGRST116') return apiNotFound(t('hr.documentTypeNotFound'));
       return apiServerError(error.message);
     }
 

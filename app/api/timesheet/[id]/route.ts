@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiError, apiUnauthorized } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -11,6 +12,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const auth = await getApiAuth();
     if (!auth) return apiUnauthorized();
+    const t = await getTranslations('api');
 
     const { id } = await params;
     const body = await req.json();
@@ -21,16 +23,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     // Check if user owns this entry or has manage permission
     const { data: existing } = await supabase.from('pyra_timesheets').select('username, status').eq('id', id).single();
-    if (!existing) return apiNotFound('السجل غير موجود');
+    if (!existing) return apiNotFound(t('timesheet.recordNotFound'));
 
     const canManage = hasPermission(auth.pyraUser.rolePermissions, 'timesheet.manage');
     const isOwner = existing.username === auth.pyraUser.username;
 
-    if (!isOwner && !canManage) return apiError('غير مصرح', 403);
+    if (!isOwner && !canManage) return apiError(t('timesheet.notAuthorized'), 403);
 
     // Owners can only edit draft entries
     if (isOwner && !canManage && existing.status !== TIMESHEET_STATUS.DRAFT) {
-      return apiError('لا يمكن تعديل سجل تم إرساله', 400);
+      return apiError(t('timesheet.cannotModifySubmitted'), 400);
     }
 
     const allowed = ['project_id', 'task_id', 'date', 'hours', 'description', 'status', 'is_billable', 'billing_rate'];
@@ -42,7 +44,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // Handle approval
     if (body.status === TIMESHEET_STATUS.APPROVED || body.status === TIMESHEET_STATUS.REJECTED) {
       if (!hasPermission(auth.pyraUser.rolePermissions, 'timesheet.approve')) {
-        return apiError('غير مصرح بالاعتماد', 403);
+        return apiError(t('timesheet.notAuthorizedToApprove'), 403);
       }
       // Manager-scope guard — permission alone gates the action category; this
       // enforces "only your direct reports" (admin overrides). Mirrors the
@@ -54,11 +56,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         existing.username,
       );
       if (!allowedToApprove) {
-        return apiError('يمكنك فقط اعتماد إدخالات الموظفين تحت إدارتك المباشرة', 403);
+        return apiError(t('timesheet.approvalScopeDenied', { noun: t('timesheet.scopeNounEntries') }), 403);
       }
       // Prevent self-approval
       if (body.status === TIMESHEET_STATUS.APPROVED && existing.username === auth.pyraUser.username) {
-        return apiError('لا يمكنك اعتماد إدخالاتك الخاصة', 403);
+        return apiError(t('timesheet.noSelfApproval'), 403);
       }
       updates.approved_by = auth.pyraUser.username;
       updates.approved_at = new Date().toISOString();
@@ -95,6 +97,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   try {
     const auth = await getApiAuth();
     if (!auth) return apiUnauthorized();
+    const t = await getTranslations('api');
 
     const { id } = await params;
 
@@ -103,13 +106,13 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const supabase = createServiceRoleClient();
 
     const { data: existing } = await supabase.from('pyra_timesheets').select('username, status').eq('id', id).single();
-    if (!existing) return apiNotFound('السجل غير موجود');
+    if (!existing) return apiNotFound(t('timesheet.recordNotFound'));
 
     const canManage = hasPermission(auth.pyraUser.rolePermissions, 'timesheet.manage');
     const isOwner = existing.username === auth.pyraUser.username;
 
-    if (!isOwner && !canManage) return apiError('غير مصرح', 403);
-    if (isOwner && existing.status !== TIMESHEET_STATUS.DRAFT) return apiError('لا يمكن حذف سجل تم إرساله', 400);
+    if (!isOwner && !canManage) return apiError(t('timesheet.notAuthorized'), 403);
+    if (isOwner && existing.status !== TIMESHEET_STATUS.DRAFT) return apiError(t('timesheet.cannotDeleteSubmitted'), 400);
 
     const { error } = await supabase.from('pyra_timesheets').delete().eq('id', id);
     if (error) return apiServerError(error.message);

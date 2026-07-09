@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
@@ -39,6 +40,7 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await requireApiPermission('attendance.manage');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const body = await req.json();
     const {
@@ -55,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     // Validate required fields
     if (!name || !name_ar) {
-      return apiValidationError('الاسم والاسم العربي مطلوبان');
+      return apiValidationError(t('workSchedules.namesRequired'));
     }
 
     // Validate work_days, start_time, end_time. If provided it must be a
@@ -65,13 +67,13 @@ export async function POST(req: NextRequest) {
       work_days !== undefined && work_days !== null &&
       (!Array.isArray(work_days) || work_days.length === 0 || work_days.some((d: number) => d < 0 || d > 6))
     ) {
-      return apiValidationError('أيام العمل غير صالحة');
+      return apiValidationError(t('workSchedules.workDaysInvalid'));
     }
     if (start_time && !/^\d{2}:\d{2}$/.test(start_time)) {
-      return apiValidationError('صيغة وقت البداية غير صالحة');
+      return apiValidationError(t('workSchedules.startTimeFormatInvalid'));
     }
     if (end_time && !/^\d{2}:\d{2}$/.test(end_time)) {
-      return apiValidationError('صيغة وقت النهاية غير صالحة');
+      return apiValidationError(t('workSchedules.endTimeFormatInvalid'));
     }
 
     const supabase = createServiceRoleClient();

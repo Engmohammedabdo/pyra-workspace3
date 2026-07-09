@@ -23,6 +23,23 @@ import { generateId } from '@/lib/utils/id';
 import { hashPassword } from '@/lib/utils/password';
 import { resolveAuthUserId } from '@/lib/auth/auth-mapping';
 
+/**
+ * Minimal shape of next-intl's `t` function, as resolved by
+ * `getTranslations('api')` in a server route. Optional here (t-injection
+ * pattern, Phase 5.6 precedent — see `lib/hr/overview-helpers.ts`'s
+ * `AlertTranslator`) so this lib stays callable from a caller that hasn't
+ * resolved a translator (e.g. `app/api/users` POST, outside the i18n Phase 5
+ * HR-API scope) — the literal Arabic fallback is byte-identical to the
+ * catalog value, so behaviour is unchanged either way.
+ *
+ * A plain function-type alias (not `Awaited<ReturnType<typeof
+ * getTranslations>>`) is used deliberately — next-intl's actual overloaded
+ * generic type triggers `TS2589: Type instantiation is excessively deep and
+ * possibly infinite` when threaded through this file's discriminated-union
+ * return type.
+ */
+export type ApiT = (key: string, values?: Record<string, string | number>) => string;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Input / Output types
 // ─────────────────────────────────────────────────────────────────────────────
@@ -85,6 +102,7 @@ export type CreateEmployeeResult =
 export async function createEmployeeUser(
   serviceClient: SupabaseClient,
   input: CreateEmployeeInput,
+  t?: ApiT,
 ): Promise<CreateEmployeeResult> {
   const {
     username,
@@ -126,7 +144,7 @@ export async function createEmployeeUser(
     .single();
 
   if (existing) {
-    return { ok: false, error: 'اسم المستخدم مستخدم بالفعل', status: 409 };
+    return { ok: false, error: t ? t('hr.userCreate.usernameTaken') : 'اسم المستخدم مستخدم بالفعل', status: 409 }; // i18n-exempt: byte-identical fallback for the sole caller that hasn't resolved a translator (app/api/users POST — outside i18n Phase 5 HR-API scope)
   }
 
   // ── Step 2: Create Supabase Auth user ────────────────────────────────────
@@ -145,7 +163,7 @@ export async function createEmployeeUser(
     console.error('[createEmployeeUser] auth.admin.createUser error:', authError);
     return {
       ok: false,
-      error: `فشل في إنشاء حساب المصادقة: ${authError.message}`,
+      error: t ? t('hr.userCreate.authCreateFailed', { message: authError.message }) : `فشل في إنشاء حساب المصادقة: ${authError.message}`, // i18n-exempt: byte-identical fallback for the sole caller that hasn't resolved a translator (app/api/users POST — outside i18n Phase 5 HR-API scope)
       status: 500,
     };
   }
@@ -192,7 +210,7 @@ export async function createEmployeeUser(
     }
     return {
       ok: false,
-      error: `فشل في إنشاء المستخدم: ${insertError.message}`,
+      error: t ? t('hr.userCreate.userInsertFailed', { message: insertError.message }) : `فشل في إنشاء المستخدم: ${insertError.message}`, // i18n-exempt: byte-identical fallback for the sole caller that hasn't resolved a translator (app/api/users POST — outside i18n Phase 5 HR-API scope)
       status: 500,
     };
   }
@@ -211,7 +229,7 @@ export async function createEmployeeUser(
     await serviceClient.auth.admin.deleteUser(authData.user.id);
     return {
       ok: false,
-      error: `فشل في إنشاء ربط المصادقة: ${mappingError.message}`,
+      error: t ? t('hr.userCreate.authMappingFailed', { message: mappingError.message }) : `فشل في إنشاء ربط المصادقة: ${mappingError.message}`, // i18n-exempt: byte-identical fallback for the sole caller that hasn't resolved a translator (app/api/users POST — outside i18n Phase 5 HR-API scope)
       status: 500,
     };
   }
@@ -273,6 +291,7 @@ export async function createEmployeeUser(
 export async function reactivateEmployeeUser(
   serviceClient: SupabaseClient,
   input: CreateEmployeeInput,
+  t?: ApiT,
 ): Promise<CreateEmployeeResult> {
   const {
     username,
@@ -345,7 +364,9 @@ export async function reactivateEmployeeUser(
     console.error('[reactivateEmployeeUser] pyra_users update error:', updateError);
     return {
       ok: false,
-      error: `فشل في إعادة تفعيل المستخدم: ${updateError?.message ?? 'unknown'}`,
+      error: t
+        ? t('hr.userCreate.reactivateFailed', { message: updateError?.message ?? 'unknown' })
+        : `فشل في إعادة تفعيل المستخدم: ${updateError?.message ?? 'unknown'}`, // i18n-exempt: byte-identical fallback for the sole caller that hasn't resolved a translator (app/api/users POST — outside i18n Phase 5 HR-API scope)
       status: 500,
     };
   }

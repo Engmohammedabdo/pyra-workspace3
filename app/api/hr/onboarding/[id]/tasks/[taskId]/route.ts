@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -31,6 +32,7 @@ export async function PATCH(
     const auth = await requireApiPermission('hr.manage');
     if (isApiError(auth)) return auth;
     authForLogging = auth;
+    const t = await getTranslations('api');
 
     const { id, taskId } = await params;
 
@@ -39,13 +41,13 @@ export async function PATCH(
     try {
       body = await request.json();
     } catch {
-      return apiValidationError('طلب غير صالح — يجب أن يكون JSON');
+      return apiValidationError(t('hr.invalidJsonBody'));
     }
 
     const { is_done } = body;
 
     if (typeof is_done !== 'boolean') {
-      return apiValidationError('is_done يجب أن يكون قيمة منطقية (true/false)');
+      return apiValidationError(t('hr.taskIsDoneMustBeBoolean'));
     }
 
     const supabase = createServiceRoleClient();
@@ -85,7 +87,7 @@ export async function PATCH(
     }
 
     // No row matched → task does not exist or doesn't belong to this onboarding
-    if (!updated) return apiNotFound('المهمة غير موجودة');
+    if (!updated) return apiNotFound(t('common.taskNotFound'));
 
     return apiSuccess(updated);
   } catch (err) {

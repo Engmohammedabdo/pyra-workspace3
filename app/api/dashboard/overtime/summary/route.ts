@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -8,6 +9,7 @@ export async function GET(req: NextRequest) {
   try {
     const auth = await requireApiPermission('timesheet.view');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const { searchParams } = new URL(req.url);
     const month = searchParams.get('month'); // YYYY-MM
@@ -17,13 +19,13 @@ export async function GET(req: NextRequest) {
     const username = canManage ? searchParams.get('username') : null;
 
     if (!month) {
-      return apiValidationError('الشهر مطلوب بصيغة YYYY-MM');
+      return apiValidationError(t('overtime.monthRequired'));
     }
 
     // Parse month range
     const [year, monthNum] = month.split('-').map(Number);
     if (!year || !monthNum || monthNum < 1 || monthNum > 12) {
-      return apiValidationError('صيغة الشهر غير صالحة');
+      return apiValidationError(t('overtime.monthFormatInvalid'));
     }
 
     const startDate = `${year}-${String(monthNum).padStart(2, '0')}-01`;

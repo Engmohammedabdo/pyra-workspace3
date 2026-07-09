@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -112,12 +113,13 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await requireApiPermission('evaluations.manage');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const body = await req.json().catch(() => ({}));
     const { period_id, employee_username, evaluator_username, evaluation_type } = body;
 
     if (!period_id || !employee_username || !evaluator_username) {
-      return apiValidationError('الحقول المطلوبة: فترة التقييم، الموظف، المقيّم');
+      return apiValidationError(t('evaluations.requiredFields'));
     }
 
     const supabase = createServiceRoleClient();
@@ -130,7 +132,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (!period) {
-      return apiValidationError('فترة التقييم غير موجودة');
+      return apiValidationError(t('evaluations.periodNotFound'));
     }
 
     const id = generateId('ev');

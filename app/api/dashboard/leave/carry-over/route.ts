@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
@@ -12,19 +13,20 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await requireApiPermission('leave.manage');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const { from_year, to_year } = await req.json();
 
     if (!from_year || !to_year) {
-      return apiValidationError('سنة المصدر وسنة الهدف مطلوبتان');
+      return apiValidationError(t('leave.carryOverYearsRequired'));
     }
 
     if (typeof from_year !== 'number' || typeof to_year !== 'number') {
-      return apiValidationError('السنوات يجب أن تكون أرقام');
+      return apiValidationError(t('leave.carryOverYearsMustBeNumbers'));
     }
 
     if (to_year <= from_year) {
-      return apiValidationError('سنة الهدف يجب أن تكون بعد سنة المصدر');
+      return apiValidationError(t('leave.carryOverToYearMustBeAfterFromYear'));
     }
 
     const supabase = createServiceRoleClient();

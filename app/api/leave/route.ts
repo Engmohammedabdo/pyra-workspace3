@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { getApiAuth, requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiUnauthorized, apiError } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -50,16 +51,17 @@ export async function POST(req: NextRequest) {
   // clients / anyone without the permission from submitting leave).
   const auth = await requireApiPermission('leave.create');
   if (isApiError(auth)) return auth;
+  const t = await getTranslations('api');
 
   const { type, start_date, end_date, reason } = await req.json();
-  if (!type || !start_date || !end_date) return apiValidationError('النوع وتواريخ البداية والنهاية مطلوبة');
+  if (!type || !start_date || !end_date) return apiValidationError(t('leave.typeAndDatesRequired'));
 
   const start = new Date(start_date);
   const end = new Date(end_date);
-  if (end < start) return apiValidationError('تاريخ النهاية يجب أن يكون بعد البداية');
+  if (end < start) return apiValidationError(t('leave.endDateAfterStart'));
 
   const days_count = countLeaveDays(start_date, end_date);
-  if (days_count === 0) return apiValidationError('لا توجد أيام عمل ضمن الفترة المحددة');
+  if (days_count === 0) return apiValidationError(t('leave.noWorkingDaysInRange'));
 
   const supabase = await createServerSupabaseClient();
   const serviceSupabase = createServiceRoleClient();
@@ -71,7 +73,7 @@ export async function POST(req: NextRequest) {
     .eq('username', auth.pyraUser.username)
     .single();
   if (requestingUser?.employment_type === 'contract' || requestingUser?.employment_type === 'freelance') {
-    return apiError('المتعاقدون المستقلون لا يقدّمون طلبات إجازة عبر النظام', 403);
+    return apiError(t('leave.contractorsBlocked'), 403);
   }
 
   // Balance check — v2 is the single source of truth. Resolve the leave type
@@ -102,7 +104,7 @@ export async function POST(req: NextRequest) {
       : leaveType.default_days;
 
     if (days_count > available) {
-      return apiError(`رصيد الإجازات غير كافٍ. المتبقي: ${available} يوم`, 400);
+      return apiError(t('leave.insufficientBalance', { available }), 400);
     }
   }
 
@@ -136,8 +138,8 @@ export async function POST(req: NextRequest) {
   // Notify the employee's manager (or fallback: all active admins) that a leave request needs approval
   await notifyApprovers(serviceSupabase, auth.pyraUser.username, {
     type: 'leave_request_pending',
-    title: `طلب إجازة جديد من ${auth.pyraUser.display_name}`,
-    message: `${days_count} يوم — من ${start_date} إلى ${end_date}`,
+    title: `طلب إجازة جديد من ${auth.pyraUser.display_name}`, // i18n-exempt: notification content (Phase 8)
+    message: `${days_count} يوم — من ${start_date} إلى ${end_date}`, // i18n-exempt: notification content (Phase 8)
     link: '/dashboard/approvals',
     entity: { type: 'leave_request', id: data.id },
     from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -31,6 +32,7 @@ export async function GET(
     const auth = await requireApiPermission('documents.manage');
     if (isApiError(auth)) return auth;
     authForLogging = auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
     const supabase = createServiceRoleClient();
@@ -53,7 +55,7 @@ export async function GET(
       return apiServerError();
     }
 
-    if (!row) return apiNotFound('الوثيقة غير موجودة');
+    if (!row) return apiNotFound(t('hr.documentNotFound'));
 
     // ── Generate fresh signed URL ──
     const { data: urlData, error: signError } = await supabase.storage
@@ -73,7 +75,7 @@ export async function GET(
         },
       });
       console.error('[hr/documents signed-url GET] sign error:', signError?.message);
-      return apiServerError('فشل إنشاء رابط التحميل');
+      return apiServerError(t('hr.signedUrlCreateFailed'));
     }
 
     return apiSuccess({ signed_url: urlData.signedUrl });

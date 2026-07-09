@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiError, apiServerError, apiValidationError } from '@/lib/api/response';
@@ -12,6 +13,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const auth = await requireApiPermission('attendance.manage');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
     const body = await req.json();
@@ -30,7 +32,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     // Validate required fields
     if (!name || !name_ar) {
-      return apiValidationError('الاسم والاسم العربي مطلوبان');
+      return apiValidationError(t('workSchedules.namesRequired'));
     }
 
     // Validate work_days — if provided it must be a non-empty array of valid
@@ -40,13 +42,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       work_days !== undefined && work_days !== null &&
       (!Array.isArray(work_days) || work_days.length === 0 || work_days.some((d: number) => d < 0 || d > 6))
     ) {
-      return apiValidationError('أيام العمل غير صالحة');
+      return apiValidationError(t('workSchedules.workDaysInvalid'));
     }
     if (start_time && !/^\d{2}:\d{2}$/.test(start_time)) {
-      return apiValidationError('صيغة وقت البداية غير صالحة');
+      return apiValidationError(t('workSchedules.startTimeFormatInvalid'));
     }
     if (end_time && !/^\d{2}:\d{2}$/.test(end_time)) {
-      return apiValidationError('صيغة وقت النهاية غير صالحة');
+      return apiValidationError(t('workSchedules.endTimeFormatInvalid'));
     }
 
     const supabase = createServiceRoleClient();
@@ -60,7 +62,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         .eq('id', id)
         .single();
       if (current?.is_default) {
-        return apiError('لا يمكن إلغاء الجدول الافتراضي — عيّن جدولاً افتراضياً آخر أولاً', 400);
+        return apiError(t('workSchedules.cannotUnsetLastDefault'), 400);
       }
     }
 
@@ -98,7 +100,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       .single();
 
     if (error) return apiServerError(error.message);
-    if (!data) return apiError('الجدول غير موجود', 404);
+    if (!data) return apiError(t('workSchedules.notFound'), 404);
 
     logActivity(
       auth.pyraUser.username,
@@ -124,6 +126,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   try {
     const auth = await requireApiPermission('attendance.manage');
     if (isApiError(auth)) return auth;
+    const t = await getTranslations('api');
 
     const { id } = await params;
     const supabase = createServiceRoleClient();
@@ -136,12 +139,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       .single();
 
     if (fetchError || !schedule) {
-      return apiError('الجدول غير موجود', 404);
+      return apiError(t('workSchedules.notFound'), 404);
     }
 
     // Block delete if it is the default schedule
     if (schedule.is_default) {
-      return apiError('لا يمكن حذف الجدول الافتراضي', 400);
+      return apiError(t('workSchedules.cannotDeleteDefault'), 400);
     }
 
     // Block delete if any users are assigned to this schedule
@@ -157,7 +160,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     if (count && count > 0) {
       return apiError(
-        `الجدول مستخدم لـ ${count} موظف، أعد تعيينهم أولاً`,
+        t('workSchedules.inUseByEmployees', { count }),
         409,
       );
     }
