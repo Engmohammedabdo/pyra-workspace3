@@ -351,7 +351,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     if (Object.keys(updateData).length === 0) {
-      return apiValidationError(t('tasks.noDataToUpdate'));
+      return apiValidationError(t('users.noDataToUpdate'));
     }
 
     // Perform the update

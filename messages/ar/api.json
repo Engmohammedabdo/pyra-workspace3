@@ -454,6 +454,7 @@
       "unauthorized": "غير مصرح"
     },
     "users": {
+      "noDataToUpdate": "لا توجد بيانات للتحديث",
       "listFailed": "فشل في جلب قائمة المستخدمين",
       "usernameMinLength": "اسم المستخدم مطلوب (3 أحرف على الأقل)",
       "passwordMinRequired": "كلمة المرور مطلوبة ({min} أحرف على الأقل)",

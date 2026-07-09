@@ -134,6 +134,22 @@ const MIGRATED_PATHS: string[] = [
   'hooks/useMyDocuments.ts',
   'hooks/useOnboarding.ts',
   'hooks/useProductivity.ts',
+  // Phase 6a — Admin / RBAC / Settings
+  // NOTE: lib/auth/rbac.ts + lib/i18n/rbac-labels.ts are intentionally EXCLUDED —
+  // their only Arabic is code comments (labels moved to rbac.json catalog).
+  'app/dashboard/settings',
+  'app/dashboard/admin',
+  'app/dashboard/users',
+  'app/dashboard/directory',
+  'app/dashboard/org-chart',
+  'app/dashboard/roles',
+  'app/dashboard/permissions',
+  'components/settings',
+  'app/api/settings',
+  'app/api/admin',
+  'app/api/observability',
+  'app/api/users',
+  'app/api/roles',
 ];
 
 const ARABIC = /[؀-ۿ]/; // i18n-exempt: Unicode range literal, not translatable text

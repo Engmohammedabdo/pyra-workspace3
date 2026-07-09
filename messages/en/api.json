@@ -454,6 +454,7 @@
       "unauthorized": "Unauthorized"
     },
     "users": {
+      "noDataToUpdate": "No data to update",
       "listFailed": "Failed to fetch the user list",
       "usernameMinLength": "Username is required (at least 3 characters)",
       "passwordMinRequired": "Password is required (at least {min} characters)",
