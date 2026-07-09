@@ -998,7 +998,7 @@
     },
     "dashboard_hr_work_schedules": {
       "description": "Manage weekly work schedules and assign them to employees",
-      "goal": "Create multiple work schedules (e.g. a regular Monday–Saturday schedule, a seasonal schedule...) and assign each employee to their own schedule. The start time is used automatically to calculate lateness in the attendance record.",
+      "goal": "Create multiple work schedules (e.g. a regular Monday–Saturday schedule, a seasonal schedule...) and assign each employee to their own schedule. The start time (`start_time`) is used automatically to calculate lateness in the attendance record.",
       "tips": {
         "0": "Click \"Add Schedule\", then enter the name in Arabic and English, choose the work days, and the start and end times.",
         "1": "The default work days for a new schedule are Monday–Saturday (the company's weekend is Sunday only) — change the selection if needed.",
