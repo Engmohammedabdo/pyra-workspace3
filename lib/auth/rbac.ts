@@ -221,6 +221,10 @@ export const PERMISSIONS = {
   FOLLOW_UPS_MANAGE:      'follow_ups.manage',         // admin only
   CRM_REPORTS_VIEW:       'crm_reports.view',
   CRM_REPORTS_TEAM_VIEW:  'crm_reports.team_view',     // manager + admin only
+
+  // Call tracking (device-synced SIM calls → pyra_agent_calls). Agents see
+  // own rows; crm_reports.team_view holders (manager/admin) see all agents.
+  CALLS_VIEW: 'calls.view',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -705,6 +709,7 @@ export const PERMISSION_MODULES: PermissionModule[] = [
       { key: 'follow_ups.manage',   label: 'Admin: manage all follow-ups' },
       { key: 'crm_reports.view',      label: 'View CRM Reports (own)' },
       { key: 'crm_reports.team_view', label: 'View CRM Reports (team)' },
+      { key: 'calls.view',            label: 'View Calls Report' },
     ],
   },
 ];
@@ -844,6 +849,7 @@ const ROLE_EXTRAS: Record<string, string[]> = {
     'follow_ups.create',
     'follow_ups.complete',
     'crm_reports.view',
+    'calls.view',
   ],
 
   // Add future roles here:

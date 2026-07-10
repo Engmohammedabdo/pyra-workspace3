@@ -91,7 +91,8 @@
       "leads": { "view": "View Leads (CRM)", "create": "Create Lead", "update": "Update Own Lead", "assign": "Assign / Transfer Lead", "delete": "Archive Lead", "move_stage": "Move Stage (Pipeline)", "approve": "Approve Closed Won", "manage": "Admin: see all leads", "edit_core": "Edit Lead Data (Admin)" },
       "lead_activities": { "view": "View Activity Timeline", "create": "Add Note / Log Call" },
       "follow_ups": { "view": "View Follow-ups", "create": "Schedule Follow-up", "complete": "Mark Follow-up Done", "manage": "Admin: manage all follow-ups" },
-      "crm_reports": { "view": "View CRM Reports (own)", "team_view": "View CRM Reports (team)" }
+      "crm_reports": { "view": "View CRM Reports (own)", "team_view": "View CRM Reports (team)" },
+      "calls": { "view": "View Calls Report" }
     }
   }
 }

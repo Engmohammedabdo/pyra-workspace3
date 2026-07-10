@@ -58,6 +58,8 @@ export interface TeamPerfAgent {
   pipeline_value: number;
   won_value: number;
   conversion_pct: number;
+  /** Task 6 — count of pyra_agent_calls this Dubai calendar month. */
+  calls_month: number;
 }
 
 export interface CRMRecentActivity {
