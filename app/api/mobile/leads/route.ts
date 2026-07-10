@@ -26,11 +26,18 @@ async function retroLinkCalls(
   leadId: string,
   phoneNormalized: string,
 ): Promise<number> {
-  const { data: unlinked } = await supabase
+  const { data: unlinked, error: selErr } = await supabase
     .from('pyra_agent_calls')
     .select('id, agent_username, direction, duration_seconds, called_at')
     .eq('phone_normalized', phoneNormalized)
     .is('lead_id', null);
+  if (selErr) {
+    // non-fatal for the caller (the lead itself is fine) but MUST be
+    // logged — a silent zero here would leave the number's other calls
+    // unlinked with no trace of why.
+    console.error('[retroLinkCalls] select failed:', selErr.message);
+    return 0;
+  }
   if (!unlinked || unlinked.length === 0) return 0;
   for (const call of unlinked) {
     let activityId: string | null = null;
@@ -97,7 +104,14 @@ export async function POST(request: NextRequest) {
       const { data: l } = await supabase.from('pyra_sales_leads').select('id, name').eq('id', call.lead_id).single();
       return apiSuccess({ lead_id: l!.id, lead_name: l!.name, lead_url: `/dashboard/crm/leads/${l!.id}`, already_existed: true });
     }
-    const { data: leads } = await supabase.from('pyra_sales_leads').select('id, name, phone').not('phone', 'is', null);
+    // A failed SELECT here MUST abort (throw → logError + 500 → phone
+    // retries): building the index from an empty set would make
+    // matchLeadByPhone return null and create a DUPLICATE lead.
+    const { data: leads, error: leadsErr } = await supabase
+      .from('pyra_sales_leads')
+      .select('id, name, phone')
+      .not('phone', 'is', null);
+    if (leadsErr) throw leadsErr;
     const match = matchLeadByPhone(buildLeadPhoneIndex(leads ?? []), call.phone_raw);
     if (match) {
       await retroLinkCalls(supabase, match.id, call.phone_normalized);
@@ -129,7 +143,7 @@ export async function POST(request: NextRequest) {
     });
     if (insertErr) throw insertErr;
 
-    await supabase.from('pyra_lead_activities').insert({
+    const { error: createdActErr } = await supabase.from('pyra_lead_activities').insert({
       id: generateId('la'),
       lead_id: leadId,
       activity_type: 'lead_created',
@@ -137,6 +151,11 @@ export async function POST(request: NextRequest) {
       metadata: { source: 'phone_call', created_by: agentUsername },
       created_by: agentUsername,
     });
+    if (createdActErr) {
+      // non-fatal — the lead row is durable; the timeline just misses its
+      // lead_created entry.
+      console.error('[mobile quick-add] lead_created activity insert failed:', createdActErr.message);
+    }
 
     const linked = await retroLinkCalls(supabase, leadId, call.phone_normalized);
 
