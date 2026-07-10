@@ -4,6 +4,14 @@
       "meta": {
         "title": "لوحة المبيعات — Pyra"
       },
+      "today": {
+        "label": "النهاردة",
+        "aria": "أولويات اليوم",
+        "followUps": "متابعات مستحقة",
+        "approvals": "موافقات معلّقة",
+        "whatsapp": "محادثات واتساب جديدة",
+        "updated": "آخر تحديث {time}"
+      },
       "periodOptions": {
         "thisMonth": "هذا الشهر",
         "last30d": "آخر ٣٠ يوم",
@@ -123,6 +131,15 @@
     "pipeline": {
       "meta": {
         "title": "خط المبيعات — Pyra"
+      },
+      "nextStep": {
+        "prefix": "التالي",
+        "overdue": "متابعة متأخرة",
+        "contact": "ابدأ التواصل مع العميل",
+        "qualify": "حدّد احتياجات العميل",
+        "proposal": "إرسال عرض سعر",
+        "negotiate": "تابع التفاوض لإغلاق الصفقة",
+        "complete": "صفقة مكتملة"
       },
       "header": {
         "title": "خط المبيعات",

@@ -238,3 +238,82 @@ input[type="checkbox"] {
     scroll-behavior: auto !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CRM "Pyra Pro" theme — warm-neutral (stone) palette, scoped to the CRM
+   module ONLY via the .crm-theme wrapper in app/dashboard/crm/layout.tsx.
+   The rest of the app (shared sidebar/topbar, other modules) keeps its
+   cool-neutral palette untouched. The orange --primary/--ring are inherited
+   from :root (already #F97316) and intentionally NOT overridden here.
+   ═══════════════════════════════════════════════════════════════════════ */
+.crm-theme,
+body[data-crm] [data-radix-popper-content-wrapper],
+body[data-crm] [role="dialog"],
+body[data-crm] [role="alertdialog"] {
+  --background: 30 20% 98%;          /* #FBFAF9 warm canvas          */
+  --foreground: 24 10% 10%;          /* #1C1917 ink                  */
+  --card: 0 0% 100%;                 /* #FFFFFF surface              */
+  --card-foreground: 24 10% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 24 10% 10%;
+  --secondary: 30 17% 95%;           /* #F5F3F1 warm surface         */
+  --secondary-foreground: 33 6% 32%; /* #57534E                      */
+  --muted: 30 17% 95%;               /* #F5F3F1 column / muted bg    */
+  --muted-foreground: 30 4% 46%;     /* #7A7570 taupe                */
+  --accent: 30 17% 95%;
+  --accent-foreground: 24 10% 10%;
+  --border: 33 24% 93%;              /* #F1EDE8 card border          */
+  --input: 33 20% 91%;               /* #EDE9E4 input border         */
+}
+
+.dark .crm-theme,
+.dark body[data-crm] [data-radix-popper-content-wrapper],
+.dark body[data-crm] [role="dialog"],
+.dark body[data-crm] [role="alertdialog"] {
+  --background: 20 12% 7%;
+  --foreground: 30 20% 96%;
+  --card: 24 10% 10%;
+  --card-foreground: 30 20% 96%;
+  --popover: 24 10% 10%;
+  --popover-foreground: 30 20% 96%;
+  --secondary: 24 8% 15%;
+  --secondary-foreground: 30 12% 85%;
+  --muted: 24 8% 15%;
+  --muted-foreground: 28 6% 62%;
+  --accent: 24 8% 15%;
+  --accent-foreground: 30 20% 96%;
+  --border: 24 8% 18%;
+  --input: 24 8% 20%;
+}
+
+/* CRM entrance + live-count animations (Pyra Pro spec). Both are disabled
+   automatically for users with prefers-reduced-motion via the block above. */
+@keyframes pyraFadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pyraBadgePulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.18); }
+}
+.crm-fade-up { animation: pyraFadeUp 0.5s ease-out both; }
+.crm-badge-pulse { animation: pyraBadgePulse 1.6s ease-in-out infinite; }
+
+/* Staggered entrance for a container's direct children (dashboard sections,
+   pipeline columns). Reads once on load; reduced-motion users get it disabled
+   by the block above. */
+.crm-enter > * { animation: pyraFadeUp 0.5s ease-out both; }
+.crm-enter > *:nth-child(1) { animation-delay: 0ms; }
+.crm-enter > *:nth-child(2) { animation-delay: 45ms; }
+.crm-enter > *:nth-child(3) { animation-delay: 90ms; }
+.crm-enter > *:nth-child(4) { animation-delay: 135ms; }
+.crm-enter > *:nth-child(5) { animation-delay: 180ms; }
+.crm-enter > *:nth-child(6) { animation-delay: 225ms; }
+.crm-enter > *:nth-child(7) { animation-delay: 270ms; }
+.crm-enter > *:nth-child(n+8) { animation-delay: 315ms; }
+
+/* Opacity-only entrance for pipeline columns — NO transform, so it never
+   creates a containing block over the @dnd-kit droppables (which would risk
+   drag-target geometry). Stagger via inline animation-delay at the call site. */
+@keyframes pyraFade { from { opacity: 0; } to { opacity: 1; } }
+.crm-col-enter { animation: pyraFade 0.5s ease-out both; }

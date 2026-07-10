@@ -4,6 +4,14 @@
       "meta": {
         "title": "Sales Dashboard — Pyra"
       },
+      "today": {
+        "label": "Today",
+        "aria": "Today's priorities",
+        "followUps": "Follow-ups due",
+        "approvals": "Pending approvals",
+        "whatsapp": "New WhatsApp",
+        "updated": "Updated {time}"
+      },
       "periodOptions": {
         "thisMonth": "This month",
         "last30d": "Last 30 days",
@@ -123,6 +131,15 @@
     "pipeline": {
       "meta": {
         "title": "Sales Pipeline — Pyra"
+      },
+      "nextStep": {
+        "prefix": "Next",
+        "overdue": "Follow-up overdue",
+        "contact": "Start reaching out",
+        "qualify": "Qualify the lead's needs",
+        "proposal": "Send a quote",
+        "negotiate": "Push the negotiation to close",
+        "complete": "Deal complete"
       },
       "header": {
         "title": "Sales Pipeline",
