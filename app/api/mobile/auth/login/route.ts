@@ -50,6 +50,14 @@ export async function POST(request: NextRequest) {
     // no browser session wanted — the device key is the credential
     await supabase.auth.signOut();
 
+    // Phase D lock — reset the lockout counter IMMEDIATELY after password
+    // verification succeeds, BEFORE the downstream gates. The limiter is
+    // shared with /api/auth/login: a user with a CORRECT password who is
+    // repeatedly rejected downstream (inactive account, employee role
+    // retrying from the app) must never accumulate failures that lock them
+    // out of the DASHBOARD login for 24h.
+    accountLockoutLimiter.reset(lockoutKey);
+
     const svc = createServiceRoleClient();
     const username = data.user.user_metadata?.username || data.user.email;
     const { data: pyraUser } = await svc
@@ -63,16 +71,13 @@ export async function POST(request: NextRequest) {
     if (pyraUser.status !== 'active') return apiError('الحساب غير نشط — تواصل مع الإدارة', 403);
     if (!ALLOWED_ROLES.has(pyraUser.role)) return apiError('التطبيق متاح لموظفي المبيعات فقط', 403);
 
-    // one active device per agent: deactivate previous device keys
-    await svc
-      .from('pyra_api_keys')
-      .update({ is_active: false })
-      .eq('created_by', pyraUser.username)
-      .like('name', 'device:%');
-
+    // Insert the NEW key first, deactivate the old ones only after the
+    // insert succeeds — the reverse order (deactivate-then-insert) would
+    // strand the agent with ZERO active device keys if the insert failed.
+    const newKeyId = generateId('ak');
     const rawKey = `pyra_${nanoid(40)}`;
     const { error: insertErr } = await svc.from('pyra_api_keys').insert({
-      id: generateId('ak'),
+      id: newKeyId,
       name: `device:${pyraUser.username}:${deviceId}`,
       key_hash: crypto.createHash('sha256').update(rawKey).digest('hex'),
       key_prefix: rawKey.substring(0, 12),
@@ -83,7 +88,14 @@ export async function POST(request: NextRequest) {
     });
     if (insertErr) throw insertErr;
 
-    accountLockoutLimiter.reset(lockoutKey);
+    // one active device per agent: retire this user's OTHER device keys
+    await svc
+      .from('pyra_api_keys')
+      .update({ is_active: false })
+      .eq('created_by', pyraUser.username)
+      .like('name', 'device:%')
+      .neq('id', newKeyId);
+
     return apiSuccess({
       device_key: rawKey,
       username: pyraUser.username,
