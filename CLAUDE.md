@@ -305,6 +305,12 @@ lib/production/report.ts     → computeProductivity() server aggregation (board
 lib/notifications/whatsapp.ts → sendWhatsAppToUser() — user-level WA: profile phone by default, agent_whatsapp_settings row as admin override
 lib/utils/notification-sound.ts → Web Audio chime + mute persistence (dashboard bell)
 hooks/useProductivity.ts     → useProductivityReport(month) + useMyProductivity()
+app/api/mobile/*             → Android call-tracking app (device x-api-key auth via getExternalAuth + 'calls:device'; login/calls/sync/leads/calls/ignore — see docs/CALL-TRACKING.md)
+app/api/crm/calls/report/    → Per-agent calls report (calls.view gate; scope 'own' unless crm_reports.team_view)
+app/dashboard/crm/calls/     → Calls report page (admin: all agents; sales agent: own)
+lib/calls/match.ts           → buildLeadPhoneIndex() + matchLeadByPhone() — phoneMatchKey-based lead matching for call sync
+lib/calls/report.ts          → computeCallsReport() — pure per-agent/per-day aggregation from pyra_agent_calls
+pyra_agent_calls / pyra_ignored_numbers → Call-tracking tables (migration 037; service-role-only, Gap #3 doctrine)
 ```
 
 ### Page Structure Pattern
