@@ -2725,3 +2725,68 @@ done via the UI; completion triggers an AlertDialog confirmation.
 - `idx_onboarding_tasks_onb` on `onboarding_id`
 
 **RBAC**: `hr.manage` (inherited from parent onboarding record — all task mutations go through `/api/hr/onboarding/[id]/tasks/[taskId]`)
+
+---
+
+## New Tables — Call Tracking (037_call_tracking.sql)
+
+Spec: `docs/superpowers/specs/2026-07-10-call-tracking-design.md`. Per-agent SIM-call
+log synced from company Android phones (sideloaded Kotlin app) into the CRM. Both
+tables are **service-role-only** — `anon` and `authenticated` privileges are
+explicitly `REVOKE`d in the migration (Gap #3 doctrine); every API route must
+gate-then-service-role. All counts (daily/monthly totals, matched vs. unmatched) are
+**derived** from `pyra_agent_calls` at read time — no increment counters.
+
+### pyra_agent_calls
+
+One row per synced call from an agent's device call log. Upserted on
+`(agent_username, device_call_key)` so re-syncs are idempotent no-ops. `phone_normalized`
+uses `phoneMatchKey()` (`lib/utils/phone.ts` — last-9-digit suffix key, the CRM's
+existing duplicate-detection convention) for lead matching.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | text | NOT NULL | — (`ac_` prefix) |
+| agent_username | text | NOT NULL | — |
+| phone_raw | text | NOT NULL | — (as read from the device call log) |
+| phone_normalized | text | NOT NULL | — (`phoneMatchKey()` output, used for lead matching) |
+| direction | text | NOT NULL | — CHECK IN (`outgoing`,`incoming`,`missed`) |
+| duration_seconds | integer | NOT NULL | `0` — CHECK >= 0 |
+| called_at | timestamptz | NOT NULL | — |
+| device_call_key | text | NOT NULL | — (`{deviceId}:{CallLog._ID}`) |
+| lead_id | text | YES | — FK → pyra_sales_leads(id) ON DELETE SET NULL |
+| activity_id | text | YES | — (the `pyra_lead_activities` row created for a matched, non-missed call) |
+| match_status | text | NOT NULL | — CHECK IN (`matched`,`unmatched`,`ignored`) |
+| created_at | timestamptz | NOT NULL | `now()` |
+
+**PK**: `id`
+
+**FK**: `lead_id` → `pyra_sales_leads(id)` ON DELETE SET NULL
+
+**Unique**: `pyra_agent_calls_agent_key_uniq` on `(agent_username, device_call_key)` — idempotent re-sync
+
+**Indexes**:
+- `idx_agent_calls_agent_called` on `(agent_username, called_at)`
+- `idx_agent_calls_phone` on `phone_normalized`
+- `idx_agent_calls_lead` on `lead_id`
+
+**RBAC**: service-role-only (no `authenticated`/`anon` grants). Ingest via `/api/mobile/calls/sync` (`calls:device` external API-key permission); report via `/api/crm/calls/report` (`calls.view`, sales agent → own rows, admin → all).
+
+### pyra_ignored_numbers
+
+Per-agent "ignore this number" list (e.g. personal numbers). Stops future unmatched-call
+prompts for that number for that agent only — the call itself still counts in the agent's
+totals (as unlinked); ignoring cannot hide work.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | text | NOT NULL | — (`ign_` prefix) |
+| agent_username | text | NOT NULL | — |
+| phone_normalized | text | NOT NULL | — (`phoneMatchKey()` output) |
+| created_at | timestamptz | NOT NULL | `now()` |
+
+**PK**: `id`
+
+**Unique**: `pyra_ignored_numbers_uniq` on `(agent_username, phone_normalized)`
+
+**RBAC**: service-role-only (no `authenticated`/`anon` grants). Written via `/api/mobile/calls/ignore` (`calls:device`).

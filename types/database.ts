@@ -1774,3 +1774,26 @@ export interface PyraLeaveBalance {
   used_unpaid: number;
   created_at: string;
 }
+
+// ── Call tracking (migration 037) ──
+export interface AgentCall {
+  id: string;
+  agent_username: string;
+  phone_raw: string;
+  phone_normalized: string;
+  direction: 'outgoing' | 'incoming' | 'missed';
+  duration_seconds: number;
+  called_at: string;
+  device_call_key: string;
+  lead_id: string | null;
+  activity_id: string | null;
+  match_status: 'matched' | 'unmatched' | 'ignored';
+  created_at: string;
+}
+
+export interface IgnoredNumber {
+  id: string;
+  agent_username: string;
+  phone_normalized: string;
+  created_at: string;
+}
