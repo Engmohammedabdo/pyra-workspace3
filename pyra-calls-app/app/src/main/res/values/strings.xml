@@ -12,4 +12,11 @@
     <string name="login_loading">جارٍ الدخول…</string>
     <string name="login_network_error">تعذر الاتصال بالخادم — تأكد من الإنترنت</string>
     <string name="home_placeholder">تم تسجيل الدخول</string>
+    <string name="notif_channel_unmatched">أرقام غير مسجلة</string>
+    <string name="notif_channel_feedback">تذكير الفيدباك</string>
+    <string name="notif_unmatched_title">رقم غير مسجل في النظام</string>
+    <string name="notif_unmatched_body">اضغط لإضافة بيانات العميل — %1$s</string>
+    <string name="notif_ignore_action">تجاهل — رقم شخصي</string>
+    <string name="notif_feedback_title">مطلوب: إضافة فيدباك</string>
+    <string name="notif_feedback_body">تم إنشاء %1$s — ادخل وسجّل نتيجة المكالمة</string>
 </resources>

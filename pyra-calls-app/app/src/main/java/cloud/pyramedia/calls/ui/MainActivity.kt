@@ -17,6 +17,7 @@ import cloud.pyramedia.calls.R
 import cloud.pyramedia.calls.core.DubaiTime
 import cloud.pyramedia.calls.data.ApiClient
 import cloud.pyramedia.calls.data.AppPrefs
+import cloud.pyramedia.calls.sync.SyncScheduler
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,7 +42,8 @@ class MainActivity : ComponentActivity() {
                                         DubaiTime.dayStartMillis(System.currentTimeMillis())
                                 }
                                 prefs.lastSyncedCallLogId = 0L
-                                // SyncScheduler.ensurePeriodic(this@MainActivity) — wired in Task 5
+                                SyncScheduler.ensurePeriodic(this@MainActivity)
+                                SyncScheduler.syncNow(this@MainActivity)
                                 loggedIn = true
                             }
                             else -> Text(stringResource(R.string.home_placeholder)) // HomeScreen in Task 6
