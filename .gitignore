@@ -45,3 +45,10 @@ next-env.d.ts
 
 # Local PDF verification samples (generated, not source)
 onboarding-samples-*/
+
+# Android app (pyra-calls-app)
+pyra-calls-app/.gradle/
+pyra-calls-app/build/
+pyra-calls-app/app/build/
+pyra-calls-app/local.properties
+*.keystore
