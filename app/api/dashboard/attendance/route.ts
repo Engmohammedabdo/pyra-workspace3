@@ -6,6 +6,7 @@ import { apiSuccess, apiServerError, apiValidationError, apiError } from '@/lib/
 import { generateId } from '@/lib/utils/id';
 import { hasPermission } from '@/lib/auth/rbac';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
+import { ATTENDANCE_GRACE_MINUTES } from '@/lib/hr/attendance-policy';
 
 // =============================================================
 // GET /api/dashboard/attendance
@@ -130,12 +131,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Determine status based on clock_in vs schedule start_time using numeric comparison
-    const clockInTime = uaeNow.toTimeString().slice(0, 5); // HH:MM
+    // Status per the grace policy (locked 2026-07-10): a clock-in beyond
+    // (schedule start + GRACE) counts as an ABSENCE (deductible from salary
+    // unless the admin accepts an excuse); within the grace window = present.
+    // uaeNow is UTC+4, so getUTC*() yields the UAE wall-clock reliably
+    // regardless of the server timezone (toTimeString depends on server TZ).
+    const clockInMinutes = uaeNow.getUTCHours() * 60 + uaeNow.getUTCMinutes();
     const [sh, sm] = scheduleStartTime.split(':').map(Number);
-    const [ch, cm] = clockInTime.split(':').map(Number);
-    const isLate = ch * 60 + cm > sh * 60 + sm;
-    const status = isLate ? 'late' : 'present';
+    const startMinutes = sh * 60 + sm;
+    const status =
+      clockInMinutes > startMinutes + ATTENDANCE_GRACE_MINUTES ? 'absent' : 'present';
 
     // Get IP address from headers
     const forwarded = req.headers.get('x-forwarded-for');

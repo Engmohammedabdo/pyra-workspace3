@@ -9,6 +9,10 @@ import { dubaiDayKey } from '@/lib/utils/format';
 import { monthNamesFor } from '@/lib/constants/dates';
 import type { Locale } from '@/lib/i18n/config';
 import { PAYROLL_WORKING_DAYS_PER_MONTH } from '@/lib/constants/payroll';
+import { DEFAULT_WORK_DAYS } from '@/lib/constants/auth';
+import {
+  deriveDayStatus, isOnTimeClockIn, lateMinutesOf, countDeductibleAbsences,
+} from '@/lib/hr/attendance-policy';
 
 // ============================================================
 // GET /api/hr/overview
@@ -35,16 +39,6 @@ function dubaiHHMM(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const d = new Date(new Date(iso).getTime() + 4 * 60 * 60 * 1000);
   return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
-}
-
-// Minutes a clock-in lands after the schedule's start (Dubai wall-clock).
-// Mirrors the clock-in route's rule: strictly-greater = late, no grace period.
-function lateMinutesFrom(iso: string | null | undefined, startHHMMSS: string): number {
-  if (!iso) return 0;
-  const d = new Date(new Date(iso).getTime() + 4 * 60 * 60 * 1000);
-  const mins = d.getUTCHours() * 60 + d.getUTCMinutes();
-  const [sh, sm] = startHHMMSS.split(':').map(Number);
-  return Math.max(0, mins - (sh * 60 + sm));
 }
 
 export async function GET(request: NextRequest) {
@@ -136,9 +130,12 @@ export async function GET(request: NextRequest) {
     // lateness). Each user's start time drives the "late by N min" figure.
     const { data: schedules, error: schedError } = await supabase
       .from('pyra_work_schedules')
-      .select('id, start_time, is_default');
+      .select('id, start_time, is_default, work_days');
     if (schedError) throw new Error(`pyra_work_schedules: ${schedError.message}`);
     const scheduleStartMap = new Map((schedules ?? []).map((s) => [s.id as string, s.start_time as string]));
+    const scheduleWorkDaysMap = new Map(
+      (schedules ?? []).map((s) => [s.id as string, (s.work_days as number[] | null) ?? null]),
+    );
     const defaultStart = (schedules ?? []).find((s) => s.is_default)?.start_time ?? '09:00:00';
     const presentCount = att.filter((a) => a.status === 'present' || a.status === 'late').length;
     const lateCount = att.filter((a) => a.status === 'late').length;
@@ -172,41 +169,132 @@ export async function GET(request: NextRequest) {
       ? Math.round((presentCount / activeUsers.length) * 100)
       : 0;
 
-    // ── Daily attendance roster (per-employee: who clocked in, when, late?) ──────
-    // The punch-clock-style view the admin checks daily. Covers active STAFF who
-    // clock in (admins don't clock in → excluded). Times are Dubai wall-clock
-    // (the schedule's reference tz); lateness matches the clock-in route's rule.
+    // ── Daily attendance roster + month-to-date deductible absences ─────────────
+    // The punch-clock view the admin checks daily. Covers active STAFF who clock
+    // in (admins excluded). Today's status is RE-DERIVED from clock_in vs
+    // (start + grace) — NOT the stored status — so rows written under the old
+    // >start-only rule re-classify. Each row also carries the month-to-date
+    // deductible-absence count (grace policy, locked 2026-07-10): a work day with
+    // no on-time clock-in (and not on approved leave) is a deductible absence.
     const attByUser = new Map(att.map((a) => [a.username, a]));
+    const rosterUsers = activeUsers.filter((u) => u.role !== 'admin');
+    const monthKey = todayKey.slice(0, 7);
+    const monthStart = `${monthKey}-01`;
+    const nowUae = new Date(Date.now() + 4 * 60 * 60 * 1000);
+    const nowUaeMinutes = nowUae.getUTCHours() * 60 + nowUae.getUTCMinutes();
+
+    const { data: monthAttData, error: monthAttError } = await supabase
+      .from('pyra_attendance')
+      .select('username, date, clock_in')
+      .gte('date', monthStart)
+      .lte('date', todayKey);
+    if (monthAttError) throw new Error(`pyra_attendance (month): ${monthAttError.message}`);
+
+    const { data: monthLeaveData, error: monthLeaveError } = await supabase
+      .from('pyra_leave_requests')
+      .select('username, start_date, end_date')
+      .eq('status', 'approved')
+      .lte('start_date', todayKey)
+      .gte('end_date', monthStart);
+    if (monthLeaveError) throw new Error(`pyra_leave_requests (month): ${monthLeaveError.message}`);
+
+    // Only staff who actually participate in punch-clock tracking this month
+    // appear on the roster — an employee with ZERO records isn't in the program,
+    // so we must NOT flag them as absent-all-month (false alarm / false deduction).
+    const trackedThisMonth = new Set((monthAttData ?? []).map((r) => r.username as string));
+
+    const startFullOf = (u: { work_schedule_id: string | null }) =>
+      (u.work_schedule_id && scheduleStartMap.get(u.work_schedule_id)) || defaultStart;
+    const workDaysOf = (u: { work_schedule_id: string | null }) =>
+      (u.work_schedule_id && scheduleWorkDaysMap.get(u.work_schedule_id)) || [...DEFAULT_WORK_DAYS];
+
+    // Per-user on-time dates + earliest tracked date (this month).
+    const onTimeDatesByUser = new Map<string, Set<string>>();
+    const firstAttDateByUser = new Map<string, string>();
+    for (const u of rosterUsers) {
+      const startFull = startFullOf(u);
+      const onTime = new Set<string>();
+      let first: string | null = null;
+      for (const r of monthAttData ?? []) {
+        if (r.username !== u.username) continue;
+        const day = String(r.date).slice(0, 10);
+        if (!first || day < first) first = day;
+        if (isOnTimeClockIn(r.clock_in, startFull)) onTime.add(day);
+      }
+      onTimeDatesByUser.set(u.username, onTime);
+      if (first) firstAttDateByUser.set(u.username, first);
+    }
+
+    // Per-user approved-leave dates this month (expanded over the range).
+    const leaveDatesByUser = new Map<string, Set<string>>();
+    for (const l of monthLeaveData ?? []) {
+      const set = leaveDatesByUser.get(l.username) ?? new Set<string>();
+      const from = l.start_date > monthStart ? l.start_date : monthStart;
+      const to = l.end_date < todayKey ? l.end_date : todayKey;
+      for (
+        let d = new Date(from + 'T00:00:00Z');
+        d <= new Date(to + 'T00:00:00Z');
+        d.setUTCDate(d.getUTCDate() + 1)
+      ) {
+        set.add(d.toISOString().slice(0, 10));
+      }
+      leaveDatesByUser.set(l.username, set);
+    }
+
     const rosterStatusOrder: Record<string, number> = {
-      late: 0, not_clocked_in: 1, present: 2, on_leave: 3,
+      absent: 0, not_clocked_in: 1, present: 2, on_leave: 3,
     };
-    const roster = activeUsers
-      .filter((u) => u.role !== 'admin')
+    const roster = rosterUsers
+      .filter((u) => trackedThisMonth.has(u.username) || onLeaveTodayUsernames.has(u.username))
       .map((u) => {
-        const startFull = (u.work_schedule_id && scheduleStartMap.get(u.work_schedule_id)) || defaultStart;
+        const startFull = startFullOf(u);
         const expected_start = startFull.slice(0, 5); // HH:MM
         const a = attByUser.get(u.username);
+        const sal = userSalaryMap.get(u.username);
+
+        // Only count deductions from the employee's first tracked day this month
+        // — never before they entered the program (guards the setup gap).
+        const firstAtt = firstAttDateByUser.get(u.username);
+        const deductible_absences = firstAtt
+          ? countDeductibleAbsences({
+              monthKey,
+              todayKey,
+              workDays: workDaysOf(u),
+              startHHMM: startFull,
+              nowUaeMinutes,
+              onTimeDates: onTimeDatesByUser.get(u.username) ?? new Set(),
+              leaveDates: leaveDatesByUser.get(u.username),
+              hireDateKey: u.hire_date ? String(u.hire_date).slice(0, 10) : null,
+              startCountingFrom: firstAtt,
+            })
+          : 0;
+        const currency = sal?.currency || 'AED';
+        const estimated_deduction =
+          Math.round(deductible_absences * ((sal?.salary ?? 0) / PAYROLL_WORKING_DAYS_PER_MONTH) * 100) / 100;
+
+        // Today's status — re-derived with the grace policy.
+        let status: string;
         if (a) {
-          return {
-            username: u.username,
-            display_name: u.display_name,
-            status: a.status as string,
-            clock_in_time: dubaiHHMM(a.clock_in),
-            clock_out_time: dubaiHHMM(a.clock_out),
-            total_hours: Number(a.total_hours) || 0,
-            expected_start,
-            late_minutes: a.status === 'late' ? lateMinutesFrom(a.clock_in, startFull) : 0,
-          };
+          const d = deriveDayStatus(a.clock_in, startFull, nowUaeMinutes);
+          status = d === 'pending' ? 'not_clocked_in' : d; // present | absent
+        } else if (onLeaveTodayUsernames.has(u.username)) {
+          status = 'on_leave';
+        } else {
+          status = deriveDayStatus(null, startFull, nowUaeMinutes) === 'absent' ? 'absent' : 'not_clocked_in';
         }
+
         return {
           username: u.username,
           display_name: u.display_name,
-          status: onLeaveTodayUsernames.has(u.username) ? 'on_leave' : 'not_clocked_in',
-          clock_in_time: null,
-          clock_out_time: null,
-          total_hours: 0,
+          status,
+          clock_in_time: dubaiHHMM(a?.clock_in),
+          clock_out_time: dubaiHHMM(a?.clock_out),
+          total_hours: Number(a?.total_hours) || 0,
           expected_start,
-          late_minutes: 0,
+          late_minutes: a ? lateMinutesOf(a.clock_in, startFull) : 0,
+          deductible_absences,
+          estimated_deduction,
+          currency,
         };
       })
       .sort((a, b) => (rosterStatusOrder[a.status] ?? 9) - (rosterStatusOrder[b.status] ?? 9));

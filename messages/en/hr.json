@@ -799,6 +799,8 @@
         "shiftFrom": "Shift {time}",
         "clockOut": "Out {time}",
         "hours": "{hours} h",
+        "deduction": "Absences this month: {days} — deduct ≈ {amount}",
+        "totalDeduction": "{days} deduction days",
         "status": {
           "present": "On time",
           "late": "Late {minutes} min",

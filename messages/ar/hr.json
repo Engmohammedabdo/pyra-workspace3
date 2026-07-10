@@ -799,6 +799,8 @@
         "shiftFrom": "الشيفت {time}",
         "clockOut": "خروج {time}",
         "hours": "{hours} س",
+        "deduction": "غياب الشهر: {days} — خصم ≈ {amount}",
+        "totalDeduction": "أيام خصم: {days}",
         "status": {
           "present": "في الميعاد",
           "late": "متأخر {minutes} د",

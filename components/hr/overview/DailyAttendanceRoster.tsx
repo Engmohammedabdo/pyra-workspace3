@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { Clock, ArrowUpRight } from 'lucide-react';
+import { Clock, ArrowUpRight, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { Badge } from '@/components/ui/badge';
+import { formatCurrency } from '@/lib/utils/format';
 import type { HROverview } from '@/hooks/useHROverview';
 
 interface DailyAttendanceRosterProps {
@@ -25,6 +26,7 @@ const STATUS_CLS: Record<string, string> = {
 
 export function DailyAttendanceRoster({ roster }: DailyAttendanceRosterProps) {
   const t = useTranslations('hr.overview.dailyRoster');
+  const totalDeductible = roster.reduce((s, r) => s + r.deductible_absences, 0);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/80 shadow-sm backdrop-blur-sm">
@@ -46,10 +48,17 @@ export function DailyAttendanceRoster({ roster }: DailyAttendanceRosterProps) {
             <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
           </div>
         </div>
-        <ArrowUpRight
-          className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 rtl:rotate-90"
-          aria-hidden
-        />
+        <div className="flex items-center gap-2">
+          {totalDeductible > 0 && (
+            <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:text-red-400">
+              {t('totalDeduction', { days: totalDeductible })}
+            </span>
+          )}
+          <ArrowUpRight
+            className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 rtl:rotate-90"
+            aria-hidden
+          />
+        </div>
       </Link>
 
       {/* Body */}
@@ -72,10 +81,19 @@ export function DailyAttendanceRoster({ roster }: DailyAttendanceRosterProps) {
               >
                 <div className="min-w-0">
                   <span className="block truncate text-sm font-medium">{row.display_name}</span>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="block text-xs text-muted-foreground">
                     {t('shiftFrom', { time: row.expected_start })}
                     {row.clock_out_time ? ` · ${t('clockOut', { time: row.clock_out_time })}` : ''}
                   </span>
+                  {row.deductible_absences > 0 && (
+                    <span className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-red-600 dark:text-red-400">
+                      <AlertTriangle className="size-3 shrink-0" aria-hidden />
+                      {t('deduction', {
+                        days: row.deductible_absences,
+                        amount: formatCurrency(row.estimated_deduction, row.currency),
+                      })}
+                    </span>
+                  )}
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
                   {row.total_hours > 0 && (

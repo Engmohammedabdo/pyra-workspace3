@@ -23,7 +23,7 @@ export interface HROverview {
     late: number;
     on_leave: number;
     present_rate_pct: number;
-    /** Per-employee daily roster — who clocked in, when, and how late (Dubai time). */
+    /** Per-employee daily roster — who clocked in, when, late, + month deductions. */
     roster: Array<{
       username: string;
       display_name: string;
@@ -35,6 +35,12 @@ export interface HROverview {
       expected_start: string;
       /** Minutes after the scheduled start the employee clocked in (0 if on time). */
       late_minutes: number;
+      /** Month-to-date deductible-absence days (grace policy). */
+      deductible_absences: number;
+      /** Estimated deduction = deductible_absences × (salary / 22 work days). */
+      estimated_deduction: number;
+      /** Currency of the estimated deduction (employee's salary currency). */
+      currency: string;
     }>;
   };
   leave: {
