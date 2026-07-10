@@ -56,6 +56,10 @@ Two separate credential types exist in this feature — do not confuse them:
 - Admins can see/revoke device keys for free in the existing **Settings →
   API keys** UI (`last_used_at` on that row doubles as a device-liveness
   signal — no separate "device status" surface was built).
+- API keys carrying the wildcard `'*'` permission also pass the
+  `calls:device` check in `requireDeviceAuth()` — consistent with every
+  other external/cron endpoint's permission gate. Device keys themselves are
+  always minted with ONLY `['calls:device']`, never `'*'`.
 
 ## Endpoints
 
@@ -373,12 +377,34 @@ Run once per company phone before it's handed to a sales agent:
 5. **Make 1 test call** (to any number) and wait for the next sync tick
    (WorkManager 15-min periodic, or immediate via the `PHONE_STATE` idle
    listener ~10s after the call ends).
-6. **Verify in the CRM**: admin opens `/dashboard/crm/calls`, filters by the
-   agent, and confirms the test call appears (matched or unmatched,
-   depending on whether the test number happens to be a lead). If it
-   doesn't appear within a few minutes, re-check step 3 first — a battery-
-   killed background service is the most common failure mode, not a server
-   or network issue.
+6. **Verify in the CRM**: admin opens `/dashboard/crm/calls` (month picker +
+   per-agent cards + chart — there is no agent filter control on the page)
+   and confirms the test call appears in that agent's card counts (matched
+   or unmatched, depending on whether the test number happens to be a
+   lead). If it doesn't appear within a few minutes, re-check step 3 first —
+   a battery-killed background service is the most common failure mode, not
+   a server or network issue.
 
 Re-run this checklist after any OS update that resets battery-management
 settings (Samsung's One UI updates have been observed to do this).
+
+## v1.1 backlog
+
+- **Per-call table + filters** on `/dashboard/crm/calls` — a row-level view
+  (not just per-agent aggregate cards) with `agent` / `direction` / `matched`
+  filters.
+- **Normalize `called_at` + cap `duration_seconds`/string lengths in
+  `parseCalls`** — a poison-retry guard so a single malformed device row
+  can't repeatedly fail the whole batch on every retry.
+- **Role re-check (not just `status`) in device-auth** — `requireDeviceAuth`
+  currently re-verifies `status='active'` on every request but not that the
+  role is still `sales_agent`/`admin`; a role change away from those two
+  should also kill the device key.
+- **team-performance graceful degradation** for the calls query (currently
+  assumes the query succeeds) + actually rendering `calls_month` in the UI
+  (the field is returned by the API but not yet surfaced on the widget).
+- **Extract `dubaiMonthBounds` to `lib/utils/format`** with unit tests
+  (currently inline in the report route).
+- **Per-call `'error'`-status live trigger test** — currently verified by
+  code inspection only (see endpoint 2 above); a real forced-failure test
+  would close that gap.

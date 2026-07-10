@@ -98,15 +98,25 @@ export async function POST(request: NextRequest) {
     if (leadsErr) throw leadsErr;
     const index = buildLeadPhoneIndex(leads ?? []);
 
-    const { data: ignoredRows } = await supabase
+    const { data: ignoredRows, error: ignoredErr } = await supabase
       .from('pyra_ignored_numbers')
       .select('phone_normalized')
       .eq('agent_username', agentUsername);
+    // a read failure here would misclassify every ignored number as
+    // 'unmatched' and persist that wrong status permanently — abort instead.
+    if (ignoredErr) throw ignoredErr;
     const ignoredSet = new Set((ignoredRows ?? []).map((r) => r.phone_normalized));
 
     // processedKeys grows as the batch is processed — catches the same
     // device_call_key repeated WITHIN one batch (existingKeys alone only
     // covers keys already in the DB before this request).
+    // Known edge: a key whose FIRST occurrence in the batch results in
+    // status 'error' (insert failed) is still added to processedKeys below,
+    // so a second in-batch occurrence of that same key would report
+    // 'duplicate' even though nothing was actually persisted. Our
+    // cursor-based Android app never re-sends the same device_call_key
+    // twice within one batch, so this can't happen in practice — accepted
+    // for v1.
     const processedKeys = new Set(existingKeys);
     const results: Array<Record<string, unknown>> = [];
     for (const call of calls) {
