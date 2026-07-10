@@ -6,14 +6,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.core.content.ContextCompat
 import cloud.pyramedia.calls.BuildConfig
-import cloud.pyramedia.calls.R
 import cloud.pyramedia.calls.core.DubaiTime
 import cloud.pyramedia.calls.data.ApiClient
 import cloud.pyramedia.calls.data.AppPrefs
@@ -46,7 +43,10 @@ class MainActivity : ComponentActivity() {
                                 SyncScheduler.syncNow(this@MainActivity)
                                 loggedIn = true
                             }
-                            else -> Text(stringResource(R.string.home_placeholder)) // HomeScreen in Task 6
+                            else -> HomeScreen(prefs) {
+                                prefs.clearSession()
+                                loggedIn = false
+                            }
                         }
                     }
                 }

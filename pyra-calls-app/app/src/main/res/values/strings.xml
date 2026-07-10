@@ -11,7 +11,6 @@
     <string name="login_button">دخول</string>
     <string name="login_loading">جارٍ الدخول…</string>
     <string name="login_network_error">تعذر الاتصال بالخادم — تأكد من الإنترنت</string>
-    <string name="home_placeholder">تم تسجيل الدخول</string>
     <string name="notif_channel_unmatched">أرقام غير مسجلة</string>
     <string name="notif_channel_feedback">تذكير الفيدباك</string>
     <string name="notif_unmatched_title">رقم غير مسجل في النظام</string>
@@ -19,4 +18,25 @@
     <string name="notif_ignore_action">تجاهل — رقم شخصي</string>
     <string name="notif_feedback_title">مطلوب: إضافة فيدباك</string>
     <string name="notif_feedback_body">تم إنشاء %1$s — ادخل وسجّل نتيجة المكالمة</string>
+    <string name="qa_title">إضافة عميل جديد</string>
+    <string name="qa_phone_label">الرقم</string>
+    <string name="qa_type_b2b">شركة</string>
+    <string name="qa_type_b2c">فرد</string>
+    <string name="qa_name">اسم العميل</string>
+    <string name="qa_company">اسم الشركة</string>
+    <string name="qa_save">حفظ كعميل</string>
+    <string name="qa_saving">جارٍ الحفظ…</string>
+    <string name="qa_already_existed">الرقم مسجل بالفعل — تم ربط المكالمة</string>
+    <string name="qa_name_required">اسم العميل مطلوب</string>
+    <string name="qa_company_required">اسم الشركة مطلوب لعميل شركة</string>
+    <string name="home_hello">أهلًا، %1$s</string>
+    <string name="home_synced">متزامن</string>
+    <string name="home_not_synced">غير متزامن</string>
+    <string name="home_today">مكالمات اليوم</string>
+    <string name="home_month">الشهر</string>
+    <string name="home_last_sync">آخر مزامنة: %1$s</string>
+    <string name="home_last_sync_never">لم تتم مزامنة بعد</string>
+    <string name="home_sync_now">مزامنة الآن</string>
+    <string name="home_logout">تسجيل الخروج</string>
+    <string name="net_error">تعذر الاتصال بالخادم</string>
 </resources>
