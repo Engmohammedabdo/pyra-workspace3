@@ -71,6 +71,7 @@ const SECTIONS = [
       '/dashboard/sales/whatsapp-analytics',
       '/dashboard/sales/approvals',
       '/dashboard/crm/follow-ups',
+      '/dashboard/crm/calls',
       '/dashboard/sales/settings',
     ],
   },

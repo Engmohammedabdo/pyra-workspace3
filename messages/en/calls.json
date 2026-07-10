@@ -1,0 +1,20 @@
+{
+  "calls": {
+    "title": "Calls report",
+    "subtitle": "Sales team calls from company phones",
+    "monthLabel": "Month",
+    "today": "Today",
+    "month": "This month",
+    "outgoing": "Outgoing",
+    "incoming": "Incoming",
+    "missed": "Missed",
+    "matched": "Linked to lead",
+    "unmatched": "Unlinked",
+    "ignored": "Ignored",
+    "avgDuration": "Avg duration",
+    "totalDuration": "Total duration",
+    "byDay": "Calls by day",
+    "emptyTitle": "No calls recorded yet",
+    "emptyDescription": "Calls will appear here automatically once the phone app starts syncing"
+  }
+}

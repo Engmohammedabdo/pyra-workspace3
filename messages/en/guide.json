@@ -1571,6 +1571,33 @@
         "7": "overdue"
       }
     },
+    "dashboard_crm_calls": {
+      "description": "Sales team calls report",
+      "goal": "Track the sales team's calls from company phones month by month — outgoing, incoming and missed, matched or unmatched against CRM leads, plus a chart of activity across the days of the month.",
+      "tips": {
+        "0": "Use the month picker (input type=month) at the top of the page to move between months — it defaults to the current Dubai month, and the data updates instantly when you change it",
+        "1": "Each agent card summarizes: today / this month / outgoing / incoming / missed / linked to lead / unlinked / ignored / avg and total call duration — built from real phone calls synced by the mobile app",
+        "2": "\"Linked to lead\" (matched) means the call's number was automatically matched to an existing Lead in the CRM; \"Unlinked\" (unmatched) means the number isn't in our system yet — you can create a new Lead from it with one click",
+        "3": "Ignoring stops the notification but the call still counts — if you ignore a number (e.g. an internal extension or spam), you won't get notified about it again, but it still shows up in the agent's \"Ignored\" tally",
+        "4": "The \"Calls by day\" bar chart shows how call activity is distributed across the selected month — useful for spotting peak days",
+        "5": "Syncing from the phone happens periodically from the mobile app installed on the agent's device — if an agent isn't showing on the page, no calls have synced from them for this month yet",
+        "6": "When an outgoing call reaches a number that isn't linked to a Lead, a feedback notification is sent to the agent suggesting they create a new Lead or ignore the number",
+        "7": "An agent only sees their own card; a manager or admin (holding crm_reports.team_view) sees every agent together on the same page",
+        "8": "Average and total duration are shown as minutes:seconds (m:s) — e.g. 3:40 means 3 minutes and 40 seconds"
+      },
+      "keywords": {
+        "0": "calls",
+        "1": "مكالمات",
+        "2": "تقرير المكالمات",
+        "3": "phone",
+        "4": "هاتف",
+        "5": "matched",
+        "6": "unmatched",
+        "7": "ignore",
+        "8": "تجاهل",
+        "9": "sync"
+      }
+    },
     "dashboard_sales_whatsapp_analytics": {
       "description": "WhatsApp conversation analytics and performance metrics",
       "goal": "View customer satisfaction (CSAT) and service level (SLA) statistics for WhatsApp conversations, with date filtering.",

@@ -132,6 +132,7 @@ export const MODULE_GUIDES: Record<string, ModuleGuideEntry> = {
   '/dashboard/sales/chat': { href: '/dashboard/sales/chat', slug: 'dashboard_sales_chat' },
   '/dashboard/sales/approvals': { href: '/dashboard/sales/approvals', slug: 'dashboard_sales_approvals' },
   '/dashboard/crm/follow-ups': { href: '/dashboard/crm/follow-ups', slug: 'dashboard_crm_follow_ups' },
+  '/dashboard/crm/calls': { href: '/dashboard/crm/calls', slug: 'dashboard_crm_calls' },
   '/dashboard/sales/whatsapp-analytics': { href: '/dashboard/sales/whatsapp-analytics', slug: 'dashboard_sales_whatsapp_analytics' },
   '/dashboard/sales/settings': { href: '/dashboard/sales/settings', slug: 'dashboard_sales_settings' },
   '/dashboard/admin/backup-procedure': { href: '/dashboard/admin/error-logs', slug: 'dashboard_admin_backup_procedure' },

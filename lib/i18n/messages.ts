@@ -12,7 +12,8 @@ import type { Locale } from './config';
  * module-guide-labels.ts). Phase 6c adds 'clients', 'projects', 'files',
  * 'teams' (empty scaffolds at foundation time — filled by the UI-migration
  * tasks in the same wave; `components/files/*` is shared dashboard+portal,
- * so `files.*` must stay reachable from both shells).
+ * so `files.*` must stay reachable from both shells). Task 7 (CRM calls
+ * report) adds a standalone 'calls' namespace.
  */
 export const NAMESPACE_FILES = [
   'common', 'nav', 'auth', 'statuses',
@@ -21,6 +22,7 @@ export const NAMESPACE_FILES = [
   'settings', 'admin', 'users', 'rbac',
   'guide',
   'clients', 'projects', 'files', 'teams',
+  'calls',
 ] as const;
 
 type Messages = Record<string, unknown>;

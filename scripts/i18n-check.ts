@@ -60,6 +60,10 @@ const MIGRATED_PATHS: string[] = [
   'components/crm',
   'app/api/crm',
   'hooks/useLeads.ts',
+  // Task 7 — CRM calls report hook (app/dashboard/crm/calls + components/crm/calls
+  // are already covered recursively by the 'app/dashboard/crm' / 'components/crm'
+  // directory entries above; the hook lives outside those trees).
+  'hooks/useCallsReport.ts',
   // Phase 4 — Finance. NOTE: finance subdirs listed individually — NOT the
   // bare 'app/dashboard/finance' — because cards/ (orphaned subscriptions-
   // sunset page, removal candidate) is intentionally un-migrated.
