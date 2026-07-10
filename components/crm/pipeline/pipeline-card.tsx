@@ -51,12 +51,17 @@ import { formatCurrency } from '@/lib/utils/format';
 import { useStatusLabels } from '@/lib/i18n/status-labels';
 import type { Lead } from '@/hooks/useLeads';
 import type { PipelineStage } from '@/hooks/usePipelineStages';
+import { deriveNextStep } from '@/lib/crm/next-step';
 import MobileStageSheet from './mobile-stage-sheet';
 
 interface PipelineCardProps {
   lead: Lead;
   /** Compact mode for tighter mobile layouts */
   compact?: boolean;
+  /** Position of the lead's stage in the ordered pipeline — powers the
+   *  derived "next step" line. Optional; defaults to the first-rung fallback. */
+  stageIndex?: number;
+  stageCount?: number;
   /**
    * Pipeline stages — passed down so the MobileStageSheet can list them.
    * Optional: when omitted (e.g. desktop column rendering), the mobile
@@ -121,18 +126,24 @@ function PipelineCardView({
   compact = false,
   isDragging = false,
   hideQuickActions = false,
+  stageIndex = -1,
+  stageCount = 0,
 }: {
   lead: Lead;
   compact?: boolean;
   /** True when this view is rendered inside <DragOverlay>. Adds shadow,
-   *  ring, and rotate flourish; suppresses the absolute-positioned quick-
-   *  action buttons (which are a source-only affordance). */
+   *  ring, and rotate flourish; suppresses the quick-action buttons (a
+   *  source-only affordance). */
   isDragging?: boolean;
   /** Option B (Commit 2): suppress the quick-action buttons in selection mode
    *  so a stray tap on a card edge selects instead of dialing/opening WhatsApp. */
   hideQuickActions?: boolean;
+  /** Stage position — powers the derived "next step" line. */
+  stageIndex?: number;
+  stageCount?: number;
 }) {
   const t = useTranslations('crm.pipeline.card');
+  const tNext = useTranslations('crm.pipeline.nextStep');
   const daysAgoLabel = useDaysAgoLabel();
   const dealTypeLabel = useStatusLabels('leadDealType');
   const lastContact = daysAgoLabel(lead.last_contact_at);
@@ -140,6 +151,15 @@ function PipelineCardView({
   const value = Number(lead.expected_value) || 0;
   const currency = lead.expected_value_currency || 'AED';
   const wa = whatsAppHref(lead.phone);
+  // Derived "next step" line — no backing field (see lib/crm/next-step.ts).
+  const nextStep = deriveNextStep({
+    stageIndex,
+    stageCount,
+    nextFollowUpIso: lead.next_follow_up,
+  });
+  // "VIP / high-value" accent border — there is no `vip` flag on the schema
+  // (CLAUDE.md data-hooks note), so this derives from priority.
+  const isVip = lead.priority === 'urgent' || lead.priority === 'high';
 
   return (
     <div
@@ -147,7 +167,11 @@ function PipelineCardView({
       // document.querySelector('[data-pipeline-overlay="true"]').
       data-pipeline-overlay={isDragging ? 'true' : undefined}
       className={cn(
-        'group relative block rounded-xl border border-border bg-card transition-all',
+        'group relative block rounded-[14px] bg-card transition-all',
+        // VIP/high-value cards get a soft orange 1.5px border; others plain.
+        isVip
+          ? 'border-[1.5px] border-orange-200 dark:border-orange-800/50'
+          : 'border border-border',
         // Source-only hover affordances.
         !isDragging && 'hover:border-orange-300 dark:hover:border-orange-700/60 hover:shadow-sm',
         compact ? 'p-3' : 'p-3.5',
@@ -166,13 +190,13 @@ function PipelineCardView({
       </div>
 
       <div className="mt-3 flex items-center justify-between">
-        <div className="text-sm font-bold tabular-nums">
+        <div className="text-sm font-bold font-mono tabular-nums">
           {value > 0 ? formatCurrency(value, currency) : <span className="text-muted-foreground font-normal">—</span>}
         </div>
         {winProb > 0 && (
           <span
             className={cn(
-              'text-[10px] font-medium px-1.5 py-0.5 rounded-md tabular-nums',
+              'text-[10px] font-medium px-1.5 py-0.5 rounded-md tabular-nums font-mono',
               winProb >= 75 ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
               : winProb >= 50 ? 'bg-orange-500/10 text-orange-700 dark:text-orange-300'
               : 'bg-muted text-muted-foreground',
@@ -184,47 +208,56 @@ function PipelineCardView({
         )}
       </div>
 
-      <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+      {/* Derived next-step line (Pyra Pro) — an overdue follow-up shows in the
+          at-risk color, otherwise a stage-based default action. */}
+      <p
+        className={cn(
+          'mt-2 text-[11px] font-medium truncate',
+          nextStep.overdue
+            ? 'text-orange-600 dark:text-orange-400'
+            : 'text-orange-700/70 dark:text-orange-300/60',
+        )}
+      >
+        {tNext('prefix')}: {tNext(nextStep.key)}
+      </p>
+
+      <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
         <div className="flex items-center gap-1.5 min-w-0">
           <LeadSourceIcon source={lead.source} />
           {lead.deal_type && <span className="truncate">{dealTypeLabel(lead.deal_type)}</span>}
         </div>
-        {lastContact && <span className="shrink-0">{lastContact}</span>}
+        {lastContact && <span className="shrink-0 tabular-nums">{lastContact}</span>}
       </div>
 
-      {/* Quick actions — source-only. Suppressed in overlay variant so the
-          dragging ghost stays visually uncluttered, and in selection mode. */}
+      {/* Quick actions — ALWAYS visible now (Pyra Pro): hover-gating was the
+          single biggest "feels unclear" complaint. Suppressed only in the
+          drag-overlay ghost and in bulk-selection mode. */}
       {!isDragging && !hideQuickActions && (lead.phone || wa) && (
-        <div
-          className={cn(
-            'absolute end-2 bottom-2 flex items-center gap-1',
-            'opacity-0 group-hover:opacity-100 md:transition-opacity',
-            'pointer-events-none group-hover:pointer-events-auto',
-            'max-md:opacity-100 max-md:pointer-events-auto',
-          )}
-        >
-          {lead.phone && (
-            <a
-              href={`tel:${lead.phone}`}
-              onClick={(e) => e.stopPropagation()}
-              className="size-7 rounded-full bg-background border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent"
-              aria-label={t('call')}
-              title={t('call')}
-            >
-              <Phone className="size-3.5" />
-            </a>
-          )}
+        <div className="mt-3 flex items-center gap-1.5">
           {wa && (
             <a
               href={wa}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="size-7 rounded-full bg-background border border-border flex items-center justify-center text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+              className="inline-flex flex-1 items-center justify-center gap-1 h-[30px] rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs font-semibold hover:bg-emerald-500/20 transition-colors"
               aria-label={t('whatsapp')}
               title={t('whatsapp')}
             >
               <MessageCircle className="size-3.5" />
+              {t('whatsapp')}
+            </a>
+          )}
+          {lead.phone && (
+            <a
+              href={`tel:${lead.phone}`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex flex-1 items-center justify-center gap-1 h-[30px] rounded-lg bg-muted text-secondary-foreground text-xs font-semibold hover:bg-accent transition-colors"
+              aria-label={t('call')}
+              title={t('call')}
+            >
+              <Phone className="size-3.5" />
+              {t('call')}
             </a>
           )}
         </div>
@@ -249,6 +282,8 @@ function PipelineCardView({
 export function PipelineCard({
   lead,
   compact = false,
+  stageIndex = -1,
+  stageCount = 0,
   stages,
   onChangeStage,
   selectionMode = false,
@@ -299,7 +334,7 @@ export function PipelineCard({
         aria-pressed={isSelected}
         aria-label={t('selectAria', { name: lead.name })}
         className={cn(
-          'relative block w-full text-start rounded-xl transition-all',
+          'relative block w-full text-start rounded-[14px] transition-all',
           'focus:outline-none focus:ring-2 focus:ring-orange-500/40',
           isSelected && 'ring-2 ring-orange-400 dark:ring-orange-600',
         )}
@@ -315,7 +350,7 @@ export function PipelineCard({
         >
           {isSelected && <Check className="size-3.5" />}
         </span>
-        <PipelineCardView lead={lead} compact={compact} hideQuickActions />
+        <PipelineCardView lead={lead} compact={compact} stageIndex={stageIndex} stageCount={stageCount} hideQuickActions />
       </button>
     );
   }
@@ -330,9 +365,9 @@ export function PipelineCard({
         href={detailHref}
         {...attributes}
         {...listeners}
-        className="block rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/40 md:cursor-grab md:active:cursor-grabbing"
+        className="block rounded-[14px] focus:outline-none focus:ring-2 focus:ring-orange-500/40 md:cursor-grab md:active:cursor-grabbing"
       >
-        <PipelineCardView lead={lead} compact={compact} />
+        <PipelineCardView lead={lead} compact={compact} stageIndex={stageIndex} stageCount={stageCount} />
       </Link>
 
       {/* Mobile-only "نقل المرحلة" button. Per Phase 7 Chunk 3 architecture: // i18n-exempt: doc comment
@@ -392,6 +427,14 @@ export function PipelineCard({
  * via inline styles on its own internal wrapper (PositionedOverlay), so no
  * explicit width is needed on this component.
  */
-export function PipelineCardOverlay({ lead }: { lead: Lead }) {
-  return <PipelineCardView lead={lead} isDragging />;
+export function PipelineCardOverlay({
+  lead,
+  stageIndex = -1,
+  stageCount = 0,
+}: {
+  lead: Lead;
+  stageIndex?: number;
+  stageCount?: number;
+}) {
+  return <PipelineCardView lead={lead} isDragging stageIndex={stageIndex} stageCount={stageCount} />;
 }

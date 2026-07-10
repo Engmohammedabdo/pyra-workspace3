@@ -151,6 +151,9 @@ export function PipelineBoard({
     );
   }
 
+  // Index of the active mobile stage — powers the card's derived "next step".
+  const activeStageIndex = stages.findIndex((s) => s.id === effectiveActiveId);
+
   return (
     // collisionDetection: pointerWithin instead of project-kanban's
     // closestCorners. closestCorners measures rect corners in document
@@ -169,13 +172,21 @@ export function PipelineBoard({
       onDragCancel={() => setActiveLead(null)}
     >
       {/* Desktop / tablet — horizontal scroll */}
-      <div className="hidden md:block">
+      <div className="hidden md:block relative">
         <div className="flex gap-3 overflow-x-auto pb-3" dir={dir}>
-          {stages.map((s) => (
-            <div key={s.id} className="shrink-0 w-72 lg:w-80">
+          {stages.map((s, i) => (
+            <div
+              key={s.id}
+              // Opacity-only entrance (crm-col-enter) with a per-column stagger.
+              // NO transform — protects the @dnd-kit droppable geometry.
+              className="shrink-0 w-72 lg:w-80 crm-col-enter"
+              style={{ animationDelay: `${i * 55}ms` }}
+            >
               <PipelineColumn
                 stage={s}
                 leads={grouped.get(s.id) ?? []}
+                stageIndex={i}
+                stageCount={stages.length}
                 selectionMode={selectionMode}
                 selectedIds={selectedIds}
                 onToggleSelect={onToggleSelect}
@@ -183,6 +194,13 @@ export function PipelineBoard({
             </div>
           ))}
         </div>
+        {/* Horizontal-scroll fade affordance (Pyra Pro) — signals that more
+            columns exist beyond the trailing edge. Purely visual (pointer-
+            events-none); direction-flips under RTL. */}
+        <div
+          className="pointer-events-none absolute inset-y-0 end-0 w-12 bg-gradient-to-l rtl:bg-gradient-to-r from-background to-transparent"
+          aria-hidden
+        />
       </div>
 
       {/* Mobile — stage tabs + single column. Drag is sensor-disabled here,
@@ -202,15 +220,15 @@ export function PipelineBoard({
                   key={s.id}
                   onClick={() => setActiveStageId(s.id)}
                   className={cn(
-                    'shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition-colors',
+                    'shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors',
                     isActive
                       ? 'bg-foreground text-background border-foreground'
-                      : 'bg-muted/40 text-muted-foreground border-border hover:bg-muted',
+                      : 'bg-muted text-muted-foreground border-border hover:bg-accent',
                   )}
                 >
                   <span className={cn('size-1.5 rounded-full', ACCENT_DOT[s.color] ?? 'bg-current')} aria-hidden />
                   <span>{stageName(s)}</span>
-                  <span className={cn('tabular-nums', isActive ? 'text-background/80' : 'text-muted-foreground/70')}>
+                  <span className={cn('tabular-nums font-mono', isActive ? 'text-background/80' : 'text-muted-foreground/70')}>
                     {count}
                   </span>
                 </button>
@@ -233,6 +251,8 @@ export function PipelineBoard({
                 lead={lead}
                 stages={stages}
                 onChangeStage={onDropChangeStage}
+                stageIndex={activeStageIndex}
+                stageCount={stages.length}
                 selectionMode={selectionMode}
                 isSelected={selectedIds?.has(lead.id)}
                 onToggleSelect={onToggleSelect}
@@ -258,7 +278,13 @@ export function PipelineBoard({
              jarring paired with our optimistic update, which immediately
              moves the source out of its old column on drop. */}
       <DragOverlay dropAnimation={null}>
-        {activeLead ? <PipelineCardOverlay lead={activeLead} /> : null}
+        {activeLead ? (
+          <PipelineCardOverlay
+            lead={activeLead}
+            stageIndex={stages.findIndex((s) => s.id === activeLead.stage_id)}
+            stageCount={stages.length}
+          />
+        ) : null}
       </DragOverlay>
     </DndContext>
   );

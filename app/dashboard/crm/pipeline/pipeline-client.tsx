@@ -272,7 +272,7 @@ export function PipelineClient() {
       <header className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold flex items-center gap-2">
+            <h1 className="text-2xl md:text-[27px] font-extrabold tracking-tight flex items-center gap-2">
               <GitBranch className="size-6 text-orange-500" /> {t('header.title')}
             </h1>
             </div>
