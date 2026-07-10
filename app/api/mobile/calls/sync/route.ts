@@ -49,9 +49,9 @@ function parseCalls(raw: unknown): IncomingCall[] | null {
  *
  * Per-call outcome, echoed back so the device drives its local
  * notifications (every 'unmatched' fires the «رقم غير مسجل» prompt):
- *   - 'duplicate' — device_call_key already synced for this agent (either
- *     seen in the pre-check SELECT or caught via the unique-constraint
- *     race on insert — double-sync safe either way)
+ *   - 'duplicate' — device_call_key already synced for this agent (seen in
+ *     the pre-check SELECT, repeated within the SAME batch, or caught via
+ *     the unique-constraint race on insert — double-sync safe either way)
  *   - 'matched'   — phone matched an existing lead. If the call was
  *     CONNECTED (direction != 'missed') this ALSO writes a `call_logged`
  *     pyra_lead_activities row + bumps the lead's last_contact_at. Missed
@@ -59,6 +59,15 @@ function parseCalls(raw: unknown): IncomingCall[] | null {
  *     NO last_contact_at bump (design lock — see call-tracking spec).
  *   - 'ignored'   — phone matched a row in this agent's pyra_ignored_numbers
  *   - 'unmatched' — no lead, not ignored
+ *   - 'error'     — the pyra_agent_calls insert failed for a NON-unique-
+ *     violation reason (DB hiccup). Nothing was persisted for this call;
+ *     the phone keeps it queued locally and retries on the next sync.
+ *
+ * Persistence ordering: the pyra_agent_calls row is inserted FIRST (with
+ * activity_id null); the call_logged activity + last_contact_at bump run
+ * only AFTER the row is durable, then the row's activity_id is
+ * back-filled. A failed/raced row insert therefore never leaves an orphan
+ * timeline activity or a phantom last_contact_at bump behind.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -95,19 +104,62 @@ export async function POST(request: NextRequest) {
       .eq('agent_username', agentUsername);
     const ignoredSet = new Set((ignoredRows ?? []).map((r) => r.phone_normalized));
 
+    // processedKeys grows as the batch is processed — catches the same
+    // device_call_key repeated WITHIN one batch (existingKeys alone only
+    // covers keys already in the DB before this request).
+    const processedKeys = new Set(existingKeys);
     const results: Array<Record<string, unknown>> = [];
     for (const call of calls) {
-      if (existingKeys.has(call.device_call_key)) {
+      if (processedKeys.has(call.device_call_key)) {
         results.push({ device_call_key: call.device_call_key, status: 'duplicate' });
         continue;
       }
+      processedKeys.add(call.device_call_key);
+
       const normalized = phoneMatchKey(call.phone);
       const lead = matchLeadByPhone(index, call.phone);
       const connected = call.direction !== 'missed';
-      let activityId: string | null = null;
+      const matchStatus = lead ? 'matched' : ignoredSet.has(normalized) ? 'ignored' : 'unmatched';
 
+      // Persist the call row FIRST (activity_id back-filled below) so a
+      // failed insert never leaves an orphan activity / phantom
+      // last_contact_at bump behind.
+      const callId = generateId('ac');
+      const { error: insErr } = await supabase.from('pyra_agent_calls').insert({
+        id: callId,
+        agent_username: agentUsername,
+        phone_raw: call.phone,
+        phone_normalized: normalized,
+        direction: call.direction,
+        duration_seconds: call.duration_seconds,
+        called_at: call.called_at,
+        device_call_key: call.device_call_key,
+        lead_id: lead?.id ?? null,
+        activity_id: null,
+        match_status: matchStatus,
+      });
+      if (insErr) {
+        if (insErr.code === '23505') {
+          // unique-violation race (double sync) → report as duplicate
+          results.push({ device_call_key: call.device_call_key, status: 'duplicate' });
+        } else {
+          // real DB failure — nothing persisted; 'error' tells the phone to
+          // keep the call queued and retry it on the next sync
+          logError({
+            error: insErr,
+            request,
+            metadata: { action: 'mobile_calls_sync_insert', device_call_key: call.device_call_key },
+          });
+          console.error('[calls/sync] call insert failed:', insErr.message);
+          results.push({ device_call_key: call.device_call_key, status: 'error' });
+        }
+        continue;
+      }
+
+      // Side effects AFTER the call row is durable: timeline activity +
+      // last_contact_at bump (matched CONNECTED calls only).
       if (lead && connected) {
-        activityId = generateId('la');
+        const activityId = generateId('la');
         const { error: actErr } = await supabase.from('pyra_lead_activities').insert({
           id: activityId,
           lead_id: lead.id,
@@ -124,34 +176,26 @@ export async function POST(request: NextRequest) {
           created_by: agentUsername,
         });
         if (actErr) {
+          // non-fatal — the call row stays with activity_id null
           console.error('[calls/sync] activity insert failed:', actErr.message);
-          activityId = null;
+        } else {
+          const { error: linkErr } = await supabase
+            .from('pyra_agent_calls')
+            .update({ activity_id: activityId })
+            .eq('id', callId);
+          if (linkErr) {
+            console.error('[calls/sync] activity_id back-fill failed:', linkErr.message);
+          }
+          const { error: bumpErr } = await supabase
+            .from('pyra_sales_leads')
+            .update({ last_contact_at: call.called_at })
+            .eq('id', lead.id);
+          if (bumpErr) {
+            console.error('[calls/sync] last_contact_at bump failed:', bumpErr.message);
+          }
         }
-        await supabase
-          .from('pyra_sales_leads')
-          .update({ last_contact_at: call.called_at })
-          .eq('id', lead.id);
       }
 
-      const matchStatus = lead ? 'matched' : ignoredSet.has(normalized) ? 'ignored' : 'unmatched';
-      const { error: insErr } = await supabase.from('pyra_agent_calls').insert({
-        id: generateId('ac'),
-        agent_username: agentUsername,
-        phone_raw: call.phone,
-        phone_normalized: normalized,
-        direction: call.direction,
-        duration_seconds: call.duration_seconds,
-        called_at: call.called_at,
-        device_call_key: call.device_call_key,
-        lead_id: lead?.id ?? null,
-        activity_id: activityId,
-        match_status: matchStatus,
-      });
-      if (insErr) {
-        // unique-violation race (double sync) → report as duplicate, else surface
-        results.push({ device_call_key: call.device_call_key, status: 'duplicate' });
-        continue;
-      }
       results.push({
         device_call_key: call.device_call_key,
         status: matchStatus,
