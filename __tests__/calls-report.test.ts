@@ -27,4 +27,29 @@ describe('computeCallsReport', () => {
     expect(agg.per_day['2026-07-09']).toBe(1);
     expect(agg.per_day['2026-07-10']).toBe(3);
   });
+
+  it('excludes missed-call durations from totals and average', () => {
+    const rows = [
+      row({ id: 'b1', device_call_key: 'k1', duration_seconds: 60 }),
+      row({ id: 'b2', device_call_key: 'k2', direction: 'incoming', duration_seconds: 120 }),
+      row({ id: 'b3', device_call_key: 'k3', direction: 'missed', duration_seconds: 999 }),
+    ];
+    const agg = computeCallsReport(rows, '2026-07-10');
+    expect(agg.per_agent.sayed.missed).toBe(1);
+    expect(agg.per_agent.sayed.total_duration_seconds).toBe(180);
+    expect(agg.per_agent.sayed.avg_duration_seconds).toBe(90);
+  });
+
+  it('returns empty objects for empty input', () => {
+    const agg = computeCallsReport([], '2026-07-10');
+    expect(agg.per_agent).toEqual({});
+    expect(agg.per_day).toEqual({});
+  });
+
+  it('counts ignored match_status rows', () => {
+    const agg = computeCallsReport([row({ id: 'c1', match_status: 'ignored' })], '2026-07-10');
+    expect(agg.per_agent.sayed.ignored).toBe(1);
+    expect(agg.per_agent.sayed.matched).toBe(0);
+    expect(agg.per_agent.sayed.unmatched).toBe(0);
+  });
 });

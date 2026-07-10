@@ -25,9 +25,11 @@ export function computeCallsReport(rows: AgentCall[], todayKey: string): CallsRe
   for (const r of rows) {
     const s = (per_agent[r.agent_username] ??= empty());
     s.month += 1;
-    s[r.direction as keyof AgentCallStats] += 1;
-    s[r.match_status as keyof AgentCallStats] += 1;
-    s.total_duration_seconds += r.duration_seconds;
+    s[r.direction] += 1;
+    s[r.match_status] += 1;
+    // Missed calls never connected — their duration must not inflate the
+    // connected-calls average (denominator = outgoing + incoming only).
+    if (r.direction !== 'missed') s.total_duration_seconds += r.duration_seconds;
     const day = dubaiDayKey(new Date(r.called_at));
     if (day === todayKey) s.today += 1;
     per_day[day] = (per_day[day] ?? 0) + 1;
