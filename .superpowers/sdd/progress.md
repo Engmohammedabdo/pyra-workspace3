@@ -215,3 +215,25 @@ test agent creds the implementers don't have); implementers verify tsc/tests.
 - Task 8: complete (commit 3c07ddd, E2E green: login rotation + sync + b2c quick-add + notification + ignore + authenticated report scope=own via session cookie; zero-sweep clean across 9 tables + Auth; 'error' status + wrong-role login inspection-verified only)
 - Final whole-branch review (fable): READY WITH FIXES → fixed in 9dc6643 (sync ignored-list SELECT now aborts batch on error; CALL-TRACKING.md provisioning sentence + wildcard-key note + v1.1 backlog section; processedKeys edge documented). All ledger Minors triaged: none block push, all backlog.
 - EFFORT COMPLETE 2026-07-10: commits f141636..9dc6643 (13), pushed. Rollout notes: sayed inactive in prod (rollout agent = youssef); post-deploy 2-min check = admin session on /api/crm/calls/report → scope "all"; Plan 2 (Android app) next — contract locked in docs/CALL-TRACKING.md.
+
+---
+
+# Call Tracking — Android App (pyra-calls-app) — SDD Progress (2026-07-10)
+
+Plan: docs/superpowers/plans/2026-07-10-call-tracking-android.md
+Contract: docs/CALL-TRACKING.md (locked, live-verified)
+Branch: integrate-pending-fixes
+BASE at start: db4783a
+Env verified: JDK17 Adoptium, ANDROID_HOME=%LOCALAPPDATA%\Android\Sdk (android-36, build-tools 36.1.0, emulator, system-images android-36), no standalone gradle (wrapper in Task 1), no AVD (Task 7).
+WARNING: working tree has FOREIGN unstaged changes (messages/{ar,en}/crm.json, .superpowers/sdd/task-7-report.md) — implementers commit ONLY pyra-calls-app paths + named files.
+
+- App Task 1: complete (commit 04e544d, review clean; Minors: no distributionSha256Sum, strings "Arabic seed" wording)
+- App Task 2: complete (commit 919e872, review clean; time constants independently hand-verified by reviewer)
+NOTE: concurrent session landed 5 CRM-redesign commits (83be441..61605b0) mid-effort. From App Task 3 onward: review packages are scoped to the implementer's reported commit SHAs (SHA~1..SHA), NOT recorded-BASE..HEAD. New foreign unstaged files now include HR attendance work — staging discipline stays pyra-calls-app-only.
+- App Task 3: complete (commit f062be1, review clean; Minors: dead serializer import, deviceId first-access race)
+- App Task 4: complete (commit 689c727, review clean; Minors: password field lacks KeyboardType.Password [brief-inherited], report-filename collisions across SDD efforts)
+- App Task 5: complete (commits 78feaf5 + 984a37e, review clean after 1 fix: lastSyncAt heartbeat on empty passes [plan-inherited]; Minors backlog: Err not discriminating 5xx, concurrent unique-works cursor race [harmless, server dedups], readBatch loop bound counts actionable rows)
+- App Task 6: complete (commit 0d9200d, review clean; Minors: ": " separator literal [brief-inherited], Home counts don't roll over Dubai midnight while open [v1 limitation])
+- App Task 7: complete (commits 8d6d67f + 82c6441; E2E full-flow verified live on emulator incl. notification tap → quick-add → feedback deep-link; temp agent zero-swept; CRITICAL caught by review: live keystore password was in this tracked report file — REDACTED before any commit [6→0 occurrences, verified absent from git history]; release APK signed, final SHA-256 0ABC8CC4676139B49A3870ABA415D7B20213374F1C1A99F5EEDC167CED10F3E4)
+- Final whole-app review (fable): READY WITH FIXES → fixed in 82c6441 (allowBackup=false [restore crash-loop], agent-handover guard [lastLoginUsername → installDayStart=now on agent change], IgnoreReceiver keeps notification on NetworkError, password IME type, docs: handover wipe step + app-side v1.1 backlog + silent-409 deviation note). All ledger Minors triaged: backlog, none block.
+- EFFORT COMPLETE 2026-07-10: Android app built + E2E-verified. APK: pyra-calls-app/app/build/outputs/apk/release/app-release.apk. Keystore: C:\Users\engmo\pyra-keys\ (BACK IT UP — loss = re-sign = reinstall on phones). Rollout: youssef's phone per docs/CALL-TRACKING.md provisioning checklist.
