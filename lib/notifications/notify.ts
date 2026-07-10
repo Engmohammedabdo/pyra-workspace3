@@ -64,6 +64,10 @@ export type NotificationType =
   // to the lead's assigned_to (the sales agent who originally won the
   // deal) so they get the closure-of-loop signal.
   | 'lead_converted_to_customer'
+  // Call tracking (2026-07-10) — the quick-add-lead flow (mobile call app)
+  // nudges the agent to log the call outcome right after auto-creating a
+  // lead from an unmatched phone call.
+  | 'call_feedback_required'
   // Approvals (manager-facing)
   | 'leave_request_pending'
   | 'expense_pending'
