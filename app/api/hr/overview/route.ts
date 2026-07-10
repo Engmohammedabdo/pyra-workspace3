@@ -12,6 +12,7 @@ import { PAYROLL_WORKING_DAYS_PER_MONTH } from '@/lib/constants/payroll';
 import { DEFAULT_WORK_DAYS } from '@/lib/constants/auth';
 import {
   deriveDayStatus, isOnTimeClockIn, lateMinutesOf, countDeductibleAbsences,
+  DEDUCTION_DAYS_PER_MONTH,
 } from '@/lib/hr/attendance-policy';
 
 // ============================================================
@@ -269,8 +270,10 @@ export async function GET(request: NextRequest) {
             })
           : 0;
         const currency = sal?.currency || 'AED';
+        // Calendar-month daily rate (salary/30) — the monthly salary covers the
+        // whole month incl. the paid weekly rest day (owner's decision 2026-07-10).
         const estimated_deduction =
-          Math.round(deductible_absences * ((sal?.salary ?? 0) / PAYROLL_WORKING_DAYS_PER_MONTH) * 100) / 100;
+          Math.round(deductible_absences * ((sal?.salary ?? 0) / DEDUCTION_DAYS_PER_MONTH) * 100) / 100;
 
         // Today's status — re-derived with the grace policy.
         let status: string;

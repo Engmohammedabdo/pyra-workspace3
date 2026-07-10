@@ -9,6 +9,13 @@
 
 export const ATTENDANCE_GRACE_MINUTES = 15;
 
+// Daily-rate basis for the absence-deduction ESTIMATE (display only — the actual
+// deduction is a manual admin action). Calendar-month basis: the monthly salary
+// covers every day incl. the paid weekly rest day, so one absent day = salary/30
+// (owner's decision 2026-07-10 — NOT the payroll working-days ÷22 used for
+// unpaid-leave, which is a different concept).
+export const DEDUCTION_DAYS_PER_MONTH = 30;
+
 /** Minutes-of-day (0–1439) of a timestamptz in UAE wall-clock (UTC+4). */
 export function uaeMinutesOfDay(iso: string): number {
   const d = new Date(new Date(iso).getTime() + 4 * 60 * 60 * 1000);
