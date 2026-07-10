@@ -388,6 +388,125 @@ Run once per company phone before it's handed to a sales agent:
 Re-run this checklist after any OS update that resets battery-management
 settings (Samsung's One UI updates have been observed to do this).
 
+## Building & installing the APK
+
+The Android Studio project lives at `pyra-calls-app/` (separate Gradle
+project, not part of the Next.js workspace's `pnpm` toolchain). Two build
+types share the same `applicationId` (`cloud.pyramedia.calls`) but point at
+different servers via `BuildConfig.BASE_URL` (see `app/build.gradle.kts`):
+debug → `http://10.0.2.2:3000` (emulator's alias for the host's `pnpm dev`),
+release → `https://workspace.pyramedia.cloud` (production).
+
+### Debug build (emulator/local testing)
+
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17.0.16.8-hotspot"
+cd pyra-calls-app
+.\gradlew.bat installDebug          # builds + installs on the running emulator/device
+adb shell am start -n cloud.pyramedia.calls/.ui.MainActivity
+```
+
+Requires `pnpm dev` running in the workspace repo for the emulator to reach
+the API (`10.0.2.2:3000` only resolves from inside the emulator, not from a
+physical phone on the same network — a physical device needs the release
+build or a LAN IP substituted into `BASE_URL` for local testing).
+
+### Release build (signed, for real phones)
+
+**One-time keystore setup** (already done for this project — do NOT
+regenerate unless the existing keystore is lost/compromised):
+
+```powershell
+New-Item -ItemType Directory -Force "C:\Users\<you>\pyra-keys"
+& "<jdk>\bin\keytool.exe" -genkeypair -v `
+  -keystore "C:\Users\<you>\pyra-keys\pyra-calls-release.keystore" `
+  -alias pyracalls -keyalg RSA -keysize 2048 -validity 10000 `
+  -storepass <STRONG-RANDOM-PASSWORD> -dname "CN=Pyramedia X, O=Pyramedia, C=AE"
+```
+
+Then write `C:\Users\<you>\pyra-keys\signing.properties` (private, OUTSIDE
+the repo — never commit this file or the keystore):
+
+```properties
+storeFile=C\:\\Users\\<you>\\pyra-keys\\pyra-calls-release.keystore
+storePassword=<same password>
+keyAlias=pyracalls
+keyPassword=<same password>
+```
+
+Note the **doubled backslashes** — Java's `Properties.load()` treats a
+single `\` as an escape character, so a literal Windows path backslash must
+be written as `\\` in the file (and `:` after the drive letter as `\:` so it
+isn't mistaken for a key/value delimiter). A file with single backslashes
+silently parses to a broken path with the separators stripped out — this bit
+during this task's first attempt and was caught by inspecting the raw file
+bytes before the first `assembleRelease` run.
+
+`app/build.gradle.kts` loads this file at configuration time and only wires
+up the `release` signing config when the file exists — a fresh checkout on a
+machine without the keystore still configures and builds (the release
+build type just has no `signingConfig` assigned in that case, matching
+`isMinifyEnabled = false`'s already-permissive style). This keeps the
+keystore fully out of git while letting `assembleRelease` "just work" on the
+one machine that has the private file in place.
+
+**Build + verify:**
+
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17.0.16.8-hotspot"
+cd pyra-calls-app
+.\gradlew.bat assembleRelease
+# → app\build\outputs\apk\release\app-release.apk
+Get-FileHash app\build\outputs\apk\release\app-release.apk -Algorithm SHA256
+```
+
+Verify the signing cert (should print `CN=Pyramedia X, O=Pyramedia, C=AE`):
+
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\build-tools\<version>\apksigner.bat" verify --print-certs app-release.apk
+```
+
+**Install on a phone/emulator:**
+
+```powershell
+adb install -r app-release.apk
+```
+
+`-r` (reinstall/replace) is required if a **debug**-signed build of the same
+`applicationId` is already on the device — Android refuses to install an
+APK with a different signing certificate over an existing install
+(`INSTALL_FAILED_UPDATE_INCOMPATIBLE`); uninstall the debug build first
+(`adb uninstall cloud.pyramedia.calls`) if you hit that error, since `-r`
+alone does not bypass a signature mismatch.
+
+**⚠️ Keystore backup is critical.** Losing
+`pyra-calls-release.keystore` or its password means every future release
+build gets a NEW signing certificate — Android treats that as a different
+app, so it cannot be installed as an update over the existing one on any
+phone that already has it; every phone would need the OLD app uninstalled
+first (losing local app state — none held here beyond the stored device
+key, which the server can re-mint) before the new-cert build installs. Back
+up `C:\Users\<you>\pyra-keys\` (both the keystore and `signing.properties`)
+somewhere durable outside this machine.
+
+### Verified this task (2026-07-10)
+
+- Built `pyra_a15_test` AVD (`system-images;android-36;google_apis_playstore;x86_64`,
+  Pixel 6 profile) — the exact `google_apis` (non-Play) variant was not
+  installed locally, only the `google_apis_playstore` one; used that instead
+  with no functional impact for this testing (no Play Store sign-in needed).
+- Full flow walked end-to-end on the emulator: login → device key minted →
+  3 simulated calls (incoming/missed/outgoing via `adb emu gsm`) → synced →
+  unmatched notifications → quick-add (b2b) from a tapped notification →
+  lead created + feedback notification → tapped notification opened Chrome
+  at the correct `/dashboard/crm/leads/<id>` deep link → ignore flow (action
+  button → `pyra_ignored_numbers` row + notification dismissed) → repeat call
+  to the same number synced as `ignored` with no new notification.
+- Release APK built, signed, SHA-256 recorded, install-verified with
+  `adb install -r` (uninstalled the debug build first) — reached the login
+  screen against the real production `BASE_URL` without logging in.
+- Full command log + DB verification + cleanup counts: `.superpowers/sdd/task-7-report.md`.
+
 ## v1.1 backlog
 
 - **Per-call table + filters** on `/dashboard/crm/calls` — a row-level view
