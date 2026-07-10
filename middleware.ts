@@ -87,12 +87,19 @@ export async function middleware(request: NextRequest) {
   // if no valid cookie session exists.
 
   // ── CSRF protection for state-changing API requests ────────
-  // External API, Stripe webhooks, and CRM cron endpoints come from
-  // external servers (n8n in the cron case) — exempt from CSRF.
+  // External API, Stripe webhooks, CRM cron endpoints, and the mobile
+  // call-tracking API come from non-browser clients (n8n in the cron
+  // case; the Android app for /api/mobile) that never send an
+  // Origin/Referer header — exempt from CSRF. /api/mobile authenticates
+  // via password (login route, itself rate-limited) or `x-api-key`
+  // (all other routes, via getExternalAuth) — neither relies on ambient
+  // cookie authority, so CSRF (cross-site cookie-riding) doesn't apply,
+  // same reasoning as /api/external.
   if (
     pathname.startsWith('/api/stripe/webhook') ||
     pathname.startsWith('/api/external') ||
-    pathname.startsWith('/api/cron')
+    pathname.startsWith('/api/cron') ||
+    pathname.startsWith('/api/mobile')
   ) {
     return response;
   }
@@ -151,7 +158,8 @@ export async function middleware(request: NextRequest) {
     !pathname.startsWith('/api/stripe/webhook') &&
     !pathname.startsWith('/api/external') &&
     !pathname.startsWith('/api/cron') &&
-    !pathname.startsWith('/api/observability')
+    !pathname.startsWith('/api/observability') &&
+    !pathname.startsWith('/api/mobile')
   ) {
     if (!user) {
       return NextResponse.json(
