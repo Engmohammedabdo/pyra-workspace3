@@ -44,6 +44,15 @@ class AppPrefs(context: Context) {
         get() = prefs.getLong("last_sync_at_millis", 0L)
         set(v) = prefs.edit().putLong("last_sync_at_millis", v).apply()
 
+    /**
+     * Last agent username to log in on this device — survives clearSession()
+     * intentionally (agent-handover guard: MainActivity compares this against
+     * the newly-logged-in username to detect a phone changing hands).
+     */
+    var lastLoginUsername: String?
+        get() = prefs.getString("last_login_username", null)
+        set(v) = prefs.edit().putString("last_login_username", v).apply()
+
     fun isLoggedIn(): Boolean = deviceKey != null
 
     fun clearSession() {

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import cloud.pyramedia.calls.BuildConfig
 import cloud.pyramedia.calls.data.ApiClient
+import cloud.pyramedia.calls.data.ApiResult
 import cloud.pyramedia.calls.data.AppPrefs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,9 +19,13 @@ class IgnoreReceiver : BroadcastReceiver() {
         val api = ApiClient(BuildConfig.BASE_URL) { prefs.deviceKey }
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // 200 → ignored; 409 → already lead-linked; either way the prompt is obsolete
-                api.ignore(key)
-                Notifier.cancel(context, key.hashCode())
+                val res = api.ignore(key)
+                // Ok (200 → ignored) or Err (e.g. 409 → already lead-linked) both mean the
+                // prompt is obsolete either way — dismiss it. On NetworkError, leave the
+                // notification up so the agent can retry the tap once connectivity returns.
+                if (res is ApiResult.Ok || res is ApiResult.Err) {
+                    Notifier.cancel(context, key.hashCode())
+                }
             } finally {
                 pending.finish()
             }

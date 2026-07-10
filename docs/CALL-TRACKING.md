@@ -384,6 +384,12 @@ Run once per company phone before it's handed to a sales agent:
    lead). If it doesn't appear within a few minutes, re-check step 3 first —
    a battery-killed background service is the most common failure mode, not
    a server or network issue.
+7. **Before reassigning a phone to a DIFFERENT agent**, clear the app's data
+   (Settings → Apps → Pyra Calls → Storage → Clear data) or uninstall/
+   reinstall the app first. This is belt-and-braces on top of the in-app
+   agent-handover guard (`AppPrefs.lastLoginUsername` vs. the newly-logged-in
+   username in `MainActivity`) — don't rely on the guard alone when a phone
+   physically changes hands.
 
 Re-run this checklist after any OS update that resets battery-management
 settings (Samsung's One UI updates have been observed to do this).
@@ -527,3 +533,25 @@ somewhere durable outside this machine.
 - **Per-call `'error'`-status live trigger test** — currently verified by
   code inspection only (see endpoint 2 above); a real forced-failure test
   would close that gap.
+- **Android app — discriminate 5xx from auth errors in `SyncWorker`** for
+  faster backoff retry (today both paths retry the same way).
+- **Android app — 401 self-logout + server-side device-key revoke-on-logout**
+  (today a 401 just fails the current sync silently; there's no explicit
+  "log out from this device" flow that also revokes the key server-side).
+- **Android app — move the `10.0.2.2` cleartext `network_security_config`
+  to the debug source set** (`src/debug/res/xml/`) so the release build
+  never ships a cleartext-permissive config, even inert.
+- **Android app — run the ignore POST via expedited WorkManager work**
+  instead of `goAsync()` in `IgnoreReceiver`, for more reliable delivery
+  under Doze/background restrictions.
+- **Android app — namespace notification IDs** (`Notifier.cancel` currently
+  keys off `key.hashCode()` — collisions across different
+  `device_call_key` values are possible, however unlikely).
+- **Android app — migrate off the deprecated `androidx.security.crypto`
+  alpha** (`EncryptedSharedPreferences`/`MasterKey`) once a stable
+  successor lands.
+- **Android app — intentional deviation**: the ignore action's `409`
+  response (already lead-linked) is handled silently — the notification is
+  dismissed with no toast/snackbar shown to the agent. The prompt is
+  obsolete either way (a lead already exists for that number), so no
+  further agent action is needed.

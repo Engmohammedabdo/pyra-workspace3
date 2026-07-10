@@ -34,10 +34,19 @@ class MainActivity : ComponentActivity() {
                                 prefs.deviceKey = data.device_key
                                 prefs.username = data.username
                                 prefs.displayName = data.display_name
-                                if (prefs.installDayStartMillis == 0L) {
+                                // Agent-handover guard: if this phone previously belonged to a
+                                // DIFFERENT agent, pin the sync window to "now" instead of the
+                                // usual day-start — otherwise the new agent's first sync would
+                                // re-ingest the previous agent's same-day calls under the new
+                                // agent's name (double-counted + re-notified).
+                                val priorUsername = prefs.lastLoginUsername
+                                if (priorUsername != null && priorUsername != data.username) {
+                                    prefs.installDayStartMillis = System.currentTimeMillis()
+                                } else if (prefs.installDayStartMillis == 0L) {
                                     prefs.installDayStartMillis =
                                         DubaiTime.dayStartMillis(System.currentTimeMillis())
                                 }
+                                prefs.lastLoginUsername = data.username
                                 prefs.lastSyncedCallLogId = 0L
                                 SyncScheduler.ensurePeriodic(this@MainActivity)
                                 SyncScheduler.syncNow(this@MainActivity)

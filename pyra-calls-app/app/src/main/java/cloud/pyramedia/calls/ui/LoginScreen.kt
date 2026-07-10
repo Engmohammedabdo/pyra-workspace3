@@ -46,6 +46,7 @@ fun LoginScreen(api: ApiClient, deviceId: String, onLoggedIn: (LoginData) -> Uni
             value = password, onValueChange = { password = it },
             label = { Text(stringResource(R.string.login_password)) },
             visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             singleLine = true, modifier = Modifier.fillMaxWidth(),
         )
         error?.let { Spacer(Modifier.height(8.dp)); Text(it, color = MaterialTheme.colorScheme.error) }
