@@ -125,7 +125,7 @@ export function LeadHeader({
       <div
         className={cn(
           // Card-like on desktop, full-bleed dark hero on mobile.
-          'relative rounded-2xl border border-border bg-card overflow-hidden',
+          'relative rounded-[20px] border border-border bg-card overflow-hidden',
           'max-md:rounded-none max-md:border-x-0 max-md:-mx-4 max-md:bg-gradient-to-br',
           'max-md:from-zinc-900 max-md:to-zinc-800 max-md:text-white max-md:border-y-0',
         )}
@@ -134,7 +134,7 @@ export function LeadHeader({
           <div className="flex items-start gap-4">
             <div
               className={cn(
-                'shrink-0 size-14 rounded-2xl flex items-center justify-center text-lg font-bold',
+                'shrink-0 size-[62px] rounded-[18px] flex items-center justify-center text-xl font-bold',
                 'bg-gradient-to-br from-orange-500 to-orange-600 text-white',
                 'ring-2 ring-orange-500/20',
               )}
@@ -144,7 +144,7 @@ export function LeadHeader({
             </div>
 
             <div className="min-w-0 flex-1">
-              <h1 className="text-2xl font-bold leading-7 truncate">{lead.name}</h1>
+              <h1 className="text-2xl font-extrabold leading-tight truncate">{lead.name}</h1>
               {lead.company && (
                 <p
                   className={cn(

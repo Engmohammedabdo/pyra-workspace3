@@ -69,6 +69,7 @@ export function LeadStatStrip({ lead, lastActivityAt }: LeadStatStripProps) {
         label={t('lastActivity')}
         tone="amber"
         value={lastSeen ? formatRelativeDate(lastSeen, locale) : t('dash')}
+        mono={false}
       />
       <StatCard
         icon={<Target className="size-5" />}
@@ -87,6 +88,8 @@ interface StatCardProps {
   value: string;
   sub?: string;
   tone: 'orange' | 'indigo' | 'amber' | 'emerald' | 'gray';
+  /** false for non-numeric values (e.g. an Arabic relative date) so they stay in Cairo, not JetBrains Mono. */
+  mono?: boolean;
 }
 
 const TONE_CLASSES: Record<StatCardProps['tone'], string> = {
@@ -97,14 +100,14 @@ const TONE_CLASSES: Record<StatCardProps['tone'], string> = {
   gray:    'bg-muted text-muted-foreground',
 };
 
-function StatCard({ icon, label, value, sub, tone }: StatCardProps) {
+function StatCard({ icon, label, value, sub, tone, mono = true }: StatCardProps) {
   return (
-    <Card className="p-4">
+    <Card className="p-4 rounded-2xl transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_16px_32px_-12px_rgba(28,25,23,0.16)]">
       <div className="flex items-start justify-between">
-        <div className={`size-9 rounded-lg flex items-center justify-center ${TONE_CLASSES[tone]}`}>{icon}</div>
+        <div className={`size-10 rounded-xl flex items-center justify-center ${TONE_CLASSES[tone]}`}>{icon}</div>
       </div>
-      <div className="mt-3 text-xs text-muted-foreground">{label}</div>
-      <div className="text-xl font-bold tracking-tight tabular-nums mt-0.5">{value}</div>
+      <div className="mt-3 text-[12.5px] font-semibold text-muted-foreground">{label}</div>
+      <div className={`text-xl font-extrabold tracking-tight tabular-nums mt-0.5 ${mono ? 'font-mono' : ''}`}>{value}</div>
       {sub && <div className="text-xs text-muted-foreground mt-0.5">{sub}</div>}
     </Card>
   );

@@ -264,14 +264,14 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
       <LeadStatStrip lead={lead} lastActivityAt={latestActivityAt} />
 
       <Tabs value={activeTab} onValueChange={(v) => switchTab(v as TabKey)} className="space-y-4">
-        <TabsList className="w-full justify-start overflow-x-auto rounded-xl h-auto p-1">
+        <TabsList className="w-full justify-start overflow-x-auto h-auto rounded-none bg-transparent p-0 gap-1 border-b border-border">
           {TAB_DEFS.map((tab) => {
             const Icon = tab.icon;
             return (
               <TabsTrigger
                 key={tab.key}
                 value={tab.key}
-                className="gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm px-3 py-1.5"
+                className="gap-1.5 rounded-none border-b-2 border-transparent bg-transparent px-3 py-2 -mb-px text-muted-foreground transition-colors data-[state=active]:border-orange-500 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:font-semibold"
               >
                 <Icon className="size-4" />
                 {tab.label}
@@ -302,21 +302,21 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
               <LeadOverviewTab data={data} onSwitchTab={switchTab} />
             </TabsContent>
             <TabsContent value="activity" className="m-0">
-              <Card className="p-4">
+              <Card className="p-4 rounded-2xl">
                 <LeadActivityTab leadId={lead.id} highlightId={highlightParam} />
               </Card>
             </TabsContent>
             <TabsContent value="tasks" className="m-0">
-              <Card className="p-4"><LeadTasksTab leadId={lead.id} /></Card>
+              <Card className="p-4 rounded-2xl"><LeadTasksTab leadId={lead.id} /></Card>
             </TabsContent>
             <TabsContent value="deals" className="m-0">
               <LeadDealsTab data={data} />
             </TabsContent>
             <TabsContent value="files" className="m-0">
-              <Card className="p-4"><LeadAttachmentsTab leadId={lead.id} /></Card>
+              <Card className="p-4 rounded-2xl"><LeadAttachmentsTab leadId={lead.id} /></Card>
             </TabsContent>
             <TabsContent value="notes" className="m-0">
-              <Card className="p-4"><LeadNotesTab leadId={lead.id} /></Card>
+              <Card className="p-4 rounded-2xl"><LeadNotesTab leadId={lead.id} /></Card>
             </TabsContent>
           </div>
           {/* Phase 10 Commit 2 — hide inline sidebar on mobile (max-md);

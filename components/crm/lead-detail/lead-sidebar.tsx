@@ -131,7 +131,7 @@ export function LeadSidebar({ lead }: LeadSidebarProps) {
 
   return (
     <aside className="space-y-3">
-      <Card className="p-4 space-y-3">
+      <Card className="p-4 space-y-3 rounded-2xl">
         <h3 className="text-sm font-semibold">{t('contactInfoTitle')}</h3>
         <ul className="space-y-2 text-sm">
           <Row icon={<UserCog className="size-4" />} label={t('owner')} value={assigneeName} />
@@ -157,7 +157,7 @@ export function LeadSidebar({ lead }: LeadSidebarProps) {
       </Card>
 
       <Card
-        className="p-4 space-y-2"
+        className="p-4 space-y-2 rounded-2xl bg-orange-500/[0.05] border-orange-200/70 dark:bg-orange-950/10 dark:border-orange-900/40"
         data-followup-id={nextFollowUp?.id}
       >
         <div className="flex items-center justify-between">
@@ -202,7 +202,7 @@ export function LeadSidebar({ lead }: LeadSidebarProps) {
           respecting the sidebar's visual hierarchy. EmptyState
           size="compact" variant is v1.1 backlog. Tags feature itself
           is also v1.1 backlog. */}
-      <Card className="p-4 space-y-2">
+      <Card className="p-4 space-y-2 rounded-2xl">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">{t('tagsTitle')}</h3>
           <Tag className="size-4 text-muted-foreground" aria-hidden />
@@ -211,7 +211,7 @@ export function LeadSidebar({ lead }: LeadSidebarProps) {
       </Card>
 
       {customFieldEntries.length > 0 && (
-        <Card className="p-4 space-y-2">
+        <Card className="p-4 space-y-2 rounded-2xl">
           <h3 className="text-sm font-semibold">{t('customFieldsTitle')}</h3>
           <ul className="space-y-1.5 text-sm">
             {customFieldEntries.map(([k, v]) => (
