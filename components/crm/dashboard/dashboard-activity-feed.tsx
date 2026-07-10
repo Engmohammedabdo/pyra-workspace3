@@ -92,7 +92,7 @@ export function DashboardActivityFeed() {
 
   if (isLoading) {
     return (
-      <Card className="p-5 space-y-3">
+      <Card className="p-5 rounded-2xl space-y-3">
         <Skeleton className="h-5 w-32" />
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -112,7 +112,7 @@ export function DashboardActivityFeed() {
   const activities = data?.activities ?? [];
   if (activities.length === 0) {
     return (
-      <Card className="p-5">
+      <Card className="p-5 rounded-2xl">
         <h2 className="text-base font-semibold mb-2 flex items-center gap-2">
           <Activity className="size-4 text-muted-foreground" />
           {t('heading')}
@@ -129,7 +129,7 @@ export function DashboardActivityFeed() {
   const visible = activities.slice(0, VISIBLE_LIMIT);
 
   return (
-    <Card className="p-5">
+    <Card className="p-5 rounded-2xl">
       <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
         <Activity className="size-4 text-muted-foreground" />
         {t('heading')}

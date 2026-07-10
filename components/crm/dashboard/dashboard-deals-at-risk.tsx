@@ -70,7 +70,7 @@ export function DashboardDealsAtRisk() {
 
   if (isLoading) {
     return (
-      <Card className="p-5 space-y-3">
+      <Card className="p-5 rounded-2xl space-y-3">
         <Skeleton className="h-5 w-40" />
         <div className="space-y-2.5">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -93,7 +93,7 @@ export function DashboardDealsAtRisk() {
 
   if (deals.length === 0) {
     return (
-      <Card className="p-5">
+      <Card className="p-5 rounded-2xl">
         <h2 className="text-base font-semibold mb-2 flex items-center gap-2">
           <AlertTriangle className="size-4 text-muted-foreground" />
           {t('heading')}
@@ -108,7 +108,7 @@ export function DashboardDealsAtRisk() {
   }
 
   return (
-    <Card className="p-5">
+    <Card className="p-5 rounded-2xl">
       <header className="flex items-center justify-between mb-3">
         <h2 className="text-base font-semibold flex items-center gap-2">
           <AlertTriangle className="size-4 text-amber-500" />

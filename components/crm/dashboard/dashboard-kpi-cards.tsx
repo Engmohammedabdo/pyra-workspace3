@@ -103,18 +103,18 @@ const TONE_CLASSES: Record<KpiCardProps['tone'], string> = {
 
 function KpiCard({ loading, icon, label, value, sub, tone, trendPct }: KpiCardProps) {
   return (
-    <Card className="p-4">
+    <Card className="p-[18px] rounded-2xl transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_16px_32px_-12px_rgba(28,25,23,0.16)]">
       <div className="flex items-start justify-between gap-2">
-        <div className={cn('size-9 rounded-lg flex items-center justify-center shrink-0', TONE_CLASSES[tone])}>
+        <div className={cn('size-10 rounded-xl flex items-center justify-center shrink-0', TONE_CLASSES[tone])}>
           {icon}
         </div>
         <TrendBadge pct={trendPct} />
       </div>
-      <div className="mt-3 text-xs text-muted-foreground">{label}</div>
+      <div className="mt-3 text-[12.5px] font-semibold text-muted-foreground">{label}</div>
       {loading ? (
         <Skeleton className="h-8 w-32 mt-1" />
       ) : (
-        <div className="text-2xl font-bold tracking-tight tabular-nums mt-1">{value}</div>
+        <div className="text-2xl font-extrabold font-mono tracking-tight tabular-nums mt-1">{value}</div>
       )}
       {sub && <div className="text-xs text-muted-foreground mt-1">{sub}</div>}
     </Card>

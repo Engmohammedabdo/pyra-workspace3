@@ -45,7 +45,7 @@ export function DashboardTeamPerformance() {
 
   if (userLoading || teamLoading) {
     return (
-      <Card className="p-5">
+      <Card className="p-5 rounded-2xl">
         <Skeleton className="h-5 w-40 mb-4" />
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -67,7 +67,7 @@ export function DashboardTeamPerformance() {
 
   if (team.length === 0) {
     return (
-      <Card className="p-5">
+      <Card className="p-5 rounded-2xl">
         <h2 className="text-base font-semibold mb-2 flex items-center gap-2">
           <Users className="size-4 text-muted-foreground" />
           {t('heading')}
@@ -82,7 +82,7 @@ export function DashboardTeamPerformance() {
   }
 
   return (
-    <Card className="p-5">
+    <Card className="p-5 rounded-2xl">
       <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
         <Users className="size-4 text-muted-foreground" />
         {t('heading')}
@@ -113,25 +113,25 @@ export function DashboardTeamPerformance() {
                   <div className="font-medium truncate">{agent.display_name}</div>
                   <div className="text-xs text-muted-foreground truncate">@{agent.username}</div>
                 </td>
-                <td className="text-end py-2.5 px-2 tabular-nums">
+                <td className="text-end py-2.5 px-2 tabular-nums font-mono">
                   {agent.total_leads}
                 </td>
-                <td className="text-end py-2.5 px-2 tabular-nums hidden sm:table-cell">
+                <td className="text-end py-2.5 px-2 tabular-nums font-mono hidden sm:table-cell">
                   {agent.active_leads}
                 </td>
                 <td className={cn(
-                  'text-end py-2.5 px-2 tabular-nums font-medium',
+                  'text-end py-2.5 px-2 tabular-nums font-mono font-medium',
                   agent.won_count > 0 && 'text-emerald-600 dark:text-emerald-400',
                 )}>
                   {agent.won_count}
                 </td>
-                <td className="text-end py-2.5 px-2 tabular-nums text-muted-foreground hidden md:table-cell">
+                <td className="text-end py-2.5 px-2 tabular-nums font-mono text-muted-foreground hidden md:table-cell">
                   {agent.lost_count}
                 </td>
-                <td className="text-end py-2.5 px-2 tabular-nums">
+                <td className="text-end py-2.5 px-2 tabular-nums font-mono">
                   <ConversionBadge pct={agent.conversion_pct} />
                 </td>
-                <td className="text-end py-2.5 pe-2 tabular-nums font-medium whitespace-nowrap">
+                <td className="text-end py-2.5 pe-2 tabular-nums font-mono font-medium whitespace-nowrap">
                   {formatCurrency(agent.pipeline_value, 'AED')}
                 </td>
               </tr>

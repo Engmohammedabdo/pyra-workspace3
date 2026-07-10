@@ -41,7 +41,7 @@ export function DashboardAiInsight() {
   const { data, isLoading } = useCRMInsights();
 
   if (isLoading) {
-    return <Skeleton className="h-16 w-full rounded-xl" />;
+    return <Skeleton className="h-16 w-full rounded-2xl" />;
   }
 
   const top = data?.insights?.[0];
@@ -60,14 +60,14 @@ export function DashboardAiInsight() {
       className={cn(
         // Gold-themed base — PRD §04 directive. Amber + yellow gradient gives
         // the warm gold feel without needing a custom Tailwind config.
-        'group relative flex items-center gap-3 rounded-xl border p-4 transition-shadow',
+        'group relative flex items-center gap-3 rounded-2xl border p-4 transition-shadow',
         'bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/30',
         'border-amber-200/70 dark:border-amber-800/40',
         top.link && 'hover:shadow-md cursor-pointer',
       )}
       role={top.link ? 'link' : undefined}
     >
-      <div className="size-10 rounded-lg flex items-center justify-center bg-amber-500/15 text-amber-600 dark:text-amber-300 shrink-0">
+      <div className="size-10 rounded-xl flex items-center justify-center bg-amber-500/15 text-amber-600 dark:text-amber-300 shrink-0">
         <Sparkles className="size-5" aria-hidden />
       </div>
       <div className="flex-1 min-w-0">
@@ -96,7 +96,7 @@ export function DashboardAiInsight() {
     return (
       <Link
         href={top.link}
-        className="block focus:outline-none focus:ring-2 focus:ring-amber-500/40 rounded-xl"
+        className="block focus:outline-none focus:ring-2 focus:ring-amber-500/40 rounded-2xl"
         aria-label={message}
       >
         {Inner}

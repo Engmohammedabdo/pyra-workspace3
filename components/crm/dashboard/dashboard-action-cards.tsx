@@ -97,7 +97,7 @@ export function DashboardActionCards() {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full rounded-xl" />
+          <Skeleton key={i} className="h-24 w-full rounded-2xl" />
         ))}
       </div>
     );
@@ -117,18 +117,18 @@ function ActionCard({ spec }: { spec: ActionCardSpec }) {
   return (
     <Link
       href={spec.href}
-      className="block group focus:outline-none focus:ring-2 focus:ring-orange-500/40 rounded-xl"
+      className="block group focus:outline-none focus:ring-2 focus:ring-orange-500/40 rounded-2xl"
     >
-      <Card className="p-4 hover:border-orange-300/60 dark:hover:border-orange-700/40 hover:shadow-sm transition-all">
+      <Card className="p-[18px] rounded-2xl transition-all duration-200 hover:border-orange-300/60 dark:hover:border-orange-700/40 hover:-translate-y-1 hover:shadow-[0_16px_32px_-12px_rgba(28,25,23,0.16)]">
         <div className="flex items-start justify-between gap-2">
-          <div className={cn('size-9 rounded-lg flex items-center justify-center shrink-0', TONE_CLASSES[spec.tone])}>
+          <div className={cn('size-9 rounded-xl flex items-center justify-center shrink-0', TONE_CLASSES[spec.tone])}>
             <Icon className="size-5" />
           </div>
           <ArrowLeft className="size-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors mt-1" aria-hidden />
         </div>
-        <div className="mt-3 text-xs text-muted-foreground">{spec.label}</div>
+        <div className="mt-3 text-[12.5px] font-semibold text-muted-foreground">{spec.label}</div>
         <div className="mt-1 flex items-baseline gap-1.5">
-          <span className="text-2xl font-bold tracking-tight tabular-nums">
+          <span className="text-[21px] font-extrabold font-mono tracking-tight tabular-nums">
             {spec.count.toLocaleString('en-US')}
           </span>
           {spec.count > 0 && (

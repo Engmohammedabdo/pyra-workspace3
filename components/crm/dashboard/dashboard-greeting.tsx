@@ -35,7 +35,7 @@ export function DashboardGreeting() {
 
   return (
     <div>
-      <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+      <h1 className="text-2xl md:text-[27px] font-extrabold tracking-tight leading-tight">
         {t('line', { greeting, name })} <span aria-hidden>👋</span>
       </h1>
       <p className="text-sm text-muted-foreground mt-1">

@@ -50,7 +50,7 @@ export function DashboardDataSources() {
       <span>
         {t.rich('updatedAt', {
           timeValue: refreshedAt,
-          t: (chunks) => <span className="font-medium tabular-nums">{chunks}</span>,
+          t: (chunks) => <span className="font-medium tabular-nums font-mono">{chunks}</span>,
         })}
       </span>
       <span className="text-muted-foreground/60">·</span>

@@ -50,7 +50,7 @@ export function DashboardFunnel() {
 
   if (isLoading) {
     return (
-      <Card className="p-5 space-y-3">
+      <Card className="p-5 rounded-2xl space-y-3">
         <Skeleton className="h-5 w-48" />
         <div className="space-y-3">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -72,7 +72,7 @@ export function DashboardFunnel() {
 
   if (allEmpty) {
     return (
-      <Card className="p-5">
+      <Card className="p-5 rounded-2xl">
         <h2 className="text-base font-semibold mb-2 flex items-center gap-2">
           <GitBranch className="size-4 text-muted-foreground" />
           {t('heading')}
@@ -92,7 +92,7 @@ export function DashboardFunnel() {
   const maxCount = Math.max(...stages.map((s) => s.count), 1);
 
   return (
-    <Card className="p-5">
+    <Card className="p-5 rounded-2xl">
       <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
         <GitBranch className="size-4 text-muted-foreground" />
         {t('heading')}

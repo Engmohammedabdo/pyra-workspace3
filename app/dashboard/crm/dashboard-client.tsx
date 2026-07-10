@@ -36,6 +36,7 @@ import { hasPermission } from '@/lib/auth/rbac';
 import { Users } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
+import { DashboardTodayStrip } from '@/components/crm/dashboard/dashboard-today-strip';
 import { DashboardGreeting } from '@/components/crm/dashboard/dashboard-greeting';
 import { DashboardAiInsight } from '@/components/crm/dashboard/dashboard-ai-insight';
 import { DashboardKpiCards } from '@/components/crm/dashboard/dashboard-kpi-cards';
@@ -69,7 +70,8 @@ export function DashboardClient() {
   const teamAgents = teamData?.team ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 crm-enter">
+      <DashboardTodayStrip />
       <DashboardGreeting />
       <DashboardAiInsight />
 
