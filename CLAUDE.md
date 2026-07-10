@@ -4548,3 +4548,73 @@ Pyramedia's weekend is Sunday only).
   whole board); the comment + notification gives the same signal without that
   cost. Revisit as a v1.1 item if the comment-only signal proves insufficient
   in practice.
+
+## CRM "Pyra Pro" Redesign — Locked Decisions (2026-07-10)
+
+A scoped VISUAL redesign of the CRM module (`/dashboard/crm/*`) to the "Pyra
+Pro" concept — warm-neutral (stone) palette, JetBrains-Mono numerics, 16px warm
+cards, always-visible pipeline quick-actions, a new Today strip, and a derived
+per-card next-step line. **Logic, hooks, permissions, and data are UNTOUCHED —
+this is a styling layer only.** Shipped after research (parallel surface-mapping)
+→ per-surface implementation → adversarial review → tsc/i18n/build/test green.
+**Do NOT re-litigate.**
+
+### 1. Warm palette is SCOPED to CRM via `.crm-theme` — never the shared shell
+The design's warm-neutral palette = Tailwind's stone family (canvas `#FBFAF9`,
+ink `#1C1917`, taupe `#7A7570`, warm border `#F1EDE8`); the orange `--primary`
+already matched. Applied as CSS-var OVERRIDES on a `.crm-theme` wrapper
+(`app/dashboard/crm/layout.tsx`) — light + dark (`.crm-theme` / `.dark
+.crm-theme` in `globals.css`). The shared sidebar/topbar render one level up in
+`app/dashboard/layout.tsx` (OUTSIDE the wrapper) and intentionally KEEP the
+app's cool-neutral palette; other modules are untouched. Do NOT move the warm
+vars to `:root`/`.dark` (repaints the whole app).
+
+### 2. CRM portaled overlays are retinted WITHOUT leaking to the shell
+Radix/shadcn overlays (Select/Dialog/Sheet/Popover/AlertDialog) portal to
+`document.body`, OUTSIDE `.crm-theme`. `<CrmThemeScope>` (client) sets
+`document.body.dataset.crm` while a CRM route is mounted; `globals.css` applies
+the SAME warm vars to `body[data-crm] [data-radix-popper-content-wrapper]`,
+`[role="dialog"]`, `[role="alertdialog"]` ONLY — transient overlay containers,
+NEVER the persistent `<nav>`/`<header>` shell. Cleared on unmount.
+
+### 3. `font-mono` (JetBrains Mono) ONLY on pure-Latin numerics — NEVER Arabic
+JetBrains Mono → `monospace` has NO Arabic glyphs, so any `font-mono` span
+containing Arabic (or mixed Arabic+number) falls back off-Cairo. Apply
+`font-mono` ONLY to spans whose content is currency/counts/percentages from
+`formatCurrency` (en-AE, Latin) or raw numbers. NEVER on ICU-plural strings with
+an Arabic word (`{n} صفقة`), `formatRelativeDate` output (`منذ ٣ أيام`), or any
+Arabic label. For a shared component whose value is SOMETIMES Arabic (e.g.
+lead-stat-strip's "last activity"), gate mono behind a `mono?: boolean` prop.
+Regression smell: grep `font-mono` near any `t(...)`/`formatRelativeDate`/ICU
+content. (This exact bug was introduced + caught in adversarial review, 6 spots.)
+
+### 4. Per-card "next step" line is DERIVED — no schema field (v1)
+`lib/crm/next-step.ts` `deriveNextStep({stageIndex, stageCount, nextFollowUpIso})`
+returns an i18n key: an overdue follow-up → `overdue` (at-risk color), else a
+stage-position ladder (`contact`→`qualify`→`proposal`→`negotiate`→`complete`).
+Pure + unit-tested. `stageIndex`/`stageCount` thread board → column → card
+(optional props, default to the first-rung fallback). A real free-text "next
+step" field is a v2 item — do NOT invent a DB column.
+
+### 5. Pipeline dnd invariants PRESERVED — only the hover-gate was removed
+The redesign removed ONLY the quick-action `opacity-0 group-hover:opacity-100`
+gate (Call/WhatsApp now always visible — the #1 "feels unclear" complaint),
+as an inline footer action row. Everything LOCKED in the Phase 7/10 sections
+stayed byte-equivalent: the drag-SOURCE `opacity-0 pointer-events-none`, the
+3-tier split, single `useDraggable` per lead, `pointerWithin`, `DragOverlay
+dropAnimation={null}`, mobile stage-sheet in the wrapper. The new column
+entrance is OPACITY-ONLY (`.crm-col-enter`/`pyraFade`, NO transform) so it never
+creates a containing block over the droppables — do NOT switch it to
+`pyraFadeUp`/`.crm-enter` (those translate).
+
+### 6. Lead-detail underline tabs via call-site override, not the primitive
+The segmented→underline tab change uses `className` overrides on
+`TabsList`/`TabsTrigger` at the lead-detail call site (twMerge neutralizes the
+shadcn base: `bg-transparent`/`rounded-none`/`border-b-2` active). The shared
+`components/ui/tabs.tsx` primitive was NOT modified (no app-wide ripple).
+
+### Redesign v1.1 backlog
+- Data-driven pipeline header subtitle (count + per-currency value) — deferred
+  to avoid summing across currencies.
+- Real "next step" free-text field + edit UI.
+- Real-RTL-device verification of the scroll-fade + entrance polish.
