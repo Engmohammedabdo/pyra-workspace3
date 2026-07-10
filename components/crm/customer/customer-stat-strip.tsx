@@ -70,7 +70,7 @@ export function CustomerStatStrip({ kpis, health, isLoading = false }: Props) {
         valueIsNumeric
       />
       {/* Health Score card with embedded ring */}
-      <Card className="p-4">
+      <Card className="p-4 rounded-2xl">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="text-xs text-muted-foreground">{t('health')}</div>
@@ -82,7 +82,7 @@ export function CustomerStatStrip({ kpis, health, isLoading = false }: Props) {
               </div>
             )}
             {!isLoading && health && (
-              <div className="text-xs text-muted-foreground tabular-nums mt-0.5">
+              <div className="text-xs text-muted-foreground tabular-nums font-mono mt-0.5">
                 {health.score}/100
               </div>
             )}
@@ -121,15 +121,15 @@ const TONE_CLASSES: Record<StatCardProps['tone'], string> = {
 
 function StatCard({ icon, tone, label, value, sub, valueIsNumeric }: StatCardProps) {
   return (
-    <Card className="p-4">
-      <div className={cn('size-9 rounded-lg flex items-center justify-center mb-3', TONE_CLASSES[tone])}>
+    <Card className="p-4 rounded-2xl transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_16px_32px_-12px_rgba(28,25,23,0.16)]">
+      <div className={cn('size-10 rounded-xl flex items-center justify-center mb-3', TONE_CLASSES[tone])}>
         {icon}
       </div>
-      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="text-[12.5px] font-semibold text-muted-foreground">{label}</div>
       {value === null ? (
         <Skeleton className="h-7 w-24 mt-1" />
       ) : (
-        <div className={cn('mt-1 text-xl font-bold tracking-tight', valueIsNumeric && 'tabular-nums')}>
+        <div className={cn('mt-1 text-xl font-extrabold font-mono tracking-tight', valueIsNumeric && 'tabular-nums')}>
           {value}
         </div>
       )}

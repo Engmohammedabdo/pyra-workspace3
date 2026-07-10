@@ -79,7 +79,7 @@ export function CustomerHeader({ customer, isLoading = false }: Props) {
         {/* Left: name + meta */}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold truncate">{customer.name}</h1>
+            <h1 className="text-2xl font-extrabold tracking-tight truncate">{customer.name}</h1>
             {customer.is_converted && (
               <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 border border-yellow-500/20 dark:border-yellow-500/30">
                 {t('closedWonBadge')}

@@ -66,9 +66,9 @@ export function CustomersListClient() {
       <header>
         <div className="flex items-center gap-2">
           <Users className="size-5 text-muted-foreground" aria-hidden />
-          <h1 className="text-2xl font-bold">{t('heading')}</h1>
+          <h1 className="text-2xl md:text-[27px] font-extrabold tracking-tight">{t('heading')}</h1>
           {!isLoading && (
-            <span className="text-sm font-normal text-muted-foreground tabular-nums">
+            <span className="text-sm font-normal text-muted-foreground tabular-nums font-mono">
               ({all.length})
             </span>
           )}
@@ -92,7 +92,7 @@ export function CustomersListClient() {
 
       {/* Table or skeleton or empty */}
       {isLoading ? (
-        <Card className="p-0 overflow-hidden">
+        <Card className="p-0 overflow-hidden rounded-2xl">
           <div className="divide-y divide-border">
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="flex items-center gap-3 p-4">
@@ -133,7 +133,7 @@ export function CustomersListClient() {
           />
         </Card>
       ) : (
-        <Card className="p-0 overflow-hidden">
+        <Card className="p-0 overflow-hidden rounded-2xl">
           <ul className="divide-y divide-border" role="list">
             {filtered.map((lead) => (
               <li key={lead.id}>
@@ -146,7 +146,7 @@ export function CustomersListClient() {
                 >
                   <Avatar name={lead.name} initialsFallback={t('initialsFallback')} />
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{lead.name}</div>
+                    <div className="font-semibold truncate">{lead.name}</div>
                     <div className="text-xs text-muted-foreground truncate">
                       {lead.company || lead.email || lead.phone || '—'}
                     </div>
