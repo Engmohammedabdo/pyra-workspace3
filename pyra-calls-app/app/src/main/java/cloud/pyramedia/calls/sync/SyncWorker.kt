@@ -24,6 +24,8 @@ class SyncWorker(context: Context, params: WorkerParameters) :
             if (batch.calls.isEmpty()) {
                 // nothing to send; still advance past scanned-but-skipped rows
                 prefs.lastSyncedCallLogId = batch.lastScannedId
+                // empty pass is still a successful heartbeat — Home's staleness pill depends on it
+                prefs.lastSyncAtMillis = System.currentTimeMillis()
                 break
             }
             when (val res = api.sync(batch.calls.map { it.entry })) {
