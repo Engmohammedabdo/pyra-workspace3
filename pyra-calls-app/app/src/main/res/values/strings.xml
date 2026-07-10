@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Pyra Calls</string>
+    <string name="perm_title">أذونات مطلوبة</string>
+    <string name="perm_body">التطبيق يحتاج الوصول لسجل المكالمات وحالة الهاتف والإشعارات ليعمل تلقائيًا. لن يعمل بدونها.</string>
+    <string name="perm_grant">منح الأذونات</string>
+    <string name="login_title">تسجيل الدخول</string>
+    <string name="login_subtitle">نفس حساب النظام — مرة واحدة فقط</string>
+    <string name="login_email">البريد الإلكتروني</string>
+    <string name="login_password">كلمة المرور</string>
+    <string name="login_button">دخول</string>
+    <string name="login_loading">جارٍ الدخول…</string>
+    <string name="login_network_error">تعذر الاتصال بالخادم — تأكد من الإنترنت</string>
+    <string name="home_placeholder">تم تسجيل الدخول</string>
 </resources>
