@@ -10,6 +10,7 @@ import { monthNamesFor } from '@/lib/constants/dates';
 import type { Locale } from '@/lib/i18n/config';
 import { PAYROLL_WORKING_DAYS_PER_MONTH } from '@/lib/constants/payroll';
 import { DEFAULT_WORK_DAYS } from '@/lib/constants/auth';
+import { NON_DEDUCTIBLE_ATTENDANCE_STATUSES } from '@/lib/constants/statuses';
 import {
   deriveDayStatus, isOnTimeClockIn, lateMinutesOf, countDeductibleAbsences,
   DEDUCTION_DAYS_PER_MONTH,
@@ -186,7 +187,7 @@ export async function GET(request: NextRequest) {
 
     const { data: monthAttData, error: monthAttError } = await supabase
       .from('pyra_attendance')
-      .select('username, date, clock_in')
+      .select('username, date, clock_in, status')
       .gte('date', monthStart)
       .lte('date', todayKey);
     if (monthAttError) throw new Error(`pyra_attendance (month): ${monthAttError.message}`);
@@ -209,20 +210,27 @@ export async function GET(request: NextRequest) {
     const workDaysOf = (u: { work_schedule_id: string | null }) =>
       (u.work_schedule_id && scheduleWorkDaysMap.get(u.work_schedule_id)) || [...DEFAULT_WORK_DAYS];
 
-    // Per-user on-time dates + earliest tracked date (this month).
+    // Per-user on-time dates, admin-excused dates, + earliest tracked date.
+    // Excused (permission) / holiday / weekend rows are admin intent → the day is
+    // NOT a deductible absence even without an on-time clock-in.
+    const excusedStatuses = new Set<string>(NON_DEDUCTIBLE_ATTENDANCE_STATUSES);
     const onTimeDatesByUser = new Map<string, Set<string>>();
+    const excusedDatesByUser = new Map<string, Set<string>>();
     const firstAttDateByUser = new Map<string, string>();
     for (const u of rosterUsers) {
       const startFull = startFullOf(u);
       const onTime = new Set<string>();
+      const excused = new Set<string>();
       let first: string | null = null;
       for (const r of monthAttData ?? []) {
         if (r.username !== u.username) continue;
         const day = String(r.date).slice(0, 10);
         if (!first || day < first) first = day;
         if (isOnTimeClockIn(r.clock_in, startFull)) onTime.add(day);
+        if (excusedStatuses.has(r.status as string)) excused.add(day);
       }
       onTimeDatesByUser.set(u.username, onTime);
+      excusedDatesByUser.set(u.username, excused);
       if (first) firstAttDateByUser.set(u.username, first);
     }
 
@@ -265,6 +273,7 @@ export async function GET(request: NextRequest) {
               nowUaeMinutes,
               onTimeDates: onTimeDatesByUser.get(u.username) ?? new Set(),
               leaveDates: leaveDatesByUser.get(u.username),
+              excusedDates: excusedDatesByUser.get(u.username),
               hireDateKey: u.hire_date ? String(u.hire_date).slice(0, 10) : null,
               startCountingFrom: firstAtt,
             })
@@ -275,9 +284,12 @@ export async function GET(request: NextRequest) {
         const estimated_deduction =
           Math.round(deductible_absences * ((sal?.salary ?? 0) / DEDUCTION_DAYS_PER_MONTH) * 100) / 100;
 
-        // Today's status — re-derived with the grace policy.
+        // Today's status — admin intent (excused/holiday) wins; else re-derived
+        // with the grace policy.
         let status: string;
-        if (a) {
+        if (a && excusedStatuses.has(a.status as string)) {
+          status = a.status as string; // excused / holiday / weekend
+        } else if (a) {
           const d = deriveDayStatus(a.clock_in, startFull, nowUaeMinutes);
           status = d === 'pending' ? 'not_clocked_in' : d; // present | absent
         } else if (onLeaveTodayUsernames.has(u.username)) {

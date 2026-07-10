@@ -94,6 +94,18 @@ describe('countDeductibleAbsences — Abdelrahman scenario (July 2026)', () => {
     expect(countDeductibleAbsences({ ...base, onTimeDates, leaveDates })).toBe(1); // only Thu
   });
 
+  it('an admin-excused day ("إذن") is not an absence', () => {
+    const onTimeDates = new Set(['2026-07-06', '2026-07-07', '2026-07-08']);
+    const excusedDates = new Set(['2026-07-09']); // Thu excused by admin
+    expect(countDeductibleAbsences({ ...base, onTimeDates, excusedDates })).toBe(1); // only Fri
+  });
+
+  it('excusing every absent day zeroes the count', () => {
+    const onTimeDates = new Set(['2026-07-06', '2026-07-07', '2026-07-08']);
+    const excusedDates = new Set(['2026-07-09', '2026-07-10']);
+    expect(countDeductibleAbsences({ ...base, onTimeDates, excusedDates })).toBe(0);
+  });
+
   it('does not count days before the first attendance record (setup gap)', () => {
     // Without startCountingFrom, July 1–4 work days would all count as absences.
     const onTimeDates = new Set(['2026-07-06', '2026-07-07', '2026-07-08']);

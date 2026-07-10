@@ -46,7 +46,7 @@ function toUTCIso(date: string, time: string): string | null {
 }
 
 const ATTENDANCE_STATUS_KEYS: AttendanceStatus[] = [
-  'present', 'absent', 'late', 'early_leave', 'holiday', 'weekend',
+  'present', 'absent', 'late', 'excused', 'early_leave', 'holiday', 'weekend',
 ];
 
 export default function AdminAttendanceDialog({

@@ -10,7 +10,7 @@ export interface AttendanceRecord {
   clock_in: string | null;
   clock_out: string | null;
   total_hours: number;
-  status: 'present' | 'absent' | 'late' | 'early_leave' | 'holiday' | 'weekend';
+  status: 'present' | 'absent' | 'late' | 'excused' | 'early_leave' | 'holiday' | 'weekend';
   notes: string | null;
   ip_address: string | null;
   created_at: string;

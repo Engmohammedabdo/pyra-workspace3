@@ -82,6 +82,7 @@ export function countDeductibleAbsences(params: {
   nowUaeMinutes: number;         // minutes-of-day now (UAE)
   onTimeDates: Set<string>;      // "YYYY-MM-DD" with an on-time clock-in
   leaveDates?: Set<string>;      // "YYYY-MM-DD" on approved leave (excluded)
+  excusedDates?: Set<string>;    // "YYYY-MM-DD" admin-excused / holiday (excluded)
   hireDateKey?: string | null;   // exclude days before hire
   // Do NOT count days before the employee started being tracked (their first
   // attendance record). Prevents counting the setup gap — days before they
@@ -92,6 +93,7 @@ export function countDeductibleAbsences(params: {
 }): number {
   const { monthKey, todayKey, workDays, startHHMM, nowUaeMinutes, onTimeDates } = params;
   const leaveDates = params.leaveDates ?? new Set<string>();
+  const excusedDates = params.excusedDates ?? new Set<string>();
   const grace = params.grace ?? ATTENDANCE_GRACE_MINUTES;
   const [y, m] = monthKey.split('-').map(Number);
   const lastDay = new Date(y, m, 0).getDate();
@@ -104,6 +106,7 @@ export function countDeductibleAbsences(params: {
     const dow = new Date(y, m - 1, day).getDay();
     if (!workDays.includes(dow)) continue;          // weekend / non-work day
     if (leaveDates.has(dateStr)) continue;          // approved leave — not absence
+    if (excusedDates.has(dateStr)) continue;        // admin-excused / holiday
     if (onTimeDates.has(dateStr)) continue;         // clocked in on time
     // today only counts once its grace window has elapsed
     if (dateStr === todayKey && nowUaeMinutes <= startMinutesOf(startHHMM) + grace) continue;

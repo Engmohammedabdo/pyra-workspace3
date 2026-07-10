@@ -806,7 +806,8 @@
           "late": "متأخر {minutes} د",
           "notClockedIn": "لم يسجّل",
           "onLeave": "في إجازة",
-          "absent": "غياب"
+          "absent": "غياب",
+          "excused": "بعذر"
         }
       },
       "headcountChart": {

@@ -21,6 +21,8 @@ const STATUS_CLS: Record<string, string> = {
   late: 'bg-red-500/10 text-red-700 dark:text-red-400',
   absent: 'bg-red-500/10 text-red-700 dark:text-red-400',
   on_leave: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
+  excused: 'bg-sky-500/10 text-sky-700 dark:text-sky-400',
+  holiday: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
   not_clocked_in: 'bg-muted text-muted-foreground',
 };
 
@@ -70,6 +72,7 @@ export function DailyAttendanceRoster({ roster }: DailyAttendanceRosterProps) {
             if (row.status === 'present') label = t('status.present');
             else if (row.status === 'late') label = t('status.late', { minutes: row.late_minutes });
             else if (row.status === 'on_leave') label = t('status.onLeave');
+            else if (row.status === 'excused' || row.status === 'holiday') label = t('status.excused');
             else if (row.status === 'absent') label = t('status.absent');
             else label = t('status.notClockedIn');
             const cls = STATUS_CLS[row.status] ?? STATUS_CLS.not_clocked_in;

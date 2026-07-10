@@ -16,9 +16,9 @@ describe('attendance status constants', () => {
       expect(ATTENDANCE_STATUS_STYLES[v]).toBeTruthy();
     }
   });
-  it('includes the six known statuses', () => {
+  it('includes the seven known statuses', () => {
     expect(Object.values(ATTENDANCE_STATUS).sort()).toEqual(
-      ['absent', 'early_leave', 'holiday', 'late', 'present', 'weekend'],
+      ['absent', 'early_leave', 'excused', 'holiday', 'late', 'present', 'weekend'],
     );
   });
 });

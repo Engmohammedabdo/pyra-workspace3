@@ -675,9 +675,17 @@ export const ATTENDANCE_STATUS = {
   EARLY_LEAVE: 'early_leave',
   HOLIDAY: 'holiday',
   WEEKEND: 'weekend',
+  // Admin-recorded excused absence ("إذن") — the employee was away WITH the
+  // admin's permission, so the day is NOT counted as a deductible absence.
+  EXCUSED: 'excused',
 } as const;
 
 export type AttendanceStatus = typeof ATTENDANCE_STATUS[keyof typeof ATTENDANCE_STATUS];
+
+/** Statuses that EXEMPT a day from the deductible-absence count (admin intent). */
+export const NON_DEDUCTIBLE_ATTENDANCE_STATUSES: readonly AttendanceStatus[] = [
+  'excused', 'holiday', 'weekend',
+];
 
 export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
   present: 'حاضر',
@@ -686,6 +694,7 @@ export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
   early_leave: 'انصراف مبكر',
   holiday: 'إجازة رسمية',
   weekend: 'عطلة',
+  excused: 'بعذر (إذن)',
 };
 
 export const ATTENDANCE_STATUS_STYLES: Record<AttendanceStatus, string> = {
@@ -695,6 +704,7 @@ export const ATTENDANCE_STATUS_STYLES: Record<AttendanceStatus, string> = {
   early_leave: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
   holiday: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
   weekend: 'bg-gray-500/10 text-gray-500 dark:text-gray-400',
+  excused: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
 };
 
 // ── Currencies ──
