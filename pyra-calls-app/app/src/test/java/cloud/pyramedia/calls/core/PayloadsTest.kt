@@ -16,4 +16,9 @@ class PayloadsTest {
             QuickAddRequest("d:1", "عميل", "b2c"))
         assertTrue(!json.contains("company"))
     }
+    @Test fun decodesPingEnvelope() {
+        val body = """{"data":{"ok":true},"error":null,"meta":null}"""
+        val env = PyraJson.decodeFromString<Envelope<PingData>>(body)
+        assertTrue(env.data!!.ok)
+    }
 }

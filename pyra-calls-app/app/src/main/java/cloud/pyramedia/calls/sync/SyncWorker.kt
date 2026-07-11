@@ -26,6 +26,14 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                 prefs.lastSyncedCallLogId = batch.lastScannedId
                 // empty pass is still a successful heartbeat — Home's staleness pill depends on it
                 prefs.lastSyncAtMillis = System.currentTimeMillis()
+                // Ping the server so pyra_api_keys.last_used_at reflects that
+                // the app is still alive even when there's nothing to sync —
+                // otherwise a background-killed app looks identical to an idle
+                // one from the server's point of view. Result is intentionally
+                // ignored: a failed ping must not change worker behavior, it
+                // exists purely as a liveness signal for the device-silent-check
+                // cron.
+                api.ping()
                 break
             }
             when (val res = api.sync(batch.calls.map { it.entry })) {

@@ -42,6 +42,36 @@ class ApiClient(
         post("/api/mobile/calls/ignore", IgnoreRequest(deviceCallKey),
             IgnoreRequest.serializer(), IgnoreData.serializer(), withKey = true)
 
+    // Heartbeat — the only GET in this client. Called on empty sync passes so
+    // the server's pyra_api_keys.last_used_at still reflects device liveness
+    // (see SyncWorker: normal syncs only touch the network when there ARE
+    // calls to send, so an idle-but-alive phone would otherwise look
+    // identical to a dead one).
+    fun ping(): ApiResult<PingData> =
+        get("/api/mobile/ping", PingData.serializer())
+
+    private fun <T> get(path: String, dataSer: KSerializer<T>): ApiResult<T> {
+        val key = deviceKeyProvider() ?: return ApiResult.Err(401, "لا يوجد مفتاح جهاز")
+        val builder = Request.Builder()
+            .url(baseUrl + path)
+            .header("x-api-key", key)
+            .get()
+        return try {
+            http.newCall(builder.build()).execute().use { res ->
+                val text = res.body?.string().orEmpty()
+                val env = runCatching {
+                    PyraJson.decodeFromString(Envelope.serializer(dataSer), text)
+                }.getOrNull()
+                when {
+                    res.isSuccessful && env?.data != null -> ApiResult.Ok(env.data)
+                    else -> ApiResult.Err(res.code, env?.error ?: "خطأ غير متوقع (${res.code})")
+                }
+            }
+        } catch (e: IOException) {
+            ApiResult.NetworkError
+        }
+    }
+
     private fun <B, T> post(
         path: String, body: B,
         bodySer: KSerializer<B>, dataSer: KSerializer<T>, withKey: Boolean,

@@ -27,4 +27,5 @@ val PyraJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
 )
 @Serializable data class IgnoreRequest(val device_call_key: String)
 @Serializable data class IgnoreData(val ignored: Boolean, val updated_calls: Int)
+@Serializable data class PingData(val ok: Boolean)
 @Serializable data class Envelope<T>(val data: T? = null, val error: String? = null)
