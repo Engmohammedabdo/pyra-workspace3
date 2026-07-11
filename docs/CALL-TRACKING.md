@@ -515,6 +515,19 @@ somewhere durable outside this machine.
 
 ## v1.1 backlog
 
+- **Device-liveness alert — ✅ SHIPPED (v1.1-C).** `GET /api/mobile/ping`
+  (heartbeat — the app calls it on every EMPTY sync pass, see `SyncWorker`,
+  best-effort/result ignored) + `POST /api/cron/device-silent-check` (25h
+  silence threshold, per-device Dubai-day-deduped, notifies all active
+  admins via `notifyMany` with the new `device_sync_silent` notification
+  type). Closes the "phone idle vs. app dead" gap noted in the Device key
+  lifecycle section above (`last_used_at` alone couldn't tell the two
+  apart because empty syncs never touched the network before this).
+  **Requires the updated APK on phones** — a device still running the
+  pre-v1.1-C build never calls `/ping`, so its `last_used_at` only
+  advances on a real sync; the cron still eventually catches a genuinely
+  dead app (zero syncs either way), but the heartbeat's extra "still
+  alive, just idle" signal only applies once the phone is updated.
 - **Per-call table + filters** on `/dashboard/crm/calls` — a row-level view
   (not just per-agent aggregate cards) with `agent` / `direction` / `matched`
   filters.

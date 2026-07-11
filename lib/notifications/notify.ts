@@ -68,6 +68,11 @@ export type NotificationType =
   // nudges the agent to log the call outcome right after auto-creating a
   // lead from an unmatched phone call.
   | 'call_feedback_required'
+  // Call tracking v1.1-C — a device API key has gone silent (no
+  // authenticated request, including the empty-sync heartbeat ping, in the
+  // last 25h). Admin-facing only — fired by
+  // /api/cron/device-silent-check.
+  | 'device_sync_silent'
   // Approvals (manager-facing)
   | 'leave_request_pending'
   | 'expense_pending'
