@@ -9,19 +9,10 @@
  * endpoint for the dropdown options.
  */
 
-import { useEffect, useState, type ComponentType } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
-import {
-  Phone,
-  PhoneOutgoing,
-  PhoneIncoming,
-  PhoneMissed,
-  ChevronLeft,
-  ChevronRight,
-  ListChecks,
-} from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Phone, ChevronLeft, ChevronRight, ListChecks } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -32,16 +23,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils/cn';
-import { useCallsList, type CallsListCall } from '@/hooks/useCallsList';
+import { useCallsList } from '@/hooks/useCallsList';
 import { formatCallDuration } from '@/components/crm/calls/CallsSummaryCards';
+import {
+  DIRECTION_ICON,
+  FilterChip,
+  CallStatusBadge,
+} from '@/components/crm/calls/CallsTableParts';
 import { formatDate, formatRelativeDate } from '@/lib/utils/format';
 import type { Locale } from '@/lib/i18n/config';
-
-const DIRECTION_ICON: Record<CallsListCall['direction'], ComponentType<{ className?: string }>> = {
-  outgoing: PhoneOutgoing,
-  incoming: PhoneIncoming,
-  missed: PhoneMissed,
-};
 
 const DIRECTION_FILTERS = ['all', 'outgoing', 'incoming', 'missed'] as const;
 const STATUS_FILTERS = ['all', 'matched', 'unmatched', 'ignored'] as const;
@@ -50,48 +40,6 @@ interface CallsTableProps {
   month: string;
   scope: 'all' | 'own';
   agentOptions: Array<{ username: string; display_name: string }>;
-}
-
-// Chip button shared by both filter rows (direction + status) — same pill
-// idiom as the CRM follow-ups filter chips (app/dashboard/crm/follow-ups).
-function FilterChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'inline-flex items-center rounded-full px-3 py-1 text-xs font-medium border transition-colors',
-        active
-          ? 'bg-foreground text-background border-foreground'
-          : 'bg-muted/40 text-muted-foreground border-border hover:bg-muted',
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function CallStatusBadge({ status }: { status: CallsListCall['match_status'] }) {
-  const t = useTranslations('calls');
-  const tone =
-    status === 'matched'
-      ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/40'
-      : status === 'unmatched'
-        ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/40'
-        : 'bg-stone-500/10 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700/40';
-  return (
-    <Badge variant="outline" className={cn('text-xs', tone)}>
-      {t(status)}
-    </Badge>
-  );
 }
 
 export function CallsTable({ month, scope, agentOptions }: CallsTableProps) {
