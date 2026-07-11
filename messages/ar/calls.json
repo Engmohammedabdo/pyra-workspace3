@@ -15,6 +15,26 @@
     "totalDuration": "إجمالي المدة",
     "byDay": "المكالمات باليوم",
     "emptyTitle": "لا توجد مكالمات مسجلة",
-    "emptyDescription": "المكالمات هتظهر هنا تلقائيًا أول ما تطبيق الهاتف يبدأ المزامنة"
+    "emptyDescription": "المكالمات هتظهر هنا تلقائيًا أول ما تطبيق الهاتف يبدأ المزامنة",
+    "table": {
+      "heading": "سجل المكالمات",
+      "columnAgent": "الموظف",
+      "columnPhone": "الرقم",
+      "columnDirection": "الاتجاه",
+      "columnDuration": "المدة",
+      "columnTime": "الوقت",
+      "columnStatus": "الحالة",
+      "columnClient": "العميل",
+      "emptyTitle": "لا توجد مكالمات مطابقة للفلاتر الحالية"
+    },
+    "filters": {
+      "all": "الكل",
+      "allAgents": "كل الموظفين"
+    },
+    "pagination": {
+      "previous": "السابق",
+      "next": "التالي",
+      "pageOf": "صفحة {page} من {totalPages}"
+    }
   }
 }

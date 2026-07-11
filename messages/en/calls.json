@@ -15,6 +15,26 @@
     "totalDuration": "Total duration",
     "byDay": "Calls by day",
     "emptyTitle": "No calls recorded yet",
-    "emptyDescription": "Calls will appear here automatically once the phone app starts syncing"
+    "emptyDescription": "Calls will appear here automatically once the phone app starts syncing",
+    "table": {
+      "heading": "Calls log",
+      "columnAgent": "Agent",
+      "columnPhone": "Phone",
+      "columnDirection": "Direction",
+      "columnDuration": "Duration",
+      "columnTime": "Time",
+      "columnStatus": "Status",
+      "columnClient": "Client",
+      "emptyTitle": "No calls match the current filters"
+    },
+    "filters": {
+      "all": "All",
+      "allAgents": "All agents"
+    },
+    "pagination": {
+      "previous": "Previous",
+      "next": "Next",
+      "pageOf": "Page {page} of {totalPages}"
+    }
   }
 }

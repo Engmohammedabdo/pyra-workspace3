@@ -18,7 +18,9 @@ import { cn } from '@/lib/utils/cn';
 import type { CallsReportAgent } from '@/hooks/useCallsReport';
 
 // m:s (minutes:seconds) — e.g. 3:40. Pure formatter, digits only, no i18n needed. // i18n-exempt: doc comment
-function formatCallDuration(seconds: number): string {
+// Exported so CallsTable (the per-call row list) reuses the exact same
+// formatting instead of a duplicate copy.
+export function formatCallDuration(seconds: number): string {
   const safe = Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds) : 0;
   const m = Math.floor(safe / 60);
   const s = safe % 60;

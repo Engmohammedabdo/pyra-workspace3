@@ -16,6 +16,7 @@ import { useCallsReport } from '@/hooks/useCallsReport';
 import { dubaiDayKey } from '@/lib/utils/format';
 import { CallsSummaryCards } from '@/components/crm/calls/CallsSummaryCards';
 import { CallsByDayChart } from '@/components/crm/calls/CallsByDayChart';
+import { CallsTable } from '@/components/crm/calls/CallsTable';
 
 export function CallsClient() {
   const t = useTranslations('calls');
@@ -62,6 +63,11 @@ export function CallsClient() {
         <>
           <CallsByDayChart perDay={perDay} />
           <CallsSummaryCards agents={agents} />
+          <CallsTable
+            month={month}
+            scope={data?.scope ?? 'own'}
+            agentOptions={agents.map((a) => ({ username: a.username, display_name: a.display_name }))}
+          />
         </>
       )}
     </div>
