@@ -237,3 +237,18 @@ NOTE: concurrent session landed 5 CRM-redesign commits (83be441..61605b0) mid-ef
 - App Task 7: complete (commits 8d6d67f + 82c6441; E2E full-flow verified live on emulator incl. notification tap → quick-add → feedback deep-link; temp agent zero-swept; CRITICAL caught by review: live keystore password was in this tracked report file — REDACTED before any commit [6→0 occurrences, verified absent from git history]; release APK signed, final SHA-256 0ABC8CC4676139B49A3870ABA415D7B20213374F1C1A99F5EEDC167CED10F3E4)
 - Final whole-app review (fable): READY WITH FIXES → fixed in 82c6441 (allowBackup=false [restore crash-loop], agent-handover guard [lastLoginUsername → installDayStart=now on agent change], IgnoreReceiver keeps notification on NetworkError, password IME type, docs: handover wipe step + app-side v1.1 backlog + silent-409 deviation note). All ledger Minors triaged: backlog, none block.
 - EFFORT COMPLETE 2026-07-10: Android app built + E2E-verified. APK: pyra-calls-app/app/build/outputs/apk/release/app-release.apk. Keystore: C:\Users\engmo\pyra-keys\ (BACK IT UP — loss = re-sign = reinstall on phones). Rollout: youssef's phone per docs/CALL-TRACKING.md provisioning checklist.
+
+---
+
+# Call Tracking v1.1 wave (3 features, Abdou-approved 2026-07-11) — SDD Progress
+
+Branch: integrate-pending-fixes (merge to main on Abdou's "ادمج")
+Micro-design locks:
+- A (calls table): NEW GET /api/crm/calls (list, page size 50, filters agent/direction/match_status), gate calls.view, non-team_view forced own; lead_name enriched. Table section under the cards on /dashboard/crm/calls.
+- B (widget): render calls_month in the team-performance widget (field already in API since server Task 6).
+- C (liveness): GET /api/mobile/ping (requireDeviceAuth; getExternalAuth bumps last_used_at) + SyncWorker pings on empty batch (heartbeat) + /api/cron/device-silent-check (Phase D §7 pattern; active device:% keys with last_used_at < now()-25h → notify ACTIVE admins, NotificationType 'device_sync_silent', per-device per-Dubai-day dedup via entity_id) + n8n schedule + APK rebuild (same signature = in-place update on phones).
+- V1.1-B: complete (commit a5edcb4, review clean)
+- V1.1-A: complete (commits 2045409 + 47684bd, review clean after file-size split; Minors: matched-lead names visible cross-agent [inherited from sync matching design — future scoping discussion], enrichment errors unguarded [sibling parity])
+- V1.1-C: complete (commits a145fcd + aa5c32e, review clean; ops DONE by controller: n8n PyraCRM_Cron key granted cron.device-silent-check [scripts/sql/grant-cron-device-silent-check.sql] + workflow Z54Xnd2z6QpT0oIJ gained "Daily 09:30 Dubai" trigger → POST device-silent-check, PUBLISHED [activeVersion 2b8716b9]; heartbeat needs updated APK on phones — SHA in task-v11c-report)
+- Final wave review (fable): READY WITH FIXES → done: n8n cadence tightened to every 3h (dedup caps 1 alert/device/day; published activeVersion 58bdb3b9) + CALL-TRACKING.md per-call-table bullet marked SHIPPED. Backlog from review: month-switch transient PGRST103 page fetch, notified counter counts attempts, dubaiMonthBounds 3rd copy → extract to lib/utils/format, hoursSilent clamp to days past 48h.
+- V1.1 WAVE COMPLETE 2026-07-11: commits a5edcb4..aa5c32e + docs/grant. Phones need APK update for the ping heartbeat (SHA in task-v11c-report).

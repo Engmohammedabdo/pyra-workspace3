@@ -528,9 +528,10 @@ somewhere durable outside this machine.
   advances on a real sync; the cron still eventually catches a genuinely
   dead app (zero syncs either way), but the heartbeat's extra "still
   alive, just idle" signal only applies once the phone is updated.
-- **Per-call table + filters** on `/dashboard/crm/calls` — a row-level view
-  (not just per-agent aggregate cards) with `agent` / `direction` / `matched`
-  filters.
+- ✅ SHIPPED (2026-07-11, v1.1 wave) — **Per-call table + filters** on
+  `/dashboard/crm/calls`: `GET /api/crm/calls` (same gate/scope doctrine as
+  the report route; month/agent/direction/status filters; 50-row pages) +
+  `CallsTable` below the aggregate cards.
 - **Normalize `called_at` + cap `duration_seconds`/string lengths in
   `parseCalls`** — a poison-retry guard so a single malformed device row
   can't repeatedly fail the whole batch on every retry.
