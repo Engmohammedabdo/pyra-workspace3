@@ -16,7 +16,8 @@
 import { useLocale, useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils/cn';
 import {
-  StickyNote, Phone, CalendarClock, MessageCircle, Mail, Paperclip,
+  StickyNote, Phone, PhoneIncoming, PhoneOutgoing, CalendarClock,
+  MessageCircle, Mail, Paperclip,
   Pencil, UserCog, AlertTriangle, CheckCircle2, XCircle, Hourglass,
   PlusCircle, Activity as ActivityIcon, ArrowRightCircle, BellRing,
 } from 'lucide-react';
@@ -76,13 +77,37 @@ function metadataString(meta: unknown, key: string): string | null {
   return typeof v === 'string' || typeof v === 'number' ? String(v) : null;
 }
 
+/**
+ * Call duration as m:ss from metadata. Auto-synced calls (device sync) carry
+ * duration_seconds; older composer entries carry duration_minutes only.
+ */
+function callDuration(meta: unknown): string | null {
+  const secsRaw = metadataString(meta, 'duration_seconds');
+  const minsRaw = metadataString(meta, 'duration_minutes');
+  const secs = secsRaw !== null
+    ? Math.round(Number(secsRaw))
+    : minsRaw !== null
+      ? Math.round(Number(minsRaw) * 60)
+      : null;
+  if (secs === null || !Number.isFinite(secs) || secs < 0) return null;
+  return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+}
+
 export function ActivityItem({ activity }: ActivityItemProps) {
   const t = useTranslations('crm.activity');
   const locale = useLocale() as Locale;
   const statusLabelForActivity = useStatusLabels('leadActivity');
   const stageLabelFor = useStatusLabels('pipelineStage');
   const variant = VARIANTS[activity.activity_type as LeadActivityTypeNew] ?? FALLBACK;
-  const Icon = variant.icon;
+  // Calls get a direction-aware icon (metadata.direction: 'inbound' | 'outbound')
+  const callDirection = activity.activity_type === 'call_logged'
+    ? metadataString(activity.metadata, 'direction')
+    : null;
+  const Icon = callDirection === 'inbound'
+    ? PhoneIncoming
+    : callDirection === 'outbound'
+      ? PhoneOutgoing
+      : variant.icon;
   const actor = activity.created_by_display_name ?? activity.created_by ?? t('fallbackActor');
   const defaultLabel = activity.activity_type
     ? statusLabelForActivity(activity.activity_type)
@@ -115,6 +140,17 @@ export function ActivityItem({ activity }: ActivityItemProps) {
       case 'closed_won_rejected': {
         const reason = metadataString(activity.metadata, 'reason');
         return reason ? t('titles.closedWonRejected', { reason }) : defaultLabel;
+      }
+      case 'call_logged': {
+        const duration = callDuration(activity.metadata);
+        if (callDirection === 'inbound') {
+          return duration ? t('titles.callInbound', { duration }) : t('titles.callInboundNoDuration');
+        }
+        if (callDirection === 'outbound') {
+          return duration ? t('titles.callOutbound', { duration }) : t('titles.callOutboundNoDuration');
+        }
+        // legacy rows without direction metadata
+        return duration ? t('titles.callWithDuration', { duration }) : defaultLabel;
       }
       default:
         return defaultLabel;

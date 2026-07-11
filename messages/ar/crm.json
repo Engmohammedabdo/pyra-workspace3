@@ -389,7 +389,12 @@
         "stageChangeToOnly": "انتقلت المرحلة إلى \"{to}\"",
         "fieldUpdated": "تم تحديث: {field}",
         "assignmentChanged": "تم تعيين الـ Lead لـ {to}",
-        "closedWonRejected": "تم رفض إغلاق الصفقة — {reason}"
+        "closedWonRejected": "تم رفض إغلاق الصفقة — {reason}",
+        "callInbound": "مكالمة واردة — المدة {duration}",
+        "callOutbound": "مكالمة صادرة — المدة {duration}",
+        "callInboundNoDuration": "مكالمة واردة",
+        "callOutboundNoDuration": "مكالمة صادرة",
+        "callWithDuration": "مكالمة — المدة {duration}"
       },
       "fields": {
         "name": "الاسم",

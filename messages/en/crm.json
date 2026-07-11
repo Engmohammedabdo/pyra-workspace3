@@ -389,7 +389,12 @@
         "stageChangeToOnly": "Stage moved to \"{to}\"",
         "fieldUpdated": "Updated: {field}",
         "assignmentChanged": "Lead assigned to {to}",
-        "closedWonRejected": "Closed Won rejected — {reason}"
+        "closedWonRejected": "Closed Won rejected — {reason}",
+        "callInbound": "Incoming call — {duration}",
+        "callOutbound": "Outgoing call — {duration}",
+        "callInboundNoDuration": "Incoming call",
+        "callOutboundNoDuration": "Outgoing call",
+        "callWithDuration": "Call — {duration}"
       },
       "fields": {
         "name": "Name",
