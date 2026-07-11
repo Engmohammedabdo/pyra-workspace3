@@ -99,6 +99,7 @@ export function DashboardTeamPerformance() {
               <th className="text-end font-medium pb-2 px-2 hidden sm:table-cell">{t('th.active')}</th>
               <th className="text-end font-medium pb-2 px-2">{t('th.won')}</th>
               <th className="text-end font-medium pb-2 px-2 hidden md:table-cell">{t('th.lost')}</th>
+              <th className="text-end font-medium pb-2 px-2 hidden lg:table-cell">{t('th.calls')}</th>
               <th className="text-end font-medium pb-2 px-2">{t('th.conversion')}</th>
               <th className="text-end font-medium pb-2 pe-2">{t('th.pipelineValue')}</th>
             </tr>
@@ -127,6 +128,9 @@ export function DashboardTeamPerformance() {
                 </td>
                 <td className="text-end py-2.5 px-2 tabular-nums font-mono text-muted-foreground hidden md:table-cell">
                   {agent.lost_count}
+                </td>
+                <td className="text-end py-2.5 px-2 tabular-nums font-mono text-muted-foreground hidden lg:table-cell">
+                  {agent.calls_month}
                 </td>
                 <td className="text-end py-2.5 px-2 tabular-nums font-mono">
                   <ConversionBadge pct={agent.conversion_pct} />

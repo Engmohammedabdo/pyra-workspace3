@@ -114,6 +114,7 @@
           "active": "Active",
           "won": "Won",
           "lost": "Lost",
+          "calls": "Calls this month",
           "conversion": "Conversion",
           "pipelineValue": "Pipeline value"
         }
