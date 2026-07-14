@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ const COLOR_BG: Record<string, string> = {
 export function PipelineStagesManager({ stages, onRefresh }: { stages: any[]; onRefresh: () => void }) {
   const [newStage, setNewStage] = useState({ name: '', name_ar: '', color: 'blue' });
   const [adding, setAdding] = useState(false);
+  const queryClient = useQueryClient();
 
   async function handleAdd() {
     if (!newStage.name_ar.trim()) { toast.error('اسم المرحلة مطلوب'); return; }
@@ -31,6 +33,11 @@ export function PipelineStagesManager({ stages, onRefresh }: { stages: any[]; on
       toast.success('تمت إضافة المرحلة');
       setNewStage({ name: '', name_ar: '', color: 'blue' });
       onRefresh();
+      // The pipeline board (usePipelineStages) caches the stage list for 5 min
+      // under ['crm','pipeline-stages']. Without this invalidation a newly-added
+      // stage wouldn't appear on the board (خط المبيعات) until the cache went
+      // stale or a full page reload. Invalidate so the board refetches.
+      queryClient.invalidateQueries({ queryKey: ['crm', 'pipeline-stages'] });
     } catch { toast.error('فشل الإضافة'); } finally { setAdding(false); }
   }
 
