@@ -22,9 +22,15 @@ export async function GET() {
 
     let q = supabase
       .from('pyra_sales_leads')
-      .select('stage_id, expected_value, expected_value_currency');
+      .select('stage_id, expected_value, expected_value_currency')
+      // Exclude archived (soft-deleted) leads — matches the pipeline + KPIs
+      // surfaces; without it the funnel silently counted archived leads.
+      .is('archived_at', null);
     if (scope) q = q.eq(scope.column, scope.value);
-    const { data, error } = await q;
+    // Explicit .range so the per-stage count/sum below sees EVERY matching row:
+    // the implicit PostgREST 1000-row default would silently truncate the funnel
+    // as lead volume grows. Only 3 short columns are projected → cheap.
+    const { data, error } = await q.range(0, 99999);
     if (error) {
       console.error('GET /api/crm/dashboard/funnel error:', error.message);
       return apiServerError();

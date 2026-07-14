@@ -69,7 +69,10 @@ export function CustomersListClient() {
           <h1 className="text-2xl md:text-[27px] font-extrabold tracking-tight">{t('heading')}</h1>
           {!isLoading && (
             <span className="text-sm font-normal text-muted-foreground tabular-nums font-mono">
-              ({all.length})
+              {/* Exact converted-customer count from the server (count:'exact'),
+                  NOT all.length — the loaded list is capped at VISIBLE_LIMIT, so
+                  .length would freeze at the cap once customers exceed it. */}
+              ({data?.total ?? all.length})
             </span>
           )}
         </div>

@@ -38,13 +38,18 @@ import { PipelineColumn } from './pipeline-column';
 import { PipelineCard, PipelineCardOverlay } from './pipeline-card';
 import { PipelineEmpty } from './pipeline-empty';
 import { ACCENT_DOT } from '@/lib/constants/pipeline-colors';
-import type { Lead } from '@/hooks/useLeads';
+import type { Lead, StageSummary } from '@/hooks/useLeads';
 import type { PipelineStage } from '@/hooks/usePipelineStages';
 import type { Locale } from '@/lib/i18n/config';
 
 interface PipelineBoardProps {
   stages: PipelineStage[] | undefined;
   leads: Lead[] | undefined;
+  /** True per-stage count + value over ALL matching leads (not just the loaded
+   *  page). Drives the column badge + value strip + mobile tab count so a busy
+   *  stage never freezes at the card-window size. Falls back to the loaded slice
+   *  per-column when absent. */
+  stageSummary?: StageSummary;
   loading?: boolean;
   /**
    * Fired when the user drops a card on a different column.
@@ -70,6 +75,7 @@ const DESKTOP_DRAG_DISTANCE = 8;
 export function PipelineBoard({
   stages,
   leads,
+  stageSummary,
   loading,
   onDropChangeStage,
   selectionMode = false,
@@ -187,6 +193,8 @@ export function PipelineBoard({
                 leads={grouped.get(s.id) ?? []}
                 stageIndex={i}
                 stageCount={stages.length}
+                count={stageSummary?.[s.id]?.count}
+                value={stageSummary?.[s.id]?.value}
                 selectionMode={selectionMode}
                 selectedIds={selectedIds}
                 onToggleSelect={onToggleSelect}
@@ -213,7 +221,8 @@ export function PipelineBoard({
         <div className="sticky top-0 z-10 -mx-4 px-4 pb-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin" dir={dir}>
             {stages.map((s) => {
-              const count = grouped.get(s.id)?.length ?? 0;
+              // True stage count from the server summary; fall back to loaded slice.
+              const count = stageSummary?.[s.id]?.count ?? grouped.get(s.id)?.length ?? 0;
               const isActive = effectiveActiveId === s.id;
               return (
                 <button

@@ -28,12 +28,18 @@ export async function GET(_request: NextRequest) {
     const nextM = m === 12 ? 1 : m + 1;
     const nextMonthStartUtc = `${nextY}-${pad(nextM)}-01T00:00:00+04:00`; // exclusive upper bound
 
-    // Fetch activity logs for this (Dubai) month
+    // Fetch activity logs for this (Dubai) month.
+    // Explicit .range so the per-user counting below sees EVERY row: without it
+    // PostgREST caps the result at its implicit 1000-row default, and this month
+    // already exceeds that (the log grows unbounded), which silently under-counted
+    // every user's monthly total and could drop users entirely. Only 2 short
+    // columns are projected, so loading all month rows is cheap.
     const { data: logs, error } = await supabase
       .from('pyra_activity_log')
       .select('username, display_name')
       .gte('created_at', monthStartUtc)
-      .lt('created_at', nextMonthStartUtc);
+      .lt('created_at', nextMonthStartUtc)
+      .range(0, 199999);
 
     if (error) {
       console.error('Team workload query error:', error);

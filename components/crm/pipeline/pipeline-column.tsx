@@ -28,6 +28,12 @@ interface PipelineColumnProps {
    *  derived "next step" line (see lib/crm/next-step.ts). */
   stageIndex: number;
   stageCount: number;
+  /** TRUE per-stage count + summed value from the server's `stage_summary`
+   *  aggregate (over ALL matching leads, not just the loaded page). When
+   *  omitted, falls back to the loaded `leads` length/sum — preserving the
+   *  pre-summary behavior for any caller that doesn't pass them. */
+  count?: number;
+  value?: number;
   /** Option B (Commit 2) — bulk selection, threaded down to each card. */
   selectionMode?: boolean;
   selectedIds?: Set<string>;
@@ -52,6 +58,8 @@ export function PipelineColumn({
   compactCards,
   stageIndex,
   stageCount,
+  count,
+  value,
   selectionMode,
   selectedIds,
   onToggleSelect,
@@ -59,7 +67,10 @@ export function PipelineColumn({
   const locale = useLocale();
   // Stage rows are bilingual DB data (name + name_ar) — pick by locale.
   const stageName = locale === 'ar' ? stage.name_ar : (stage.name || stage.name_ar);
-  const total = leads.reduce((acc, l) => acc + (Number(l.expected_value) || 0), 0);
+  // Prefer the server's true per-stage aggregate; fall back to the loaded page
+  // (pre-summary behavior) when the summary isn't supplied.
+  const displayCount = count ?? leads.length;
+  const total = value ?? leads.reduce((acc, l) => acc + (Number(l.expected_value) || 0), 0);
   const dotTone = ACCENT_DOT[stage.color] ?? 'bg-muted-foreground/40';
   const overTint = OVER_TINT[stage.color] ?? 'bg-muted/60 ring-2 ring-muted-foreground/40';
 
@@ -92,7 +103,7 @@ export function PipelineColumn({
           )}
         </div>
         <span className="shrink-0 inline-flex items-center justify-center min-w-7 h-6 px-2 rounded-full text-xs font-bold font-mono tabular-nums bg-card text-foreground border border-border">
-          {leads.length}
+          {displayCount}
         </span>
       </header>
 

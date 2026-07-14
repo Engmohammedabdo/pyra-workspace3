@@ -261,6 +261,14 @@ export async function GET() {
       .limit(10);
 
     const conversations = (convData || []) as ConversationItem[];
+    // TRUE unread-conversation count (the list above is capped at 10 for display;
+    // a head:true count returns the real total without fetching rows, so the
+    // inbox badge doesn't saturate at 10).
+    const { count: convUnreadCount } = await supabase
+      .from('pyra_whatsapp_conversations')
+      .select('id', { count: 'exact', head: true })
+      .eq('assigned_to', username)
+      .gt('unread_count', 0);
 
     // ─── LEADS — assigned to me, not converted ──────────────────
     // Schema note: pyra_sales_leads has `name` (not full_name), and lifecycle
@@ -282,9 +290,18 @@ export async function GET() {
       last_contact_at: l.last_contact_at || null,
       phone: l.phone || null,
     }));
+    // TRUE count of assigned non-converted leads (same filter as the list above,
+    // which is capped at 10 for display). Without this the badge froze at 10 for
+    // any agent with a real book of leads.
+    const { count: leadsActionCount } = await supabase
+      .from('pyra_sales_leads')
+      .select('id', { count: 'exact', head: true })
+      .eq('assigned_to', username)
+      .not('is_converted', 'is', true);
 
     // ─── FOLLOW-UPS — due today or overdue ─────────────────────
     // Schema note: pyra_sales_follow_ups column is `due_at` (not scheduled_for).
+    const followUpDueCutoff = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
     const { data: followUpsData } = await supabase
       .from('pyra_sales_follow_ups')
       .select('id, title, due_at, lead_id, status')
@@ -293,9 +310,16 @@ export async function GET() {
       // and a bare status='pending' dropped them from the home inbox entirely
       // (agent believed they were clear while follow-ups were overdue+invisible).
       .in('status', ['pending', 'overdue'])
-      .lte('due_at', new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString())
+      .lte('due_at', followUpDueCutoff)
       .order('due_at', { ascending: true })
       .limit(10);
+    // TRUE count of due/overdue follow-ups (same filter as the capped list above).
+    const { count: followUpsDueCount } = await supabase
+      .from('pyra_sales_follow_ups')
+      .select('id', { count: 'exact', head: true })
+      .eq('assigned_to', username)
+      .in('status', ['pending', 'overdue'])
+      .lte('due_at', followUpDueCutoff);
 
     const followUpLeadIds = Array.from(
       new Set((followUpsData || []).map((f) => f.lead_id).filter(Boolean))
@@ -332,9 +356,12 @@ export async function GET() {
       counts: {
         tasks_total: overdueTasks.length + todayTasks.length + thisWeekTasks.length,
         approvals_total: approvalsTotal,
-        conversations_unread: conversations.length,
-        leads_action: leads.length,
-        follow_ups_due: follow_ups.length,
+        // The list arrays above are capped at 10 for display; the badge counts
+        // come from head:true COUNT queries so they show the real total (?? falls
+        // back to the loaded length if a count query returned null).
+        conversations_unread: convUnreadCount ?? conversations.length,
+        leads_action: leadsActionCount ?? leads.length,
+        follow_ups_due: followUpsDueCount ?? follow_ups.length,
       },
     };
 

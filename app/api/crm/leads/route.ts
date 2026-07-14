@@ -54,28 +54,51 @@ export async function GET(request: NextRequest) {
     const sp = request.nextUrl.searchParams;
 
     const limitParam = parseInt(sp.get('limit') || '50', 10);
-    const limit = Math.min(Math.max(Number.isFinite(limitParam) ? limitParam : 50, 1), 200);
+    // Max 1000 (was 200): the pipeline board must materialize ALL in-flight lead
+    // cards to render + drag them, so it requests a high limit. The per-stage
+    // COUNT/value shown on each column comes from `stage_summary` below (a true
+    // aggregate over every matching row), so counts stay correct even if a future
+    // volume exceeds the card window. v1.1: per-column pagination for >1000 leads.
+    const limit = Math.min(Math.max(Number.isFinite(limitParam) ? limitParam : 50, 1), 1000);
     const offsetParam = parseInt(sp.get('offset') || '0', 10);
     const offset = Math.max(Number.isFinite(offsetParam) ? offsetParam : 0, 0);
 
-    let query = supabase
-      .from('pyra_sales_leads')
-      .select(LEAD_FIELDS, { count: 'exact' });
+    // ── Parse filter values ONCE, then apply the identical scope+filter chain to
+    //    BOTH the paginated list query AND the stage_summary aggregate below, so
+    //    the two can never drift. (Duplicated application — not a shared closure —
+    //    to keep each builder's concrete type and match the codebase's
+    //    `let q = ...; q = q.eq(...)` reassignment convention.) ──
+    const stageId = sp.get('stage_id')?.trim();
+    const priority = sp.get('priority')?.trim();
+    const leadType = sp.get('lead_type')?.trim();
+    const source = sp.get('source')?.trim();
+    const isConverted = sp.get('is_converted')?.trim();
+    const archivedParam = sp.get('archived')?.trim();
+    const includeArchived = sp.get('include_archived') === 'true';
+    const search = sp.get('search')?.trim();
+    const searchOr = search
+      ? (() => {
+          const safe = escapePostgrestValue(`%${escapeLike(search)}%`);
+          return `name.ilike.${safe},company.ilike.${safe},phone.ilike.${safe}`;
+        })()
+      : null;
 
-    // Scope: admin → unrestricted; sales_agent → own only.
+    // Resolve scope/owner ONCE into a plain descriptor. Admin → unrestricted;
+    // sales_agent → own only. Admin overrides (mutually exclusive):
+    //   ?assigned_to=<username>          → that owner's leads
+    //   ?assigned_status=inactive|active → leads whose owner is (in)active (the
+    //       offboarding cleanup surface — find leads stranded on departed agents).
+    // The assigned_status branch needs a users lookup, done here once for both
+    // queries.
     const scopeFilter = getLeadScopeFilter(auth.pyraUser.role, auth.pyraUser.username);
-    if (scopeFilter) {
-      query = query.eq(scopeFilter.column, scopeFilter.value);
-    } else {
-      // Admin overrides (mutually exclusive, checked in order):
-      //   ?assigned_to=<username>        → that owner's leads
-      //   ?assigned_status=inactive|active → leads whose owner is (in)active —
-      //       the offboarding cleanup surface: find leads stranded on departed
-      //       agents so they can be re-homed. Admin-only (this whole branch).
+    let ownerEq: string | null = null;
+    let ownerIn: string[] | null = null;
+    let forceEmpty = false; // no matching owners → empty result rather than "all"
+    if (!scopeFilter) {
       const ownerParam = sp.get('assigned_to')?.trim();
       const assignedStatus = sp.get('assigned_status')?.trim();
       if (ownerParam) {
-        query = query.eq('assigned_to', ownerParam);
+        ownerEq = ownerParam;
       } else if (assignedStatus === 'inactive' || assignedStatus === 'active') {
         const { data: users } = await supabase
           .from('pyra_users')
@@ -84,41 +107,29 @@ export async function GET(request: NextRequest) {
         const usernames = (users ?? [])
           .filter((u) => (wantActive ? u.status === 'active' : u.status !== 'active'))
           .map((u) => u.username);
-        // No matching owners → force an empty result rather than "all leads".
-        query = usernames.length
-          ? query.in('assigned_to', usernames)
-          : query.eq('id', '___none___');
+        if (usernames.length) ownerIn = usernames;
+        else forceEmpty = true;
       }
     }
 
-    const stageId = sp.get('stage_id')?.trim();
+    let query = supabase
+      .from('pyra_sales_leads')
+      .select(LEAD_FIELDS, { count: 'exact' });
+    if (scopeFilter) query = query.eq(scopeFilter.column, scopeFilter.value);
+    else if (ownerEq) query = query.eq('assigned_to', ownerEq);
+    else if (ownerIn) query = query.in('assigned_to', ownerIn);
+    else if (forceEmpty) query = query.eq('id', '___none___');
     if (stageId) query = query.eq('stage_id', stageId);
-
-    const priority = sp.get('priority')?.trim();
     if (priority) query = query.eq('priority', priority);
-
-    const leadType = sp.get('lead_type')?.trim();
     if (leadType) query = query.eq('lead_type', leadType);
-
-    const source = sp.get('source')?.trim();
     if (source) query = query.eq('source', source);
-
-    const isConverted = sp.get('is_converted')?.trim();
     if (isConverted === 'true') query = query.eq('is_converted', true);
     else if (isConverted === 'false') query = query.eq('is_converted', false);
-
-    // Archive: hide archived leads by default (so they drop out of the pipeline
-    // + lists). ?archived=only shows just the archived; ?include_archived=true
-    // shows both.
-    const archivedParam = sp.get('archived')?.trim();
+    // Archive: hide archived by default; ?archived=only shows just archived;
+    // ?include_archived=true shows both.
     if (archivedParam === 'only') query = query.not('archived_at', 'is', null);
-    else if (sp.get('include_archived') !== 'true') query = query.is('archived_at', null);
-
-    const search = sp.get('search')?.trim();
-    if (search) {
-      const safe = escapePostgrestValue(`%${escapeLike(search)}%`);
-      query = query.or(`name.ilike.${safe},company.ilike.${safe},phone.ilike.${safe}`);
-    }
+    else if (!includeArchived) query = query.is('archived_at', null);
+    if (searchOr) query = query.or(searchOr);
 
     const sort = sp.get('sort')?.trim() || 'last_contact_desc';
     if (sort === 'created_desc') query = query.order('created_at', { ascending: false });
@@ -137,21 +148,22 @@ export async function GET(request: NextRequest) {
     const leads = (data ?? []) as unknown as LeadRow[];
 
     // Enrich with activity_count + last_activity_type (one extra query batched).
-    // NOTE: this materializes all activity rows for the page's leads and counts
-    // in JS. Correct as long as PostgREST returns every row — verified 2026-07-02
-    // that this deployment sets NO db-max-rows cap (a Range: 0-99999 request
-    // returned all rows) and the whole table holds <1k activity rows, so a
-    // single page can never breach a cap. v1.1: move to a server-side grouped
-    // count + latest-per-lead if activity volume grows past a page's worth.
+    // Skippable via ?enrich=false — the pipeline board doesn't render these and
+    // loads a big page, so it opts out to avoid pulling thousands of activity
+    // rows. The activities fetch carries an explicit .range so a large page's
+    // activity set isn't silently capped at PostgREST's 1000-row default (which
+    // would under-count activity_count once the table grew — it now holds >2k).
+    const skipEnrich = sp.get('enrich') === 'false';
     let enriched: Array<LeadRow & { activity_count: number; last_activity_type: string | null }> =
       leads.map((l) => ({ ...l, activity_count: 0, last_activity_type: null }));
-    if (leads.length > 0) {
+    if (!skipEnrich && leads.length > 0) {
       const ids = leads.map((l) => l.id);
       const { data: acts } = await supabase
         .from('pyra_lead_activities')
         .select('lead_id, activity_type, created_at')
         .in('lead_id', ids)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(0, 99999);
 
       const counts = new Map<string, number>();
       const lastType = new Map<string, string>();
@@ -166,9 +178,49 @@ export async function GET(request: NextRequest) {
       }));
     }
 
+    // ── Stage summary (?stage_summary=true) ──
+    // The pipeline board's per-column count + value MUST reflect the TRUE number
+    // of leads in each stage — NOT just the loaded page. A page capped at `limit`
+    // would (and did) freeze a busy column's count at the window size (the
+    // "discovery-call stuck at 191" bug). This aggregate re-runs the SAME
+    // scope+filter chain as the list query above with only stage_id +
+    // expected_value projected and an explicit high .range, then groups in JS.
+    // NOTE: the scope/filter block below MUST mirror the list query's block.
+    let stage_summary: Record<string, { count: number; value: number }> | undefined;
+    if (sp.get('stage_summary') === 'true') {
+      let sumQ = supabase.from('pyra_sales_leads').select('stage_id, expected_value');
+      if (scopeFilter) sumQ = sumQ.eq(scopeFilter.column, scopeFilter.value);
+      else if (ownerEq) sumQ = sumQ.eq('assigned_to', ownerEq);
+      else if (ownerIn) sumQ = sumQ.in('assigned_to', ownerIn);
+      else if (forceEmpty) sumQ = sumQ.eq('id', '___none___');
+      if (stageId) sumQ = sumQ.eq('stage_id', stageId);
+      if (priority) sumQ = sumQ.eq('priority', priority);
+      if (leadType) sumQ = sumQ.eq('lead_type', leadType);
+      if (source) sumQ = sumQ.eq('source', source);
+      if (isConverted === 'true') sumQ = sumQ.eq('is_converted', true);
+      else if (isConverted === 'false') sumQ = sumQ.eq('is_converted', false);
+      if (archivedParam === 'only') sumQ = sumQ.not('archived_at', 'is', null);
+      else if (!includeArchived) sumQ = sumQ.is('archived_at', null);
+      if (searchOr) sumQ = sumQ.or(searchOr);
+
+      const { data: sumRows, error: sumErr } = await sumQ.range(0, 99999);
+      if (sumErr) {
+        console.error('GET /api/crm/leads stage_summary error:', sumErr.message);
+      } else {
+        const acc: Record<string, { count: number; value: number }> = {};
+        for (const r of (sumRows ?? []) as Array<{ stage_id: string | null; expected_value: number | null }>) {
+          const sid = r.stage_id || '__none__';
+          if (!acc[sid]) acc[sid] = { count: 0, value: 0 };
+          acc[sid].count += 1;
+          acc[sid].value += Number(r.expected_value) || 0;
+        }
+        stage_summary = acc;
+      }
+    }
+
     const total = count ?? enriched.length;
     return apiSuccess(
-      { leads: enriched, total, has_more: offset + enriched.length < total },
+      { leads: enriched, total, has_more: offset + enriched.length < total, stage_summary },
       { total, limit, offset },
     );
   } catch (err) {

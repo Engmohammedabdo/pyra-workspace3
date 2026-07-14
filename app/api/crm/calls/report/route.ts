@@ -57,7 +57,13 @@ export async function GET(request: NextRequest) {
       .gte('called_at', start)
       .lt('called_at', end);
     if (!seeAll) query = query.eq('agent_username', auth.pyraUser.username);
-    const { data: rows, error } = await query;
+    // Explicit .order + .range so the aggregation below sees EVERY call in the
+    // month. Without .range the implicit PostgREST 1000-row default truncated a
+    // busy team month; and with no ORDER BY, WHICH 1000 rows survived was
+    // nondeterministic, so the report shifted between reloads.
+    const { data: rows, error } = await query
+      .order('called_at', { ascending: true })
+      .range(0, 99999);
     if (error) throw error;
 
     const agg = computeCallsReport(rows ?? [], dubaiDayKey(new Date()));

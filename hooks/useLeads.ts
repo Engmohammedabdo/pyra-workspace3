@@ -18,10 +18,17 @@ export type Lead = PyraSalesLead & {
   last_activity_type?: string | null;
 };
 
+/** Per-stage aggregate (count + summed expected_value) over ALL leads matching
+ *  the active filters — NOT just the loaded page. Returned only when the request
+ *  passes `?stage_summary=true` (the pipeline board). Keyed by stage_id; leads
+ *  with a null stage_id bucket under '__none__'. */
+export type StageSummary = Record<string, { count: number; value: number }>;
+
 export interface LeadsListResponse {
   leads: Lead[];
   total: number;
   has_more: boolean;
+  stage_summary?: StageSummary;
 }
 
 export interface LeadDetail {

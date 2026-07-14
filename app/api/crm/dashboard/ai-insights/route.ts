@@ -87,14 +87,21 @@ export async function GET() {
       .in('stage_id', PIPELINE_ACTIVE_STAGES as readonly string[])
       .not('is_converted', 'is', true);
     const idleQ = scope ? idleScopeQ.eq(scope.column, scope.value) : idleScopeQ;
-    const { data: candidateLeads } = await idleQ;
+    // Explicit .range so idleCount/idleValue below see every active lead — the
+    // implicit PostgREST 1000-row default would under-count the idle-deals insight
+    // (and could push it below the >=3 threshold so it vanishes) once the active
+    // pipeline exceeds 1000 leads.
+    const { data: candidateLeads } = await idleQ.range(0, 99999);
     if (candidateLeads && candidateLeads.length > 0) {
       const candidateIds = candidateLeads.map((l) => l.id);
       const { data: recentActs } = await supabase
         .from('pyra_lead_activities')
         .select('lead_id, created_at')
         .in('lead_id', candidateIds)
-        .gte('created_at', sevenDaysAgo);
+        .gte('created_at', sevenDaysAgo)
+        // Explicit .range so the "has recent activity" set is complete — a
+        // truncated fetch would wrongly mark active leads as idle.
+        .range(0, 99999);
       const haveRecent = new Set((recentActs ?? []).map((a) => a.lead_id));
       // Idle = no recent activity AND last_contact_at older than 7d (or null).
       // Including last_contact_at aligns this with deals-at-risk (which uses the

@@ -49,7 +49,10 @@ export async function GET(request: NextRequest) {
     const scopedLeadIdsPromise = (async () => {
       let q = supabase.from('pyra_sales_leads').select('id, client_id, stage_id, expected_value, expected_value_currency, win_probability, is_converted, converted_at').is('archived_at', null);
       if (scope) q = q.eq(scope.column, scope.value);
-      const { data } = await q;
+      // Explicit .range so every scoped lead feeds the KPI reduces below — the
+      // implicit PostgREST 1000-row default would silently truncate every money
+      // KPI (pipeline value, conversion, MRR, forecast…) once leads exceed 1000.
+      const { data } = await q.range(0, 99999);
       return data ?? [];
     })();
 

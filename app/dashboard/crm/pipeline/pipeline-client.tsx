@@ -132,9 +132,14 @@ export function PipelineClient() {
   // Build filter object from URL (the same params the filter bar writes).
   const filters = useMemo<Record<string, string | undefined>>(() => {
     const params: Record<string, string | undefined> = {
-      // Pipeline view shows all in-flight leads — load up to 500 to fit
-      // realistic CRM volumes. Cursor pagination can be added if needed.
-      limit: '500',
+      // Pipeline view shows all in-flight leads — load a high limit so every
+      // card materializes (needed to render + drag them). The per-column COUNT
+      // and value come from `stage_summary` (a true aggregate over every matching
+      // row), so the header numbers stay correct even if volume ever exceeds the
+      // card window. `enrich=false` skips activity_count (the cards don't use it).
+      limit: '1000',
+      stage_summary: 'true',
+      enrich: 'false',
     };
     const search = sp.get('search');
     const owner = sp.get('assigned_to');
@@ -155,6 +160,7 @@ export function PipelineClient() {
 
   const leads = leadsResp?.leads;
   const total = leadsResp?.total;
+  const stageSummary = leadsResp?.stage_summary;
   const isAdmin = me?.role === 'admin';
 
   // Owner options for the admin filter — sourced from ALL sales-capable users
@@ -329,6 +335,7 @@ export function PipelineClient() {
       <PipelineBoard
         stages={stages}
         leads={leads}
+        stageSummary={stageSummary}
         loading={stagesLoading || leadsLoading}
         onDropChangeStage={handleDropChangeStage}
         selectionMode={selectionMode}

@@ -37,6 +37,8 @@ export async function GET(request: NextRequest) {
 
     const limitParam = parseInt(sp.get('limit') || '100', 10);
     const limit = Math.min(Math.max(Number.isFinite(limitParam) ? limitParam : 100, 1), 500);
+    const offsetParam = parseInt(sp.get('offset') || '0', 10);
+    const offset = Math.max(Number.isFinite(offsetParam) ? offsetParam : 0, 0);
     const status = sp.get('status')?.trim() || 'pending';
     const leadId = sp.get('lead_id')?.trim();
     const dueBefore = sp.get('due_before')?.trim();
@@ -45,8 +47,7 @@ export async function GET(request: NextRequest) {
     let q = supabase
       .from('pyra_sales_follow_ups')
       .select('id, lead_id, assigned_to, due_at, reminder_at, whatsapp_reminder_sent, send_whatsapp_reminder, title, notes, status, completed_at, created_by, created_at, quote_id', { count: 'exact' })
-      .order('due_at', { ascending: true })
-      .limit(limit);
+      .order('due_at', { ascending: true });
 
     if (auth.pyraUser.role !== 'admin') {
       q = q.eq('assigned_to', auth.pyraUser.username);
@@ -61,6 +62,11 @@ export async function GET(request: NextRequest) {
     if (leadId) q = q.eq('lead_id', leadId);
     if (dueBefore) q = q.lt('due_at', dueBefore);
     if (dueAfter) q = q.gte('due_at', dueAfter);
+
+    // Paginate via range (was a bare .limit(limit) with no offset, so rows past
+    // the first page were unreachable — the `total` below reported more rows than
+    // could ever be fetched). `offset` makes the overflow pageable.
+    q = q.range(offset, offset + limit - 1);
 
     const { data, count, error } = await q;
     if (error) {
@@ -94,7 +100,11 @@ export async function GET(request: NextRequest) {
       assigned_display_name: r.assigned_to ? userMap.get(r.assigned_to) ?? r.assigned_to : null,
     }));
 
-    return apiSuccess({ follow_ups: enriched, total: count ?? enriched.length });
+    const total = count ?? enriched.length;
+    return apiSuccess(
+      { follow_ups: enriched, total, has_more: offset + enriched.length < total },
+      { total, limit, offset },
+    );
   } catch (err) {
     console.error('GET /api/crm/follow-ups threw:', err);
     return apiServerError();

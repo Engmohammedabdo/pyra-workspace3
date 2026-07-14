@@ -41,7 +41,13 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('pyra_sales_leads')
-      .select('assigned_to, stage_id, expected_value, is_converted');
+      .select('assigned_to, stage_id, expected_value, is_converted')
+      // Exclude archived (soft-deleted) leads — matches kpis/funnel. Explicit
+      // .range so every agent's leads feed the per-agent buckets below (the
+      // implicit PostgREST 1000-row default would silently under-count once the
+      // table exceeds 1000 rows, dropping leads or whole agents from the report).
+      .is('archived_at', null)
+      .range(0, 99999);
     if (error) {
       console.error('GET /api/crm/dashboard/team-performance error:', error.message);
       return apiServerError();
@@ -99,7 +105,10 @@ export async function GET() {
       .from('pyra_agent_calls')
       .select('agent_username')
       .gte('called_at', callsStart)
-      .lt('called_at', callsEnd);
+      .lt('called_at', callsEnd)
+      // Explicit .range so per-agent calls_month counts EVERY call this month (the
+      // implicit 1000-row default would under-count in a busy call-center month).
+      .range(0, 99999);
     if (callsError) {
       console.error('GET /api/crm/dashboard/team-performance calls error:', callsError.message);
       return apiServerError();
