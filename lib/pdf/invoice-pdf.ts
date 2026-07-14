@@ -165,9 +165,13 @@ function drawStatusStamp(doc: jsPDF, status: string) {
   const angleDeg = 15;            // counter-clockwise tilt
   const rad = (angleDeg * Math.PI) / 180;
   const cos = Math.cos(rad), sin = Math.sin(rad);
-  const isLong = cfg.label.length > 8;
-  const hw = isLong ? 34 : 24;    // box half-width
-  const hh = 9;                   // box half-height
+
+  // Pick the font size first, then size the box to the MEASURED text width so
+  // no label (e.g. OVERDUE) can ever overflow its border.
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(cfg.label.length > 8 ? 15 : 22);
+  const hw = doc.getTextWidth(cfg.label) / 2 + 6; // half-width = text/2 + padding
+  const hh = 9;                                   // box half-height
 
   // Map a center-relative point to page coords with a CCW visual tilt (y-down space).
   const rot = (dx: number, dy: number): [number, number] => [cx + dx * cos + dy * sin, cy - dx * sin + dy * cos];
@@ -184,8 +188,6 @@ function drawStatusStamp(doc: jsPDF, status: string) {
   doc.setLineWidth(0.4);
   drawRotatedRect(doc, rot, hw - 1.6, hh - 1.6); // inner border (double-line look)
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(isLong ? 15 : 22);
   doc.setTextColor(r, g, b);
   doc.text(cfg.label, cx, cy, { align: 'center', baseline: 'middle', angle: angleDeg });
 
