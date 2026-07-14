@@ -258,6 +258,7 @@ export default function InvoiceDetailPage() {
       <InvoiceHeader
         invoiceNumber={invoice.invoice_number}
         status={{ label: statusLabelFor(invoice.status) || invoice.status, color: '' }}
+        statusKey={invoice.status}
         issueDate={invoice.issue_date}
         dueDate={invoice.due_date}
         isDraft={invoice.status === 'draft'}

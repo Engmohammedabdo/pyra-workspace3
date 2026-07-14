@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { InvoiceHeader, InvoiceInfo } from '@/components/portal/invoice-detail/invoice-header';
 import { InvoiceTable, InvoiceTotals } from '@/components/portal/invoice-detail/invoice-table';
 import { InvoicePayments } from '@/components/portal/invoice-detail/invoice-payments';
+import { InvoiceStamp } from '@/components/ui/invoice-stamp';
 import { INVOICE_STATUS_LABELS } from '@/lib/constants/statuses';
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
@@ -114,7 +115,13 @@ export default function PortalInvoiceDetailPage() {
         </div>
       </div>
 
-      <Card className="max-w-[800px] mx-auto">
+      <Card className="relative max-w-[800px] mx-auto">
+        <InvoiceStamp
+          status={invoice.status}
+          title={s.label}
+          size="md"
+          className="absolute start-4 top-4 z-10 opacity-90 shadow-sm pointer-events-none"
+        />
         <InvoiceHeader invoice={invoice} s={s} />
         <CardContent className="p-6 space-y-6">
           <InvoiceInfo invoice={invoice} s={s} />

@@ -4,6 +4,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { InvoiceStamp } from '@/components/ui/invoice-stamp';
 import { formatDate } from '@/lib/utils/format';
 import { ArrowRight, Pencil, Send, Download, Trash2, CreditCard, Link2, Loader2 } from 'lucide-react';
 import Link from 'next/link';
@@ -12,6 +13,8 @@ import type { Locale } from '@/lib/i18n/config';
 interface InvoiceHeaderProps {
   invoiceNumber: string;
   status: { label: string; color: string };
+  /** Raw invoice status key — drives the status stamp. */
+  statusKey?: string;
   milestoneType?: string | null;
   issueDate: string;
   dueDate: string;
@@ -32,6 +35,7 @@ interface InvoiceHeaderProps {
 export function InvoiceHeader({
   invoiceNumber,
   status,
+  statusKey,
   milestoneType,
   issueDate,
   dueDate,
@@ -69,7 +73,11 @@ export function InvoiceHeader({
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold font-mono">{invoiceNumber}</h1>
-            <Badge variant="outline" className={status.color}>{status.label}</Badge>
+            {statusKey ? (
+              <InvoiceStamp status={statusKey} size="sm" title={status.label} />
+            ) : (
+              <Badge variant="outline" className={status.color}>{status.label}</Badge>
+            )}
             {milestoneLabel && (
               <Badge variant="secondary">{milestoneLabel}</Badge>
             )}

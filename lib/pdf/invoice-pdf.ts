@@ -90,6 +90,9 @@ const C = {
   white: [255, 255, 255] as [number, number, number],
   green: [22, 163, 74] as [number, number, number],
   red: [220, 38, 38] as [number, number, number],
+  darkRed: [185, 28, 28] as [number, number, number],
+  amber: [217, 119, 6] as [number, number, number],
+  slate: [100, 116, 139] as [number, number, number],
 };
 const PW = 210;          // A4 width
 const PH = 297;          // A4 height
@@ -123,6 +126,71 @@ const STATUS_LABELS: Record<string, string> = {
   draft: 'Draft', sent: 'Sent', paid: 'Paid',
   partially_paid: 'Partially Paid', overdue: 'Overdue', cancelled: 'Cancelled',
 };
+
+/* ── Status stamp (rubber-stamp seal) — mirrors components/ui/invoice-stamp.tsx ── */
+const STAMP_CFG: Record<string, { label: string; color: [number, number, number] }> = {
+  paid: { label: 'PAID', color: C.green },
+  partially_paid: { label: 'PARTIALLY PAID', color: C.amber },
+  sent: { label: 'UNPAID', color: C.red },
+  overdue: { label: 'OVERDUE', color: C.darkRed },
+  draft: { label: 'DRAFT', color: C.slate },
+  cancelled: { label: 'CANCELLED', color: C.slate },
+};
+
+/** Draw a rotated rectangle border from a center-relative rotation fn. */
+function drawRotatedRect(
+  doc: jsPDF,
+  rot: (dx: number, dy: number) => [number, number],
+  hw: number,
+  hh: number,
+) {
+  const p1 = rot(-hw, -hh), p2 = rot(hw, -hh), p3 = rot(hw, hh), p4 = rot(-hw, hh);
+  doc.line(p1[0], p1[1], p2[0], p2[1]);
+  doc.line(p2[0], p2[1], p3[0], p3[1]);
+  doc.line(p3[0], p3[1], p4[0], p4[1]);
+  doc.line(p4[0], p4[1], p1[0], p1[1]);
+}
+
+/**
+ * Draw a tilted, semi-transparent status stamp on the current page.
+ * Red UNPAID before payment, green PAID once fully settled, etc.
+ */
+function drawStatusStamp(doc: jsPDF, status: string) {
+  const cfg = STAMP_CFG[status];
+  if (!cfg) return;
+
+  const [r, g, b] = cfg.color;
+  const cx = 135;                 // center X (right-of-center over the invoice body)
+  const cy = 92;                  // center Y
+  const angleDeg = 15;            // counter-clockwise tilt
+  const rad = (angleDeg * Math.PI) / 180;
+  const cos = Math.cos(rad), sin = Math.sin(rad);
+  const isLong = cfg.label.length > 8;
+  const hw = isLong ? 34 : 24;    // box half-width
+  const hh = 9;                   // box half-height
+
+  // Map a center-relative point to page coords with a CCW visual tilt (y-down space).
+  const rot = (dx: number, dy: number): [number, number] => [cx + dx * cos + dy * sin, cy - dx * sin + dy * cos];
+
+  // Semi-transparent so underlying content stays readable (graceful if GState missing).
+  const GS = (doc as unknown as { GState?: new (o: Record<string, number>) => unknown }).GState;
+  const setGState = (doc as unknown as { setGState?: (s: unknown) => void }).setGState;
+  const hasGS = typeof GS === 'function' && typeof setGState === 'function';
+  if (hasGS) setGState!(new GS!({ opacity: 0.62, 'stroke-opacity': 0.62 }));
+
+  doc.setDrawColor(r, g, b);
+  doc.setLineWidth(1.1);
+  drawRotatedRect(doc, rot, hw, hh);          // outer border
+  doc.setLineWidth(0.4);
+  drawRotatedRect(doc, rot, hw - 1.6, hh - 1.6); // inner border (double-line look)
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(isLong ? 15 : 22);
+  doc.setTextColor(r, g, b);
+  doc.text(cfg.label, cx, cy, { align: 'center', baseline: 'middle', angle: angleDeg });
+
+  if (hasGS) setGState!(new GS!({ opacity: 1, 'stroke-opacity': 1 }));
+}
 
 const METHOD_LABELS: Record<string, string> = {
   bank_transfer: 'Bank Transfer', cash: 'Cash', cheque: 'Cheque',
@@ -755,6 +823,10 @@ export async function generateInvoicePDF(
     doc.setTextColor(...C.orange);
     doc.text(FOOTER.web, M + 7, fy + 10);
   }
+
+  // ── Status stamp — always on page 1, painted on top of the body ──
+  doc.setPage(1);
+  drawStatusStamp(doc, invoice.status);
 
   // Save or return blob
   if (options?.returnBlob) {
