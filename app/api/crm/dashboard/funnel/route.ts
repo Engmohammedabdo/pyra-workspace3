@@ -2,7 +2,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { getLeadScopeFilter } from '@/lib/auth/lead-scope';
-import { PIPELINE_STAGE_ORDER, PIPELINE_STAGE_LABELS_AR } from '@/lib/constants/statuses';
+import { isCrmPipelineStageId } from '@/lib/crm/pipeline-stages';
 
 /**
  * GET /api/crm/dashboard/funnel
@@ -10,7 +10,12 @@ import { PIPELINE_STAGE_ORDER, PIPELINE_STAGE_LABELS_AR } from '@/lib/constants/
  * Permission: crm_reports.view
  * Scope: per user (admin sees all; sales agent sees own).
  *
- * Returns one row per stg_* stage with count + total_value (sum expected_value).
+ * Returns one row per ACTIVE CRM stage (canonical stg_* AND custom ps_* created
+ * from settings), in the admin's configured sort_order, with count + total_value
+ * (sum expected_value). Previously the funnel bucketed against a HARDCODED stage
+ * list (PIPELINE_STAGE_ORDER), so custom stages — and any leads sitting in them —
+ * were silently dropped from the viz. It now mirrors the pipeline board's stage
+ * source so a newly-added stage shows up here too.
  */
 export async function GET() {
   try {
@@ -19,6 +24,19 @@ export async function GET() {
 
     const supabase = createServiceRoleClient();
     const scope = getLeadScopeFilter(auth.pyraUser.role, auth.pyraUser.username);
+
+    // Actual CRM stages (same source + filter as /api/crm/pipeline-stages), in
+    // the admin-configured order. Custom ps_* stages land wherever their
+    // sort_order puts them (new ones default to 99 → the end).
+    const { data: stageRows, error: stageErr } = await supabase
+      .from('pyra_sales_pipeline_stages')
+      .select('id, name, name_ar, color, sort_order')
+      .order('sort_order', { ascending: true });
+    if (stageErr) {
+      console.error('GET /api/crm/dashboard/funnel stages error:', stageErr.message);
+      return apiServerError();
+    }
+    const stageDefs = (stageRows ?? []).filter((s) => isCrmPipelineStageId(s.id));
 
     let q = supabase
       .from('pyra_sales_leads')
@@ -37,7 +55,7 @@ export async function GET() {
     }
 
     const buckets = new Map<string, { count: number; total_value: number }>();
-    for (const stg of PIPELINE_STAGE_ORDER) buckets.set(stg, { count: 0, total_value: 0 });
+    for (const s of stageDefs) buckets.set(s.id, { count: 0, total_value: 0 });
 
     // Dominant currency (by summed expected_value) to label total_value honestly
     // instead of a hardcoded 'AED' in the UI.
@@ -54,11 +72,15 @@ export async function GET() {
     }
     const currency = Object.entries(currencyTotals).sort((a, b) => b[1] - a[1])[0]?.[0] || 'AED';
 
-    const stages = PIPELINE_STAGE_ORDER.map((id) => ({
-      stage_id: id,
-      label_ar: PIPELINE_STAGE_LABELS_AR[id],
-      count: buckets.get(id)!.count,
-      total_value: buckets.get(id)!.total_value,
+    const stages = stageDefs.map((s) => ({
+      stage_id: s.id,
+      name: s.name as string,
+      name_ar: s.name_ar as string,
+      color: (s.color as string) || 'gray',
+      // Back-compat: keep label_ar (older cached clients read it).
+      label_ar: s.name_ar as string,
+      count: buckets.get(s.id)!.count,
+      total_value: buckets.get(s.id)!.total_value,
     }));
 
     return apiSuccess({ stages, currency });

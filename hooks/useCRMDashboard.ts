@@ -2,7 +2,6 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { fetchAPI } from './api-helpers';
-import type { PipelineStageId } from '@/lib/constants/statuses';
 
 // ── Types ──
 
@@ -21,8 +20,16 @@ export interface CRMKPIs {
 }
 
 export interface CRMFunnelStage {
-  stage_id: PipelineStageId;
-  /** @deprecated legacy server field — no client reads; stage labels resolve client-side via useStatusLabels('pipelineStage') */
+  /** Any active CRM stage id — canonical `stg_*` OR custom `ps_*` (widened from
+   *  PipelineStageId so custom stages created in settings show in the funnel). */
+  stage_id: string;
+  /** Stage names straight from the DB row (bilingual) — the client renders
+   *  `name_ar`/`name` by locale (custom stages have no static i18n label). */
+  name: string;
+  name_ar: string;
+  /** DB color token (violet/sky/…/purple/brown) → mapped to a bar color. */
+  color: string;
+  /** Back-compat alias of name_ar for older cached responses. */
   label_ar?: string;
   count: number;
   total_value: number;

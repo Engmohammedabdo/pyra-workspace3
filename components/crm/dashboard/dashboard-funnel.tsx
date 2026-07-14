@@ -21,7 +21,7 @@
  */
 
 import Link from 'next/link';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { useCRMFunnel } from '@/hooks/useCRMDashboard';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,23 +29,22 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { GitBranch } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
-import { useStatusLabels } from '@/lib/i18n/status-labels';
-import type { PipelineStageId } from '@/lib/constants/statuses';
 
-const STAGE_BAR_COLOR: Record<PipelineStageId, string> = {
-  stg_reshuffle:       'bg-violet-500',
-  stg_new_inquiry:     'bg-sky-500',
-  stg_discovery_call:  'bg-indigo-500',
-  stg_proposal_sent:   'bg-amber-500',
-  stg_negotiation:     'bg-orange-500',
-  stg_contract_signed: 'bg-yellow-500',
-  stg_closed_won:      'bg-emerald-500',
-  stg_closed_lost:     'bg-stone-500',
+// Map the stage's DB color token → a bar color. Covers BOTH the canonical
+// palette (violet/sky/…/gold/stone) AND the settings custom palette
+// (blue/yellow/purple/green/red/gray/pink/brown). Unknown → orange fallback.
+const COLOR_BAR: Record<string, string> = {
+  violet: 'bg-violet-500', sky: 'bg-sky-500', indigo: 'bg-indigo-500',
+  amber: 'bg-amber-500', orange: 'bg-orange-500', emerald: 'bg-emerald-500',
+  gold: 'bg-yellow-500', stone: 'bg-stone-500',
+  blue: 'bg-blue-500', yellow: 'bg-yellow-500', purple: 'bg-purple-500',
+  green: 'bg-green-500', red: 'bg-red-500', gray: 'bg-gray-500',
+  pink: 'bg-pink-500', brown: 'bg-amber-700',
 };
 
 export function DashboardFunnel() {
   const t = useTranslations('crm.dashboard.funnel');
-  const stageLabel = useStatusLabels('pipelineStage');
+  const locale = useLocale();
   const { data, isLoading } = useCRMFunnel();
 
   if (isLoading) {
@@ -100,9 +99,9 @@ export function DashboardFunnel() {
       <ul className="space-y-3">
         {stages.map((stage) => {
           const widthPct = stage.count > 0 ? Math.max((stage.count / maxCount) * 100, 8) : 4;
-          const barColor = STAGE_BAR_COLOR[stage.stage_id as PipelineStageId] ?? 'bg-orange-500';
+          const barColor = COLOR_BAR[stage.color] ?? 'bg-orange-500';
           const isEmpty = stage.count === 0;
-          const label = stageLabel(stage.stage_id);
+          const label = locale === 'ar' ? stage.name_ar : (stage.name || stage.name_ar);
           return (
             <li key={stage.stage_id}>
               <Link
