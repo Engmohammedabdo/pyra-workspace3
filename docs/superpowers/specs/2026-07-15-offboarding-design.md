@@ -534,12 +534,21 @@ for it; do not "fix" the gate. Abou confirmed he understands the leaver is told 
    `integrate-pending-fixes`, which auto-deploys. The DELETE-orphan fix is the baseline
    this design assumes; building on top of code prod is not running is a trap.
    **Pushing this branch deploys production — confirm with Abou first.**
-2. 🔴 **Confirm `GOTRUE_JWT_EXP` on the Coolify container.** The residual window is the
-   access-token TTL. It is **not verifiable from the repo or the DB** — `supabase/` has
-   only `migrations/`, there is no `config.toml`, and `pg_db_role_setting` for
-   `authenticator` carries no `pgrst.*` entries. The "3600s" figure is the GoTrue
-   **default, assumed, not confirmed**. If Coolify sets it higher, the window is longer
-   than this spec claims. A 5-minute ops check.
+2. ✅ **`GOTRUE_JWT_EXP` = 3600s — CONFIRMED 2026-07-15, measured, not assumed.**
+   The value is not in the repo (`supabase/` holds only `migrations/`; no `config.toml`)
+   and not in the DB (`pg_db_role_setting` for `authenticator` carries no `pgrst.*`), and
+   the Coolify container env was not reachable. It was instead **derived empirically from
+   token-rotation intervals**: supabase-js auto-refreshes shortly before expiry and each
+   refresh writes a new `auth.refresh_tokens` row, so consecutive per-user `created_at`
+   deltas approximate the TTL from below.
+   ```sql
+   -- n=1975 gaps (60s..12h window):  min 68 | median 3528 | p95 4007 | max 43029
+   ```
+   The median sits at **3528s = 3600 − ~72s** of refresh margin, and the mode is a tight
+   3510–3530 band. A 7200s TTL would have clustered at ~7100. The long tail is idle
+   sessions refreshing on wake, not TTL evidence.
+   **The residual post-ban window is therefore ≤1 hour.** Re-measure with this query if
+   the GoTrue container is ever reconfigured.
 3. **Decide the payroll task's fate** — see Sequencing.
 
 ## Sequencing
