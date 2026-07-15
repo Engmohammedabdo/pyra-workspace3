@@ -54,11 +54,19 @@ const EVIDENCE_TABLES: ReadonlyArray<{ table: string; column: string }> = [
  * own inbox) and NOT on `source_username` — rows they merely triggered live in
  * OTHER users' inboxes and must survive. `source_display_name` is denormalised
  * so those stay readable, and no FK on `source_username` can dangle.
+ *
+ * The same rule is why `pyra_evaluations.evaluator_username` is deliberately
+ * ABSENT here: an evaluation the departing user WROTE is the EVALUATED
+ * employee's performance record — a third party's HR evidence, not the
+ * leaver's ephemera. Deleting a manager must never destroy their reports'
+ * reviews. The row survives with an orphan `evaluator_username`, which this
+ * schema tolerates by design (no FK on username columns; orphans already exist
+ * in prod). `pyra_evaluations.employee_username` is in EVIDENCE_TABLES above —
+ * that is the leaver's own record, and it blocks the delete outright.
  */
 const CLEANUP_TABLES: ReadonlyArray<{ table: string; column: string }> = [
   { table: 'pyra_leave_balances_v2', column: 'username' },
   { table: 'pyra_timesheet_periods', column: 'username' },
-  { table: 'pyra_evaluations', column: 'evaluator_username' },
   { table: 'pyra_kpi_targets', column: 'username' },
   { table: 'pyra_task_assignees', column: 'username' },
   { table: 'pyra_task_comments', column: 'author_username' },

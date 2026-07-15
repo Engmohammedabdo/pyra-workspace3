@@ -101,7 +101,10 @@ direct argument for a permanent `pyra_offboarding` record.
   grep for `last_working_day|termination_date|exit_reason|rehire_eligible|offboarding_id|
   pyra_offboarding` → **zero hits** in any `.ts`/`.tsx`/`.sql`/doc. `pyra_users` has
   only `deactivated_at`.
-- **Migration numbering: next is `038`.** Highest file + recorded = `037_call_tracking`.
+- **Migration numbering: offboarding takes `039`.** `037_call_tracking` was the highest
+  when this spec was drafted; **`038_function_execute_acl` was applied + recorded on
+  2026-07-15** (the function-ACL lockdown — see Deferred, below: it shipped immediately
+  rather than waiting, because it was a live hole).
   ⚠️ **`036_push_subscriptions.sql` exists on disk but was NEVER applied**
   (`pyra_push_subscriptions` does not exist; not in `pyra_schema_migrations`). It is a
   live hole in the ledger that `db:check-drift` does not fail on. Do not adopt it; flag
@@ -188,7 +191,7 @@ with a `user_banned` error nobody could explain. `reactivateEmployeeUser` should
 Reports counts + a `notifyMany` to active admins when it had to correct anything —
 a correction means a write path bypassed the helper, which is a defect worth surfacing.
 
-### 3. `pyra_offboarding` — migration 038
+### 3. `pyra_offboarding` — migration 039
 
 Mirrors `pyra_onboarding` (024) exactly: `varchar(24)` ids, unbounded-`varchar` username
 columns, **no FK on usernames** (workspace doctrine — orphan usernames exist in prod),
@@ -544,18 +547,18 @@ for it; do not "fix" the gate. Abou confirmed he understands the leaver is told 
 1. **Baseline on `32e1fc1`.** The notify gate (`3a46ab0`) and the DELETE fix (`32e1fc1`)
    are shipped code, not in-flight work. Design against the code as it reads now — both
    task titles describe bugs that no longer exist.
-2. **Offboarding claims `last_working_day` and migration `038`.**
+2. **Offboarding claims `last_working_day` and migration `039`.**
 3. **The payroll departure-proration task is downstream, not parallel — and may be the
    wrong tool.** It solves *payroll-run* pro-ration; this settlement rides the
    *employee-payments* rail. They collide in code (`hireProrationFactor`,
    `calculatePayrollItem`, the calculate route's employee select, the same new column) but
    **do not overlap in purpose**. Running it first would mean inventing `last_working_day`,
-   guessing its semantics, and having no writer for it. **Recommend deferring it until 038
+   guessing its semantics, and having no writer for it. **Recommend deferring it until 039
    lands, then re-scoping it** — with a real column to read, it may reduce to nothing.
 
 ## Rollout order
 
-1. Migration 038 + `types/database.ts` + `lib/constants/offboarding.ts`.
+1. Migration 039 + `types/database.ts` + `lib/constants/offboarding.ts`.
 2. `lib/hr/lock-account.ts` + unit tests.
 3. `lib/hr/final-settlement.ts` + unit tests (pure — TDD).
 4. The PATCH hook (transition-gated) + `reactivateEmployeeUser` unlock + the two
@@ -585,21 +588,34 @@ for it; do not "fix" the gate. Abou confirmed he understands the leaver is told 
 - **Gap #3 Phase 2** — the ≤1h token window, and the 27 session-client `pyra_users`
   readers. The offboarding lock shuts the door on every *future* leaver; this closes the
   window where an already-issued token can still walk through it.
-- 🔴 **`increment_share_access` is SECURITY DEFINER, superuser-owned, and EXECUTE-able by
-  `anon`** — i.e. by the public key in the client bundle. Gap #3 Phase 0 revoked default
-  privileges for *tables and sequences* from `anon`, **not functions**. A live,
-  pre-existing hole of exactly the shape this design refused to add. **This is why the
-  SECURITY DEFINER session-revoke was rejected**: shipping `revoke_user_sessions(uuid)`
-  under the same default ACL would hand any anonymous caller an auth-nuke primitive —
-  strictly worse than the ≤1h window it closes. The function-ACL sweep belongs to the
-  Gap #3 project.
+- ✅ **`increment_share_access` — FIXED 2026-07-15, migration `038_function_execute_acl`.**
+  It was SECURITY DEFINER, superuser-owned, unpinned `search_path`, and EXECUTE-able by
+  `anon` (i.e. by the public key in the client bundle) — because Gap #3 Phase 0 revoked
+  default privileges for *tables and sequences* from `anon`, **not functions**. A live,
+  pre-existing hole of exactly the shape this design refused to add: shipping
+  `revoke_user_sessions(uuid)` under the same default ACL would have handed any anonymous
+  caller an auth-nuke primitive, strictly worse than the ≤1h window it closes.
+  Fixed: `search_path` pinned + schema-qualified; EXECUTE revoked from PUBLIC/anon/
+  authenticated and granted to `service_role` only (its sole caller,
+  `app/api/shares/download/[token]/route.ts:105`, uses the service-role client);
+  `check_path_access` narrowed to authenticated + service_role; and — the systemic half —
+  `ALTER DEFAULT PRIVILEGES ... REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon` for **both**
+  grantor roles (`supabase_admin`, which runs migrations, and `postgres`, which the
+  Supabase Studio SQL editor runs as; `pg_default_acl` carries a row per grantor, and
+  fixing only one leaves the other minting exposed functions).
 - **Migration 036 was never applied** — `pyra_push_subscriptions` does not exist;
   `db:check-drift` does not fail on order gaps (Phase 14.2 §13, advisory only).
-- 🔴 **`pyra_evaluations.evaluator_username` is in `CLEANUP_TABLES`** — hard-deleting a
-  user destroys the **evaluated employee's** performance record, a third party's HR
-  evidence, as "ephemera". Same shape: `pyra_kpi_targets.username`,
-  `pyra_leave_balances_v2.username`, `pyra_timesheet_periods.username`. 0 rows today;
-  guaranteed to bite the first time a manager with completed reviews is deleted.
+- ✅ **`pyra_evaluations.evaluator_username` — FIXED 2026-07-15.** It was in
+  `CLEANUP_TABLES`, so hard-deleting a manager destroyed the **evaluated employees'**
+  performance records — a third party's HR evidence, filed as "ephemera", 15 lines below
+  `pyra_evaluations.employee_username` in `EVIDENCE_TABLES`. Removed from the cleanup
+  list; the row now survives with an orphan `evaluator_username`, which this schema
+  tolerates by design (no FK on username columns; orphans already exist in prod).
+  ⚠️ **Still open, same shape, not yet judged:** `pyra_kpi_targets.username`,
+  `pyra_leave_balances_v2.username`, `pyra_timesheet_periods.username` are all in
+  `CLEANUP_TABLES`. Unlike the evaluator case these are the *leaver's own* records, so
+  deleting them is defensible — but leave balances may represent an unpaid liability.
+  Worth a deliberate ruling rather than inheritance.
 - **`pyra_lead_transfers` is a 0-row dead table** — the dedicated handover-audit table has
   never been written to, despite a bulk-reassign endpoint existing. Do not build the review
   list on it without first verifying a writer.
