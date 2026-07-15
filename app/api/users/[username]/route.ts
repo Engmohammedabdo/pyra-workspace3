@@ -15,6 +15,59 @@ import { validateExtraPermissions, type ApiTranslator } from '@/lib/auth/rbac';
 import { EMPLOYMENT_TYPES, WORK_LOCATIONS, PAYMENT_TYPES, SALARY_CURRENCIES } from '@/lib/constants/auth';
 import { getDirectReports } from '@/lib/auth/team-scope';
 import { notifyMany } from '@/lib/notifications/notify';
+import { logError } from '@/lib/observability/log-error';
+
+/**
+ * Tables whose rows are EVIDENCE — HR/finance records with legal or financial
+ * weight. A single row in ANY of them blocks hard-delete: the admin must
+ * deactivate instead (the "deactivate, never delete" lock).
+ *
+ * The pre-2026-07-15 guard only covered payroll_items / employee_payments /
+ * employee_documents / onboarding, which a short-tenure employee has all-zero.
+ * Such a user was therefore hard-deletable, and the cleanup loop below then
+ * destroyed their `pyra_attendance` rows — the evidence base the attendance-
+ * deduction policy relies on to justify a deduction. `pyra_salary_history` was
+ * in neither the guard nor the cleanup list, so it orphaned either way
+ * (migration 023 had to remove exactly such an orphan for user `abeer`).
+ *
+ * A never-used account (zero rows everywhere) stays deletable, so cleaning up a
+ * mistyped username still works.
+ */
+const EVIDENCE_TABLES: ReadonlyArray<{ table: string; column: string }> = [
+  { table: 'pyra_payroll_items', column: 'username' },
+  { table: 'pyra_employee_payments', column: 'username' },
+  { table: 'pyra_employee_documents', column: 'employee_username' },
+  { table: 'pyra_onboarding', column: 'employee_username' },
+  { table: 'pyra_attendance', column: 'username' },
+  { table: 'pyra_salary_history', column: 'username' },
+  { table: 'pyra_leave_requests', column: 'username' },
+  { table: 'pyra_timesheets', column: 'username' },
+  { table: 'pyra_evaluations', column: 'employee_username' },
+];
+
+/**
+ * Ephemera — inbox / session / membership rows carrying no evidentiary value.
+ * Only reached once EVIDENCE_TABLES are all empty, so the HR tables are
+ * deliberately absent here: the guard already proved they hold no rows.
+ *
+ * `pyra_notifications` is keyed on `recipient_username` (the departing user's
+ * own inbox) and NOT on `source_username` — rows they merely triggered live in
+ * OTHER users' inboxes and must survive. `source_display_name` is denormalised
+ * so those stay readable, and no FK on `source_username` can dangle.
+ */
+const CLEANUP_TABLES: ReadonlyArray<{ table: string; column: string }> = [
+  { table: 'pyra_leave_balances_v2', column: 'username' },
+  { table: 'pyra_timesheet_periods', column: 'username' },
+  { table: 'pyra_evaluations', column: 'evaluator_username' },
+  { table: 'pyra_kpi_targets', column: 'username' },
+  { table: 'pyra_task_assignees', column: 'username' },
+  { table: 'pyra_task_comments', column: 'author_username' },
+  { table: 'pyra_task_activity', column: 'username' },
+  { table: 'pyra_announcement_reads', column: 'username' },
+  { table: 'pyra_board_members', column: 'username' },
+  { table: 'pyra_sessions', column: 'username' },
+  { table: 'pyra_notifications', column: 'recipient_username' },
+];
 
 /**
  * Insert a salary history record when salary or hourly_rate changes.
@@ -492,14 +545,37 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const serviceClient = createServiceRoleClient();
 
     // Block hard-delete when the employee has records that must be preserved — use deactivate instead.
-    const blockingChecks = await Promise.all([
-      serviceClient.from('pyra_payroll_items').select('id', { count: 'exact', head: true }).eq('username', username),
-      serviceClient.from('pyra_employee_payments').select('id', { count: 'exact', head: true }).eq('username', username),
-      serviceClient.from('pyra_employee_documents').select('id', { count: 'exact', head: true }).eq('employee_username', username),
-      serviceClient.from('pyra_onboarding').select('id', { count: 'exact', head: true }).eq('employee_username', username),
-    ]);
-    const blockingCount = blockingChecks.reduce((sum, r) => sum + (r.count ?? 0), 0);
-    if (blockingCount > 0) {
+    const evidenceChecks = await Promise.all(
+      EVIDENCE_TABLES.map(async ({ table, column }) => {
+        const { count, error } = await serviceClient
+          .from(table)
+          .select('id', { count: 'exact', head: true })
+          .eq(column, username);
+        return { table, column, count: count ?? 0, error };
+      }),
+    );
+
+    // Fail CLOSED. Supabase JS resolves with `{ error }` rather than throwing,
+    // so a bad column/table returns count=null and would otherwise read as
+    // "no records" — silently authorising the irreversible delete this guard
+    // exists to prevent. A guard that cannot read its evidence must refuse.
+    const unreadable = evidenceChecks.filter((c) => c.error);
+    if (unreadable.length > 0) {
+      logError({
+        error: new Error(
+          `User-delete guard could not read: ${unreadable
+            .map((c) => `${c.table}.${c.column} (${c.error?.code ?? 'unknown'}: ${c.error?.message ?? ''})`)
+            .join('; ')}`,
+        ),
+        request,
+        user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+        metadata: { action: 'users.delete.guard', target_username: username },
+      });
+      return apiServerError(t('users.deleteGuardFailed'));
+    }
+
+    const blocking = evidenceChecks.filter((c) => c.count > 0);
+    if (blocking.length > 0) {
       return apiError(
         t('users.deleteBlockedHasRecords'),
         409,
@@ -516,32 +592,28 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         .eq('manager_username', username);
     }
 
-    // Step 1: Clean up related records (cascade cleanup)
-    // These tables reference username but may not have FK CASCADE
-    const cleanupTables = [
-      { table: 'pyra_timesheets', column: 'username' },
-      { table: 'pyra_leave_requests', column: 'username' },
-      { table: 'pyra_leave_balances_v2', column: 'username' },
-      { table: 'pyra_attendance', column: 'username' },
-      { table: 'pyra_timesheet_periods', column: 'username' },
-      { table: 'pyra_employee_payments', column: 'username' },
-      { table: 'pyra_evaluations', column: 'employee_username' },
-      { table: 'pyra_evaluations', column: 'evaluator_username' },
-      { table: 'pyra_kpi_targets', column: 'username' },
-      { table: 'pyra_task_assignees', column: 'username' },
-      { table: 'pyra_task_comments', column: 'author_username' },
-      { table: 'pyra_task_activity', column: 'username' },
-      { table: 'pyra_announcement_reads', column: 'username' },
-      { table: 'pyra_sessions', column: 'username' },
-      { table: 'pyra_notifications', column: 'username' },
-    ];
-
-    for (const { table, column } of cleanupTables) {
-      try {
-        await serviceClient.from(table).delete().eq(column, username);
-      } catch {
-        // Table may not exist yet — safe to ignore
-        console.warn(`Cleanup: skipped ${table} (may not exist)`);
+    // Step 1: Clean up ephemeral related records. These reference username but
+    // have no FK CASCADE (only pyra_auth_mapping + pyra_agent_whatsapp_settings
+    // do). Best-effort: the evidence guard has already passed, so a failure here
+    // leaves a harmless orphan and must not abort the delete — but it is logged
+    // loudly rather than swallowed.
+    for (const { table, column } of CLEANUP_TABLES) {
+      const { error: cleanupError } = await serviceClient.from(table).delete().eq(column, username);
+      if (cleanupError) {
+        // Supabase JS returns `{ error }` instead of throwing, so the previous
+        // try/catch here never fired: `pyra_notifications.username` does not
+        // exist (it is recipient_username), and every delete silently orphaned
+        // the departing user's notifications with a 42703 nobody ever saw.
+        logError({
+          severity: 'warning',
+          error: new Error(
+            `User-delete cleanup failed on ${table}.${column} (${cleanupError.code ?? 'unknown'}): ${cleanupError.message}`,
+          ),
+          request,
+          user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+          metadata: { action: 'users.delete.cleanup', target_username: username, table, column },
+        });
+        console.error(`[DELETE /api/users] cleanup failed on ${table}.${column}:`, cleanupError);
       }
     }
 

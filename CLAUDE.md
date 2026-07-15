@@ -4251,9 +4251,13 @@ was explicitly DEFERRED by the user — do NOT treat its absence as a bug. Plans
   SELECT → editing any user silently wiped their schedule. Fixed.
 
 ### Batch B — lifecycle + integrity + self-service (`4439e23`, `1ad4450`)
-- **Hard-delete a user is BLOCKED (409) when payroll/payment/document/onboarding
-  records exist** → admin must deactivate instead (user's locked choice). Clean
-  delete also nulls direct reports' `manager_username` + alerts admins.
+- **Hard-delete a user is BLOCKED (409) when ANY HR-evidence record exists** →
+  admin must deactivate instead (user's locked choice). Clean delete also nulls
+  direct reports' `manager_username` + alerts admins. **Superseded 2026-07-15 —
+  see "User Hard-Delete Guard" below**: the original 4-table list
+  (payroll/payment/document/onboarding) was all-zero for a short-tenure
+  employee, so they were hard-deletable and the cleanup loop destroyed their
+  `pyra_attendance` evidence.
 - Deactivating/suspending a manager alerts admins (only on the real transition).
 - **`notifyApprovers(supabase, employeeUsername, input)`** (`lib/notifications/
   approvers.ts`) — the canonical approval-notify: notifies the employee's ACTIVE
@@ -4312,6 +4316,63 @@ was explicitly DEFERRED by the user — do NOT treat its absence as a bug. Plans
 - Evaluations: KPI PATCH stricter type validation on optional fields.
 - UAE legal compliance (deferred by decision): end-of-service gratuity engine,
   WPS/SIF bank-file export, HR CSV/PDF exports, YTD/annual payroll summary.
+
+## User Hard-Delete Guard — Locked Decisions (2026-07-15)
+
+Supersedes the Batch B delete lock above. Found during the
+`abdelrahman.morshedy` exit audit. **Do NOT re-litigate.** Both fixes live in
+`DELETE /api/users/[username]`.
+
+### 1. The guard blocks on ANY HR-evidence row — enumerated in `EVIDENCE_TABLES`
+
+Batch B's 4-table list (payroll_items / employee_payments / employee_documents /
+onboarding) is all-zero for a short-tenure employee, so a 13-day hire was
+hard-deletable and the cleanup loop then destroyed their `pyra_attendance` rows
+— the evidence base the attendance-deduction policy needs to justify a
+deduction. Measured at the time of the fix: **6 of 10 production users were
+hard-deletable**, every one of them carrying salary history.
+
+`EVIDENCE_TABLES` now adds `pyra_attendance`, `pyra_salary_history`,
+`pyra_leave_requests`, `pyra_timesheets`, `pyra_evaluations`
+(`employee_username`). **When a new HR table is added, add it here** — a row in
+any of them means "deactivate, never delete."
+
+`pyra_salary_history` was previously in NEITHER the guard nor the cleanup list,
+so it orphaned on every delete — migration 023 had to remove exactly such an
+orphan for the deleted user `abeer`. It is now a blocking table.
+
+A zero-footprint account (never used, e.g. a mistyped username) stays deletable
+— that is the deliberate escape hatch, so junk rows don't accumulate forever.
+Note `pyra_salary_history` is written on the first salary PATCH, not at
+creation, so a brand-new account really is at zero.
+
+### 2. The guard FAILS CLOSED; cleanup verifies `{ error }` and is best-effort
+
+**Supabase JS resolves with `{ error }` — it does NOT throw.** The old
+`try { await …delete() } catch {}` therefore never fired, and
+`{ table: 'pyra_notifications', column: 'username' }` (the real columns are
+`recipient_username` / `source_username`) silently orphaned every departing
+user's notifications with a 42703 nobody ever saw. Same silent-42703 class as
+the Batch A `period_start`/`start_date` bug.
+
+- **Guard:** any `{ error }` from a count → `logError` + 500. A guard that
+  cannot read its evidence must never authorise an irreversible delete. Because
+  it fails closed, **every table/column in `EVIDENCE_TABLES` must be verified
+  against `information_schema`** — a typo permanently 500s all deletes.
+- **Cleanup:** inspect `{ error }`, `logError(severity:'warning')` + `console.error`,
+  then continue. The evidence guard already passed, so an orphaned ephemeral row
+  must not abort the delete — but it is never swallowed silently again.
+
+### 3. Cleanup deletes notifications by `recipient_username` only
+
+NOT by `source_username`: those rows are in OTHER users' inboxes and must
+survive. `source_display_name` is denormalised so they stay readable, and no FK
+on `source_username` can dangle (the only FKs into `pyra_users` are
+`pyra_auth_mapping` + `pyra_agent_whatsapp_settings`, both CASCADE).
+
+`pyra_board_members` was in neither list (orphaned every delete) and is now in
+cleanup, not the guard — board membership is access control, not HR evidence.
+Same for `pyra_task_assignees`.
 
 ## CRM Audit Remediation — Locked Decisions (2026-07-02)
 
