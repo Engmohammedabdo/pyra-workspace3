@@ -449,6 +449,36 @@ Why: 30+ scattered insert sites previously used wrong column names (`username`, 
 and silently failed. The helper enforces correct shape, auto-skips self-notifications
 (actor == recipient), and is fire-and-forget (errors logged, never thrown).
 
+#### Inactive-recipient gate (LOCKED 2026-07-15) — do NOT regress
+
+All three writers (`notify` / `notifyMany` / `notifyBatch`) drop recipients whose
+`pyra_users.status !== 'active'`, so **no caller needs its own status filter**. Before
+this, an open task assigned to a departed employee re-notified them every cron day,
+forever (confirmed live: `abdelrahman.morshedy`, departed 2026-07-14, still received
+`task_overdue` rows on 07-15). The gate also stops the web-push dispatch that follows
+each insert — it has no status filter of its own, so a departed employee's phone kept
+buzzing.
+
+Three properties are load-bearing — `selectUndeliverableRecipients()` in
+`lib/notifications/notify.ts` is pure and unit-tested (`__tests__/notify-recipients.test.ts`)
+to keep them honest:
+
+- **Denylist, not allowlist.** ONLY a username whose `pyra_users` row EXISTS and is
+  non-active is dropped. `recipient_username` has **no foreign key** (`DATABASE-SCHEMA.md`
+  claims one — the doc is wrong) and prod holds orphan assignees, so an unknown username
+  is warned about and still sent. Swallowing it would hide the missing-validation defect
+  upstream of it.
+- **Predicate matches the auth gates byte-for-byte** (`!== 'active'`, so NULL and any
+  other value are undeliverable) — same as `lib/api/auth.ts` and `lib/auth/guards.ts`.
+  There is no CHECK constraint on `status`, so never assume the TS union is enforced.
+  Keeping the predicates identical is what stops the gate and the auth gates disagreeing.
+- **Fails OPEN.** A lookup error inserts anyway — a transient DB blip must never eat a
+  real notification.
+
+Not a bug, do not "fix": money/offboarding paths (final settlement, payslip, HR docs)
+DO notify departed employees, and the gate drops those rows. That is correct — they
+cannot log in to read the bell, so the row was never deliverable. Reach them out-of-band.
+
 ### Authorization Helpers — Use, Don't Reinvent
 
 | Helper | File | Purpose |

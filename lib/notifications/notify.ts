@@ -26,6 +26,9 @@ import { sendWebPushToUser, sendWebPushToUsers } from '@/lib/notifications/web-p
  *
  * Errors are swallowed and logged — notifications are never allowed to break
  * the parent request flow (fire-and-forget semantics).
+ *
+ * Every writer here gates recipients on pyra_users.status — see
+ * selectUndeliverableRecipients() below.
  */
 
 export type NotificationType =
@@ -122,6 +125,81 @@ export interface NotifyInput {
   from?: { username?: string | null; displayName?: string | null };
 }
 
+export interface RecipientStatusRow {
+  username: string;
+  status: string | null;
+}
+
+/**
+ * Given the requested recipients and their pyra_users rows, return the subset
+ * that must NOT be written.
+ *
+ * A user whose status is not 'active' cannot reach the bell: every auth gate
+ * rejects them with this exact predicate — lib/api/auth.ts (API requests),
+ * lib/auth/guards.ts (page renders), and the login routes — so the row is dead
+ * weight. It also accrues forever: an open task assigned to a departed
+ * employee re-notified them every cron day (confirmed live 2026-07-15).
+ * Gating the WRITE also stops the web-push dispatch that follows each insert,
+ * which has no status filter of its own — a departed employee's phone buzzing.
+ *
+ * Deliberately a DENYLIST: only a username whose row EXISTS and is non-active
+ * is dropped. recipient_username has no foreign key and prod holds orphan
+ * assignees, so an unknown username is left alone — silently eating it would
+ * hide the missing-validation defect upstream of it.
+ *
+ * Matching the auth gates' `!== 'active'` exactly (so NULL and any other value
+ * are undeliverable) is what keeps the two from ever disagreeing.
+ */
+export function selectUndeliverableRecipients(
+  requested: string[],
+  rows: RecipientStatusRow[]
+): Set<string> {
+  const wanted = new Set(requested);
+  return new Set(
+    rows
+      .filter((r) => wanted.has(r.username) && r.status !== 'active')
+      .map((r) => r.username)
+  );
+}
+
+/**
+ * Look up the recipients' status and resolve who cannot be written to.
+ *
+ * Fails OPEN — on a lookup error we send anyway. A transient DB blip must never
+ * eat a real notification.
+ */
+async function resolveUndeliverable(
+  supabase: SupabaseClient,
+  usernames: string[]
+): Promise<Set<string>> {
+  if (usernames.length === 0) return new Set();
+
+  try {
+    const { data, error } = await supabase
+      .from('pyra_users')
+      .select('username, status')
+      .in('username', usernames);
+
+    if (error) {
+      console.error('[notify] recipient status lookup failed — sending anyway:', error.message);
+      return new Set();
+    }
+
+    const rows = (data || []) as RecipientStatusRow[];
+    const known = new Set(rows.map((r) => r.username));
+    for (const u of usernames) {
+      if (!known.has(u)) {
+        console.warn('[notify] recipient has no pyra_users row — sending anyway:', u);
+      }
+    }
+
+    return selectUndeliverableRecipients(usernames, rows);
+  } catch (err) {
+    console.error('[notify] recipient status lookup threw — sending anyway:', err);
+    return new Set();
+  }
+}
+
 export async function notify(
   supabase: SupabaseClient,
   input: NotifyInput
@@ -135,10 +213,13 @@ export async function notify(
     return;
   }
 
+  const to = input.to.trim();
+  if ((await resolveUndeliverable(supabase, [to])).has(to)) return;
+
   try {
     const { error } = await supabase.from('pyra_notifications').insert({
       id: generateId('ntf'),
-      recipient_username: input.to.trim(),
+      recipient_username: to,
       type: input.type.trim(),
       title: input.title.trim(),
       message: input.message?.trim() || null,
@@ -153,7 +234,7 @@ export async function notify(
     if (error) {
       console.error('[notify] insert failed:', error.message, { to: input.to, type: input.type });
     } else {
-      void sendWebPushToUser(input.to.trim());
+      void sendWebPushToUser(to);
     }
   } catch (err) {
     console.error('[notify] threw:', err);
@@ -175,9 +256,19 @@ export async function notifyBatch(
   supabase: SupabaseClient,
   inputs: NotifyInput[]
 ): Promise<void> {
-  const rows = inputs
+  const candidates = inputs
     .filter((i) => i.to?.trim() && i.type?.trim() && i.title?.trim())
-    .filter((i) => !(i.from?.username && i.from.username === i.to))
+    .filter((i) => !(i.from?.username && i.from.username === i.to));
+
+  if (candidates.length === 0) return;
+
+  const undeliverable = await resolveUndeliverable(
+    supabase,
+    candidates.map((i) => i.to.trim())
+  );
+
+  const rows = candidates
+    .filter((i) => !undeliverable.has(i.to.trim()))
     .map((i) => ({
       id: generateId('ntf'),
       recipient_username: i.to.trim(),
@@ -221,7 +312,12 @@ export async function notifyMany(
 
   if (filtered.length === 0) return;
 
-  const rows = filtered.map((to) => ({
+  const undeliverable = await resolveUndeliverable(supabase, filtered);
+  const deliverable = filtered.filter((u) => !undeliverable.has(u));
+
+  if (deliverable.length === 0) return;
+
+  const rows = deliverable.map((to) => ({
     id: generateId('ntf'),
     recipient_username: to,
     type: input.type.trim(),
