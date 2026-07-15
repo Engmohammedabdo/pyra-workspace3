@@ -549,7 +549,9 @@ for it; do not "fix" the gate. Abou confirmed he understands the leaver is told 
    sessions refreshing on wake, not TTL evidence.
    **The residual post-ban window is therefore ≤1 hour.** Re-measure with this query if
    the GoTrue container is ever reconfigured.
-3. **Decide the payroll task's fate** — see Sequencing.
+3. ✅ **The payroll departure-proration task is STOPPED** (Abou, 2026-07-15) — see Sequencing.
+   Re-scope it after migration 039 lands, once `last_working_day` exists and carries real
+   data. It may reduce to nothing.
 
 ## Sequencing
 
@@ -557,13 +559,14 @@ for it; do not "fix" the gate. Abou confirmed he understands the leaver is told 
    are shipped code, not in-flight work. Design against the code as it reads now — both
    task titles describe bugs that no longer exist.
 2. **Offboarding claims `last_working_day` and migration `039`.**
-3. **The payroll departure-proration task is downstream, not parallel — and may be the
-   wrong tool.** It solves *payroll-run* pro-ration; this settlement rides the
-   *employee-payments* rail. They collide in code (`hireProrationFactor`,
-   `calculatePayrollItem`, the calculate route's employee select, the same new column) but
-   **do not overlap in purpose**. Running it first would mean inventing `last_working_day`,
-   guessing its semantics, and having no writer for it. **Recommend deferring it until 039
-   lands, then re-scoping it** — with a real column to read, it may reduce to nothing.
+3. ✅ **The payroll departure-proration task is STOPPED** (Abou's call, 2026-07-15). It is
+   downstream, not parallel — and may be the wrong tool. It solves *payroll-run*
+   pro-ration; this settlement rides the *employee-payments* rail. They collide in code
+   (`hireProrationFactor`, `calculatePayrollItem`, the calculate route's employee select,
+   the same new column) but **do not overlap in purpose**. Running it first would have
+   meant inventing `last_working_day`, guessing its semantics, and having no writer for it.
+   **Re-scope after 039 lands** — with a real column to read and real data in it, it may
+   reduce to nothing.
 
 ## Rollout order
 
