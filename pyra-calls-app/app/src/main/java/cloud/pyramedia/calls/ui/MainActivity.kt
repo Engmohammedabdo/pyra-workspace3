@@ -22,6 +22,14 @@ class MainActivity : ComponentActivity() {
         val prefs = AppPrefs(this)
         val api = ApiClient(BuildConfig.BASE_URL) { prefs.deviceKey }
 
+        // Session-loss tripwire: true iff the device was logged in on a prior
+        // run but isn't now, with no explicit logout in between — the exact
+        // signature of the EncryptedSharedPreferences keyset failure this
+        // migration exists to escape. consumeSessionLossEvent() resets the
+        // flag (fires once) and sets pendingSessionLossReport.
+        // A2: ErrorQueue reports pending_session_loss_report + pending_migration_loss_report
+        prefs.consumeSessionLossEvent()
+
         setContent {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 MaterialTheme {
@@ -48,11 +56,16 @@ class MainActivity : ComponentActivity() {
                                 }
                                 prefs.lastLoginUsername = data.username
                                 prefs.lastSyncedCallLogId = 0L
+                                prefs.wasLoggedIn = true
                                 SyncScheduler.ensurePeriodic(this@MainActivity)
                                 SyncScheduler.syncNow(this@MainActivity)
                                 loggedIn = true
                             }
                             else -> HomeScreen(prefs) {
+                                // Explicit logout — flip the tripwire off FIRST so a
+                                // clean logout is never mistaken for abnormal session
+                                // loss on the next launch.
+                                prefs.wasLoggedIn = false
                                 prefs.clearSession()
                                 loggedIn = false
                             }
