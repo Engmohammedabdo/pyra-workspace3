@@ -38,8 +38,12 @@ class ErrorQueue(private val context: Context) {
                     app_version_code = BuildConfig.VERSION_CODE,
                 )
                 if (!ErrorQueueLogic.shouldEnqueue(existing, candidate)) return@runCatching
+                // Rebuild from the DECODED events (not the raw `lines`) so any
+                // corrupt line is dropped on every rewrite — this is what makes
+                // the "self-heals on the next enqueue()" claim below actually true.
+                val encodedExisting = existing.map { PyraJson.encodeToString(ErrorEvent.serializer(), it) }
                 val newLine = PyraJson.encodeToString(ErrorEvent.serializer(), candidate)
-                writeLinesAtomically(ErrorQueueLogic.cap(lines + newLine))
+                writeLinesAtomically(ErrorQueueLogic.cap(encodedExisting + newLine))
             }
         }
     }
