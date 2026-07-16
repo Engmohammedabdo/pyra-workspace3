@@ -252,3 +252,7 @@ Micro-design locks:
 - V1.1-C: complete (commits a145fcd + aa5c32e, review clean; ops DONE by controller: n8n PyraCRM_Cron key granted cron.device-silent-check [scripts/sql/grant-cron-device-silent-check.sql] + workflow Z54Xnd2z6QpT0oIJ gained "Daily 09:30 Dubai" trigger → POST device-silent-check, PUBLISHED [activeVersion 2b8716b9]; heartbeat needs updated APK on phones — SHA in task-v11c-report)
 - Final wave review (fable): READY WITH FIXES → done: n8n cadence tightened to every 3h (dedup caps 1 alert/device/day; published activeVersion 58bdb3b9) + CALL-TRACKING.md per-call-table bullet marked SHIPPED. Backlog from review: month-switch transient PGRST103 page fetch, notified counter counts attempts, dubaiMonthBounds 3rd copy → extract to lib/utils/format, hoursSilent clamp to days past 48h.
 - V1.1 WAVE COMPLETE 2026-07-11: commits a5edcb4..aa5c32e + docs/grant. Phones need APK update for the ping heartbeat (SHA in task-v11c-report).
+
+## V1.2 wave — self-update + error tracking + session fix (2026-07-16)
+Plan: docs/superpowers/plans/2026-07-16-calls-app-v12-selfupdate-observability.md
+- Task S1: complete (93ff8fa..3ddd340, review clean). NOTE: shipped as migration 039 (038 taken by concurrent Gap #3 work). Minor deferred: DATABASE-SCHEMA.md entry for pyra_app_releases + pyra_api_keys.app_version_code → fold into A5 docs step.
