@@ -42,7 +42,6 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 
-const SUPABASE_HOST_FALLBACK = 'pyraworkspacedb.pyramedia.cloud';
 const ENV_FILE = '.env.local';
 const BUCKET = 'pyra-private';
 const CHANNELS = ['pyra-calls', 'pyra-calls-e2e'] as const;
@@ -81,12 +80,11 @@ function readServiceRoleKey(): string {
 }
 
 function readSupabaseUrl(): string {
-  let url: string;
-  try {
-    url = readEnvValue('NEXT_PUBLIC_SUPABASE_URL');
-  } catch {
-    return `https://${SUPABASE_HOST_FALLBACK}`;
-  }
+  // readEnvValue() calls fail() → process.exit(1) on a missing key, which
+  // terminates the process directly (not a throw) — so there is no
+  // catchable fallback path here, intentionally: NEXT_PUBLIC_SUPABASE_URL is
+  // a required, non-secret config value, same as SUPABASE_SERVICE_ROLE_KEY.
+  const url = readEnvValue('NEXT_PUBLIC_SUPABASE_URL');
   if (!url.startsWith('https://')) {
     fail(`NEXT_PUBLIC_SUPABASE_URL in ${ENV_FILE} looks malformed: "${url}".`);
   }
