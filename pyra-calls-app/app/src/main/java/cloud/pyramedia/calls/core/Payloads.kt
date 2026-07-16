@@ -41,3 +41,11 @@ val PyraJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
 )
 @Serializable data class LogErrorRequest(val errors: List<ErrorEvent>)
 @Serializable data class LogErrorData(val received: Int)
+
+@Serializable data class AppVersionInfo(
+    val version_code: Int, val version_name: String, val release_notes: String? = null,
+)
+@Serializable data class AppVersionData(val latest: AppVersionInfo? = null)
+@Serializable data class AppDownloadData(
+    val url: String, val version_code: Int, val sha256: String, val size_bytes: Long,
+)

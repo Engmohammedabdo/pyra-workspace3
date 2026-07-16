@@ -53,6 +53,16 @@ class ApiClient(
         post("/api/mobile/log-error", LogErrorRequest(events),
             LogErrorRequest.serializer(), LogErrorData.serializer(), withKey = true)
 
+    // Self-update check-in + download descriptor. `?app=` pins the request to
+    // this build's release channel (debug → pyra-calls-e2e, release →
+    // pyra-calls) so a test release published under the e2e channel is never
+    // visible to a production phone polling the prod channel.
+    fun appVersion(): ApiResult<AppVersionData> =
+        get("/api/mobile/app-version?app=" + BuildConfig.APP_CHANNEL, AppVersionData.serializer())
+
+    fun appDownload(): ApiResult<AppDownloadData> =
+        get("/api/mobile/app-download?app=" + BuildConfig.APP_CHANNEL, AppDownloadData.serializer())
+
     // Heartbeat — the only GET in this client. Called on empty sync passes so
     // the server's pyra_api_keys.last_used_at still reflects device liveness
     // (see SyncWorker: normal syncs only touch the network when there ARE

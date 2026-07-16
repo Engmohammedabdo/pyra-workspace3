@@ -27,8 +27,8 @@ android {
         applicationId = "cloud.pyramedia.calls"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.2.0"
     }
 
     buildFeatures { compose = true; buildConfig = true }
@@ -47,9 +47,14 @@ android {
     buildTypes {
         debug {
             buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:3000\"")
+            // E2E channel — keeps debug/test releases invisible to production
+            // phones (which build against the "pyra-calls" channel below and
+            // poll /api/mobile/app-version?app=pyra-calls every sync cycle).
+            buildConfigField("String", "APP_CHANNEL", "\"pyra-calls-e2e\"")
         }
         release {
             buildConfigField("String", "BASE_URL", "\"https://workspace.pyramedia.cloud\"")
+            buildConfigField("String", "APP_CHANNEL", "\"pyra-calls\"")
             isMinifyEnabled = false
             if (signingProps.isNotEmpty()) {
                 signingConfig = signingConfigs.getByName("release")

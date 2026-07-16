@@ -42,4 +42,25 @@
     <string name="home_sync_now">مزامنة الآن</string>
     <string name="home_logout">تسجيل الخروج</string>
     <string name="net_error">تعذر الاتصال بالخادم</string>
+
+    <string name="notif_channel_updates">تحديثات التطبيق</string>
+    <string name="notif_update_title">تحديث جديد لتطبيق Pyra Calls</string>
+    <string name="notif_update_body">الإصدار %1$s متاح — اضغط للتحميل والتثبيت</string>
+
+    <string name="home_version">الإصدار %1$s</string>
+    <string name="home_check_update">التحقق من تحديث</string>
+    <string name="home_up_to_date">أنت على أحدث نسخة</string>
+    <string name="home_check_failed">تعذر التحقق من التحديث</string>
+    <string name="home_checking_update">جارٍ التحقق…</string>
+
+    <string name="update_title">تحديث التطبيق</string>
+    <string name="update_download_button">تنزيل التحديث</string>
+    <string name="update_downloading">جارٍ التنزيل… %1$d%%</string>
+    <string name="update_verifying">جارٍ التحقق من الملف…</string>
+    <string name="update_ready">التحديث جاهز للتثبيت</string>
+    <string name="update_install_button">تثبيت</string>
+    <string name="update_retry_button">إعادة المحاولة</string>
+    <string name="update_failed_network">تعذر تحميل التحديث — تأكد من الإنترنت وأعد المحاولة</string>
+    <string name="update_failed_checksum">فشل التحقق من سلامة ملف التحديث</string>
+    <string name="update_failed_stale">النسخة المحمّلة ليست أحدث</string>
 </resources>

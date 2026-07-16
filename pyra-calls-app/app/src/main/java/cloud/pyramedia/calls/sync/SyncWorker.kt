@@ -5,6 +5,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import cloud.pyramedia.calls.BuildConfig
 import cloud.pyramedia.calls.core.SyncPlanner
+import cloud.pyramedia.calls.core.UpdatePolicy
 import cloud.pyramedia.calls.data.ApiClient
 import cloud.pyramedia.calls.data.ApiResult
 import cloud.pyramedia.calls.data.AppPrefs
@@ -79,6 +80,29 @@ class SyncWorker(context: Context, params: WorkerParameters) :
         if (pending.isNotEmpty() && api.logErrors(pending) is ApiResult.Ok) {
             queue.removeShipped(pending.size)
         }
+
+        // Self-update check — throttled to once per 6h (UpdatePolicy). Wrapped
+        // in runCatching so a failure here (network hiccup, unexpected
+        // payload shape) can NEVER turn an otherwise-successful sync cycle
+        // into a retry/failure; this is purely a side-channel notification.
+        runCatching {
+            val now = System.currentTimeMillis()
+            if (UpdatePolicy.shouldCheck(now, prefs.lastUpdateCheckAtMillis)) {
+                prefs.lastUpdateCheckAtMillis = now
+                val v = api.appVersion()
+                if (v is ApiResult.Ok) {
+                    val latest = v.data.latest
+                    if (latest != null && UpdatePolicy.shouldNotify(
+                            latest.version_code, BuildConfig.VERSION_CODE,
+                            prefs.lastUpdateNotifiedCode, prefs.lastUpdateNotifiedAtMillis, now)) {
+                        Notifier.showUpdate(applicationContext, latest.version_name)
+                        prefs.lastUpdateNotifiedCode = latest.version_code
+                        prefs.lastUpdateNotifiedAtMillis = now
+                    }
+                }
+            }
+        }
+
         return Result.success()
     }
 }
