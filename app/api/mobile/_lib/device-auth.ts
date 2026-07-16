@@ -38,5 +38,30 @@ export async function requireDeviceAuth(
     return apiError('الحساب غير نشط', 403);
   }
 
+  // Fleet visibility: stamp the app version the device reports.
+  // Fire-and-forget; the .or() guard makes repeat requests with an
+  // unchanged version a no-op write. Bounded to a 5-digit versionCode so a
+  // garbage header can't be misused to smuggle an oversized value into the
+  // column.
+  //
+  // NOTE: a plain `.neq('app_version_code', versionCode)` would NOT match
+  // the column's initial NULL state — SQL's `NULL <> value` evaluates to
+  // unknown (excluded from WHERE), so a device would never get its FIRST
+  // stamp and `app_version_code` would stay NULL forever. The `.or()` below
+  // explicitly matches "currently unset" OR "currently a different value".
+  // versionCode is validated above to be a bounded positive integer
+  // (parseInt output, 1-99999), so interpolating it into the filter string
+  // is safe — no PostgREST-filter-injection surface (Phase 14.3 #3).
+  const versionHeader = request.headers.get('x-app-version');
+  const versionCode = versionHeader ? parseInt(versionHeader, 10) : NaN;
+  if (Number.isInteger(versionCode) && versionCode > 0 && versionCode < 100000) {
+    svc
+      .from('pyra_api_keys')
+      .update({ app_version_code: versionCode })
+      .eq('id', ctx.apiKey.id)
+      .or(`app_version_code.is.null,app_version_code.neq.${versionCode}`)
+      .then(() => {});
+  }
+
   return { agentUsername: user.username, displayName: user.display_name };
 }

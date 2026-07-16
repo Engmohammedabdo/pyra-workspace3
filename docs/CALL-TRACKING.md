@@ -60,6 +60,18 @@ Two separate credential types exist in this feature — do not confuse them:
   `calls:device` check in `requireDeviceAuth()` — consistent with every
   other external/cron endpoint's permission gate. Device keys themselves are
   always minted with ONLY `['calls:device']`, never `'*'`.
+- **`x-app-version` request header (v1.2, fleet visibility).** Every
+  `/api/mobile/*` request MAY send `x-app-version: <versionCode>` (a plain
+  integer, e.g. `2`). `requireDeviceAuth()` parses it and, if it's an
+  integer in `1..99999`, fire-and-forget stamps `pyra_api_keys.app_version_code`
+  for that key — a no-op write when the stored value already matches
+  (`.or('app_version_code.is.null,app_version_code.neq.<versionCode>')`, so
+  the very first stamp on a freshly-minted key with `app_version_code IS
+  NULL` still applies — a plain `.neq()` guard would NOT match a NULL
+  column in Postgres and would silently never stamp a device for the first
+  time). This lets an admin see, per device key, which app build is
+  installed (Settings → API keys), independent of the self-update check-in
+  below. Missing/malformed header → silently skipped, no error.
 
 ## Endpoints
 
@@ -334,6 +346,80 @@ is the true empty state, never assume a fixed roster (see
 `team-performance` (`/api/crm/dashboard/team-performance`) also gained a
 `calls_month` field per agent (Task 6) — same underlying table, a separate
 grouped query, for the existing team-performance widget.
+
+### 6. `GET /api/mobile/app-version?app=`
+
+Auth: device key (`requireDeviceAuth`). Self-update check-in — the app
+compares `latest.version_code` to its own build and prompts to update when
+the server's is higher.
+
+`app` query param selects the release channel: `pyra-calls` (production,
+default when omitted/unrecognized) or `pyra-calls-e2e` (debug/emulator
+builds only — see `app/api/mobile/_lib/app-channel.ts`). This isolation
+means an E2E test release can never be offered as an update to a real
+phone, and vice versa.
+
+```
+GET /api/mobile/app-version?app=pyra-calls   (x-api-key: <device key>)
+
+→ HTTP 200
+{"data":{"latest":{"version_code":2,"version_name":"1.2.0","release_notes":"..."}}}
+```
+
+Returns `{"latest":null}` (still HTTP 200) when no active release row
+exists yet for that channel — not an error, just "nothing published".
+
+### 7. `GET /api/mobile/app-download?app=`
+
+Auth: device key. Same channel resolution as `app-version`. Returns a
+**1-hour signed URL** (`pyra-private` bucket, `createSignedUrl` TTL 3600s)
+for the active release's APK plus its `sha256`/`size_bytes` so the app can
+verify the download before installing. `storage_path` (the private bucket
+path) is NEVER included in the response — Gap #3 Phase 3a doctrine, same as
+every other signed-URL route in this codebase.
+
+```
+GET /api/mobile/app-download?app=pyra-calls   (x-api-key: <device key>)
+
+→ HTTP 200
+{"data":{"url":"https://.../pyra-private/...?token=...","version_code":2,"sha256":"<64-hex>","size_bytes":12345678}}
+```
+
+`404 {"error":"لا يوجد إصدار متاح"}` when no active release exists for the
+channel.
+
+### 8. `POST /api/mobile/log-error`
+
+Auth: device key. Body: `{ errors: [{ message, stack?, source, severity?,
+occurred_at?, android_version?, app_version_code? }] }`. Batch capped at
+**20** rows per request (422 if empty/oversized); rows with a missing/blank
+`message` are silently skipped (not counted in `received`, not an error for
+the whole batch).
+
+Each row is funneled through the shared `logError()` (Phase 14.1) into
+`pyra_error_logs` — same 5-layer PII redaction as every other server-side
+error. Field handling:
+- `severity` must be one of `error`/`warning`/`info` (the exact
+  `ErrorSeverity` union `logError` accepts) or it silently falls back to
+  `'error'`.
+- `message` truncated to 2000 chars, `stack` to 8000 chars,
+  `source`/`android_version` to 60/40 chars — a poison-message guard so one
+  oversized client payload can't bloat the error-log table.
+- `app_version_code` only carried through if it's an integer (matches the
+  fleet-visibility stamp on `pyra_api_keys`, but recorded per-error here
+  instead of per-key, since a device's build can change between the error
+  occurring and the next request).
+
+```
+POST /api/mobile/log-error   (x-api-key: <device key>)
+{"errors":[{"message":"NullPointerException in SyncWorker","source":"SyncWorker","severity":"warning"}]}
+
+→ HTTP 200
+{"data":{"received":1}}
+```
+
+`422 {"error":"errors مطلوبة"}` on an empty/missing array;
+`422 {"error":"الحد الأقصى 20 خطأ في الدفعة"}` over the cap.
 
 ## Sync semantics summary
 
