@@ -439,6 +439,49 @@ POST /api/mobile/log-error   (x-api-key: <device key>)
   it on a later sync — an `'error'` result means nothing was persisted
   server-side for that call.
 
+## Error tracking pipeline (v1.2)
+
+The app self-reports crashes and operational failures into the workspace's
+existing `pyra_error_logs` table — no Sentry, no third-party service (mirrors
+the Phase 14.1 observability decision).
+
+**On-device (producer):** a file-backed `ErrorQueue` (`data/ErrorQueue.kt`,
+pure logic unit-tested as `core/ErrorQueueLogic.kt`) collects events —
+uncaught crashes (a `Thread.setDefaultUncaughtExceptionHandler` installed in
+`PyraCallsApp`), `sync_failed` (any 5xx/401/403 from `/calls/sync`),
+`update_failed` (download/checksum/stale-apk), and the session tripwires
+(`session_lost` / `session_migration_failed`). The queue is drained (up to 20
+events) at the end of every **successful** `SyncWorker` cycle via
+`POST /api/mobile/log-error`; a failed ship just leaves the lines in place for
+the next cycle (no retry escalation). A 401 during sync therefore doesn't lose
+its own error report — it's queued and ships on the next cycle **after** the
+key is valid again.
+
+**Server (ingest):** each row funnels through the shared `logError()` (same
+5-layer PII redaction as everything else) into `pyra_error_logs` with:
+- `message` prefixed `[pyra-calls-app] …`
+- `metadata.source = 'pyra-calls-app'` (the stable filter key)
+- `metadata.app_source` = the on-device event category (`sync_failed`,
+  `update_failed`, `session_lost`, `crash`, …)
+- `metadata.agent` = the authenticated agent username
+- `metadata.app_version_code` = the build the error came from
+- `metadata.android_version`, `metadata.occurred_at`
+- `metadata.request_headers` with `x-api-key` **[REDACTED]** (never leaks the
+  device key)
+
+**Admin triage:** open `/dashboard/admin/error-logs`. To see only mobile
+events, filter on the message prefix `[pyra-calls-app]` or query directly:
+
+```sql
+SELECT created_at, severity, message,
+       metadata->>'app_source'       AS category,
+       metadata->>'agent'            AS agent,
+       metadata->>'app_version_code' AS build
+FROM   pyra_error_logs
+WHERE  metadata->>'source' = 'pyra-calls-app'
+ORDER  BY created_at DESC;
+```
+
 ## Per-phone provisioning checklist
 
 Run once per company phone before it's handed to a sales agent:
@@ -476,6 +519,23 @@ Run once per company phone before it's handed to a sales agent:
    agent-handover guard (`AppPrefs.lastLoginUsername` vs. the newly-logged-in
    username in `MainActivity`) — don't rely on the guard alone when a phone
    physically changes hands.
+8. **Disable app hibernation / auto-revoke** (v1.2 — Android 11+ "unused app
+   restrictions"). The app surfaces a persistent orange card on the
+   Permissions screen AND on Home ("مهم: منع الإيقاف التلقائي") whenever the
+   OS reports restrictions enabled. Tap **"فتح الإعداد"** → in the App info
+   screen that opens, turn **"Manage app if unused" / "إيقاف نشاط التطبيق
+   مؤقتًا" OFF**. Left ON, Android eventually revokes the app's permissions
+   and archives it — which silently kills call sync. The card re-appears on
+   every `ON_RESUME` until the OS reports restrictions disabled, and can
+   regress after an OS update (re-check it then).
+9. **Allow install-from-unknown-sources for the app itself** (v1.2 self-update
+   prerequisite). The first time a self-update runs, Android shows
+   *"Allow this source to install apps?"* for **Pyra Calls** (the app installs
+   its own update via the system `PackageInstaller` / `ACTION_VIEW`). Grant it
+   once; from then on updates install with only the standard *"Do you want to
+   update this app?"* confirm. On the sideloaded first install (step 1) the
+   unknown-sources grant is for the *transfer* source (Files/Chrome/adb); the
+   self-update grant is a **separate** one-time prompt for the app itself.
 
 Re-run this checklist after any OS update that resets battery-management
 settings (Samsung's One UI updates have been observed to do this).
@@ -598,6 +658,91 @@ somewhere durable outside this machine.
   `adb install -r` (uninstalled the debug build first) — reached the login
   screen against the real production `BASE_URL` without logging in.
 - Full command log + DB verification + cleanup counts: `.superpowers/sdd/task-7-report.md`.
+
+## نشر تحديث جديد — publishing a new update (v1.2 self-update runbook)
+
+Once every phone is on v1.2+ (which HAS the self-updater), shipping a new
+build is **self-serve** — no more physical phone-collection round. The devices
+check `GET /api/mobile/app-version?app=pyra-calls` on a **≤6 h** throttle and
+pull the APK from the private `pyra-private` bucket via a signed URL.
+
+**Steps:**
+
+1. Bump `versionCode` (+ `versionName`) in `pyra-calls-app/app/build.gradle.kts`
+   — `versionCode` MUST be strictly greater than the current active release
+   (the publish script refuses a non-increasing code; the app's download guard
+   also refuses to install a not-newer APK).
+2. Build the **signed release** (same keystore — a different cert can't install
+   as an in-place update):
+   ```powershell
+   $env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17.0.16.8-hotspot"
+   cd pyra-calls-app
+   .\gradlew.bat assembleRelease
+   ```
+3. Publish to the production channel:
+   ```powershell
+   pnpm app:publish pyra-calls-app\app\build\outputs\apk\release\app-release.apk `
+     --app pyra-calls --notes "ما الجديد في هذا الإصدار"
+   ```
+   The script auto-detects `versionCode`/`versionName` (aapt2), computes the
+   SHA-256, uploads the APK to `pyra-private` **first**, then flips the active
+   row — so a mid-publish failure never leaves the fleet with zero active
+   releases (it prints the exact `--activate` recovery command if the insert
+   fails after the upload).
+4. Done. Phones notify + prompt within 6 h; each user taps through
+   download → verify → install. The APK payload MUST stay **< 10 MB** (the
+   `pyra-private` bucket's `file_size_limit`); the signed release is ~7.8 MB.
+
+**Rollback:** re-activate a previous release row (no re-upload):
+```powershell
+pnpm app:publish --activate <version_code> --app pyra-calls
+```
+
+**Channels:** debug/emulator builds use `pyra-calls-e2e`; production builds use
+`pyra-calls`. E2E test APKs are published ONLY to `pyra-calls-e2e` so the real
+fleet (which polls `pyra-calls`) can never see a test build. NEVER pass
+`--app pyra-calls` for a debug/test APK.
+
+### Verified this task (2026-07-16 — v1.2 E2E + first production publish)
+
+Emulator: `pyra_a15_test` (Android 16 / API 36). Local `pnpm dev` (→ prod
+Supabase). All e2e DB/storage artifacts created for the test were cleaned up;
+prod `pyra_app_releases` left with exactly the one `pyra-calls` v2 baseline row.
+
+- **Signed in-place upgrade (logout fix):** installed the v1 (`versionCode 1`)
+  release, launched (Permissions → Login), then `adb install -r` the v1.2
+  release → upgraded in place (same keystore, no data clear) and re-launched
+  clean (the plain-prefs migration code runs safely with no session). NOTE:
+  the *logged-in-survives-upgrade* behavioural proof was **blocked** — the
+  test account `sayed` is deactivated + GoTrue-banned in prod, so no login
+  could be established on the pre-v1.2 build; the encrypted→plain session
+  migration itself is unit-tested + code-reviewed (A1). The session-durability
+  property WAS observed on the debug self-update below (see next bullet).
+- **Self-update, full on-device flow:** published a temporary
+  `versionCode 99` **debug** build to `pyra-calls-e2e`; a v1.2 debug install
+  (session injected via `run-as` with a throwaway `calls:device` key, since
+  `sayed` can't authenticate) → Home «التحقق من تحديث» → `app-version` returned
+  99 → UpdateActivity → «تنزيل التحديث» → download → SHA-256 verify →
+  «التحديث جاهز للتثبيت» → «تثبيت» → system installer → **app becomes
+  versionCode 99**. Re-opened **still logged in** (plain-prefs session survived
+  the in-place update). Re-checking on 99 → «أنت على أحدث نسخة» (the
+  not-newer / archive guard held; no UpdateActivity relaunch).
+- **Error pipeline:** deactivating the device key → `/calls/sync` returns
+  `401` (exactly what `SyncWorker` enqueues a `sync_failed` for); reactivating
+  the key → the queued batch ships via `/api/mobile/log-error` → a
+  `pyra_error_logs` row with `severity=error`, `message` prefixed
+  `[pyra-calls-app]`, `metadata.{source=pyra-calls-app, app_source=sync_failed,
+  agent, app_version_code=2, android_version=16}`, and the `x-api-key` header
+  **[REDACTED]** — cleanly triageable in `/dashboard/admin/error-logs`. Fleet
+  stamping confirmed: the reporting key's `app_version_code` stamped to 2;
+  real fleet keys stay NULL until they run v1.2.
+- **Hibernation card:** fresh install → Permissions screen shows the
+  «منع الإيقاف التلقائي» card → «فتح الإعداد» opens the system App-info screen →
+  toggled **"Manage app if unused" OFF** → back → card disappeared.
+- **Production publish:** `pnpm app:publish … --app pyra-calls` → v2 baseline
+  row, SHA-256 `cbdfcb1ee1537c051dc844c6f63446620f3fa7190eac56e39de486d331d00fad`
+  (matches `Get-FileHash`), 7.80 MB. Safe: the fleet is on v1 (no updater), so
+  this row is only the baseline all future updates diff against.
 
 ## v1.1 backlog
 

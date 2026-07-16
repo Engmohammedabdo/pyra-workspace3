@@ -1722,8 +1722,15 @@ API key management with SHA-256 hashed keys, prefix display, permission scoping,
 | created_by | varchar | NULL | — |
 | created_at | timestamptz | NOT NULL | now() |
 | updated_at | timestamptz | NOT NULL | now() |
+| app_version_code | integer | NULL | — |
 
 **Note**: Full key is only returned once at creation time. Only `key_prefix` and `key_hash` are stored.
+
+**`app_version_code`** (migration 039, Pyra Calls v1.2): fleet-version visibility.
+`requireDeviceAuth` (`/api/mobile/*`) reads the app's `x-app-version` header (a
+bounded `1..99999` integer) and fire-and-forget stamps it here — so an admin can
+see which build each device-key row is running. NULL until the device sends the
+header (i.e. runs v1.2+); real fleet keys stay NULL until upgraded.
 
 ---
 
@@ -2790,3 +2797,40 @@ totals (as unlinked); ignoring cannot hide work.
 **Unique**: `pyra_ignored_numbers_uniq` on `(agent_username, phone_normalized)`
 
 **RBAC**: service-role-only (no `authenticated`/`anon` grants). Written via `/api/mobile/calls/ignore` (`calls:device`).
+
+### pyra_app_releases
+
+Pyra Calls Android self-update registry (migration 039). One row per published
+APK; the app polls `GET /api/mobile/app-version?app=` and pulls the active
+build's APK from the private `pyra-private` bucket via a 1-hour signed URL
+(`GET /api/mobile/app-download`). Written ONLY by `pnpm app:publish`
+(`scripts/publish-app-release.ts`) — there is no admin UI.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | text | NOT NULL | — (`rel_` prefix) |
+| app | text | NOT NULL | `'pyra-calls'` — CHECK ∈ (`pyra-calls`, `pyra-calls-e2e`) |
+| version_code | integer | NOT NULL | — (CHECK > 0) |
+| version_name | text | NOT NULL | — |
+| storage_path | text | NOT NULL | — (`pyra-private` object path — NEVER leaves the server; clients get signed URLs only) |
+| sha256 | text | NOT NULL | — (CHECK `^[0-9a-f]{64}$`; the app verifies the download against this) |
+| size_bytes | bigint | NOT NULL | — (CHECK > 0; must be < the bucket's 10 MB `file_size_limit`) |
+| release_notes | text | NULL | — |
+| is_active | boolean | NOT NULL | false |
+| created_by | text | NOT NULL | — |
+| created_at | timestamptz | NOT NULL | `now()` |
+
+**PK**: `id`
+
+**Unique**: `pyra_app_releases_app_code_uniq` on `(app, version_code)`;
+partial unique index `idx_app_releases_one_active` on `(app) WHERE is_active` —
+enforces **exactly one active release per channel**.
+
+**Channels**: `pyra-calls` = production (release builds); `pyra-calls-e2e` =
+debug/emulator test builds — kept separate so a test APK can never reach the
+real fleet, which only polls `pyra-calls`.
+
+**RBAC**: service-role-only (`REVOKE ALL … FROM anon, authenticated`, Gap #3
+doctrine). The publish script reads `SUPABASE_SERVICE_ROLE_KEY` from
+`.env.local` and writes via the REST API; `app-version`/`app-download` read it
+behind `requireDeviceAuth` (`calls:device`).
