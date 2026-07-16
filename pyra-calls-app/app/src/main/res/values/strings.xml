@@ -4,6 +4,9 @@
     <string name="perm_title">أذونات مطلوبة</string>
     <string name="perm_body">التطبيق يحتاج الوصول لسجل المكالمات وحالة الهاتف والإشعارات ليعمل تلقائيًا. لن يعمل بدونها.</string>
     <string name="perm_grant">منح الأذونات</string>
+    <string name="hibernation_title">مهم: منع الإيقاف التلقائي</string>
+    <string name="hibernation_body">أندرويد بيوقف التطبيقات اللي مش بتتفتح ويسحب صلاحياتها — ده بيقطع تسجيل المكالمات. اضغط وعطّل \"إيقاف نشاط التطبيق مؤقتًا\".</string>
+    <string name="hibernation_button">فتح الإعداد</string>
     <string name="login_title">تسجيل الدخول</string>
     <string name="login_subtitle">نفس حساب النظام — مرة واحدة فقط</string>
     <string name="login_email">البريد الإلكتروني</string>
