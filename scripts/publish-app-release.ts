@@ -217,7 +217,7 @@ function findAapt2(): string | null {
 function detectVersionFromApk(
   apkPath: string,
   aapt2Path: string,
-): { versionCode: number; versionName: string } {
+): { versionCode: number; versionName: string; badgingOutput: string } {
   let out: string;
   try {
     out = execFileSync(aapt2Path, ['dump', 'badging', apkPath], { encoding: 'utf8' });
@@ -226,7 +226,41 @@ function detectVersionFromApk(
   }
   const m = out.match(/versionCode='(\d+)' versionName='([^']+)'/);
   if (!m) fail(`Could not parse versionCode/versionName from aapt2 output for ${apkPath}.`);
-  return { versionCode: Number(m[1]), versionName: m[2] };
+  return { versionCode: Number(m[1]), versionName: m[2], badgingOutput: out };
+}
+
+// ── Production-channel safety guards ─────────────────────────────────────────
+// Only enforced for the "pyra-calls" channel (real fleet), only when aapt2
+// badging output is available (the --code/--name override bypasses these —
+// see the loud warning printed at the call site). A debug-signed or
+// wrong-package APK published to prod would silently fail to install on
+// every phone in the fleet (signature mismatch, no telemetry) while still
+// bumping the "active release" — the fleet would be stuck notified of an
+// update it can never apply.
+
+const EXPECTED_PACKAGE_NAME = 'cloud.pyramedia.calls';
+
+function enforceProductionSafetyGuards(app: Channel, badgingOutput: string): void {
+  if (app !== 'pyra-calls') return;
+
+  if (/application-debuggable/.test(badgingOutput)) {
+    fail(
+      'Refusing to publish: this APK is DEBUG-signed/debuggable (aapt2 badging output contains ' +
+        '"application-debuggable"). A debug-signed APK published to the "pyra-calls" production ' +
+        'channel would notify the whole fleet of an update, but every device would silently reject ' +
+        'the install (signature mismatch) with no telemetry to explain why. Build a release APK, or ' +
+        'publish this one to --app pyra-calls-e2e instead.',
+    );
+  }
+
+  const pkgMatch = badgingOutput.match(/package: name='([^']+)'/);
+  const pkgName = pkgMatch?.[1];
+  if (pkgName !== EXPECTED_PACKAGE_NAME) {
+    fail(
+      `Refusing to publish: APK package name is "${pkgName ?? '(not found in aapt2 output)'}", ` +
+        `expected "${EXPECTED_PACKAGE_NAME}" for the "pyra-calls" production channel.`,
+    );
+  }
 }
 
 // ── SHA-256 (streamed) ───────────────────────────────────────────────────────
@@ -301,14 +335,19 @@ async function deactivateActive(supabaseUrl: string, serviceKey: string, app: st
   if (!res.ok) fail(`Failed to deactivate current active release: HTTP ${res.status}: ${await res.text()}`);
 }
 
-async function activateReleaseById(supabaseUrl: string, serviceKey: string, id: string): Promise<void> {
+async function activateReleaseById(
+  supabaseUrl: string,
+  serviceKey: string,
+  id: string,
+): Promise<{ ok: true } | { ok: false; status: number; text: string }> {
   const url = `${supabaseUrl}/rest/v1/pyra_app_releases?id=eq.${encodeURIComponent(id)}`;
   const res = await fetch(url, {
     method: 'PATCH',
     headers: { ...restHeaders(serviceKey), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
     body: JSON.stringify({ is_active: true }),
   });
-  if (!res.ok) fail(`Failed to activate release ${id}: HTTP ${res.status}: ${await res.text()}`);
+  if (!res.ok) return { ok: false, status: res.status, text: await res.text() };
+  return { ok: true };
 }
 
 async function uploadApk(
@@ -331,7 +370,21 @@ async function uploadApk(
     // explicit cast avoids a spurious "not assignable to BodyInit" error.
     body: buffer as unknown as BodyInit,
   });
-  if (!res.ok) fail(`Upload failed: HTTP ${res.status}: ${await res.text()}`);
+  if (!res.ok) {
+    const text = await res.text();
+    if (res.status === 409 || /duplicate/i.test(text)) {
+      fail(
+        `Upload failed: HTTP ${res.status}: ${text}\n\n` +
+          `  An object already exists at "${BUCKET}/${storagePath}" — likely an orphan left behind by a\n` +
+          `  previous publish attempt for this exact version_code+sha256 (e.g. a retry after a later\n` +
+          `  step failed). To unblock, either:\n` +
+          `    - delete the orphan object at ${BUCKET}/${storagePath} (Supabase Storage dashboard, or a\n` +
+          `      service-role DELETE), then re-run this command; or\n` +
+          `    - bump the APK's version_code and rebuild — a new version_code produces a new storage path.`,
+      );
+    }
+    fail(`Upload failed: HTTP ${res.status}: ${text}`);
+  }
 }
 
 async function insertRelease(
@@ -369,7 +422,19 @@ async function runActivate(args: ActivateArgs, supabaseUrl: string, serviceKey: 
     await deactivateActive(supabaseUrl, serviceKey, args.app);
   }
 
-  await activateReleaseById(supabaseUrl, serviceKey, target.id);
+  const activated = await activateReleaseById(supabaseUrl, serviceKey, target.id);
+  if (!activated.ok) {
+    console.error(
+      `\n❌ Failed to activate version_code=${args.versionCode}: HTTP ${activated.status}: ${activated.text}`,
+    );
+    if (current) {
+      console.error(
+        `\n⚠️  "${args.app}" now has NO active release. Restore the previous version with:\n\n` +
+          `   pnpm app:publish --activate ${current.version_code} --app ${args.app}\n`,
+      );
+    }
+    process.exit(1);
+  }
 
   console.log(`\n✅ Activated version_code=${args.versionCode} (${target.version_name}) on ${args.app}.`);
   if (current) console.log(`   Previously active: version_code=${current.version_code}`);
@@ -384,6 +449,14 @@ async function runPublish(args: PublishArgs, supabaseUrl: string, serviceKey: st
   if (args.code !== null && args.name !== null) {
     versionCode = args.code;
     versionName = args.name;
+    if (args.app === 'pyra-calls') {
+      console.warn(
+        '\n⚠️  WARNING: --code/--name bypasses aapt2 — the production-channel safety guards ' +
+          '(application-debuggable check, package-name check) were SKIPPED for this publish.\n' +
+          '   Verify manually that this APK is release-signed and is "cloud.pyramedia.calls" ' +
+          'before trusting the fleet rollout.\n',
+      );
+    }
   } else {
     const aapt2 = findAapt2();
     if (!aapt2) {
@@ -397,6 +470,7 @@ async function runPublish(args: PublishArgs, supabaseUrl: string, serviceKey: st
     const detected = detectVersionFromApk(args.apkPath, aapt2);
     versionCode = detected.versionCode;
     versionName = detected.versionName;
+    enforceProductionSafetyGuards(args.app, detected.badgingOutput);
   }
 
   console.log(`App:          ${args.app}`);

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import java.io.File
 
 /**
  * Plain (unencrypted) app-sandboxed SharedPreferences.
@@ -36,6 +37,19 @@ class AppPrefs(context: Context) {
      */
     private fun migrateFromEncrypted(context: Context) {
         if (prefs.getBoolean("migrated_from_encrypted", false)) return
+
+        // Fresh installs never had the old encrypted store — skip out before
+        // touching EncryptedSharedPreferences at all. Constructing it (and its
+        // Keystore-backed MasterKey) just to read a store that was never
+        // there is pure risk: a Keystore flake on a brand-new device would
+        // otherwise land in the catch below and false-positive
+        // pendingMigrationLossReport for a device that never lost anything.
+        val legacyStoreFile = File(context.dataDir, "shared_prefs/pyra_calls_secure.xml")
+        if (!legacyStoreFile.exists()) {
+            prefs.edit().putBoolean("migrated_from_encrypted", true).apply()
+            return
+        }
+
         try {
             val old = EncryptedSharedPreferences.create(
                 context, "pyra_calls_secure",

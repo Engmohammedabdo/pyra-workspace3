@@ -55,7 +55,14 @@ fun rememberUnusedAppRestrictionsEnabled(): State<Boolean> {
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         val future = PackageManagerCompat.getUnusedAppRestrictionsStatus(context)
         future.addListener(
-            { enabled.value = isUnusedAppRestrictionsEnabled(future.get()) },
+            {
+                // future.get() can complete exceptionally (e.g. the backing
+                // service died) — runCatching + a safe ERROR default means
+                // that can never crash the main thread. This listener fires
+                // on every ON_RESUME of Permissions AND Home.
+                val status = runCatching { future.get() }.getOrDefault(UnusedAppRestrictionsConstants.ERROR)
+                enabled.value = isUnusedAppRestrictionsEnabled(status)
+            },
             ContextCompat.getMainExecutor(context),
         )
     }
