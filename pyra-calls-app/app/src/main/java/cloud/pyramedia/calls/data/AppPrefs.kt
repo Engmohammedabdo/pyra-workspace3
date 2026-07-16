@@ -60,7 +60,19 @@ class AppPrefs(context: Context) {
             }
             if (old.getString("device_key", null) != null) e.putBoolean("was_logged_in", true)
             e.putBoolean("migrated_from_encrypted", true).apply()
-            context.deleteSharedPreferences("pyra_calls_secure")
+            // Isolated on purpose (A2 carryover fix): the copy above already
+            // succeeded by this point. A throw from the delete call alone must
+            // NOT fall into the outer catch below — that would overwrite the
+            // just-written migrated data with pendingMigrationLossReport=true,
+            // false-positiving a migration-loss report for a migration that
+            // actually worked.
+            try {
+                context.deleteSharedPreferences("pyra_calls_secure")
+            } catch (deleteFailure: Throwable) {
+                // Old store copied fine; failing to delete it is harmless
+                // (it just lingers, unread, until the OS reclaims it) — not
+                // worth its own error report.
+            }
         } catch (t: Throwable) {
             // Encrypted store unreadable — the exact failure mode we're
             // escaping. Nothing to carry over; mark done so we never retry,

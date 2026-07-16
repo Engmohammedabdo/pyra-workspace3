@@ -9,6 +9,7 @@ import cloud.pyramedia.calls.data.ApiClient
 import cloud.pyramedia.calls.data.ApiResult
 import cloud.pyramedia.calls.data.AppPrefs
 import cloud.pyramedia.calls.data.CallLogReader
+import cloud.pyramedia.calls.data.ErrorQueue
 import cloud.pyramedia.calls.notify.Notifier
 
 class SyncWorker(context: Context, params: WorkerParameters) :
@@ -53,9 +54,30 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                     prefs.lastSyncAtMillis = System.currentTimeMillis()
                     if (batch.calls.size < 100) break // last page
                 }
-                is ApiResult.Err -> return Result.success() // 401/403/422: not retryable here; Home shows staleness
+                is ApiResult.Err -> {
+                    // 5xx/401/403 are server/auth-side failures worth flagging loudly;
+                    // everything else (e.g. 422 validation) is a lower-severity warning.
+                    val severity =
+                        if (res.code >= 500 || res.code == 401 || res.code == 403) "error" else "warning"
+                    ErrorQueue(applicationContext).enqueue(
+                        message = "HTTP ${res.code}: ${res.message}",
+                        source = "sync_failed",
+                        severity = severity,
+                    )
+                    return Result.success() // 401/403/422: not retryable here; Home shows staleness
+                }
                 ApiResult.NetworkError -> return Result.retry()
             }
+        }
+
+        // Ship whatever the queue holds — up to 20 events — now that this
+        // cycle finished successfully (either an empty pass or the last
+        // page). Failure just leaves the lines in place for the next cycle;
+        // no retry escalation, no new Result semantics.
+        val queue = ErrorQueue(applicationContext)
+        val pending = queue.snapshot()
+        if (pending.isNotEmpty() && api.logErrors(pending) is ApiResult.Ok) {
+            queue.removeShipped(pending.size)
         }
         return Result.success()
     }

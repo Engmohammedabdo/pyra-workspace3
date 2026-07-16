@@ -14,6 +14,7 @@ import cloud.pyramedia.calls.BuildConfig
 import cloud.pyramedia.calls.core.DubaiTime
 import cloud.pyramedia.calls.data.ApiClient
 import cloud.pyramedia.calls.data.AppPrefs
+import cloud.pyramedia.calls.data.ErrorQueue
 import cloud.pyramedia.calls.sync.SyncScheduler
 
 class MainActivity : ComponentActivity() {
@@ -29,6 +30,27 @@ class MainActivity : ComponentActivity() {
         // flag (fires once) and sets pendingSessionLossReport.
         // A2: ErrorQueue reports pending_session_loss_report + pending_migration_loss_report
         prefs.consumeSessionLossEvent()
+
+        // Flag consumption (both flags follow the identical check → enqueue →
+        // clear pattern): pendingSessionLossReport was just set above (if the
+        // tripwire fired); pendingMigrationLossReport was set at AppPrefs
+        // init time if the old encrypted store existed but couldn't be read.
+        if (prefs.pendingSessionLossReport) {
+            ErrorQueue(this).enqueue(
+                message = "device session lost without explicit logout",
+                source = "session_lost",
+                severity = "error",
+            )
+            prefs.pendingSessionLossReport = false
+        }
+        if (prefs.pendingMigrationLossReport) {
+            ErrorQueue(this).enqueue(
+                message = "encrypted session store unreadable at migration",
+                source = "session_migration_failed",
+                severity = "error",
+            )
+            prefs.pendingMigrationLossReport = false
+        }
 
         setContent {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {

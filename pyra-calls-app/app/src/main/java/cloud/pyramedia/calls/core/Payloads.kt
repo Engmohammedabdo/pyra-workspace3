@@ -29,3 +29,15 @@ val PyraJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
 @Serializable data class IgnoreData(val ignored: Boolean, val updated_calls: Int)
 @Serializable data class PingData(val ok: Boolean)
 @Serializable data class Envelope<T>(val data: T? = null, val error: String? = null)
+
+@Serializable data class ErrorEvent(
+    val message: String,
+    val stack: String? = null,
+    val source: String,
+    val severity: String = "error",
+    val occurred_at: String,
+    val android_version: String,
+    val app_version_code: Int,
+)
+@Serializable data class LogErrorRequest(val errors: List<ErrorEvent>)
+@Serializable data class LogErrorData(val received: Int)

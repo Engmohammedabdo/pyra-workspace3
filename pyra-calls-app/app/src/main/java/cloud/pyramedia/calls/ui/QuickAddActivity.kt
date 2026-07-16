@@ -18,6 +18,7 @@ import cloud.pyramedia.calls.core.QuickAddRequest
 import cloud.pyramedia.calls.data.ApiClient
 import cloud.pyramedia.calls.data.ApiResult
 import cloud.pyramedia.calls.data.AppPrefs
+import cloud.pyramedia.calls.data.ErrorQueue
 import cloud.pyramedia.calls.notify.Notifier
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -96,7 +97,14 @@ class QuickAddActivity : ComponentActivity() {
                                             }
                                             finish()
                                         }
-                                        is ApiResult.Err -> error = res.message
+                                        is ApiResult.Err -> {
+                                            ErrorQueue(this@QuickAddActivity).enqueue(
+                                                message = "HTTP ${res.code}: ${res.message}",
+                                                source = "quick_add_failed",
+                                                severity = "warning",
+                                            )
+                                            error = res.message
+                                        }
                                         ApiResult.NetworkError -> error = netError
                                     }
                                 }
