@@ -11,6 +11,23 @@ import { getStageDefaultWinProbability } from '@/lib/crm/pipeline-stages';
 import { logError } from '@/lib/observability/log-error';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+// CRM-aligned lead source whitelist (v1.3) — the 6 canonical CRM values
+// (`components/crm/add-lead-modal/add-lead-modal.tsx` SOURCE_VALUES) plus the
+// mobile-only `phone_call` default. Invalid/absent → 'phone_call' (backwards
+// compatible: pre-v1.3 app builds never send this field). No CHECK constraint
+// on `pyra_sales_leads.source` — this whitelist is app-layer only.
+const LEAD_SOURCE_WHITELIST = [
+  'phone_call', 'whatsapp', 'referral', 'manual', 'ad', 'social', 'website',
+] as const;
+type MobileLeadSource = (typeof LEAD_SOURCE_WHITELIST)[number];
+
+function resolveLeadSource(raw: unknown): MobileLeadSource {
+  if (typeof raw === 'string' && (LEAD_SOURCE_WHITELIST as readonly string[]).includes(raw)) {
+    return raw as MobileLeadSource;
+  }
+  return 'phone_call';
+}
+
 /**
  * Retro-link every unlinked call for this number to the lead + write
  * `call_logged` activities for connected ones.
@@ -85,6 +102,7 @@ export async function POST(request: NextRequest) {
     const name = typeof body?.name === 'string' ? body.name.trim() : '';
     const leadType = body?.lead_type === 'b2c' ? 'b2c' : body?.lead_type === 'b2b' ? 'b2b' : null;
     const company = typeof body?.company === 'string' ? body.company.trim() : '';
+    const source = resolveLeadSource(body?.source);
     if (!deviceCallKey) return apiValidationError('device_call_key مطلوب');
     if (!name) return apiValidationError('اسم العميل مطلوب');
     if (!leadType) return apiValidationError('نوع العميل (شركة/فرد) مطلوب');
@@ -126,7 +144,7 @@ export async function POST(request: NextRequest) {
       phone: call.phone_raw,
       email: null,
       company: leadType === 'b2b' ? company : null,
-      source: 'phone_call',
+      source,
       stage_id: PIPELINE_STAGE_IDS.NEW_INQUIRY,
       assigned_to: agentUsername,
       notes: null,

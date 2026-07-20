@@ -362,6 +362,7 @@
         "ad": "Ad",
         "events": "Event",
         "cold_outreach": "Cold outreach",
+        "phone_call": "Phone call",
         "unknown": "Unknown"
       }
     },

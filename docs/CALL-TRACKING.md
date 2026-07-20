@@ -210,7 +210,7 @@ overwritten by the later missed call).
 ### 3. `POST /api/mobile/leads` — quick-add from an unmatched call
 
 Auth: same device key. Body:
-`{ device_call_key, name, lead_type: 'b2b'|'b2c', company? }`.
+`{ device_call_key, name, lead_type: 'b2b'|'b2c', company?, source? }`.
 
 Validation (server re-validates the app's own form rule — never trust the
 client):
@@ -218,6 +218,13 @@ client):
 - `lead_type` must be `'b2b'` or `'b2c'`.
 - `company` required **iff** `lead_type === 'b2b'`; for `'b2c'` the server
   forces `company: null` regardless of what's sent.
+- `source` (optional, v1.3) — whitelist `['phone_call', 'whatsapp',
+  'referral', 'manual', 'ad', 'social', 'website']`. This is the same 6-value
+  set the CRM's add-lead form offers (`add-lead-modal.tsx` `SOURCE_VALUES`)
+  plus the app-only `'phone_call'` default. An invalid or absent value falls
+  back to `'phone_call'` — pre-v1.3 app builds never send this field, so
+  the fallback keeps them working unchanged. No DB CHECK constraint exists
+  on `pyra_sales_leads.source`; this whitelist is app-layer only.
 
 **Verified live — b2c (name only, no company):**
 
