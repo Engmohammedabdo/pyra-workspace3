@@ -32,6 +32,14 @@
     <string name="qa_already_existed">الرقم مسجل بالفعل — تم ربط المكالمة</string>
     <string name="qa_name_required">اسم العميل مطلوب</string>
     <string name="qa_company_required">اسم الشركة مطلوب لعميل شركة</string>
+    <string name="qa_source_label">المصدر</string>
+    <string name="qa_source_phone_call">مكالمة هاتفية</string>
+    <string name="qa_source_whatsapp">WhatsApp</string>
+    <string name="qa_source_referral">إحالة</string>
+    <string name="qa_source_manual">إضافة يدوية</string>
+    <string name="qa_source_ad">إعلان</string>
+    <string name="qa_source_social">سوشيال ميديا</string>
+    <string name="qa_source_website">الموقع</string>
     <string name="home_hello">أهلًا، %1$s</string>
     <string name="home_synced">متزامن</string>
     <string name="home_not_synced">غير متزامن</string>

@@ -16,6 +16,16 @@ class PayloadsTest {
             QuickAddRequest("d:1", "عميل", "b2c"))
         assertTrue(!json.contains("company"))
     }
+    @Test fun encodesQuickAddWithoutNullSourceByDefault() {
+        val json = PyraJson.encodeToString(QuickAddRequest.serializer(),
+            QuickAddRequest("d:1", "عميل", "b2c"))
+        assertTrue(!json.contains("source"))
+    }
+    @Test fun encodesQuickAddWithSelectedSource() {
+        val json = PyraJson.encodeToString(QuickAddRequest.serializer(),
+            QuickAddRequest("d:1", "عميل", "b2c", source = "whatsapp"))
+        assertTrue(json.contains("\"source\":\"whatsapp\""))
+    }
     @Test fun decodesPingEnvelope() {
         val body = """{"data":{"ok":true},"error":null,"meta":null}"""
         val env = PyraJson.decodeFromString<Envelope<PingData>>(body)

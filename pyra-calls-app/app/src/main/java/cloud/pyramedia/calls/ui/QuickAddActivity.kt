@@ -24,7 +24,27 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+// v1.3 — CRM-aligned source picker (mirrors add-lead-modal.tsx SOURCE_VALUES
+// plus the mobile-only "phone_call" default). Order + default match the
+// locked design: phone_call is first/preselected so zero-friction save stays
+// possible and honest.
+private data class SourceOption(val value: String, val labelRes: Int)
+private val SOURCE_OPTIONS = listOf(
+    SourceOption("phone_call", R.string.qa_source_phone_call),
+    SourceOption("whatsapp", R.string.qa_source_whatsapp),
+    SourceOption("referral", R.string.qa_source_referral),
+    SourceOption("manual", R.string.qa_source_manual),
+    SourceOption("ad", R.string.qa_source_ad),
+    SourceOption("social", R.string.qa_source_social),
+    SourceOption("website", R.string.qa_source_website),
+)
+
 class QuickAddActivity : ComponentActivity() {
+    // ExposedDropdownMenuBox/ExposedDropdownMenu/TrailingIcon/menuAnchor are
+    // still @ExperimentalMaterial3Api in the pinned compose-bom (2024.12.01) —
+    // opted in here rather than project-wide so the experimental surface is
+    // scoped to this one screen.
+    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val phone = intent.getStringExtra("phone").orEmpty()
@@ -39,6 +59,8 @@ class QuickAddActivity : ComponentActivity() {
                     var isB2b by remember { mutableStateOf(true) }
                     var name by remember { mutableStateOf("") }
                     var company by remember { mutableStateOf("") }
+                    var sourceIndex by remember { mutableIntStateOf(0) }
+                    var sourceExpanded by remember { mutableStateOf(false) }
                     var saving by remember { mutableStateOf(false) }
                     var error by remember { mutableStateOf<String?>(null) }
                     val scope = rememberCoroutineScope()
@@ -69,6 +91,31 @@ class QuickAddActivity : ComponentActivity() {
                                 label = { Text(stringResource(R.string.qa_company)) },
                                 singleLine = true, modifier = Modifier.fillMaxWidth())
                         }
+                        Spacer(Modifier.height(12.dp))
+                        ExposedDropdownMenuBox(
+                            expanded = sourceExpanded,
+                            onExpandedChange = { sourceExpanded = it },
+                        ) {
+                            OutlinedTextField(
+                                value = stringResource(SOURCE_OPTIONS[sourceIndex].labelRes),
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text(stringResource(R.string.qa_source_label)) },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = sourceExpanded) },
+                                modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            )
+                            ExposedDropdownMenu(
+                                expanded = sourceExpanded,
+                                onDismissRequest = { sourceExpanded = false },
+                            ) {
+                                SOURCE_OPTIONS.forEachIndexed { index, option ->
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(option.labelRes)) },
+                                        onClick = { sourceIndex = index; sourceExpanded = false },
+                                    )
+                                }
+                            }
+                        }
                         error?.let { Spacer(Modifier.height(8.dp)); Text(it, color = MaterialTheme.colorScheme.error) }
                         Spacer(Modifier.height(24.dp))
                         Button(
@@ -84,6 +131,7 @@ class QuickAddActivity : ComponentActivity() {
                                         name = name.trim(),
                                         lead_type = if (isB2b) "b2b" else "b2c",
                                         company = if (isB2b) company.trim() else null,
+                                        source = SOURCE_OPTIONS[sourceIndex].value,
                                     )
                                     val res = withContext(Dispatchers.IO) { api.quickAdd(req) }
                                     saving = false

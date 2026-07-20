@@ -20,6 +20,12 @@ val PyraJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
 @Serializable data class QuickAddRequest(
     val device_call_key: String, val name: String, val lead_type: String,
     val company: String? = null,
+    // v1.3 — CRM-aligned source picker. Appended after the existing fields so
+    // this stays backwards-compatible in either direction: the server
+    // whitelists+defaults to 'phone_call' on absence (pre-v1.3 encoders never
+    // sent this key), and PyraJson's explicitNulls=false omits it entirely
+    // when null.
+    val source: String? = null,
 )
 @Serializable data class QuickAddData(
     val lead_id: String, val lead_name: String, val lead_url: String,
