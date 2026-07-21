@@ -3,18 +3,31 @@ import {
   buildTaskJourney,
   summarizeEmployee,
   type ProductionTaskInput,
+  type QualityRejectionEvent,
   type StageEvent,
 } from '@/lib/production/metrics';
 import { lastNMonthKeys } from '@/lib/production/report';
 
 const TASK: ProductionTaskInput = {
   id: 't1', title: 'فيديو تجريبي', assignee: 'wael.hany',
-  due_date: '2026-07-10', created_at: '2026-07-01T08:00:00Z',
+  due_date: '2026-07-10', due_at: null, created_at: '2026-07-01T08:00:00Z',
   review_column_id: 'col_prod_review', done_column_id: 'col_prod_done',
 };
 
-function ev(task_id: string, from: string | null, to: string, at: string): StageEvent {
-  return { task_id, from_column_id: from, to_column_id: to, created_at: at };
+function ev(
+  task_id: string,
+  from: string | null,
+  to: string,
+  at: string,
+  dueAtSnapshot?: string | null,
+): StageEvent {
+  return {
+    task_id,
+    from_column_id: from,
+    to_column_id: to,
+    created_at: at,
+    due_at_snapshot: dueAtSnapshot,
+  };
 }
 
 describe('buildTaskJourney', () => {
@@ -35,6 +48,83 @@ describe('buildTaskJourney', () => {
     expect(j.on_time).toBe(true);   // submitted 07-05 <= due 07-10
     expect(j.delay_days).toBeNull();
     expect(j.days_to_first_submission).toBeCloseTo(4.1, 1);
+  });
+
+  it('uses the first review snapshot and treats equality with its exact instant as on time', () => {
+    const dueAt = '2026-07-10T10:00:00.000Z';
+    const j = buildTaskJourney(
+      { ...TASK, due_at: '2026-07-11T10:00:00.000Z' },
+      [ev('t1', 'col_prod_wip', 'col_prod_review', dueAt, dueAt)],
+    );
+
+    expect(j.effective_due_at).toBe(dueAt);
+    expect(j.review_entry_timestamps).toEqual([dueAt]);
+    expect(j.delivery_eligible).toBe(true);
+    expect(j.delivery_exclusion).toBeNull();
+    expect(j.on_time).toBe(true);
+    expect(j.delay_days).toBeNull();
+  });
+
+  it('marks a submission one millisecond after its exact deadline late', () => {
+    const dueAt = '2026-07-10T10:00:00.000Z';
+    const j = buildTaskJourney(
+      { ...TASK, due_at: dueAt },
+      [ev('t1', 'col_prod_wip', 'col_prod_review', '2026-07-10T10:00:00.001Z', dueAt)],
+    );
+
+    expect(j.on_time).toBe(false);
+    expect(j.delay_days).toBeCloseTo(0, 1);
+  });
+
+  it('excludes a task with less than 24 exact hours of lead time', () => {
+    const j = buildTaskJourney(
+      {
+        ...TASK,
+        created_at: '2026-07-09T10:00:00.000Z',
+        due_at: '2026-07-10T09:59:59.999Z',
+      },
+      [ev('t1', 'col_prod_wip', 'col_prod_review', '2026-07-10T09:00:00.000Z')],
+    );
+
+    expect(j.delivery_eligible).toBe(false);
+    expect(j.delivery_exclusion).toBe('lead_time_under_24h');
+    expect(j.on_time).toBe(true);
+  });
+
+  it('keeps exactly 24 exact hours of lead time eligible', () => {
+    const j = buildTaskJourney(
+      {
+        ...TASK,
+        created_at: '2026-07-09T10:00:00.000Z',
+        due_at: '2026-07-10T10:00:00.000Z',
+      },
+      [ev('t1', 'col_prod_wip', 'col_prod_review', '2026-07-10T09:00:00.000Z')],
+    );
+
+    expect(j.delivery_eligible).toBe(true);
+    expect(j.delivery_exclusion).toBeNull();
+  });
+
+  it('uses deterministic Dubai day end only for legacy date-only deadlines', () => {
+    const j = buildTaskJourney(
+      { ...TASK, due_at: null },
+      [ev('t1', 'col_prod_wip', 'col_prod_review', '2026-07-10T19:59:59.999Z')],
+    );
+
+    expect(j.effective_due_at).toBe('2026-07-10T19:59:59.999Z');
+    expect(j.on_time).toBe(true);
+  });
+
+  it('keeps a missing deadline unscored and explicitly excluded', () => {
+    const j = buildTaskJourney(
+      { ...TASK, due_date: null, due_at: null },
+      [ev('t1', 'col_prod_wip', 'col_prod_review', '2026-07-10T10:00:00.000Z')],
+    );
+
+    expect(j.effective_due_at).toBeNull();
+    expect(j.delivery_eligible).toBe(false);
+    expect(j.delivery_exclusion).toBe('missing_deadline');
+    expect(j.on_time).toBeNull();
   });
 
   it('flags late first submission with delay in days (Dubai day of submission)', () => {
@@ -96,6 +186,20 @@ describe('summarizeEmployee', () => {
     expect(s.late_count).toBe(1);
     expect(s.avg_delay_days).toBe(3); // 07-05 vs 07-02
     expect(s.avg_rounds).toBe(1);     // only delivered tasks count
+  });
+
+  it('counts unique reviewed tasks and only structured outright rejections in the month', () => {
+    const qualityEvents: QualityRejectionEvent[] = [
+      { task_id: 't1', created_at: '2026-07-06T10:00:00Z', kind: 'outright' },
+      { task_id: 't1', created_at: '2026-07-06T11:00:00Z', kind: 'outright' },
+      { task_id: 't2', created_at: '2026-07-06T10:00:00Z', kind: 'revision' },
+      { task_id: 'not-reviewed', created_at: '2026-07-06T10:00:00Z', kind: 'outright' },
+      { task_id: 't2', created_at: '2026-06-30T10:00:00Z', kind: 'outright' },
+    ];
+
+    const s = summarizeEmployee([delivered, lateTask], '2026-07', '2026-07-20', qualityEvents);
+    expect(s.reviewed_task_count).toBe(2);
+    expect(s.outright_rejection_rate).toBe(50);
   });
 
   it('excludes tasks from other months', () => {

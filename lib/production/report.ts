@@ -131,6 +131,7 @@ async function loadProductivityJourneys(
         title: t.title,
         assignee,
         due_date: t.due_date,
+        due_at: null,
         created_at: t.created_at,
         review_column_id: cols.review,
         done_column_id: cols.done,
