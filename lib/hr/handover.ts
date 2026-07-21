@@ -184,6 +184,62 @@ export interface HandoverResult {
 }
 
 /**
+ * Best-effort recompute of the leaver's OPEN board-task ids — the SAME
+ * predicate buildHandover shows the admin (assigned to the leaver via
+ * pyra_task_assignees, task not archived, task's column not a done column;
+ * a NULL/unknown column counts as open). Any read error is pushed to
+ * `errors` and the function returns [] (skip, don't throw — this is
+ * executeHandover's best-effort path, not buildHandover's fail-closed reads).
+ * "What you see is what you act on": reassign/archive must never touch a
+ * done/archived task the admin never saw in the handover list.
+ */
+async function getOpenTaskIds(
+  serviceClient: SupabaseClient,
+  username: string,
+  errors: string[],
+): Promise<string[]> {
+  const { data: assignRows, error: assignError } = await serviceClient
+    .from('pyra_task_assignees')
+    .select('task_id')
+    .eq('username', username);
+  if (assignError) {
+    errors.push(`tasks: ${assignError.message}`);
+    return [];
+  }
+  const assignedTaskIds = [
+    ...new Set(((assignRows ?? []) as { task_id: string }[]).map((a) => a.task_id)),
+  ];
+  if (!assignedTaskIds.length) return [];
+
+  const { data: taskRows, error: taskError } = await serviceClient
+    .from('pyra_tasks')
+    .select('id, column_id')
+    .in('id', assignedTaskIds)
+    .eq('is_archived', false);
+  if (taskError) {
+    errors.push(`tasks: ${taskError.message}`);
+    return [];
+  }
+  const rows = (taskRows ?? []) as { id: string; column_id: string | null }[];
+  const columnIds = [...new Set(rows.map((t) => t.column_id).filter((c): c is string => !!c))];
+  const doneColumnIds = new Set<string>();
+  if (columnIds.length) {
+    const { data: columnRows, error: columnError } = await serviceClient
+      .from('pyra_board_columns')
+      .select('id, is_done_column')
+      .in('id', columnIds);
+    if (columnError) {
+      errors.push(`tasks: ${columnError.message}`);
+      return [];
+    }
+    for (const c of (columnRows ?? []) as { id: string; is_done_column: boolean | null }[]) {
+      if (c.is_done_column) doneColumnIds.add(c.id);
+    }
+  }
+  return rows.filter((t) => !(t.column_id && doneColumnIds.has(t.column_id))).map((t) => t.id);
+}
+
+/**
  * Execute the admin's decisions with service-role writes. Reassign targets are
  * validated via isAssignableUser (the writes bypass RLS, so we self-enforce).
  * ACCESS rows are always removed. AUDIT rows are never touched. Best-effort:
@@ -215,33 +271,37 @@ export async function executeHandover(
   if (decisions.leads?.action === 'reassign') {
     const to = await validate(decisions.leads.to, 'leads');
     if (to) {
-      const { data: leadRows } = await serviceClient
+      const { data: leadRows, error: leadReadError } = await serviceClient
         .from('pyra_sales_leads')
         .select('id, name')
         .eq('assigned_to', username)
         .is('archived_at', null);
-      const rows = (leadRows ?? []) as { id: string; name: string | null }[];
-      const ids = rows.map((l) => l.id);
-      if (ids.length) {
-        const { error } = await serviceClient
-          .from('pyra_sales_leads')
-          .update({ assigned_to: to, updated_at: new Date().toISOString() })
-          .in('id', ids);
-        if (error) errors.push(`leads: ${error.message}`);
-        else {
-          applied.leads = { reassigned_to: to, count: ids.length };
-          await notifyBatch(
-            serviceClient,
-            rows.map((l) => ({
-              to,
-              type: 'lead_transferred',
-              title: 'تم تحويل Lead لك', // i18n-exempt: notification content (Phase 8)
-              message: `${actor.display_name} حوّل Lead "${l.name ?? 'بدون اسم'}" إليك`, // i18n-exempt: notification content (Phase 8)
-              link: `/dashboard/crm/leads/${l.id}`,
-              entity: { type: 'lead', id: l.id },
-              from: { username: actor.username, displayName: actor.display_name },
-            })),
-          );
+      if (leadReadError) {
+        errors.push(`leads: ${leadReadError.message}`);
+      } else {
+        const rows = (leadRows ?? []) as { id: string; name: string | null }[];
+        const ids = rows.map((l) => l.id);
+        if (ids.length) {
+          const { error } = await serviceClient
+            .from('pyra_sales_leads')
+            .update({ assigned_to: to, updated_at: new Date().toISOString() })
+            .in('id', ids);
+          if (error) errors.push(`leads: ${error.message}`);
+          else {
+            applied.leads = { reassigned_to: to, count: ids.length };
+            await notifyBatch(
+              serviceClient,
+              rows.map((l) => ({
+                to,
+                type: 'lead_transferred',
+                title: 'تم تحويل Lead لك', // i18n-exempt: notification content (Phase 8)
+                message: `${actor.display_name} حوّل Lead "${l.name ?? 'بدون اسم'}" إليك`, // i18n-exempt: notification content (Phase 8)
+                link: `/dashboard/crm/leads/${l.id}`,
+                entity: { type: 'lead', id: l.id },
+                from: { username: actor.username, displayName: actor.display_name },
+              })),
+            );
+          }
         }
       }
     }
@@ -293,13 +353,11 @@ export async function executeHandover(
   }
 
   // Board tasks: reassign = repoint the pyra_task_assignees row to the target;
-  // archive = set pyra_tasks.is_archived. Operates on the leaver's task ids.
+  // archive = set pyra_tasks.is_archived. Scoped to the leaver's OPEN task ids
+  // ONLY (same predicate buildHandover shows the admin — not archived, not a
+  // done column) via getOpenTaskIds — "what you see is what you act on".
   if (decisions.tasks && decisions.tasks.action !== 'leave') {
-    const { data: assigns } = await serviceClient
-      .from('pyra_task_assignees')
-      .select('task_id')
-      .eq('username', username);
-    const taskIds = [...new Set(((assigns ?? []) as { task_id: string }[]).map((a) => a.task_id))];
+    const taskIds = await getOpenTaskIds(serviceClient, username, errors);
     if (taskIds.length) {
       if (decisions.tasks.action === 'archive') {
         const { error } = await serviceClient
@@ -311,13 +369,50 @@ export async function executeHandover(
       } else if (decisions.tasks.action === 'reassign') {
         const to = await validate(decisions.tasks.to, 'tasks');
         if (to) {
-          const { error } = await serviceClient
+          // pyra_task_assignees has UNIQUE (task_id, username) — a single bulk
+          // update would violate it for any task where `to` is ALREADY a
+          // co-assignee, failing the ENTIRE reassign. Split: tasks where `to`
+          // is not yet assigned get a safe bulk update; tasks where `to` is
+          // already assigned just drop the leaver's row (target is already on
+          // the task).
+          const { data: existingRows, error: existingError } = await serviceClient
             .from('pyra_task_assignees')
-            .update({ username: to })
-            .eq('username', username)
+            .select('task_id')
+            .eq('username', to)
             .in('task_id', taskIds);
-          if (error) errors.push(`tasks: ${error.message}`);
-          else applied.tasks = { reassigned_to: to, count: taskIds.length };
+          if (existingError) {
+            errors.push(`tasks: ${existingError.message}`);
+          } else {
+            const alreadyAssignedIds = new Set(
+              ((existingRows ?? []) as { task_id: string }[]).map((r) => r.task_id),
+            );
+            const toUpdateIds = taskIds.filter((id) => !alreadyAssignedIds.has(id));
+            const toDropIds = taskIds.filter((id) => alreadyAssignedIds.has(id));
+            let hadError = false;
+            if (toUpdateIds.length) {
+              const { error } = await serviceClient
+                .from('pyra_task_assignees')
+                .update({ username: to })
+                .eq('username', username)
+                .in('task_id', toUpdateIds);
+              if (error) {
+                errors.push(`tasks: ${error.message}`);
+                hadError = true;
+              }
+            }
+            if (toDropIds.length) {
+              const { error } = await serviceClient
+                .from('pyra_task_assignees')
+                .delete()
+                .eq('username', username)
+                .in('task_id', toDropIds);
+              if (error) {
+                errors.push(`tasks: ${error.message}`);
+                hadError = true;
+              }
+            }
+            if (!hadError) applied.tasks = { reassigned_to: to, count: taskIds.length };
+          }
         }
       }
     }
