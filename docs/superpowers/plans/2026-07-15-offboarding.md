@@ -11,8 +11,8 @@
 ## Global Constraints
 
 - **Baseline:** branch `integrate-pending-fixes`, HEAD `3e274ab` (tracks `origin/main`; a bare push deploys prod — confirm before pushing to main).
-- **Migration number: `039`** (`038_function_execute_acl` is applied + recorded; `039` is free). ⚠️ `036_push_subscriptions` is an unapplied ledger gap — `pnpm db:check-drift` will flag it; that is pre-existing, not introduced here.
-- **DB writes:** `pnpm db:query path/to/file.sql` (ASCII inline only; **any Arabic or any `%` MUST go through a UTF-8 `.sql` file** — cmd.exe eats `%VAR%` and mojibakes Arabic). Apply → verify schema by query → `pnpm db:record 039_pyra_offboarding --by=elharm --notes="..."`. READ-ONLY verification before record.
+- **Migration number: `040`** (`039_app_releases` is the highest applied + recorded; `040` is free). ⚠️ `036_push_subscriptions` is an unapplied ledger gap — `pnpm db:check-drift` will flag it; that is pre-existing, not introduced here.
+- **DB writes:** `pnpm db:query path/to/file.sql` (ASCII inline only; **any Arabic or any `%` MUST go through a UTF-8 `.sql` file** — cmd.exe eats `%VAR%` and mojibakes Arabic). Apply → verify schema by query → `pnpm db:record 040_pyra_offboarding --by=elharm --notes="..."`. READ-ONLY verification before record.
 - **Permission gate:** reuse `hr.manage` for every offboarding route. It already exists (`PERMISSIONS.HR_MANAGE`); admin holds it via the `*` wildcard. **No new permission, no DB-role update needed.**
 - **i18n:** `app/dashboard/hr/**`, `app/dashboard/users/**`, `app/api/users/**`, `app/api/hr/**`, `components/hr/**` are ALL in `MIGRATED_PATHS` — a raw Arabic literal there FAILS `pnpm i18n:check`. UI/response Arabic comes from the `hr` namespace (`messages/{ar,en}/hr.json`, add an `offboarding` sub-object). Persisted/notification Arabic uses a trailing `// i18n-exempt: <reason>` comment. Status labels come from `useStatusLabels('offboarding')` (`messages/{ar,en}/statuses.json`), NOT a code map.
 - **Data layer:** NEVER raw `fetch()` in components — `fetchAPI`/`mutateAPI` from `@/hooks/api-helpers` (both already unwrap `json.data`). Mutations invalidate their query keys.
@@ -27,7 +27,7 @@
 ## File Structure
 
 **Create:**
-- `supabase/migrations/039_pyra_offboarding.sql` — the table + the `last_working_day` column.
+- `supabase/migrations/040_pyra_offboarding.sql` — the table + the `last_working_day` column.
 - `lib/constants/offboarding.ts` — `OFFBOARDING_STATUS`, `EXIT_REASONS`, `EXIT_REASON_KEYS`.
 - `lib/hr/lock-account.ts` — `lockAccount` / `unlockAccount` (ban only).
 - `lib/hr/final-settlement.ts` — `computeFinalSettlement` (pure) + `deriveDeductibleAbsenceDays` (pure).
@@ -57,10 +57,10 @@
 
 ---
 
-### Task 1: Migration 039 + types + constants
+### Task 1: Migration 040 + types + constants
 
 **Files:**
-- Create: `supabase/migrations/039_pyra_offboarding.sql`
+- Create: `supabase/migrations/040_pyra_offboarding.sql`
 - Modify: `types/database.ts` (append `PyraOffboarding`)
 - Create: `lib/constants/offboarding.ts`
 
@@ -69,11 +69,11 @@
 
 - [ ] **Step 1: Write the migration file**
 
-Create `supabase/migrations/039_pyra_offboarding.sql` (ASCII only — no Arabic in this file):
+Create `supabase/migrations/040_pyra_offboarding.sql` (ASCII only — no Arabic in this file):
 
 ```sql
 -- =============================================================
--- Migration 039: Employee Offboarding
+-- Migration 040: Employee Offboarding
 -- =============================================================
 -- One permanent record per employee exit. Survives a re-hire (no unique
 -- constraint on employee_username, exactly like pyra_onboarding). Adds the
@@ -117,7 +117,7 @@ ALTER TABLE pyra_users
 
 - [ ] **Step 2: Apply the migration**
 
-Run: `pnpm db:query supabase/migrations/039_pyra_offboarding.sql`
+Run: `pnpm db:query supabase/migrations/040_pyra_offboarding.sql`
 Expected: `[]` (no error).
 
 - [ ] **Step 3: Verify the schema landed**
@@ -136,8 +136,8 @@ Expected: one row, `last_working_day`.
 
 - [ ] **Step 4: Record the migration**
 
-Run: `pnpm db:record 039_pyra_offboarding --by=elharm --notes="offboarding table + pyra_users.last_working_day column"`
-Expected: `✅ Recorded` with `version: 039_pyra_offboarding`.
+Run: `pnpm db:record 040_pyra_offboarding --by=elharm --notes="offboarding table + pyra_users.last_working_day column"`
+Expected: `✅ Recorded` with `version: 040_pyra_offboarding`.
 
 - [ ] **Step 5: Add the TypeScript type**
 
@@ -195,8 +195,8 @@ Expected: `i18n:check ✓ clean` and no tsc errors.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add supabase/migrations/039_pyra_offboarding.sql types/database.ts lib/constants/offboarding.ts
-git commit -m "feat(offboarding): migration 039 + pyra_offboarding type + constants"
+git add supabase/migrations/040_pyra_offboarding.sql types/database.ts lib/constants/offboarding.ts
+git commit -m "feat(offboarding): migration 040 + pyra_offboarding type + constants"
 ```
 
 ---
