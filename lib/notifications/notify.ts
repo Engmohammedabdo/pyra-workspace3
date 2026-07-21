@@ -110,6 +110,8 @@ export type NotificationType =
   | 'contract_expiring'
   // Quote signing (portal → agent bell)
   | 'quote_signed'
+  // Offboarding (2026-07 employee exit orchestrator)
+  | 'offboarding_completed'
   // Generic
   | 'comment_reply'
   | 'mention'

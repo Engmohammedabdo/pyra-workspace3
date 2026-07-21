@@ -38,6 +38,7 @@ export const ENTITY_TYPES = {
   WORK_SCHEDULE: 'work_schedule',
   EMPLOYEE_PAYMENT: 'employee_payment',
   EVALUATION: 'evaluation',
+  OFFBOARDING: 'offboarding',
 } as const;
 
 /**
