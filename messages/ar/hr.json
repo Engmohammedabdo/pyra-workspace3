@@ -1370,6 +1370,16 @@
     },
     "offboarding": {
       "title": "إنهاء الخدمة",
+      "exitEmployee": "إنهاء خدمة",
+      "suspend": "إيقاف مؤقت",
+      "reactivate": "إعادة تفعيل",
+      "suspendConfirmTitle": "إيقاف {name} مؤقتاً؟",
+      "suspendConfirmBody": "سيتم منع الموظف من الدخول إلى النظام حتى إعادة التفعيل. لن تتأثر أي من بياناته.",
+      "reactivateConfirmTitle": "إعادة تفعيل {name}؟",
+      "reactivateConfirm": "سيُعاد تفعيل حساب الموظف والسماح له بالدخول إلى النظام مرة أخرى.",
+      "suspendDone": "تم إيقاف الحساب مؤقتاً",
+      "reactivateDone": "تمت إعادة تفعيل الحساب",
+      "statusChangeFailed": "تعذّر تغيير حالة الحساب",
       "steps": {
         "details": "التفاصيل",
         "handover": "تسليم المهام",

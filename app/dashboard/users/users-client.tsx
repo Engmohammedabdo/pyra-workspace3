@@ -138,7 +138,6 @@ export default function UsersClient() {
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<PyraUser | null>(null);
-  const [editStatus, setEditStatus] = useState('active');
 
   const [formData, setFormData] = useState({
     username: '',
@@ -245,7 +244,7 @@ export default function UsersClient() {
     editMutation.mutate({ username: selectedUser.username, data: {
       display_name: formData.display_name, role: formData.role, role_id: formData.role_id || null,
       phone: formData.phone || null, job_title: formData.job_title || null,
-      manager_username: formData.manager_username || null, status: editStatus,
+      manager_username: formData.manager_username || null,
       employment_type: formData.employment_type || null, work_location: formData.work_location || null,
       payment_type: formData.payment_type || null,
       salary: formData.payment_type === 'monthly_salary' && formData.salary ? Number(formData.salary) : null,
@@ -293,7 +292,6 @@ export default function UsersClient() {
       commission_rate: user.commission_rate ?? '',
       work_schedule_id: user.work_schedule_id || '',
     });
-    setEditStatus(user.status || 'active');
     setExtraPermissions(Array.isArray(user.extra_permissions) ? user.extra_permissions : []);
     setShowExtraPermissions(false);
     setShowEditDialog(true);
@@ -576,17 +574,6 @@ export default function UsersClient() {
                   value={formData.display_name}
                   onChange={e => setFormData(p => ({ ...p, display_name: e.target.value }))}
                 />
-              </div>
-              <div className="space-y-2">
-                <FormLabel required>{t('fields.status')}</FormLabel>
-                <Select value={editStatus} onValueChange={setEditStatus}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">{t('status.active')}</SelectItem>
-                    <SelectItem value="inactive">{t('status.inactive')}</SelectItem>
-                    <SelectItem value="suspended">{t('status.suspended')}</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
 

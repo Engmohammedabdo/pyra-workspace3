@@ -1370,6 +1370,16 @@
     },
     "offboarding": {
       "title": "End of service",
+      "exitEmployee": "End of service",
+      "suspend": "Suspend",
+      "reactivate": "Reactivate",
+      "suspendConfirmTitle": "Suspend {name}?",
+      "suspendConfirmBody": "The employee will be blocked from signing in until reactivated. None of their data is affected.",
+      "reactivateConfirmTitle": "Reactivate {name}?",
+      "reactivateConfirm": "The employee's account will be reactivated and sign-in allowed again.",
+      "suspendDone": "Account suspended",
+      "reactivateDone": "Account reactivated",
+      "statusChangeFailed": "Could not change the account status",
       "steps": {
         "details": "Details",
         "handover": "Handover",

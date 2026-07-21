@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useProjects } from '@/hooks/useProjects';
 import { useUser } from '@/hooks/useUsers';
 import { useEmployeePayments } from '@/hooks/useEmployeePayments';
+import { useSetUserStatus } from '@/hooks/useOffboarding';
+import { usePermission } from '@/hooks/usePermission';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,6 +14,16 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
 import Link from 'next/link';
@@ -19,9 +32,10 @@ import {
   User, Briefcase, DollarSign, FolderKanban, ArrowRight,
   Phone, Mail, MapPin, Calendar, Clock, Building2,
   CreditCard, Wallet, TrendingUp, Receipt, Download, FileText,
-  ClipboardList,
+  ClipboardList, UserX, PauseCircle, PlayCircle,
 } from 'lucide-react';
 import { UserDocumentsTab } from '@/components/hr/documents/UserDocumentsTab';
+import { ExitWizard } from '@/components/hr/offboarding/ExitWizard';
 import { useTranslations, useLocale } from 'next-intl';
 import { useStatusLabels } from '@/lib/i18n/status-labels';
 
@@ -81,7 +95,16 @@ export default function UserDetailClient() {
   const username = params.username as string;
 
   const t = useTranslations('users.detail');
+  const tExit = useTranslations('hr.offboarding');
   const locale = useLocale();
+
+  // ── Offboarding / status actions (admin-only, never on self) ──
+  const canManageHr = usePermission('hr.manage');
+  const { data: currentUser } = useCurrentUser();
+  const setStatus = useSetUserStatus();
+  const [exitOpen, setExitOpen] = useState(false);
+  const [suspendOpen, setSuspendOpen] = useState(false);
+  const [reactivateOpen, setReactivateOpen] = useState(false);
   // Reconciled shadow-map resolvers (Phase 6a.4) — see report for the
   // per-enum wording decisions (accountType/employmentType/workLocation
   // converge to the canonical statuses.json wording; paymentType is a new
@@ -149,6 +172,30 @@ export default function UserDetailClient() {
 
   const initials = user.display_name?.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() || 'U';
 
+  // Status actions are admin-only (hr.manage) and never allowed on one's own account.
+  const showStatusActions = canManageHr && currentUser?.username !== user.username;
+  const isActive = user.status === 'active';
+
+  const handleSuspend = () => {
+    setStatus.mutate(
+      { username: user.username, status: 'suspended' },
+      {
+        onSuccess: () => { toast.success(tExit('suspendDone')); setSuspendOpen(false); },
+        onError: (e) => toast.error(e instanceof Error && e.message ? e.message : tExit('statusChangeFailed')),
+      },
+    );
+  };
+
+  const handleReactivate = () => {
+    setStatus.mutate(
+      { username: user.username, status: 'active' },
+      {
+        onSuccess: () => { toast.success(tExit('reactivateDone')); setReactivateOpen(false); },
+        onError: (e) => toast.error(e instanceof Error && e.message ? e.message : tExit('statusChangeFailed')),
+      },
+    );
+  };
+
   return (
     <div className="space-y-6 p-4 lg:p-6">
       {/* ═══════════ Header Card ═══════════ */}
@@ -197,7 +244,42 @@ export default function UserDetailClient() {
             </div>
 
             {/* Quick Actions */}
-            <div className="flex gap-2 shrink-0">
+            <div className="flex flex-wrap gap-2 shrink-0">
+              {showStatusActions && (
+                isActive ? (
+                  <>
+                    <Button
+                      size="sm"
+                      className="h-11 gap-1.5 bg-red-600 text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
+                      onClick={() => setExitOpen(true)}
+                    >
+                      <UserX className="h-4 w-4" />
+                      {tExit('exitEmployee')}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-11 gap-1.5 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                      onClick={() => setSuspendOpen(true)}
+                      disabled={setStatus.isPending}
+                    >
+                      <PauseCircle className="h-4 w-4" />
+                      {tExit('suspend')}
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-11 gap-1.5 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                    onClick={() => setReactivateOpen(true)}
+                    disabled={setStatus.isPending}
+                  >
+                    <PlayCircle className="h-4 w-4" />
+                    {tExit('reactivate')}
+                  </Button>
+                )
+              )}
               {user.onboarding_id && (
                 <Link href={`/dashboard/hr/onboarding/${user.onboarding_id}`}>
                   <Button variant="outline" size="sm" className="gap-1.5 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30">
@@ -457,6 +539,51 @@ export default function UserDetailClient() {
           <UserDocumentsTab username={username} />
         </TabsContent>
       </Tabs>
+
+      {/* ═══════════ Offboarding / status actions (admin-only) ═══════════ */}
+      {showStatusActions && (
+        <>
+          <ExitWizard open={exitOpen} username={user.username} onClose={() => setExitOpen(false)} />
+
+          <AlertDialog open={suspendOpen} onOpenChange={setSuspendOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{tExit('suspendConfirmTitle', { name: user.display_name })}</AlertDialogTitle>
+                <AlertDialogDescription>{tExit('suspendConfirmBody')}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={setStatus.isPending}>{tExit('cancel')}</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-amber-600 text-white hover:bg-amber-700"
+                  disabled={setStatus.isPending}
+                  onClick={(e) => { e.preventDefault(); handleSuspend(); }}
+                >
+                  {tExit('suspend')}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <AlertDialog open={reactivateOpen} onOpenChange={setReactivateOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{tExit('reactivateConfirmTitle', { name: user.display_name })}</AlertDialogTitle>
+                <AlertDialogDescription>{tExit('reactivateConfirm')}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={setStatus.isPending}>{tExit('cancel')}</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-emerald-600 text-white hover:bg-emerald-700"
+                  disabled={setStatus.isPending}
+                  onClick={(e) => { e.preventDefault(); handleReactivate(); }}
+                >
+                  {tExit('reactivate')}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      )}
     </div>
   );
 }
