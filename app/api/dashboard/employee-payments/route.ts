@@ -11,7 +11,7 @@ import { hasPermission } from '@/lib/auth/rbac';
 import { EMPLOYEE_PAYMENT_STATUS } from '@/lib/constants/statuses';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 
-const VALID_SOURCE_TYPES = ['task', 'overtime', 'bonus', 'deduction', 'commission'];
+const VALID_SOURCE_TYPES = ['task', 'overtime', 'bonus', 'deduction', 'commission', 'final_settlement'];
 
 // =============================================================
 // GET /api/dashboard/employee-payments

@@ -108,7 +108,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       .eq('status', 'approved')
       .is('payroll_id', null)
       .gte('created_at', startDate + 'T00:00:00')
-      .lte('created_at', endDate + 'T23:59:59');
+      .lte('created_at', endDate + 'T23:59:59')
+      // A final_settlement is an off-cycle obligation paid manually — never
+      // swept into a monthly run (which would mark it paid without paying it).
+      .neq('source_type', 'final_settlement');
 
     // 5. Fetch all overtime timesheets for this month
     const { data: allTimesheets } = await supabase
