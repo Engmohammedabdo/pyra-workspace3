@@ -16,6 +16,7 @@ import { EMPLOYMENT_TYPES, WORK_LOCATIONS, PAYMENT_TYPES, SALARY_CURRENCIES } fr
 import { getDirectReports } from '@/lib/auth/team-scope';
 import { notifyMany } from '@/lib/notifications/notify';
 import { logError } from '@/lib/observability/log-error';
+import { lockAccount } from '@/lib/hr/lock-account';
 
 /**
  * Tables whose rows are EVIDENCE — HR/finance records with legal or financial
@@ -270,7 +271,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updateData.status = body.status;
       // Stamp/clear the departure timestamp for turnover metrics: set it only on
       // the transition FROM active into an inactive state; clear on reactivation.
-      if ((body.status === 'inactive' || body.status === 'suspended') && existingUser.status === 'active') {
+      if ((body.status === 'inactive' || body.status === 'suspended') && existingUser.status !== body.status) {
         updateData.deactivated_at = new Date().toISOString();
       } else if (body.status === 'active') {
         updateData.deactivated_at = null;
@@ -457,6 +458,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     ) {
       try {
         const deactServiceClient = createServiceRoleClient();
+
+        // Lock the identity layer. Deactivation alone does NOT revoke access —
+        // GoTrue knows nothing about pyra_users.status, so an unbanned inactive
+        // user can mint a fresh token and reach PostgREST directly (Gap #3).
+        const lockResult = await lockAccount(deactServiceClient, username);
+        if (!lockResult.locked) {
+          logError({
+            error: new Error(lockResult.error ?? 'lock failed'),
+            metadata: { fn: 'PATCH /api/users deactivation lock', username },
+          });
+        }
+
         const orphanedReports = await getDirectReports(deactServiceClient, username);
         if (orphanedReports.length > 0) {
           const { data: admins } = await deactServiceClient

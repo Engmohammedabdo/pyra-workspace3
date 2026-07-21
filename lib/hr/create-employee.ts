@@ -22,6 +22,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateId } from '@/lib/utils/id';
 import { hashPassword } from '@/lib/utils/password';
 import { resolveAuthUserId } from '@/lib/auth/auth-mapping';
+import { unlockAccount } from '@/lib/hr/lock-account';
 
 /**
  * Minimal shape of next-intl's `t` function, as resolved by
@@ -380,6 +381,14 @@ export async function reactivateEmployeeUser(
   } catch (authErr) {
     // Non-fatal — user can request a password reset; don't abort reactivation
     console.error('[reactivateEmployeeUser] auth password reset error:', authErr);
+  }
+
+  // Lift any offboarding ban so the re-hired user can actually log in.
+  // (create-employee only reset the password; the ban is separate.)
+  const unlock = await unlockAccount(serviceClient, cleanUsername);
+  if (!unlock.unlocked) {
+    // Non-fatal: the reconcile cron will lift it on its next run.
+    console.error('[reactivateEmployeeUser] unlock failed:', unlock.error);
   }
 
   // ── Step 3: Seed leave balances (v2) if the employee has none for this

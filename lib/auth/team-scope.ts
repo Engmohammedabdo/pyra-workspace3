@@ -20,7 +20,8 @@ export async function getDirectReports(
   const { data, error } = await supabase
     .from('pyra_users')
     .select('username')
-    .eq('manager_username', managerUsername);
+    .eq('manager_username', managerUsername)
+    .eq('status', 'active');
 
   if (error) {
     console.error('[getDirectReports] error:', error.message);
