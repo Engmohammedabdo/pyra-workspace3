@@ -16,7 +16,7 @@ import { EMPLOYMENT_TYPES, WORK_LOCATIONS, PAYMENT_TYPES, SALARY_CURRENCIES } fr
 import { getDirectReports } from '@/lib/auth/team-scope';
 import { notifyMany } from '@/lib/notifications/notify';
 import { logError } from '@/lib/observability/log-error';
-import { lockAccount } from '@/lib/hr/lock-account';
+import { lockAccount, unlockAccount } from '@/lib/hr/lock-account';
 
 /**
  * Tables whose rows are EVIDENCE — HR/finance records with legal or financial
@@ -492,6 +492,24 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       } catch (deactErr) {
         // Non-blocking — never fail the PATCH for a notification error
         console.error('[PATCH /api/users] deactivation alert error:', deactErr);
+      }
+    }
+
+    // Lift any offboarding/suspension ban when an admin reactivates the user, so
+    // the "reactivate" action actually restores login (the ban is separate from
+    // the status column — GoTrue doesn't know about pyra_users.status).
+    if (body.status === 'active' && existingUser.status !== 'active') {
+      try {
+        const reactivateServiceClient = createServiceRoleClient();
+        const unlockResult = await unlockAccount(reactivateServiceClient, username);
+        if (!unlockResult.unlocked) {
+          logError({
+            error: new Error(unlockResult.error ?? 'unlock failed'),
+            metadata: { fn: 'PATCH /api/users reactivation unlock', username },
+          });
+        }
+      } catch (reactErr) {
+        console.error('[PATCH /api/users] reactivation unlock error:', reactErr);
       }
     }
 
