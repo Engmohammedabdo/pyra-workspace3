@@ -278,3 +278,26 @@ Plan: docs/superpowers/plans/2026-07-16-calls-app-v12-selfupdate-observability.m
 CRM-aligned `source` field on the mobile quick-add. Server: `app/api/mobile/leads/route.ts` accepts optional `source`, whitelisted to the 6 CRM `SOURCE_VALUES` (`add-lead-modal.tsx`) + the app-only `phone_call` default; invalid/absent falls back to `phone_call` (pre-v1.3 apps keep working). Confirmed no CHECK constraint on `pyra_sales_leads.source` (0 rows from `pg_constraint` query) — whitelist is app-layer only. i18n: `crm.lead.sources.phone_call` was MISSING from both `messages/{ar,en}/crm.json` (not added by the earlier call-tracking wave as guessed) — added ("مكالمة هاتفية" / "Phone call") so `<LeadSourceIcon>` renders app-created leads' label instead of falling back to the raw `phone_call` string. `docs/CALL-TRACKING.md` endpoint #3 contract updated. App: `Payloads.kt` `QuickAddRequest` gained `source: String? = null` (trailing, backwards-compatible both directions); `QuickAddActivity.kt` gained an `ExposedDropdownMenuBox` source picker (7 options, `phone_call` preselected) — required `@OptIn(ExperimentalMaterial3Api::class)` on `onCreate` (compose-bom 2024.12.01 still marks the dropdown APIs experimental; scoped to this screen, not project-wide). `strings.xml` gained 8 new Arabic strings (no Kotlin literals). `PayloadsTest.kt` gained 2 tests (source omitted when null, included when set). Version bumped `versionCode=4`/`versionName="1.3.0"`. Verify: `pnpm run check` (tsc+i18n:check) clean, `pnpm build` compiled successfully, `.\gradlew.bat test` BUILD SUCCESSFUL, `.\gradlew.bat assembleDebug` BUILD SUCCESSFUL. NOT published to any channel per instructions (`pnpm app:publish` deferred to the owner) — production `pyra-calls` stays on v3/1.2.1.
 - V1.3 source picker: complete (d6ff351..11c85a6, review clean). App v1.3.0/code4 built (debug only - release+publish deferred to Abdou's go). Minors deferred: no server unit test for resolveLeadSource; menuAnchor deprecation (BOM-pinned); LeadSourceIcon generic icon for phone_call; docs example without source field.
 - V1.3 MERGED + PUBLISHED 2026-07-20 (Abdou: "ادمج"): d6ff351..838ab36 -> origin/main; pyra-calls channel v4 (1.3.0) active, v3 deactivated. SHA 65e2c8b6...2a34d (7.82 MB). First-ever self-serve fleet update in flight; monitor watching app_version_code flips.
+
+---
+
+# Employee Offboarding — SDD Progress (2026-07-20)
+
+Plan: docs/superpowers/plans/2026-07-15-offboarding.md
+Spec: docs/superpowers/specs/2026-07-15-offboarding-design.md
+Branch: integrate-pending-fixes (tracks origin/main; push deploys prod — confirm first)
+BASE at start: 4953c8e
+Migration number: 040 (039 taken by app_releases)
+
+- Task 1 (migration 040 + type + constants): complete (commit ab68c7d, review clean; Minor: interface placement, self-disclosed)
+- Task 2 (lock-account.ts ban primitive): complete (commit 9e8e8b6, review clean; test cast as-never->as-unknown-as fixed, verified behavior-preserving)
+- Task 3 (final-settlement.ts pure math): complete (commit ca2fe1f, review clean; Set<string> conversion caught a real runtime bug; 5,133.33 hand-verified)
+- Task 4 (final_settlement source_type + payroll exclusion): complete (commit 7966a4f, review clean; .neq verified on the linkedPaymentIds-feeding query)
+- Task 5 (PATCH lock hook + 2 defects + re-hire unlock): complete (commit 6d9e066, review clean; MINOR for final review: double-logError on lock error branch, plan-mandated + harmless)
+- Task 6 (access-reconcile cron): complete (commit 2f023bc, review clean; MINOR for final review: admin-lookup error unchecked + no .limit on users fetch, both pre-existing conventions; Steps 3-4 live-trigger+n8n DEFERRED-operational)
+- Task 7 (handover.ts build + execute): complete (commits 10525c5 + fix ee27c2e, review clean after 1 fix — Important board-task scope+collision resolved). MINORS for final review: (1) DRY — open-task predicate duplicated between buildHandover + getOpenTaskIds (drift risk, extract shared helper); (2) handover.ts is 449 lines — consider split handover-build.ts / handover-execute.ts (keep @/lib/hr/handover public path for Task 8 imports); (3) no unit test for getOpenTaskIds/collision-split (needs mocked supabase).
+- Task 8 (exit orchestrator GET+POST): complete (commits 48982fa + fix 4150b62, opus review clean after 1 fix — Important concurrent-double-settlement closed via optimistic status-claim + exit_reason whitelist). MINOR for final: offboarding_completed NotificationType added but unused; UI (Task 10) MUST surface handover_results.errors + locked/lock_error (200-with-errors contract).
+- Task 9 (useOffboarding hooks): complete (commit 568873d, opus review clean; SubmitExitResult exports handover_results+locked for the wizard). MINOR: lock_error type string vs string|null (brief-faithful).
+- Task 10 (ExitWizard UI): pending
+- Task 11 (users-client surgery + 3 buttons): pending
+- Task 12 (i18n + status labels + module guide + final verify): pending
