@@ -882,8 +882,8 @@ git commit -m "feat(offboarding): daily access-reconcile cron (assert every inac
 - Test: `__tests__/handover.test.ts`
 
 **Interfaces:**
-- Consumes: `isAssignableUser` from `@/lib/auth/lead-scope`; `notifyBatch` from `@/lib/notifications/notify`; `generateId` from `@/lib/utils/id`.
-- Produces: `deriveTerminalStageIds(stages): Set<string>` (pure); `buildHandover(serviceClient, username): Promise<HandoverList>` (fail-closed); `executeHandover(serviceClient, username, decisions, actor): Promise<HandoverResult>`.
+- Consumes: `isAssignableUser` from `@/lib/auth/lead-scope`; `notifyBatch` from `@/lib/notifications/notify`; `PIPELINE_FINAL_STAGES` from `@/lib/constants/statuses`.
+- Produces: `isOpenLeadStage(stageId): boolean` (pure); `buildHandover(serviceClient, username): Promise<HandoverList>` (fail-closed); `executeHandover(serviceClient, username, decisions, actor): Promise<HandoverResult>`.
 
 - [ ] **Step 1: Write the failing test (the pure terminal-stage derivation + the fail-closed contract)**
 
@@ -891,31 +891,32 @@ Create `__tests__/handover.test.ts`:
 
 ```ts
 import { describe, it, expect } from 'vitest';
-import { deriveTerminalStageIds } from '@/lib/hr/handover';
+import { isOpenLeadStage } from '@/lib/hr/handover';
 
-describe('deriveTerminalStageIds', () => {
-  it('derives terminal stages from the stage table, incl. custom ps_* stages', () => {
-    const stages = [
-      { id: 'stg_new_inquiry', is_won: false, is_lost: false },
-      { id: 'stg_discovery_call', is_won: false, is_lost: false },
-      { id: 'stg_closed_lost', is_won: false, is_lost: true },
-      { id: 'ps_85AlKP8d7mA7HAO9', is_won: true, is_lost: false }, // custom won stage
-    ];
-    const terminal = deriveTerminalStageIds(stages as never);
-    expect(terminal.has('ps_85AlKP8d7mA7HAO9')).toBe(true);
-    expect(terminal.has('stg_closed_lost')).toBe(true);
-    expect(terminal.has('stg_discovery_call')).toBe(false);
-    // stg_closed_won is NOT hardcoded — a stage table without it still works
-    expect(terminal.has('stg_closed_won')).toBe(false);
+describe('isOpenLeadStage', () => {
+  it('treats the codebase terminal stages (closed_won/closed_lost) as NOT open', () => {
+    expect(isOpenLeadStage('stg_closed_won')).toBe(false);
+    expect(isOpenLeadStage('stg_closed_lost')).toBe(false);
   });
-
-  it('returns an empty set for no stages (an open lead is never mis-marked terminal)', () => {
-    expect(deriveTerminalStageIds([]).size).toBe(0);
+  it('treats active + custom (ps_*) + null stages as open (safe over-inclusion)', () => {
+    expect(isOpenLeadStage('stg_discovery_call')).toBe(true);
+    expect(isOpenLeadStage('stg_new_inquiry')).toBe(true);
+    expect(isOpenLeadStage('ps_85AlKP8d7mA7HAO9')).toBe(true); // custom stage — safe to show for handover
+    expect(isOpenLeadStage(null)).toBe(true);
   });
 });
 ```
 
-> **Confirm the real `pyra_pipeline_stages` column names first.** Run `pnpm db:query "SELECT column_name FROM information_schema.columns WHERE table_name = 'pyra_pipeline_stages' ORDER BY ordinal_position"`. The design assumes a won/lost flag; if the real schema encodes terminality differently (e.g. a `stage_type` or `is_terminal` column), adapt `deriveTerminalStageIds` and the test to the real columns. Do NOT hardcode `stg_closed_won`.
+> **CORRECTED APPROACH (verified against the live DB 2026-07-20):** the plan
+> originally proposed deriving terminal stages from a `pyra_pipeline_stages`
+> table with `is_won`/`is_lost` columns. **That is WRONG — that table is EMPTY
+> (0 rows) and has no such columns** (its real columns are `id, pipeline_id,
+> stage, status, ...`). The codebase already defines the canonical terminal set
+> as the constant **`PIPELINE_FINAL_STAGES = ['stg_closed_won', 'stg_closed_lost']`**
+> in `lib/constants/statuses.ts`. Use it. A lead is OPEN for handover when
+> `archived_at IS NULL AND stage_id NOT IN PIPELINE_FINAL_STAGES` (a NULL or
+> custom `ps_*` stage counts as open — safe over-inclusion; the admin can pick
+> "leave"). Do NOT read `pyra_pipeline_stages`.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -930,15 +931,13 @@ Create `lib/hr/handover.ts`. Adapt column names to the confirmed schema from Ste
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isAssignableUser } from '@/lib/auth/lead-scope';
 import { notifyBatch } from '@/lib/notifications/notify';
-import { generateId } from '@/lib/utils/id';
+import { PIPELINE_FINAL_STAGES } from '@/lib/constants/statuses';
 
-export interface StageRow { id: string; is_won?: boolean; is_lost?: boolean }
-
-/** Terminal = won OR lost, derived from the stage table — never a hardcoded id. */
-export function deriveTerminalStageIds(stages: StageRow[]): Set<string> {
-  const s = new Set<string>();
-  for (const st of stages) if (st.is_won || st.is_lost) s.add(st.id);
-  return s;
+/** A lead needs handover unless it is archived or in a codebase-terminal stage.
+ *  NULL/custom stages count as open (safe over-inclusion — admin can pick "leave"). */
+export function isOpenLeadStage(stageId: string | null): boolean {
+  if (stageId === null) return true;
+  return !(PIPELINE_FINAL_STAGES as readonly string[]).includes(stageId);
 }
 
 export interface HandoverItem { id: string; label: string }
@@ -968,19 +967,18 @@ async function orThrow<T>(p: PromiseLike<{ data: T | null; error: { message: str
  * column would otherwise read as "nothing to hand over").
  */
 export async function buildHandover(serviceClient: SupabaseClient, username: string): Promise<HandoverList> {
-  const stages = await orThrow(
-    serviceClient.from('pyra_pipeline_stages').select('id, is_won, is_lost'),
-    'pipeline_stages',
-  ) as StageRow[];
-  const terminal = deriveTerminalStageIds(stages);
-  const terminalIds = [...terminal];
-
-  let leadQ = serviceClient.from('pyra_sales_leads')
-    .select('id, name')
-    .eq('assigned_to', username)
-    .is('archived_at', null);
-  if (terminalIds.length) leadQ = leadQ.not('stage_id', 'in', `(${terminalIds.map((s) => `"${s}"`).join(',')})`);
-  const leads = (await orThrow(leadQ, 'leads')) as { id: string; name: string | null }[];
+  // Terminal stages come from the codebase constant PIPELINE_FINAL_STAGES (via
+  // isOpenLeadStage) — pyra_pipeline_stages is empty and has no won/lost columns.
+  // A NULL or custom (ps_*) stage counts as open (safe over-inclusion; admin
+  // picks "leave").
+  const leadRows = (await orThrow(
+    serviceClient.from('pyra_sales_leads')
+      .select('id, name, stage_id')
+      .eq('assigned_to', username)
+      .is('archived_at', null),
+    'leads',
+  )) as { id: string; name: string | null; stage_id: string | null }[];
+  const leads = leadRows.filter((l) => isOpenLeadStage(l.stage_id));
 
   const followUps = (await orThrow(
     serviceClient.from('pyra_sales_follow_ups').select('id, title, status').eq('assigned_to', username).in('status', ['pending', 'overdue']),
