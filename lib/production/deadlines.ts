@@ -2,7 +2,7 @@ import { CALENDAR_TIMEZONE, CALENDAR_TIMEZONE_OFFSET } from '@/lib/constants/sta
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
-const ISO_INSTANT_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|[+-]\d{2}:\d{2})$/;
+const ISO_INSTANT_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(Z|[+-]\d{2}:\d{2})$/;
 const dubaiDateTimeFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: CALENDAR_TIMEZONE,
   year: 'numeric',
@@ -36,7 +36,7 @@ export function isValidIsoInstant(iso: string): boolean {
   const hour = Number(hourText);
   const minute = Number(minuteText);
   const second = Number(secondText);
-  const millisecond = Number(fraction.padEnd(3, '0'));
+  const millisecond = Number(fraction.slice(0, 3).padEnd(3, '0'));
 
   if (month < 1 || month > 12 || day < 1 || hour > 23 || minute > 59 || second > 59) return false;
   const local = new Date(Date.UTC(year, month - 1, day, hour, minute, second, millisecond));

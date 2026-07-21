@@ -92,7 +92,7 @@ export function buildTaskJourney(
   const firstSubmitted = reviewEntries[0]?.created_at ?? null;
   const delivered = mine.find((e) => e.to_column_id === task.done_column_id)?.created_at ?? null;
   const snapshotDueAt = reviewEntries[0]?.due_at_snapshot;
-  const selectedExactDueAt = snapshotDueAt === undefined ? task.due_at : snapshotDueAt;
+  const selectedExactDueAt = snapshotDueAt == null ? task.due_at : snapshotDueAt;
   const effectiveDueAt = selectedExactDueAt
     ?? (task.due_date ? legacyDubaiDayEndToIso(task.due_date) : null);
   const invalidDeliveryTimestamp = (effectiveDueAt !== null && !isValidIsoInstant(effectiveDueAt))

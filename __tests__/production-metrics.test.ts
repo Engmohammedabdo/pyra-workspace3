@@ -65,6 +65,33 @@ describe('buildTaskJourney', () => {
     expect(j.delay_days).toBeNull();
   });
 
+  it('continues from an explicitly null snapshot to the current exact due_at', () => {
+    const dueAt = '2026-07-10T10:00:00.000Z';
+    const j = buildTaskJourney(
+      { ...TASK, due_at: dueAt },
+      [ev('t1', 'col_prod_wip', 'col_prod_review', '2026-07-10T10:00:00.001Z', null)],
+    );
+
+    expect(j.effective_due_at).toBe(dueAt);
+    expect(j.on_time).toBe(false);
+    expect(j.delay_days).toBe(0);
+  });
+
+  it('keeps valid six-digit PostgreSQL timestamps eligible', () => {
+    const j = buildTaskJourney(
+      {
+        ...TASK,
+        created_at: '2026-07-09T10:00:00.123456+00:00',
+        due_at: '2026-07-10T10:00:00.123456+00:00',
+      },
+      [ev('t1', 'col_prod_wip', 'col_prod_review', '2026-07-10T09:00:00.123456+00:00')],
+    );
+
+    expect(j.delivery_eligible).toBe(true);
+    expect(j.delivery_exclusion).toBeNull();
+    expect(j.on_time).toBe(true);
+  });
+
   it('marks a submission one millisecond after its exact deadline late', () => {
     const dueAt = '2026-07-10T10:00:00.000Z';
     const j = buildTaskJourney(

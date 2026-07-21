@@ -32,6 +32,14 @@ describe('Dubai deadline conversion', () => {
     expect(isoToDubaiDateTime('2026-07-21')).toBeNull();
     expect(isoToDubaiDateTime('2026-02-30T10:00:00Z')).toBeNull();
   });
+
+  it('accepts PostgreSQL microsecond fractions but rejects fractions longer than six digits', () => {
+    expect(isoToDubaiDateTime('2026-07-21T14:30:00.123456+00:00')).toEqual({
+      date: '2026-07-21',
+      time: '18:30',
+    });
+    expect(isoToDubaiDateTime('2026-07-21T14:30:00.1234567+00:00')).toBeNull();
+  });
 });
 
 describe('legacy Dubai day-end deadlines', () => {
