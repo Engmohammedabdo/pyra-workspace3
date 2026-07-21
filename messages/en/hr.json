@@ -1367,6 +1367,87 @@
           "selectAtLeastOneDocument": "Select at least one document"
         }
       }
+    },
+    "offboarding": {
+      "title": "End of service",
+      "steps": {
+        "details": "Details",
+        "handover": "Handover",
+        "confirm": "Confirm"
+      },
+      "exitReasons": {
+        "resigned": "Resigned",
+        "terminated": "Terminated",
+        "contract_ended": "Contract ended",
+        "other": "Other"
+      },
+      "fields": {
+        "lastWorkingDay": "Last working day",
+        "exitReason": "Exit reason",
+        "notes": "Notes",
+        "notesPlaceholder": "Additional notes about the exit (optional)"
+      },
+      "handover": {
+        "heading": "Hand over the employee's work",
+        "subheading": "Reassign open work to colleagues before the account is closed",
+        "assignAll": "Assign all to",
+        "assignAllPlaceholder": "Pick a user",
+        "reassign": "Reassign",
+        "reparent": "Change manager",
+        "archive": "Archive",
+        "leave": "Leave as is",
+        "selectTarget": "Pick the recipient",
+        "none": "None",
+        "emptyWork": "No open work needs handover",
+        "buckets": {
+          "leads": "Leads",
+          "follow_ups": "Follow-ups",
+          "tasks": "Board tasks",
+          "whatsapp": "WhatsApp chats",
+          "lead_tasks": "Lead tasks",
+          "direct_reports": "Direct reports"
+        },
+        "accessTitle": "Access & permissions",
+        "accessAutoRemoved": "Removed automatically on exit",
+        "accessBoardMembers": "Board memberships",
+        "accessTeamMembers": "Team memberships",
+        "accessWaSettings": "WhatsApp routing",
+        "accessFavorites": "Favorites",
+        "externalTitle": "Files on external accounts",
+        "externalFilesWarning": "There are {count} file(s) on the employee's external account (Drive / frame.io). Request a copy before the account is closed — there is no automatic recovery.",
+        "externalFilesHosts": "Sources: {hosts}",
+        "externalFilesAck": "I confirm I requested a copy of the external files"
+      },
+      "confirm": {
+        "heading": "Final settlement",
+        "dailyRate": "Daily rate",
+        "daysEmployed": "Days employed",
+        "daysValue": "{days} days",
+        "gross": "Gross",
+        "absenceDeduction": "Absence deduction",
+        "net": "Net payable",
+        "settlementAdminNote": "The amount is recorded as payable — the employee is not notified automatically."
+      },
+      "confirmTitle": "Confirm end of service for {name}?",
+      "confirmBody": "This closes the employee's account and executes the handover decisions. It cannot be undone easily.",
+      "confirmCta": "Confirm end of service",
+      "cancel": "Cancel",
+      "back": "Back",
+      "next": "Next",
+      "submit": "End service",
+      "submitting": "Processing...",
+      "exitDoneLocked": "End of service completed and account closed successfully.",
+      "exitDoneLockFailed": "End of service done, but closing the account failed — it will retry automatically.",
+      "handoverPartialError": "End of service done, but some handover steps failed. Review them manually.",
+      "submitFailedFallback": "Could not complete the end of service",
+      "loadError": "Could not load end-of-service data",
+      "loadErrorHint": "We couldn't read the employee's work. Retry — end of service cannot proceed without fully loaded data.",
+      "retry": "Retry",
+      "errors": {
+        "lastDayRequired": "Last working day is required",
+        "lastDayFuture": "Last working day cannot be in the future",
+        "reasonRequired": "Exit reason is required"
+      }
     }
   }
 }

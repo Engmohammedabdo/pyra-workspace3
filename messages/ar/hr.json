@@ -1367,6 +1367,87 @@
           "selectAtLeastOneDocument": "اختر وثيقة واحدة على الأقل"
         }
       }
+    },
+    "offboarding": {
+      "title": "إنهاء الخدمة",
+      "steps": {
+        "details": "التفاصيل",
+        "handover": "تسليم المهام",
+        "confirm": "التأكيد"
+      },
+      "exitReasons": {
+        "resigned": "استقالة",
+        "terminated": "إنهاء من الشركة",
+        "contract_ended": "انتهاء العقد",
+        "other": "أخرى"
+      },
+      "fields": {
+        "lastWorkingDay": "آخر يوم عمل",
+        "exitReason": "سبب إنهاء الخدمة",
+        "notes": "ملاحظات",
+        "notesPlaceholder": "ملاحظات إضافية حول إنهاء الخدمة (اختياري)"
+      },
+      "handover": {
+        "heading": "تسليم مهام الموظف",
+        "subheading": "وزّع المهام المفتوحة على زملائه قبل إغلاق الحساب",
+        "assignAll": "سلّم الكل لـ",
+        "assignAllPlaceholder": "اختر موظفاً",
+        "reassign": "إعادة تعيين",
+        "reparent": "نقل الإدارة",
+        "archive": "أرشفة",
+        "leave": "ترك كما هو",
+        "selectTarget": "اختر الموظف المستلم",
+        "none": "لا يوجد",
+        "emptyWork": "لا توجد مهام مفتوحة تحتاج تسليماً",
+        "buckets": {
+          "leads": "العملاء المحتملون (Leads)",
+          "follow_ups": "المتابعات",
+          "tasks": "مهام اللوحات",
+          "whatsapp": "محادثات واتساب",
+          "lead_tasks": "مهام الـ Leads",
+          "direct_reports": "الموظفون المرؤوسون"
+        },
+        "accessTitle": "الصلاحيات والوصول",
+        "accessAutoRemoved": "سيتم إزالتها تلقائياً عند إنهاء الخدمة",
+        "accessBoardMembers": "عضويات اللوحات",
+        "accessTeamMembers": "عضويات الفرق",
+        "accessWaSettings": "توجيه واتساب",
+        "accessFavorites": "المفضّلة",
+        "externalTitle": "ملفات على حسابات خارجية",
+        "externalFilesWarning": "فيه {count} ملف على حساب الموظف الخارجي (Drive / frame.io). اطلب نسخة منها قبل ما يتقفل الحساب — مفيش استرجاع تلقائي.",
+        "externalFilesHosts": "المصادر: {hosts}",
+        "externalFilesAck": "أكّدت إني طلبت نسخة من الملفات الخارجية"
+      },
+      "confirm": {
+        "heading": "المخالصة النهائية",
+        "dailyRate": "الأجر اليومي",
+        "daysEmployed": "أيام الخدمة",
+        "daysValue": "{days} يوم",
+        "gross": "الإجمالي",
+        "absenceDeduction": "خصم الغياب",
+        "net": "صافي المستحق",
+        "settlementAdminNote": "المبلغ يُسجَّل كمستحق للدفع — الموظف لا يُخطر تلقائياً."
+      },
+      "confirmTitle": "تأكيد إنهاء خدمة {name}؟",
+      "confirmBody": "سيغلق هذا الإجراء حساب الموظف وينفّذ قرارات التسليم. لا يمكن التراجع عنه بسهولة.",
+      "confirmCta": "تأكيد إنهاء الخدمة",
+      "cancel": "إلغاء",
+      "back": "السابق",
+      "next": "التالي",
+      "submit": "إنهاء الخدمة",
+      "submitting": "جارٍ التنفيذ...",
+      "exitDoneLocked": "تم إنهاء الخدمة وإغلاق الحساب بنجاح.",
+      "exitDoneLockFailed": "تم إنهاء الخدمة، لكن إغلاق الحساب فشل — ستتم إعادة المحاولة تلقائياً.",
+      "handoverPartialError": "تم إنهاء الخدمة، لكن بعض خطوات التسليم فشلت. راجعها يدوياً.",
+      "submitFailedFallback": "تعذّر إنهاء الخدمة",
+      "loadError": "تعذّر تحميل بيانات إنهاء الخدمة",
+      "loadErrorHint": "لم نتمكن من قراءة مهام الموظف. أعد المحاولة — لا يمكن إنهاء الخدمة دون تحميل البيانات كاملة.",
+      "retry": "إعادة المحاولة",
+      "errors": {
+        "lastDayRequired": "آخر يوم عمل مطلوب",
+        "lastDayFuture": "آخر يوم عمل لا يمكن أن يكون في المستقبل",
+        "reasonRequired": "سبب إنهاء الخدمة مطلوب"
+      }
     }
   }
 }
