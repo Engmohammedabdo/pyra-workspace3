@@ -10,6 +10,7 @@ import { buildHandover, executeHandover, type HandoverDecisions } from '@/lib/hr
 import { computeFinalSettlement, deriveDeductibleAbsenceDays } from '@/lib/hr/final-settlement';
 import { isOnTimeClockIn } from '@/lib/hr/attendance-policy';
 import { dubaiDayKey } from '@/lib/utils/format';
+import { EXIT_REASONS } from '@/lib/constants/offboarding';
 
 type RouteParams = { params: Promise<{ username: string }> };
 
@@ -132,6 +133,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!lastWorkingDay || lastWorkingDay > today)
       return apiValidationError('آخر يوم عمل يجب أن يكون اليوم أو قبله'); // i18n-exempt
     if (!exitReason) return apiValidationError('سبب الخروج مطلوب'); // i18n-exempt
+    if (!(EXIT_REASONS as readonly string[]).includes(exitReason))
+      return apiValidationError('سبب الخروج غير صالح'); // i18n-exempt: response message
 
     const supabase = createServiceRoleClient();
     const { data: user, error: uErr } = await supabase
@@ -161,19 +164,31 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // 3. LOCK before flip.
     const lockResult = await lockAccount(supabase, username);
 
-    // 4. Flip status ALWAYS (even if the lock failed).
+    // 4. Flip status ALWAYS (even if the lock failed) — as an OPTIMISTIC CLAIM.
+    // `.eq('status', 'active')` + `.select('username')` mean only ONE concurrent
+    // POST can win the flip (no DB unique constraint catches a double-submit
+    // otherwise). The loser aborts here, BEFORE inserting a second settlement/
+    // offboarding row — lockAccount + executeHandover above are idempotent, so a
+    // losing racer having already re-run them is harmless.
     const offboardingId = generateId('ofb');
-    const { error: flipErr } = await supabase
+    const { data: flipped, error: flipErr } = await supabase
       .from('pyra_users')
       .update({
         status: 'inactive',
         deactivated_at: new Date().toISOString(),
         last_working_day: lastWorkingDay,
       })
-      .eq('username', username);
+      .eq('username', username)
+      .eq('status', 'active')
+      .select('username');
     if (flipErr) {
       logError({ error: flipErr, request, metadata: { fn: 'POST exit flip', username } });
       return apiServerError();
+    }
+    if (!flipped || flipped.length === 0) {
+      // A concurrent exit already claimed this employee — abort before creating
+      // duplicate money.
+      return apiValidationError('تم إنهاء خدمة هذا الموظف بالفعل'); // i18n-exempt: response message
     }
 
     // 5. Settlement row (pending employee-payment) — idempotent on source_id.
