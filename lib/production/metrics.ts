@@ -2,7 +2,7 @@
 // Source of truth for all numbers = pyra_task_stage_history events.
 import { dubaiDayKey } from '@/lib/utils/format';
 import { DELIVERY_MIN_LEAD_TIME_HOURS } from '@/lib/constants/deductions';
-import { legacyDubaiDayEndToIso } from './deadlines';
+import { isValidIsoInstant, legacyDubaiDayEndToIso } from './deadlines';
 
 export interface StageEvent {
   task_id: string;
@@ -48,7 +48,7 @@ export interface TaskJourney {
   /** Dubai calendar days late (0 when a late submission is still on the due day) */
   delay_days: number | null;
   delivery_eligible: boolean;
-  delivery_exclusion: 'missing_deadline' | 'lead_time_under_24h' | null;
+  delivery_exclusion: 'missing_deadline' | 'invalid_timestamp' | 'lead_time_under_24h' | null;
   days_to_first_submission: number | null;
   is_archived?: boolean | null;
 }
@@ -91,11 +91,17 @@ export function buildTaskJourney(
   const reviewEntries = mine.filter((e) => e.to_column_id === task.review_column_id);
   const firstSubmitted = reviewEntries[0]?.created_at ?? null;
   const delivered = mine.find((e) => e.to_column_id === task.done_column_id)?.created_at ?? null;
-  const effectiveDueAt = reviewEntries[0]?.due_at_snapshot
-    ?? task.due_at
+  const snapshotDueAt = reviewEntries[0]?.due_at_snapshot;
+  const selectedExactDueAt = snapshotDueAt === undefined ? task.due_at : snapshotDueAt;
+  const effectiveDueAt = selectedExactDueAt
     ?? (task.due_date ? legacyDubaiDayEndToIso(task.due_date) : null);
+  const invalidDeliveryTimestamp = (effectiveDueAt !== null && !isValidIsoInstant(effectiveDueAt))
+    || (effectiveDueAt !== null && !isValidIsoInstant(task.created_at))
+    || (firstSubmitted !== null && !isValidIsoInstant(firstSubmitted));
   const deliveryExclusion = !effectiveDueAt
     ? 'missing_deadline'
+    : invalidDeliveryTimestamp
+      ? 'invalid_timestamp'
     : Date.parse(effectiveDueAt) - Date.parse(task.created_at) < DELIVERY_MIN_LEAD_TIME_HOURS * HOUR
       ? 'lead_time_under_24h'
       : null;
@@ -121,7 +127,7 @@ export function buildTaskJourney(
 
   let onTime: boolean | null = null;
   let delayDays: number | null = null;
-  if (effectiveDueAt && firstSubmitted) {
+  if (effectiveDueAt && firstSubmitted && deliveryExclusion !== 'invalid_timestamp') {
     const submittedAt = Date.parse(firstSubmitted);
     const dueAt = Date.parse(effectiveDueAt);
     onTime = submittedAt <= dueAt;

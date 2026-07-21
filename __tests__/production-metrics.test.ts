@@ -127,6 +127,49 @@ describe('buildTaskJourney', () => {
     expect(j.on_time).toBeNull();
   });
 
+  it('does not fall back when the selected review snapshot is present but invalid', () => {
+    const j = buildTaskJourney(
+      { ...TASK, due_at: '2026-07-10T10:00:00Z' },
+      [ev('t1', 'col_prod_wip', 'col_prod_review', '2026-07-10T09:00:00Z', '2026-02-30T10:00:00Z')],
+    );
+
+    expect(j.effective_due_at).toBe('2026-02-30T10:00:00Z');
+    expect(j.delivery_eligible).toBe(false);
+    expect(j.delivery_exclusion).toBe('invalid_timestamp');
+    expect(j.on_time).toBeNull();
+    expect(j.delay_days).toBeNull();
+  });
+
+  it('does not fall back when the current exact due_at is present but invalid', () => {
+    const j = buildTaskJourney(
+      { ...TASK, due_at: '2026-07-21' },
+      [ev('t1', 'col_prod_wip', 'col_prod_review', '2026-07-10T09:00:00Z')],
+    );
+
+    expect(j.effective_due_at).toBe('2026-07-21');
+    expect(j.delivery_exclusion).toBe('invalid_timestamp');
+    expect(j.delivery_eligible).toBe(false);
+    expect(j.on_time).toBeNull();
+  });
+
+  it('withholds delivery evidence when the task creation or first submission timestamp is invalid', () => {
+    const invalidCreated = buildTaskJourney(
+      { ...TASK, created_at: '2026-07-21', due_at: '2026-07-22T10:00:00Z' },
+      [ev('t1', 'col_prod_wip', 'col_prod_review', '2026-07-22T09:00:00Z')],
+    );
+    const invalidSubmitted = buildTaskJourney(
+      { ...TASK, due_at: '2026-07-22T10:00:00Z' },
+      [ev('t1', 'col_prod_wip', 'col_prod_review', '2026-02-30T10:00:00Z')],
+    );
+
+    for (const journey of [invalidCreated, invalidSubmitted]) {
+      expect(journey.delivery_exclusion).toBe('invalid_timestamp');
+      expect(journey.delivery_eligible).toBe(false);
+      expect(journey.on_time).toBeNull();
+      expect(journey.delay_days).toBeNull();
+    }
+  });
+
   it('flags late first submission with delay in days (Dubai day of submission)', () => {
     const events = [ev('t1', 'col_prod_wip', 'col_prod_review', '2026-07-12T10:00:00Z')];
     const j = buildTaskJourney(TASK, events);
@@ -186,6 +229,35 @@ describe('summarizeEmployee', () => {
     expect(s.late_count).toBe(1);
     expect(s.avg_delay_days).toBe(3); // 07-05 vs 07-02
     expect(s.avg_rounds).toBe(1);     // only delivered tasks count
+  });
+
+  it('excludes short-lead tasks from delivery aggregation while including exactly-24-hour tasks', () => {
+    const shortLeadLate = buildTaskJourney(
+      {
+        ...TASK,
+        id: 'short-lead',
+        due_date: null,
+        created_at: '2026-07-01T10:00:00Z',
+        due_at: '2026-07-02T09:59:59.999Z',
+      },
+      [ev('short-lead', 'col_prod_wip', 'col_prod_review', '2026-07-02T10:00:00.000Z')],
+    );
+    const exactLeadOnTime = buildTaskJourney(
+      {
+        ...TASK,
+        id: 'exact-lead',
+        due_date: null,
+        created_at: '2026-07-01T10:00:00Z',
+        due_at: '2026-07-02T10:00:00.000Z',
+      },
+      [ev('exact-lead', 'col_prod_wip', 'col_prod_review', '2026-07-02T09:00:00.000Z')],
+    );
+
+    const s = summarizeEmployee([shortLeadLate, exactLeadOnTime], '2026-07', '2026-07-20');
+    expect(shortLeadLate.delivery_eligible).toBe(false);
+    expect(exactLeadOnTime.delivery_eligible).toBe(true);
+    expect(s.on_time_pct).toBe(100);
+    expect(s.late_count).toBe(0);
   });
 
   it('counts unique reviewed tasks and only structured outright rejections in the month', () => {

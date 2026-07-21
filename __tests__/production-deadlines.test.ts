@@ -27,6 +27,11 @@ describe('Dubai deadline conversion', () => {
   it('returns null when asked to format an invalid ISO instant', () => {
     expect(isoToDubaiDateTime('not-an-iso-instant')).toBeNull();
   });
+
+  it('rejects date-only and normalized impossible ISO instants', () => {
+    expect(isoToDubaiDateTime('2026-07-21')).toBeNull();
+    expect(isoToDubaiDateTime('2026-02-30T10:00:00Z')).toBeNull();
+  });
 });
 
 describe('legacy Dubai day-end deadlines', () => {
@@ -53,5 +58,7 @@ describe('precise overdue checks', () => {
   it('returns false for missing or invalid instants', () => {
     expect(isDeadlineOverdue(null, dueAt)).toBe(false);
     expect(isDeadlineOverdue(dueAt, 'invalid')).toBe(false);
+    expect(isDeadlineOverdue('2026-02-30T10:00:00Z', dueAt)).toBe(false);
+    expect(isDeadlineOverdue(dueAt, '2026-07-21')).toBe(false);
   });
 });
