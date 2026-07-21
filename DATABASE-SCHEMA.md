@@ -99,6 +99,13 @@
 84. [pyra_content_pipeline](#pyra_content_pipeline) — Content production pipeline
 85. [pyra_pipeline_stages](#pyra_pipeline_stages) — Pipeline stage tracking
 
+### Exact Deadlines and Employee Deductions (041_employee_deductions.sql)
+
+- [pyra_deduction_cases](#75a-pyra_deduction_cases) — Immutable approved monthly deduction cases
+- `pyra_tasks.due_at` — Exact production deadline instant
+- `pyra_task_stage_history.due_at_snapshot` — Review-entry deadline snapshot
+- `pyra_employee_payments.effective_month` — Payroll attribution month
+
 ### Employee Documents Vault (021_pyra_employee_documents.sql)
 
 86. [pyra_document_types](#pyra_document_types) — Configurable HR document-type catalogue
@@ -888,6 +895,7 @@ Task cards on Kanban boards with priority, dates, and hour tracking.
 | position | integer | NULL | 0 |
 | priority | varchar(20) | NULL | 'medium' |
 | due_date | date | NULL | — |
+| due_at | timestamptz | NULL | — |
 | start_date | date | NULL | — |
 | estimated_hours | numeric(6,2) | NULL | — |
 | actual_hours | numeric(6,2) | NULL | 0 |
@@ -899,7 +907,19 @@ Task cards on Kanban boards with priority, dates, and hour tracking.
 
 **PK**: `id`
 **FK**: `board_id` → `pyra_boards(id)` ON DELETE CASCADE, `column_id` → `pyra_board_columns(id)`
-**Indexes**: `idx_tasks_board`, `idx_tasks_column`, `idx_tasks_due` (partial, where due_date IS NOT NULL)
+**Indexes**: `idx_tasks_board`, `idx_tasks_column`, `idx_tasks_due` (partial, where `due_date IS NOT NULL`), `idx_tasks_due_at` (partial, where `due_at IS NOT NULL`)
+
+`due_at` is the trusted exact deadline for the production board. Migration 041
+backfills only dated `bd_production` tasks to `23:59:59.999 Asia/Dubai`; the
+historical production task without a date remains null. `due_date` stays as the
+date-only compatibility field, and migration 041 intentionally adds no
+production `NOT NULL`/`CHECK` before the exact-deadline API is deployed.
+
+### pyra_task_stage_history — Migration 041 column
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| due_at_snapshot | timestamptz | YES | — | Immutable deadline captured on entry to a review column; existing review entries are backfilled only when their task has `due_at` |
 
 ---
 
@@ -1946,6 +1966,7 @@ Employee payment ledger tracking all payment sources (salary, tasks, overtime, b
 | currency | varchar(3) | YES | `'AED'` |
 | status | varchar(20) | YES | `'pending'` |
 | payroll_id | varchar(20) | YES | — |
+| effective_month | date | YES | — |
 | approved_by | varchar | YES | — |
 | approved_at | timestamptz | YES | — |
 | paid_at | timestamptz | YES | — |
@@ -1953,7 +1974,77 @@ Employee payment ledger tracking all payment sources (salary, tasks, overtime, b
 
 **PK**: `id`
 **FK**: `payroll_id` -> `pyra_payroll_runs(id)` `ON DELETE SET NULL` (added migration 023)
-**Index**: `idx_emp_payments_user` on `username`, `idx_emp_payments_payroll` on `payroll_id`
+**Indexes**: `idx_emp_payments_user` on `username`, `idx_emp_payments_payroll` on `payroll_id`, `idx_emp_payments_effective_month` on `(effective_month, currency, username)` where `effective_month IS NOT NULL AND payroll_id IS NULL`, and unique partial `uq_emp_payments_deduction_source` on `(source_type, source_id)` where `source_type = 'deduction' AND source_id IS NOT NULL`
+
+`effective_month` attributes generated deductions to the month they describe,
+even if approval happens later. Legacy/manual payments may keep it null and use
+their existing created-at attribution.
+
+---
+
+## 75a. pyra_deduction_cases
+
+Immutable snapshot of one explicitly approved employee deduction per employee
+and month. Requested, cap, and approved totals are calculated inside the
+service-role-only approval RPC; the table is RLS-enabled and `service_role` has
+direct `SELECT` only.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| employee_username | varchar | NOT NULL | — |
+| period_month | date | NOT NULL | — |
+| salary_snapshot | numeric(12,2) | NOT NULL | — |
+| salary_currency | varchar(3) | NOT NULL | — |
+| attendance_units | numeric(8,2) | NOT NULL | — |
+| attendance_amount | numeric(12,2) | NOT NULL | — |
+| delivery_on_time_pct | numeric(5,2) | YES | — |
+| delivery_band | varchar(20) | YES | — |
+| delivery_amount | numeric(12,2) | NOT NULL | — |
+| delivery_percentage | numeric(5,2) | NOT NULL | — |
+| quality_avg_rounds | numeric(8,2) | YES | — |
+| quality_outright_rejection_rate | numeric(5,2) | YES | — |
+| quality_below_band | boolean | NOT NULL | — |
+| quality_consecutive_months | integer | NOT NULL | — |
+| quality_eligible | boolean | NOT NULL | — |
+| quality_amount | numeric(12,2) | NOT NULL | — |
+| monthly_cap_percentage | numeric(5,2) | NOT NULL | — |
+| requested_amount | numeric(12,2) | NOT NULL | — |
+| cap_amount | numeric(12,2) | NOT NULL | — |
+| approved_amount | numeric(12,2) | NOT NULL | — |
+| evidence | jsonb | NOT NULL | `'{}'` |
+| policy_snapshot | jsonb | NOT NULL | `'{}'` |
+| admin_note | text | YES | — |
+| payment_id | varchar(20) | NOT NULL | — |
+| approved_by | varchar | NOT NULL | — |
+| approved_at | timestamptz | NOT NULL | `now()` |
+| created_at | timestamptz | NOT NULL | `now()` |
+
+**PK**: `id`
+
+**Unique**: `(employee_username, period_month)` and `payment_id`
+
+**FK**: `payment_id` → `pyra_employee_payments(id)`, `DEFERRABLE INITIALLY DEFERRED`
+
+**Checks**: first-of-month period; three-character currency; non-negative
+money/attendance units; bounded delivery/quality/cap percentages; recognized
+delivery band; non-negative quality consecutive-month count; requested total
+equals the three component amounts; cap equals the rounded salary/cap-rate
+snapshot; approved equals `LEAST(requested_amount, cap_amount)`; a non-zero
+quality amount requires an eligible below-band quality snapshot.
+
+**Index**: `idx_deduction_cases_period_month` on `period_month DESC` (in addition to constraint-backed indexes)
+
+### `pyra_approve_employee_deduction(...)`
+
+`SECURITY DEFINER SET search_path=''`, with every relation schema-qualified.
+The function first returns an existing `(employee_username, period_month)` case
+unchanged. Otherwise the unique monthly-case insert elects one concurrent
+winner, calculates the requested/cap/approved totals, and inserts exactly one
+approved `pyra_employee_payments` deduction using the same database timestamp.
+The deferred payment FK makes both records one atomic transaction. Only
+`service_role` can execute the function; it receives the localized payment
+description as `p_payment_description` and does not hardcode user-visible text.
 
 ---
 

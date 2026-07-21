@@ -1194,12 +1194,47 @@ export interface PyraEmployeePayment {
   currency: string;
   status: 'pending' | 'approved' | 'paid';
   payroll_id: string | null;
+  /** Migration 041 — payroll month this payment belongs to (first day of month). */
+  effective_month: string | null;
   approved_by: string | null;
   approved_at: string | null;
   paid_at: string | null;
   created_at: string;
   // Joined
   display_name?: string;
+}
+
+// Immutable monthly employee deduction approval (migration 041)
+export interface PyraDeductionCase {
+  id: string;
+  employee_username: string;
+  /** First day of the approved month (YYYY-MM-01). */
+  period_month: string;
+  salary_snapshot: number;
+  salary_currency: string;
+  attendance_units: number;
+  attendance_amount: number;
+  delivery_on_time_pct: number | null;
+  delivery_band: 'none' | 'minor' | 'moderate' | 'major' | null;
+  delivery_amount: number;
+  delivery_percentage: number;
+  quality_avg_rounds: number | null;
+  quality_outright_rejection_rate: number | null;
+  quality_below_band: boolean;
+  quality_consecutive_months: number;
+  quality_eligible: boolean;
+  quality_amount: number;
+  monthly_cap_percentage: number;
+  requested_amount: number;
+  cap_amount: number;
+  approved_amount: number;
+  evidence: Record<string, unknown>;
+  policy_snapshot: Record<string, unknown>;
+  admin_note: string | null;
+  payment_id: string;
+  approved_by: string;
+  approved_at: string;
+  created_at: string;
 }
 
 // Payroll Runs
