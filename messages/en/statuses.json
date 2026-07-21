@@ -39,6 +39,7 @@
     "timesheet": { "draft": "Draft", "submitted": "Submitted", "approved": "Approved", "rejected": "Rejected" },
     "timesheetPeriod": { "open": "Open", "submitted": "Submitted", "approved": "Approved", "rejected": "Rejected" },
     "onboarding": { "in_progress": "Onboarding in Progress", "completed": "Completed", "cancelled": "Cancelled" },
+    "offboarding": { "completed": "Completed", "reversed": "Reversed" },
     "documentExpiry": { "expired": "Expired", "expiring_7": "Expiring in Days", "expiring_30": "Expiring Soon", "ok": "Valid", "none": "No Expiry" },
     "employmentType": { "full_time": "Full-time", "part_time": "Part-time", "contract": "Contract", "freelance": "Freelance", "intern": "Intern" },
     "workLocation": { "onsite": "On-site", "remote": "Remote", "hybrid": "Hybrid" },

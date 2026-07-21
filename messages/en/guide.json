@@ -996,6 +996,36 @@
         "10": "offer letter"
       }
     },
+    "dashboard_hr_offboarding": {
+      "description": "Employee exit — task handover and final settlement",
+      "goal": "Safely offboard a departing employee from a single wizard on the employee's page: set the last working day and exit reason → hand over their open work to colleagues → review and confirm the final settlement — the system locks the employee's account automatically after confirmation.",
+      "tips": {
+        "0": "To start an exit: open /dashboard/users → the employee's page → click \"End Employment\" (red button at the top) — it opens a 3-step wizard: Details → Handover → Confirm.",
+        "1": "The Details step asks for the \"Last Working Day\" (cannot be in the future) and the \"Exit Reason\" (Resigned / Terminated / Contract Ended / Other), plus optional notes.",
+        "2": "The Handover step shows 6 buckets: Leads, Follow-ups, Board Tasks, WhatsApp Conversations, Lead Tasks, and Direct Reports — for each bucket choose \"Reassign\" to a specific employee, \"Archive\", or \"Leave as is\".",
+        "3": "Use \"Assign All To\" to pick one employee who receives every open bucket at once, instead of choosing a separate target per bucket.",
+        "4": "Access (board memberships, team memberships, WhatsApp routing, favorites) is removed automatically on confirm — no manual cleanup needed.",
+        "5": "If the employee has files on an external account (Google Drive or frame.io), a warning shows the file count — request a copy before confirming, since there is no automatic retrieval once the account is locked.",
+        "6": "The Confirm step shows the final settlement (daily rate × days employed − absence deduction = net due) — it is recorded as a PENDING payable only; the employee is not auto-notified, and the actual payout happens manually outside the system.",
+        "7": "After clicking \"Confirm Exit\", the employee's account is locked immediately (GoTrue ban) — if the lock fails for any reason an honest warning is shown, and the daily access-reconcile cron retries it automatically.",
+        "8": "\"Suspend\" (the amber button) blocks login temporarily without running any handover or settlement, and can be reversed anytime via \"Reactivate\". \"End Employment\" is a final action for a full departure and cannot be easily undone.",
+        "9": "After an exit, the employee can later be reactivated (re-hire) from the same employee page — the ban is lifted automatically and they can log in again."
+      },
+      "keywords": {
+        "0": "offboarding",
+        "1": "إنهاء خدمة",
+        "2": "مغادرة",
+        "3": "تسليم مهام",
+        "4": "handover",
+        "5": "مخالصة نهائية",
+        "6": "settlement",
+        "7": "إيقاف مؤقت",
+        "8": "suspend",
+        "9": "حظر الحساب",
+        "10": "reconcile",
+        "11": "إعادة تفعيل"
+      }
+    },
     "dashboard_hr_work_schedules": {
       "description": "Manage weekly work schedules and assign them to employees",
       "goal": "Create multiple work schedules (e.g. a regular Monday–Saturday schedule, a seasonal schedule...) and assign each employee to their own schedule. The start time (`start_time`) is used automatically to calculate lateness in the attendance record.",

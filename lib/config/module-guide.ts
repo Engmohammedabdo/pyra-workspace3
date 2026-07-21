@@ -103,6 +103,11 @@ export const MODULE_GUIDES: Record<string, ModuleGuideEntry> = {
   '/dashboard/hr/documents': { href: '/dashboard/hr/documents', slug: 'dashboard_hr_documents' },
   '/dashboard/hr/documents/settings': { href: '/dashboard/hr/documents/settings', slug: 'dashboard_hr_documents_settings' },
   '/dashboard/hr/onboarding': { href: '/dashboard/hr/onboarding', slug: 'dashboard_hr_onboarding' },
+  // Pseudo-entry (Phase 17 pattern) — offboarding has no dedicated page; the
+  // exit/suspend/reactivate actions live on the user-detail page's own
+  // MODULE_GUIDES entry via prefix match. This is a searchable reference
+  // entry for the guide directory, hrefed to the nearest real admin page.
+  '/dashboard/hr/offboarding': { href: '/dashboard/users', slug: 'dashboard_hr_offboarding' },
   '/dashboard/hr/work-schedules': { href: '/dashboard/hr/work-schedules', slug: 'dashboard_hr_work_schedules' },
   '/dashboard/my-documents': { href: '/dashboard/my-documents', slug: 'dashboard_my_documents' },
   '/dashboard/content-pipeline': { href: '/dashboard/content-pipeline', slug: 'dashboard_content_pipeline' },
