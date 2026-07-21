@@ -347,6 +347,22 @@ export interface PyraOnboardingTask {
   notes: string | null;
 }
 
+export interface PyraOffboarding {
+  id: string;
+  employee_username: string;
+  status: string; // 'completed' | 'reversed'
+  last_working_day: string; // YYYY-MM-DD
+  exit_reason: string; // 'resigned' | 'terminated' | 'contract_ended' | 'other'
+  exit_notes: string | null;
+  handover: Record<string, unknown>;
+  settlement: Record<string, unknown>;
+  settlement_payment_id: string | null;
+  locked: boolean;
+  lock_error: string | null;
+  started_by: string;
+  started_at: string;
+}
+
 // ==========================================
 // Portal Tables (6)
 // ==========================================
