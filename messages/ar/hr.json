@@ -1446,7 +1446,8 @@
       "errors": {
         "lastDayRequired": "آخر يوم عمل مطلوب",
         "lastDayFuture": "آخر يوم عمل لا يمكن أن يكون في المستقبل",
-        "reasonRequired": "سبب إنهاء الخدمة مطلوب"
+        "reasonRequired": "سبب إنهاء الخدمة مطلوب",
+        "reassignTargetRequired": "اختر الموظف الذي ستُنقل إليه المهام"
       }
     }
   }

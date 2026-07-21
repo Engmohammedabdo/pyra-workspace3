@@ -41,5 +41,14 @@ export function validateExitStep(
     if (form.last_working_day > todayKey) return 'errors.lastDayFuture';
     if (!form.exit_reason) return 'errors.reasonRequired';
   }
+  if (step === 'handover') {
+    for (const decision of Object.values(form.handover)) {
+      if (!decision || typeof decision !== 'object') continue;
+      const { action, to } = decision as { action?: string; to?: string };
+      if ((action === 'reassign' || action === 'reparent') && !to) {
+        return 'errors.reassignTargetRequired';
+      }
+    }
+  }
   return null;
 }

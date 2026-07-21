@@ -16,7 +16,7 @@ import type { ExitForm } from './exit-wizard-helpers';
 
 type OnChange = (patch: Partial<ExitForm>) => void;
 
-/** Small labelled field wrapper — shared with ExitStepHandover. */
+/** Small labelled field wrapper, local to this step. */
 export function Field({
   label,
   children,

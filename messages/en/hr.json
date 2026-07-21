@@ -1446,7 +1446,8 @@
       "errors": {
         "lastDayRequired": "Last working day is required",
         "lastDayFuture": "Last working day cannot be in the future",
-        "reasonRequired": "Exit reason is required"
+        "reasonRequired": "Exit reason is required",
+        "reassignTargetRequired": "Select the employee who will receive the handed-over work"
       }
     }
   }
