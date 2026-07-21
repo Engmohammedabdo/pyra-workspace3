@@ -4709,3 +4709,110 @@ shadcn base: `bg-transparent`/`rounded-none`/`border-b-2` active). The shared
   to avoid summing across currencies.
 - Real "next step" free-text field + edit UI.
 - Real-RTL-device verification of the scroll-fade + entrance polish.
+
+## Employee Offboarding — Locked Decisions (2026-07-21)
+
+Full "إنهاء خدمة" (end-of-service) feature. **Built + reviewed (12 tasks,
+Subagent-Driven, opus review per task + whole-branch) + DEPLOYED to prod.** Spec:
+`docs/superpowers/specs/2026-07-15-offboarding-design.md`; plan:
+`docs/superpowers/plans/2026-07-15-offboarding.md`. **Do NOT re-litigate.**
+
+Born from the `abdelrahman.morshedy` exit (done 100% by hand) + the discovery that
+**5 other deactivated users (sayed, mo.hanach, ahmed.s, kassem, lojain) were
+`inactive` in `pyra_users` but UNBANNED at GoTrue**, two still holding live refresh
+tokens — because `status='inactive'` alone does NOT revoke the identity layer. All 6
+hand-locked 2026-07-15. See [[user-deactivation-procedure]] memory + the "User
+Hard-Delete Guard" section above.
+
+### What shipped (surfaces)
+- `lib/hr/lock-account.ts` — `lockAccount`/`unlockAccount` (GoTrue ban/unban only;
+  ban_duration '876000h'/'none'; never throws; uses `resolveAuthUserId` + service-role).
+- `lib/hr/final-settlement.ts` — pure `computeFinalSettlement` + `deriveDeductibleAbsenceDays`.
+- `lib/hr/handover.ts` — `buildHandover` (fail-closed reads) + `executeHandover` (best-effort
+  service-role reassign/remove) + `isOpenLeadStage`.
+- Migration **040** `pyra_offboarding` (id, employee_username, status, last_working_day,
+  exit_reason, exit_notes, handover jsonb, settlement jsonb, settlement_payment_id, locked,
+  lock_error, started_by, started_at) + `pyra_users.last_working_day date NULL`. No unique
+  constraint on employee_username (survives re-hire, like pyra_onboarding).
+- `GET/POST /api/users/[username]/exit` (gate `hr.manage`) + `/api/cron/access-reconcile`.
+- `hooks/useOffboarding.ts`, `components/hr/offboarding/ExitWizard.tsx` (+7 parts),
+  3 status buttons on the user-detail page.
+- `app/api/users/[username]/route.ts` PATCH: ban-on-deactivate hook + unban-on-reactivate hook.
+
+### Locked decisions
+1. **Ban-only identity revocation.** Session/refresh-token revocation is UNREACHABLE from
+   app code (PROVEN: the `auth` schema is not exposed to PostgREST → `PGRST106`; `service_role`
+   holds no grants on `auth.*`; `auth.admin.signOut` needs the user's OWN jwt). So `lockAccount`
+   only bans. Residual window = one access-token TTL (**GOTRUE_JWT_EXP=3600s, measured** from
+   refresh-token rotation, not assumed). A `revoke_user_sessions()` SECURITY DEFINER RPC was
+   REJECTED — functions in `public` default to anon-EXECUTE here (see migration 038), so it would
+   hand any anon caller an auth-nuke primitive. Full session revocation belongs to the Gap #3 project.
+2. **Ordering doctrine (LOCKED).** On exit: compute settlement → executeHandover → **lockAccount
+   (attempt)** → **flip status ALWAYS (even if lock failed)** → pending settlement insert →
+   offboarding record → audit. The flip is an OPTIMISTIC CLAIM (`.eq('status','active').select()`;
+   0 rows → abort) that closes concurrent-double-settlement. Never a silent success over a failed
+   lock (response carries `{locked, lock_error}`; the wizard shows a warning toast, not green).
+   No transactions (backup-rollback doctrine). The PATCH hook uses the same invariant (flip-always,
+   lock best-effort/non-blocking).
+3. **The `access-reconcile` cron is MANDATORY, not optional.** A PATCH-time hook can't reach users
+   already deactivated, the service-role onboarding-cancel path, or the re-hire ban bug. The cron
+   asserts every non-active user is banned + every active user is not (idempotent-by-assertion,
+   because `banned_until` isn't readable via PostgREST). **WIRED live** in n8n PyraHR_Cron
+   (`AeXwITpSmaZ5jg9V`, daily 06:00 UTC); the PyraCRM_Cron API key (`pyra_GE5E0lh…`) gained
+   `cron.access-reconcile` in its jsonb perms. First live run: `{banned:7, unbanned:4, failures:[]}`.
+4. **Settlement = admin-facing pending obligation, NEVER paid or notified by the system.**
+   `(salary/DEDUCTION_DAYS_PER_MONTH=30) × (calendar days employed − deductible absences)`, floored 0,
+   net derived from the UNROUNDED daily rate (pins abdelrahman's 5,133.33 EGP). Recorded as a
+   `pyra_employee_payments` row `source_type='final_settlement'`, `status='pending'`, currency =
+   employee's `salary_currency`. **Triple-defended against payroll sweep**: (a) `.neq('source_type',
+   'final_settlement')` on the calculate route's payments fetch, (b) it's `pending` not `approved`,
+   (c) the leaver is `inactive` so the run's `.eq('status','active')` drops them. The inactive-recipient
+   gate drops any notify to the leaver by design — reach them out-of-band.
+5. **Handover reads are FAIL-CLOSED; writes are best-effort.** `buildHandover` throws
+   `HandoverReadError` on any Supabase `{error}` (a bad column must never read as "nothing to hand
+   over") → the GET 500s → the wizard shows an error, never a blind empty confirm. `executeHandover`
+   collects per-source errors into `errors[]` (surfaced in `handover_results`, HTTP 200), validates
+   reassign targets via `isAssignableUser`, always removes ACCESS rows, never touches AUDIT rows,
+   and scopes board-task ops to the OPEN subset with a delete-or-update split that avoids the
+   `pyra_task_assignees UNIQUE(task_id, username)` collision.
+6. **Terminal lead stages come from the `PIPELINE_FINAL_STAGES` constant** (`lib/constants/statuses.ts`),
+   NOT `pyra_pipeline_stages` (that table is EMPTY and has no won/lost columns). NULL/custom `ps_*`
+   stages count as OPEN (safe over-inclusion — admin picks "leave").
+7. **The status `Select` was REMOVED from the user edit dialog.** Every status change goes through a
+   dedicated button (إنهاء خدمة / إيقاف مؤقت / إعادة تفعيل), gated on `hr.manage` + a self-guard.
+   Suspend bans (reversible); reactivate unbans. An edit-dialog save no longer sends `status`.
+8. **Reuses `hr.manage`** — no new permission, no DB-role update (admin holds `*`).
+
+### Related security fix (migration 038, shipped same arc)
+`increment_share_access` was SECURITY DEFINER + superuser-owned + unpinned search_path +
+**anon-EXECUTE-able** (Gap #3 Phase 0 revoked anon on tables/sequences, NOT functions). Migration
+038 pinned its search_path, narrowed EXECUTE to service_role, and ran `ALTER DEFAULT PRIVILEGES …
+REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon` for **both** grantor roles (`supabase_admin` +
+`postgres` — `pg_default_acl` has one row per grantor; fixing one leaves the other minting exposed
+functions). Also removed `pyra_evaluations.evaluator_username` from the user-DELETE `CLEANUP_TABLES`
+(deleting a manager was destroying their reports' performance records).
+
+### Offboarding v1.1 backlog (all reviewer Minors → deferred, none block)
+- `lib/hr/handover.ts` is 449 lines with the open-task predicate duplicated between `buildHandover`
+  and `getOpenTaskIds` (drift risk) — extract a shared helper + consider split
+  (handover-build.ts / handover-execute.ts; keep `@/lib/hr/handover` as the public path).
+- No unit test for `getOpenTaskIds`/the reassign collision-split (needs a mocked Supabase client).
+- `UserEditDialog.tsx` extraction deferred (`users-client.tsx` still 957 lines).
+- Confirm-step settlement preview is today-based; if the admin picks an earlier last-working-day it
+  shows a figure ≥ the recorded net (row is pending/paid manually, no overpayment) — key the
+  `exit-preview` query on the date in v1.1.
+- `StatusEntity` union in `lib/i18n/status-labels.ts` lacks `'offboarding'` (no call site today).
+- `offboarding_completed` NotificationType added but unused. Guide tip over-generalizes "archive"
+  to all handover buckets (archive is tasks-only).
+- **Live dry-run of a REAL exit is still PENDING** (destructive — do it on the next real departure).
+- abdelrahman's 5,133.33 EGP settlement is STILL an unpaid manual transfer — see
+  [[abdelrahman-exit-2026-07]].
+
+### Deductions policy — DIRECTION locked, NOT built (separate feature, [[deductions-policy-direction]])
+Abou approved (2026-07-20) a monetary deductions system to precede employee-facing deduction
+visibility: **tiered attendance lateness** (¼/½/full day past the 15-min grace) + **monthly on-time-rate
+band** for delivery lateness (NOT per-task fines; exclude unrealistic-lead-time tasks) +
+**warning-first quality** (rework/rejection score → money only by explicit admin action). Cross-cutting:
+detect + admin-approve (not auto-apply), 25% monthly cap, a transparency "this-month at-risk" panel,
+excuse window via the existing `'excused'` status. Needs its own brainstorm→spec→plan. All inputs are
+already COMPUTED (attendance-policy + production/metrics) — the work is metric→money + how much to automate.
