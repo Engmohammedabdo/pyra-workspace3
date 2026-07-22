@@ -98,6 +98,27 @@
           "firstDraftSpeed": "First draft speed",
           "openOverdue": "Overdue without upload"
         },
+        "details": {
+          "toggle": "Tasks & numbers ({count})",
+          "table": {
+            "task": "Task",
+            "deadline": "Deadline",
+            "firstSubmission": "First submission",
+            "commitment": "Commitment",
+            "rounds": "Rounds",
+            "finalDelivery": "Final delivery"
+          },
+          "exclusions": {
+            "shortLead": "Excluded · lead time under 24 hours",
+            "unverifiedLegacy": "Excluded · unverified legacy deadline",
+            "unverifiedAttribution": "Excluded · attribution needs review"
+          },
+          "onTime": "On time",
+          "lateSameDay": "Late on the same day",
+          "late": "Late {days} days",
+          "notScored": "Not scored",
+          "notDelivered": "Not delivered"
+        },
         "error": {
           "title": "Couldn't load your productivity",
           "retry": "Try Again"

@@ -158,7 +158,7 @@ describe('task deadline actions', () => {
     // OXC's first TSX transform can be slow under the full parallel suite.
     // Import once with a file-local budget instead of timing out each test.
     loadedTaskSheet = await import('@/components/boards/task-sheet') as unknown as TaskSheetModule;
-  }, 30_000);
+  }, 60_000);
 
   beforeEach(() => {
     mocks.duplicate.mockReset().mockResolvedValue({ id: 'copy-1' });

@@ -98,6 +98,27 @@
           "firstDraftSpeed": "سرعة أول نسخة",
           "openOverdue": "متأخرة بلا رفع"
         },
+        "details": {
+          "toggle": "المهام والأرقام ({count})",
+          "table": {
+            "task": "المهمة",
+            "deadline": "موعد التسليم",
+            "firstSubmission": "أول تسليم",
+            "commitment": "الالتزام",
+            "rounds": "الجولات",
+            "finalDelivery": "التسليم النهائي"
+          },
+          "exclusions": {
+            "shortLead": "مستبعد · مدة التنفيذ أقل من 24 ساعة",
+            "unverifiedLegacy": "مستبعد · موعد قديم غير مؤكد",
+            "unverifiedAttribution": "مستبعد · يحتاج مراجعة المسؤول"
+          },
+          "onTime": "في الموعد",
+          "lateSameDay": "متأخر في نفس اليوم",
+          "late": "متأخر {days} يوم",
+          "notScored": "غير محتسب",
+          "notDelivered": "لم يُسلّم"
+        },
         "error": {
           "title": "تعذّر تحميل إنتاجيتك",
           "retry": "إعادة المحاولة"
