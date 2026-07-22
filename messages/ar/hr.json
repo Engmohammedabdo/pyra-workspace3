@@ -649,6 +649,8 @@
         },
         "employee": {
           "salary": "الراتب: {amount}",
+          "computedAction": "اعتماد الخصم المحسوب",
+          "computedApproving": "جارٍ اعتماد الخصم المحسوب...",
           "manualAction": "توثيق خصم يدوي",
           "attendanceTrackingAction": "توثيق بداية احتساب الحضور",
           "excuseAttendance": "مراجعة الحضور أو تسجيل عذر",
@@ -677,6 +679,10 @@
           "systemFinalized": "خصم محسوب تم اعتماده",
           "unlinkedEvidence": "دليل موثّق غير مربوط بالراتب (لا يظهر أي مبلغ)",
           "viewEvidence": "عرض أدلة الحضور والتسليم"
+        },
+        "computedApproval": {
+          "success": "تم اعتماد الخصم المحسوب للراتب",
+          "error": "تعذر اعتماد الخصم المحسوب بأمان"
         },
         "manualDialog": {
           "title": "توثيق خصم على {name}",

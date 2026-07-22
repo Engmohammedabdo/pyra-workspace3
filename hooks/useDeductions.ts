@@ -35,6 +35,47 @@ export function useAdminDeductions(month: string) {
   });
 }
 
+export interface ApproveComputedDeductionInput {
+  username: string;
+  /** First day of the current payroll month, in YYYY-MM-01 form. */
+  period_month: string;
+}
+
+export interface ApproveComputedDeductionResponse {
+  deduction_case: Record<string, unknown>;
+}
+
+export function useApproveComputedDeduction() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    ApproveComputedDeductionResponse,
+    Error,
+    ApproveComputedDeductionInput
+  >({
+    mutationFn: (input) => mutateAPI<ApproveComputedDeductionResponse>(
+      '/api/hr/deductions/approve',
+      'POST',
+      input,
+    ),
+    onSuccess: (_result, input) => {
+      const month = input.period_month.slice(0, 7);
+      queryClient.invalidateQueries({ queryKey: ['deductions', 'admin', month] });
+      queryClient.invalidateQueries({ queryKey: ['deductions', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['hr-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['employee-payments'] });
+      queryClient.invalidateQueries({ queryKey: ['payroll'] });
+      queryClient.invalidateQueries({ queryKey: ['my-payslips'] });
+    },
+    onError: (error, input) => {
+      if (error instanceof ApiError && error.status === 409) {
+        queryClient.invalidateQueries({
+          queryKey: ['deductions', 'admin', input.period_month.slice(0, 7)],
+        });
+      }
+    },
+  });
+}
+
 export interface SetAttendanceTrackingStartInput {
   username: string;
   started_on: string;

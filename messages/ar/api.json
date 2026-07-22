@@ -579,7 +579,17 @@
       "attendanceTrackingBeforeHire": "تاريخ بدء احتساب الحضور لا يمكن أن يسبق تاريخ التعيين",
       "attendanceTrackingLoadFailed": "تعذر التحقق من بيانات الموظف قبل توثيق الحضور",
       "attendanceTrackingUpdateFailed": "تعذر توثيق تاريخ بدء احتساب الحضور",
-      "attendanceTrackingAlreadyDocumented": "بداية متابعة الحضور موثقة بالفعل ولم يتم استبدال دليلها"
+      "attendanceTrackingAlreadyDocumented": "بداية متابعة الحضور موثقة بالفعل ولم يتم استبدال دليلها",
+      "computedApproval": {
+        "invalidPayload": "الموظف وشهر الراتب الحالي مطلوبان",
+        "currentMonthOnly": "يمكن اعتماد الخصم المحسوب لشهر الراتب الحالي بتوقيت دبي فقط",
+        "employeeNotFound": "تعذر العثور على الموظف داخل تقرير الخصومات الموثوق",
+        "notApprovable": "الأدلة الحالية ناقصة أو محجوبة أو لا تنتج خصمًا؛ حدّث المراجعة قبل الاعتماد",
+        "closedPeriod": "تم اعتماد أو صرف راتب هذا الشهر بالفعل",
+        "capExhausted": "تم استهلاك سقف الجزاءات بالكامل؛ ويظل خصم الحضور خارج هذا السقف",
+        "stateChanged": "تغير الراتب أو الأدلة أو سجل الخصومات أو حالة الراتب؛ حدّث الصفحة قبل الاعتماد",
+        "paymentDescription": "خصم موظف معتمد عن شهر {month}"
+      }
     },
     "teams": {
       "notFound": "الفريق غير موجود"

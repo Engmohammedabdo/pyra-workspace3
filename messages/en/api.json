@@ -579,7 +579,17 @@
       "attendanceTrackingBeforeHire": "Attendance tracking cannot start before the employee's hire date",
       "attendanceTrackingLoadFailed": "Employee data could not be verified before documenting attendance tracking",
       "attendanceTrackingUpdateFailed": "Attendance tracking start could not be documented",
-      "attendanceTrackingAlreadyDocumented": "Attendance tracking already has documented provenance and was not overwritten"
+      "attendanceTrackingAlreadyDocumented": "Attendance tracking already has documented provenance and was not overwritten",
+      "computedApproval": {
+        "invalidPayload": "Employee and current payroll month are required",
+        "currentMonthOnly": "Computed deductions can only be approved for the current Dubai payroll month",
+        "employeeNotFound": "The employee could not be found in the trusted deductions report",
+        "notApprovable": "The live evidence is incomplete, blocked, or produces no deduction; refresh the review before approving",
+        "closedPeriod": "This payroll month is already approved or paid",
+        "capExhausted": "The disciplinary deduction ceiling is already exhausted; attendance remains outside that ceiling",
+        "stateChanged": "Salary, evidence, deduction ledger, or payroll state changed; refresh before approving",
+        "paymentDescription": "Approved employee deduction for {month}"
+      }
     },
     "teams": {
       "notFound": "Team not found"

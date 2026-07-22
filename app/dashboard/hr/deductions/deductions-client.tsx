@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
 import {
   AlertCircle,
   AlertTriangle,
@@ -16,7 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AdminDeductionEmployeeCard } from '@/components/hr/deductions/AdminDeductionEmployeeCard';
 import { AttendanceTrackingStartDialog } from '@/components/hr/deductions/AttendanceTrackingStartDialog';
 import { ManualDeductionDialog } from '@/components/hr/deductions/ManualDeductionDialog';
-import { useAdminDeductions } from '@/hooks/useDeductions';
+import { useAdminDeductions, useApproveComputedDeduction } from '@/hooks/useDeductions';
 import { CALENDAR_TIMEZONE_OFFSET } from '@/lib/constants/statuses';
 import { isoToDubaiDateTime } from '@/lib/production/deadlines';
 import { dubaiDayKey } from '@/lib/utils/format';
@@ -75,6 +76,7 @@ export function DeductionsClient() {
   const [manualUsername, setManualUsername] = useState<string | null>(null);
   const [trackingUsername, setTrackingUsername] = useState<string | null>(null);
   const deductions = useAdminDeductions(month);
+  const approveComputed = useApproveComputedDeduction();
   const report = deductions.data;
   const selectedEmployee = report?.employees.find(
     (employee) => employee.username === manualUsername,
@@ -146,6 +148,17 @@ export function DeductionsClient() {
                 employee={employee}
                 month={report.month}
                 currentMonth={currentMonth}
+                onApproveComputed={() => approveComputed.mutate({
+                  username: employee.username,
+                  period_month: `${report.month}-01`,
+                }, {
+                  onSuccess: () => toast.success(t('computedApproval.success')),
+                  onError: () => toast.error(t('computedApproval.error')),
+                })}
+                computedApproving={Boolean(
+                  approveComputed.isPending
+                  && approveComputed.variables?.username === employee.username,
+                )}
                 onManualDeduction={() => setManualUsername(employee.username)}
                 onAttendanceTracking={() => setTrackingUsername(employee.username)}
               />

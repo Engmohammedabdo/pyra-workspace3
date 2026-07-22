@@ -41,6 +41,7 @@ function renderCard(
         employee={value}
         month={month}
         currentMonth={currentMonth}
+        onApproveComputed={vi.fn()}
         onManualDeduction={vi.fn()}
       />
     </NextIntlClientProvider>,
@@ -130,11 +131,64 @@ describe('admin deduction employee card payment truth', () => {
           employee={value}
           month="2026-06"
           currentMonth="2026-07"
+          onApproveComputed={vi.fn()}
           onManualDeduction={vi.fn()}
         />
       </NextIntlClientProvider>,
     );
     expect(screen.getByRole('button', { name: 'Document manual deduction' })).toBeDisabled();
+  });
+
+  it('offers one explicit computed approval and disables it outside the current month', () => {
+    const value = employee();
+    value.cap_ledger = { cap_amount: 750, used_amount: 0, remaining_amount: 750 };
+    value.candidate = {
+      salary: 3000,
+      currency: 'AED',
+      attendance: { daily_rate: 100, total_units: 1, amount: 100, incidents: [] },
+      delivery: { on_time_pct: 80, band: 'minor', percentage: 3, amount: 90 },
+      quality: { current_below_band: false, consecutive_months: 0, eligible: false, amount: 0 },
+      requested_amount: 190,
+      cap: {
+        cap_amount: 750,
+        already_used_amount: 0,
+        remaining_cap_amount: 750,
+        cap_subject_requested_amount: 90,
+        cap_subject_approved_amount: 90,
+        cap_exempt_amount: 100,
+        approved_amount: 190,
+        capped: false,
+      },
+    };
+    const onApproveComputed = vi.fn();
+
+    const { rerender } = render(
+      <NextIntlClientProvider locale="en" messages={hrMessages}>
+        <AdminDeductionEmployeeCard
+          employee={value}
+          month="2026-07"
+          currentMonth="2026-07"
+          onApproveComputed={onApproveComputed}
+          onManualDeduction={vi.fn()}
+        />
+      </NextIntlClientProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve computed deduction' }));
+    expect(onApproveComputed).toHaveBeenCalledOnce();
+
+    rerender(
+      <NextIntlClientProvider locale="en" messages={hrMessages}>
+        <AdminDeductionEmployeeCard
+          employee={value}
+          month="2026-06"
+          currentMonth="2026-07"
+          onApproveComputed={onApproveComputed}
+          onManualDeduction={vi.fn()}
+        />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.getByRole('button', { name: 'Approve computed deduction' })).toBeDisabled();
   });
 
   it('does not offer the same trusted legacy task for a second deduction', () => {
@@ -217,6 +271,7 @@ describe('admin deduction employee card payment truth', () => {
           employee={value}
           month="2026-07"
           currentMonth="2026-07"
+          onApproveComputed={vi.fn()}
           onManualDeduction={vi.fn()}
           onAttendanceTracking={onAttendanceTracking}
         />

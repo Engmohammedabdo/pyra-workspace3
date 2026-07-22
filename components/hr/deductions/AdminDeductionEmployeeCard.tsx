@@ -47,12 +47,16 @@ export function AdminDeductionEmployeeCard({
   employee,
   month,
   currentMonth,
+  onApproveComputed,
+  computedApproving = false,
   onManualDeduction,
   onAttendanceTracking,
 }: {
   employee: MonthlyEmployeeDeductionReport;
   month: string;
   currentMonth: string;
+  onApproveComputed: () => void;
+  computedApproving?: boolean;
   onManualDeduction: () => void;
   onAttendanceTracking?: () => void;
 }) {
@@ -113,6 +117,13 @@ export function AdminDeductionEmployeeCard({
       || (hasEligibleQualityEvidence && employee.integrity_blockers.length === 0)
     ),
   );
+  const canApproveComputed = Boolean(
+    month === currentMonth
+    && candidate
+    && candidate.cap.approved_amount > 0
+    && employee.integrity_blockers.length === 0
+    && !validExistingCase,
+  );
 
   return (
     <Card className="border-border/60">
@@ -136,6 +147,15 @@ export function AdminDeductionEmployeeCard({
                 </Link>
               </Button>
             )}
+            <Button
+              size="sm"
+              onClick={onApproveComputed}
+              disabled={!canApproveComputed || computedApproving}
+              className="bg-red-600 text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
+            >
+              <CheckCircle2 className="me-2 h-4 w-4" />
+              {computedApproving ? t('computedApproving') : t('computedAction')}
+            </Button>
             <Button
               size="sm"
               onClick={onManualDeduction}

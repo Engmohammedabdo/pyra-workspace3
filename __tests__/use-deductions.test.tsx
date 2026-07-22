@@ -15,6 +15,7 @@ vi.mock('@/hooks/api-helpers', () => ({
 
 import {
   useAdminDeductions,
+  useApproveComputedDeduction,
   useApproveManualDeduction,
   useMyDeductionRisk,
   useSetAttendanceTrackingStart,
@@ -114,6 +115,28 @@ describe('admin deduction hooks', () => {
     );
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['deductions', 'admin', '2026-07'] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['hr-overview'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['employee-payments'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['payroll'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['my-payslips'] });
+  });
+
+  it('uses the computed approval endpoint and refreshes admin, employee, and payroll truth', async () => {
+    mocks.mutateAPI.mockResolvedValue({ deduction_case: { id: 'dc_123' } });
+    const { queryClient, Wrapper } = createWrapper();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    const input = { username: 'wael.hany', period_month: '2026-07-01' };
+
+    const { result } = renderHook(() => useApproveComputedDeduction(), { wrapper: Wrapper });
+    result.current.mutate(input);
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mocks.mutateAPI).toHaveBeenCalledWith(
+      '/api/hr/deductions/approve',
+      'POST',
+      input,
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['deductions', 'admin', '2026-07'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['deductions', 'me'] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['employee-payments'] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['payroll'] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['my-payslips'] });

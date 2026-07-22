@@ -649,6 +649,8 @@
         },
         "employee": {
           "salary": "Salary: {amount}",
+          "computedAction": "Approve computed deduction",
+          "computedApproving": "Approving computed deduction...",
           "manualAction": "Document manual deduction",
           "attendanceTrackingAction": "Document attendance tracking start",
           "excuseAttendance": "Review or excuse attendance",
@@ -677,6 +679,10 @@
           "systemFinalized": "Approved computed deduction",
           "unlinkedEvidence": "Documented evidence not linked to payroll (no amount shown)",
           "viewEvidence": "View attendance and delivery evidence"
+        },
+        "computedApproval": {
+          "success": "The computed deduction was approved for payroll",
+          "error": "The computed deduction could not be approved safely"
         },
         "manualDialog": {
           "title": "Document a deduction for {name}",
