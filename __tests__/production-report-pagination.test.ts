@@ -92,6 +92,7 @@ describe('productivity report pagination', () => {
           board_id: PRODUCTION_BOARD_ID,
           from_column_id: 'work',
           to_column_id: 'review',
+          moved_by: 'current.user',
           created_at: '2026-07-10T09:00:00.000000Z',
           due_at_snapshot: '2026-07-10T10:00:00.000000Z',
           task_created_at_snapshot: null,
@@ -254,23 +255,18 @@ describe('productivity report pagination', () => {
       expect.objectContaining({
         task_id: 'reviewed-legacy',
         assignee: 'current.user',
-        attribution_status: PRODUCTION_ATTRIBUTION_STATUS.LEGACY_UNVERIFIED,
-        delivery_eligible: false,
-        delivery_exclusion: 'legacy_unverified_attribution',
+        attribution_status: PRODUCTION_ATTRIBUTION_STATUS.LEGACY_ACTOR_VERIFIED,
+        delivery_eligible: true,
+        delivery_exclusion: null,
+        on_time: true,
       }),
     ]));
     expect(currentEmployee?.metrics.outright_rejection_rate).toBeNull();
     expect(report.unattributed_tasks.map((task) => task.task_id).sort()).toEqual([
       'open-current',
-      'reviewed-legacy',
       'reviewed-verified',
     ]);
     expect(report.unattributed_tasks).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        task_id: 'reviewed-legacy',
-        assignee: null,
-        attribution_status: PRODUCTION_ATTRIBUTION_STATUS.LEGACY_UNVERIFIED,
-      }),
       expect.objectContaining({
         task_id: 'reviewed-verified',
         assignee: null,
@@ -297,8 +293,8 @@ describe('productivity report pagination', () => {
     ]);
     expect(currentOwnReport.employees[0].metrics).toMatchObject({
       deliveries: 0,
-      on_time_count: 0,
-      on_time_eligible_count: 0,
+      on_time_count: 1,
+      on_time_eligible_count: 1,
       late_count: 0,
       reviewed_task_count: 0,
       outright_rejection_count: 0,
@@ -322,12 +318,8 @@ describe('productivity report pagination', () => {
         }),
       }),
     ]);
-    expect(scopedAdminReport.unattributed_tasks).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        task_id: 'reviewed-legacy',
-        attribution_status: PRODUCTION_ATTRIBUTION_STATUS.LEGACY_UNVERIFIED,
-      }),
-    ]));
+    expect(scopedAdminReport.unattributed_tasks)
+      .not.toContainEqual(expect.objectContaining({ task_id: 'reviewed-legacy' }));
 
     const missingOwnReport = await computeProductivity(client, '2026-07', ['missing.one']);
     expect(missingOwnReport.employees).toEqual([]);
@@ -360,5 +352,6 @@ describe('productivity report pagination', () => {
     expect(source).toContain("'production review decisions'");
     expect(source).not.toContain(".from('pyra_task_activity')");
     expect(source).toContain('production_deadline_exempt');
+    expect(source).toContain('moved_by');
   });
 });

@@ -18,6 +18,7 @@ export interface StageEvent {
   id?: string;
   task_id: string;
   board_id?: string;
+  moved_by?: string;
   from_column_id: string | null;
   to_column_id: string;
   created_at: string; // UTC ISO

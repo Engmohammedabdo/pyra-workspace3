@@ -235,7 +235,7 @@ async function loadProductivityJourneys(
     (from, to) => supabase
       .from('pyra_task_stage_history')
       .select(
-        'id, task_id, board_id, from_column_id, to_column_id, created_at, due_at_snapshot, task_created_at_snapshot, assignees_snapshot',
+        'id, task_id, board_id, moved_by, from_column_id, to_column_id, created_at, due_at_snapshot, task_created_at_snapshot, assignees_snapshot',
       )
       .eq('board_id', PRODUCTION_BOARD_ID)
       .order('created_at')
@@ -356,9 +356,9 @@ async function loadProductivityJourneys(
       }
     }
 
-    // A legacy reviewed task may still be shown to its exact current
-    // assignee for transparency. Its LEGACY_UNVERIFIED status makes
-    // summarizeEmployee exclude it from delivery and quality metrics.
+    // Legacy work is visible to its proven snapshot/actor owner. Only a
+    // LEGACY_UNVERIFIED row remains transparency-only and excluded by the
+    // pure metrics core.
     for (const assignee of attribution.visibilityAssignees) {
       if (requestedUsernames && !requestedUsernames.has(assignee)) continue;
       const input: ProductionTaskInput = { ...baseInput, assignee };

@@ -5,6 +5,7 @@ import {
 import { isValidIsoInstant } from './deadlines';
 
 interface FirstReviewAttributionEvent {
+  moved_by?: unknown;
   assignees_snapshot?: unknown;
   task_created_at_snapshot?: unknown;
 }
@@ -48,9 +49,10 @@ function normalizedSnapshotAssignees(value: unknown): string[] | null {
 
 /**
  * Resolves who owns production evidence without reconstructing history.
- * Reviewed work is attributable only when the immutable first-review
- * snapshots are both valid. Current assignees are operational-only input for
- * work that has not reached review yet.
+ * Reviewed work prefers immutable first-review snapshots. Legacy rows that
+ * predate snapshots may use the immutable first-review actor only when the
+ * current assignment corroborates that exact actor. Current assignees alone
+ * never establish historical ownership.
  */
 export function resolveProductionAttribution(
   input: ProductionAttributionInput,
@@ -73,6 +75,22 @@ export function resolveProductionAttribution(
     || typeof taskCreatedAt !== 'string'
     || !isValidIsoInstant(taskCreatedAt)
   ) {
+    const legacyActor = typeof input.firstReviewEvent.moved_by === 'string'
+      ? input.firstReviewEvent.moved_by.trim()
+      : '';
+    if (
+      legacyActor
+      && currentAssignees.includes(legacyActor)
+      && isValidIsoInstant(input.currentTaskCreatedAt)
+    ) {
+      return {
+        status: PRODUCTION_ATTRIBUTION_STATUS.LEGACY_ACTOR_VERIFIED,
+        assignees: [legacyActor],
+        visibilityAssignees: [legacyActor],
+        taskCreatedAt: input.currentTaskCreatedAt,
+        metricsEligible: true,
+      };
+    }
     return {
       status: PRODUCTION_ATTRIBUTION_STATUS.LEGACY_UNVERIFIED,
       assignees: [],
