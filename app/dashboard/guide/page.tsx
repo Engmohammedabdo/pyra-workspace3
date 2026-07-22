@@ -17,6 +17,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { useAllModuleGuides, useModuleGuideSearch } from '@/lib/i18n/module-guide-labels';
+import { usePermission } from '@/hooks/usePermission';
 import { ModuleCard } from '@/components/dashboard/guide/module-card';
 
 // `key` maps to `guide.ui.sections.<key>.title` in messages/{ar,en}/guide.json.
@@ -84,6 +85,7 @@ const SECTIONS = [
     hrefs: [
       '/dashboard/hr',
       '/dashboard/hr/productivity',
+      '/dashboard/hr/deductions',
       '/dashboard/approvals',
       '/dashboard/leave/settings',
       '/dashboard/hr/leave-balances',
@@ -164,16 +166,24 @@ export default function GuidePage() {
   const tCommonGuide = useTranslations('common.guide');
   const tGuideUi = useTranslations('guide.ui');
   const [query, setQuery] = useState('');
+  const canManageDeductions = usePermission('hr.manage');
 
   const allGuides = useAllModuleGuides();
-  const searchResults = useModuleGuideSearch(query);
+  const visibleGuides = Object.fromEntries(
+    Object.entries(allGuides).filter(([, guide]) =>
+      canManageDeductions || guide.href !== '/dashboard/hr/deductions',
+    ),
+  ) as typeof allGuides;
+  const searchResults = useModuleGuideSearch(query).filter((guide) =>
+    canManageDeductions || guide.href !== '/dashboard/hr/deductions',
+  );
 
   const filteredGuides = useMemo(() => {
     if (!query.trim()) return null;
     return searchResults;
   }, [query, searchResults]);
 
-  const totalModules = Object.keys(allGuides).length;
+  const totalModules = Object.keys(visibleGuides).length;
 
   return (
     <div className="space-y-6">
@@ -225,7 +235,7 @@ export default function GuidePage() {
         <div className="space-y-8">
           {SECTIONS.map((section) => {
             const sectionGuides = section.hrefs
-              .map((href) => allGuides[href])
+              .map((href) => visibleGuides[href])
               .filter(Boolean);
 
             if (sectionGuides.length === 0) return null;

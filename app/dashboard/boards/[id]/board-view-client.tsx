@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
-import { dubaiDayKey } from '@/lib/utils/format';
+import { useQuery } from '@tanstack/react-query';
 import {
   DndContext,
   DragEndEvent,
@@ -78,6 +78,22 @@ import { BoardCalendarView } from '@/components/boards/board-calendar-view';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useRealtimeBoardTasks } from '@/hooks/useRealtime';
 import { useStatusLabels } from '@/lib/i18n/status-labels';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
+import { PRODUCTION_BOARD_ID } from '@/lib/constants/production';
+import {
+  buildBoardTaskCreateDraft,
+  canSubmitBoardTaskCreateDraft,
+  formatBoardTaskDeadline,
+  getBoardTaskDeadline,
+  isBoardTaskDeadlineOverdue,
+  useBoardDetails,
+  useBoardTasks,
+} from '@/hooks/useBoardTasks';
+import { useDeadlineClock } from '@/hooks/useDeadlineClock';
+import {
+  useCreateBoardTask,
+  useMoveBoardTask,
+} from '@/hooks/useBoardTaskMutations';
 
 // ============================================================
 // Types
@@ -90,7 +106,9 @@ interface Task {
   column_id: string;
   position: number;
   priority: string;
-  due_date?: string;
+  due_date?: string | null;
+  due_at?: string | null;
+  production_deadline_exempt?: boolean;
   task_number?: number;
   board_id?: string;
   created_at?: string;
@@ -216,14 +234,19 @@ function TaskCard({
   onClick,
   accent,
   isPipeline,
+  currentInstant,
+  isDoneColumn,
 }: {
   task: Task;
   onClick: () => void;
   accent?: { bar: string };
   isPipeline?: boolean;
+  currentInstant: string;
+  isDoneColumn: boolean;
 }) {
   const locale = useLocale();
   const t = useTranslations('boards.view.card');
+  const tDeadline = useTranslations('boards.deadline');
   const {
     attributes,
     listeners,
@@ -244,13 +267,20 @@ function TaskCard({
   const labels = task.pyra_task_labels || [];
   const assignees = task.pyra_task_assignees || [];
   const comments = task.pyra_task_comments || [];
-  const today = dubaiDayKey();
-  const isOverdue = task.due_date && task.due_date < today;
+  const deadline = getBoardTaskDeadline(task);
+  const formattedDeadline = formatBoardTaskDeadline(task, locale);
+  const deadlineNow = new Date(currentInstant);
+  const isOverdue = isBoardTaskDeadlineOverdue(task, deadlineNow, isDoneColumn);
   const dueBadgeColor = (() => {
-    if (!task.due_date) return '';
-    const diff = Math.ceil((new Date(task.due_date).getTime() - Date.now()) / 86400000);
-    if (diff < 0) return 'bg-red-500/15 text-red-600 dark:text-red-400';
-    if (diff === 0) return 'bg-orange-500/15 text-orange-600 dark:text-orange-400';
+    if (!deadline) return '';
+    if (deadline.unverified) {
+      return 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300';
+    }
+    const diff = deadline.instant
+      ? Math.ceil((Date.parse(deadline.instant) - deadlineNow.getTime()) / 86400000)
+      : 0;
+    if (isOverdue) return 'bg-red-500/15 text-red-600 dark:text-red-400';
+    if (diff <= 0) return 'bg-orange-500/15 text-orange-600 dark:text-orange-400';
     if (diff <= 3) return 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400';
     return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400';
   })();
@@ -317,15 +347,25 @@ function TaskCard({
                 <Flag className="h-3 w-3" />
               </span>
             )}
-            {task.due_date && (
+            {formattedDeadline && (
               <span
                 className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-md tabular-nums ${dueBadgeColor}`}
               >
-                <Calendar className="h-3 w-3" />
-                {new Date(task.due_date).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', {
-                  month: 'short',
-                  day: 'numeric',
-                })}
+                {formattedDeadline.unverified ? (
+                  <>
+                    <AlertTriangle className="h-3 w-3" />
+                    <span className="text-amber-700 dark:text-amber-300">
+                      {tDeadline('unverified')}
+                    </span>
+                    {formattedDeadline.date && <span>· {formattedDeadline.date}</span>}
+                  </>
+                ) : (
+                  <>
+                    <Calendar className="h-3 w-3" />
+                    {formattedDeadline.date}
+                    {formattedDeadline.time && <span>· {formattedDeadline.time}</span>}
+                  </>
+                )}
               </span>
             )}
             {checklist.length > 0 && (
@@ -392,6 +432,7 @@ function DroppableColumn({
   onQuickAddCancel,
   canCreate,
   isPipeline,
+  currentInstant,
 }: {
   column: Column;
   tasks: Task[];
@@ -405,6 +446,7 @@ function DroppableColumn({
   onQuickAddCancel?: () => void;
   canCreate?: boolean;
   isPipeline?: boolean;
+  currentInstant: string;
 }) {
   const t = useTranslations('boards.view.column');
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: column.id });
@@ -478,6 +520,8 @@ function DroppableColumn({
                 onClick={() => onTaskClick(task)}
                 accent={accent}
                 isPipeline={isPipeline}
+                currentInstant={currentInstant}
+                isDoneColumn={column.is_done_column}
               />
             ))}
             {tasks.length === 0 && !isQuickAdding && (
@@ -536,15 +580,27 @@ export default function BoardViewClient({
   session: AuthSession;
 }) {
   const t = useTranslations('boards.view');
+  const tDeadline = useTranslations('boards.deadline');
   const tNav = useTranslations('nav');
   const locale = useLocale();
   const priorityLabel = useStatusLabels('taskPriority');
   const router = useRouter();
   const searchParams = useSearchParams();
   const taskParam = searchParams.get('task');
+  const boardQuery = useBoardDetails<Board>(boardId);
+  const tasksQuery = useBoardTasks<Task>(boardId);
+  const usersQuery = useQuery({
+    queryKey: ['users', 'lite', 'active'],
+    queryFn: () => fetchAPI<
+      { username: string; display_name: string; status?: string; role?: string }[]
+    >('/api/users/lite'),
+    staleTime: 60_000,
+  });
+  const createTaskMutation = useCreateBoardTask(boardId);
+  const moveTaskMutation = useMoveBoardTask();
   const [board, setBoard] = useState<Board | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
+  const currentInstant = useDeadlineClock(tasks.map((task) => task.due_at));
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   // Tracks which ?task= deep-link id we've already auto-opened, so a manual
@@ -569,10 +625,18 @@ export default function BoardViewClient({
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState('medium');
   const [newTaskDueDate, setNewTaskDueDate] = useState('');
+  const [newTaskDueTime, setNewTaskDueTime] = useState('');
   const [newTaskAssignees, setNewTaskAssignees] = useState<string[]>([]);
-  const [boardUsers, setBoardUsers] = useState<
-    { username: string; display_name: string; status?: string; role?: string }[]
-  >([]);
+  const newTaskDraft = {
+    columnId: addToColumn,
+    title: newTaskTitle,
+    priority: newTaskPriority,
+    dueDate: newTaskDueDate,
+    dueTime: newTaskDueTime,
+    assignees: newTaskAssignees,
+  };
+  const boardUsers = (usersQuery.data || []).filter((user) => user.status === 'active');
+  const isProductionBoard = boardId === PRODUCTION_BOARD_ID;
 
   const canCreate = hasPermission(
     session.pyraUser.rolePermissions,
@@ -583,46 +647,27 @@ export default function BoardViewClient({
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
+  useEffect(() => {
+    if (boardQuery.data) setBoard(boardQuery.data);
+  }, [boardQuery.data]);
+
+  useEffect(() => {
+    if (tasksQuery.data) setTasks(tasksQuery.data);
+  }, [tasksQuery.data]);
+
+  useEffect(() => {
+    if (boardQuery.isError) toast.error(t('toasts.loadBoardFailed'));
+  }, [boardQuery.isError, t]);
+
+  useEffect(() => {
+    if (tasksQuery.isError) toast.error(t('toasts.loadTasksFailed'));
+  }, [tasksQuery.isError, t]);
+
   const fetchBoard = useCallback(async () => {
-    try {
-      const [boardRes, tasksRes] = await Promise.all([
-        fetch(`/api/boards/${boardId}`),
-        fetch(`/api/boards/${boardId}/tasks`),
-      ]);
-      if (boardRes.ok) {
-        const { data } = await boardRes.json();
-        setBoard(data);
-      } else {
-        toast.error(t('toasts.loadBoardFailed'));
-      }
-      if (tasksRes.ok) {
-        const { data } = await tasksRes.json();
-        setTasks(data || []);
-      } else {
-        toast.error(t('toasts.loadTasksFailed'));
-      }
-    } catch {
-      toast.error(t('toasts.connectionError'));
-    } finally {
-      setLoading(false);
-    }
-  }, [boardId]);
+    await Promise.all([boardQuery.refetch(), tasksQuery.refetch()]);
+  }, [boardQuery.refetch, tasksQuery.refetch]);
 
-  useEffect(() => {
-    fetchBoard();
-  }, [fetchBoard]);
-
-  // Fetch active users once for the create-task assignee picker
-  useEffect(() => {
-    fetch('/api/users/lite')
-      .then((res) => res.json())
-      .then((json) => {
-        const users: { username: string; display_name: string; status?: string; role?: string }[] =
-          json?.data || [];
-        setBoardUsers(users.filter((u) => u.status === 'active'));
-      })
-      .catch(() => {});
-  }, []);
+  const loading = boardQuery.isLoading || tasksQuery.isLoading;
 
   // Set view mode from board config
   useEffect(() => {
@@ -664,19 +709,28 @@ export default function BoardViewClient({
   // ── Quick add task ──
   const quickAddTask = async (columnId: string) => {
     if (!quickAddTitle.trim()) { setQuickAddCol(null); return; }
+    if (isProductionBoard) {
+      const draft = buildBoardTaskCreateDraft(columnId, quickAddTitle.trim());
+      setAddToColumn(draft.columnId);
+      setNewTaskTitle(draft.title);
+      setNewTaskPriority(draft.priority);
+      setNewTaskDueDate(draft.dueDate);
+      setNewTaskDueTime(draft.dueTime);
+      setNewTaskAssignees(draft.assignees);
+      setQuickAddTitle('');
+      setQuickAddCol(null);
+      setShowAddTask(true);
+      return;
+    }
     try {
-      const res = await fetch(`/api/boards/${boardId}/tasks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: quickAddTitle.trim(), column_id: columnId }),
-      });
-      if (res.ok) {
-        toast.success(t('toasts.taskAdded'));
-        setQuickAddTitle('');
-        setQuickAddCol(null);
-        fetchBoard();
-      }
-    } catch { toast.error(t('toasts.taskAddFailed')); }
+      await createTaskMutation.mutateAsync({ title: quickAddTitle.trim(), column_id: columnId });
+      toast.success(t('toasts.taskAdded'));
+      setQuickAddTitle('');
+      setQuickAddCol(null);
+      await fetchBoard();
+    } catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : t('toasts.taskAddFailed'));
+    }
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -711,11 +765,7 @@ export default function BoardViewClient({
       // Save to API
       const payload = newCols.map((c, i) => ({ id: c.id, position: i, name: c.name, color: c.color }));
       try {
-        await fetch(`/api/boards/${boardId}/columns`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ columns: payload }),
-        });
+        await mutateAPI(`/api/boards/${boardId}/columns`, 'PATCH', { columns: payload });
         toast.success(t('toasts.columnsReordered'));
       } catch {
         toast.error(t('toasts.columnsSaveFailed'));
@@ -789,15 +839,14 @@ export default function BoardViewClient({
 
     // API call
     try {
-      const res = await fetch(`/api/tasks/${taskId}/move`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await moveTaskMutation.mutateAsync({
+        taskId,
+        boardId,
+        data: {
           column_id: targetColumnId,
           position: targetPosition,
-        }),
+        },
       });
-      if (!res.ok) throw new Error();
       toast.success(t('toasts.taskMoved'));
     } catch {
       toast.error(t('toasts.taskMoveFailed'));
@@ -806,7 +855,7 @@ export default function BoardViewClient({
   };
 
   const addTask = async () => {
-    if (!newTaskTitle.trim()) return;
+    if (!canSubmitBoardTaskCreateDraft(newTaskDraft, isProductionBoard)) return;
     try {
       const body: Record<string, unknown> = {
         title: newTaskTitle,
@@ -814,36 +863,31 @@ export default function BoardViewClient({
         priority: newTaskPriority,
       };
       if (newTaskDueDate) body.due_date = newTaskDueDate;
+      if (isProductionBoard) body.due_time = newTaskDueTime;
       if (newTaskAssignees.length) body.assignees = newTaskAssignees;
 
-      const res = await fetch(`/api/boards/${boardId}/tasks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) {
-        toast.success(t('toasts.taskAdded'));
-        setNewTaskTitle('');
-        setNewTaskPriority('medium');
-        setNewTaskDueDate('');
-        setNewTaskAssignees([]);
-        setShowAddTask(false);
-        fetchBoard();
-      } else {
-        const err = await res.json();
-        toast.error(err.error || t('toasts.taskAddFailed'));
-      }
-    } catch {
-      toast.error(t('toasts.taskAddFailed'));
+      await createTaskMutation.mutateAsync(body);
+      toast.success(t('toasts.taskAdded'));
+      setNewTaskTitle('');
+      setNewTaskPriority('medium');
+      setNewTaskDueDate('');
+      setNewTaskDueTime('');
+      setNewTaskAssignees([]);
+      setShowAddTask(false);
+      await fetchBoard();
+    } catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : t('toasts.taskAddFailed'));
     }
   };
 
-  const openAddTask = (columnId: string) => {
-    setAddToColumn(columnId);
-    setNewTaskTitle('');
-    setNewTaskPriority('medium');
-    setNewTaskDueDate('');
-    setNewTaskAssignees([]);
+  const openAddTask = (columnId: string, dueDate = '') => {
+    const draft = buildBoardTaskCreateDraft(columnId, '', dueDate);
+    setAddToColumn(draft.columnId);
+    setNewTaskTitle(draft.title);
+    setNewTaskPriority(draft.priority);
+    setNewTaskDueDate(draft.dueDate);
+    setNewTaskDueTime(draft.dueTime);
+    setNewTaskAssignees(draft.assignees);
     setShowAddTask(true);
   };
 
@@ -883,14 +927,9 @@ export default function BoardViewClient({
   const handleSaveSettings = async (updates: Record<string, unknown>) => {
     setSavingSettings(true);
     try {
-      const res = await fetch(`/api/boards/${boardId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      });
-      if (!res.ok) throw new Error();
+      await mutateAPI(`/api/boards/${boardId}`, 'PATCH', updates);
       toast.success(t('toasts.settingsSaved'));
-      fetchBoard();
+      await fetchBoard();
       setShowSettings(false);
     } catch {
       toast.error(t('toasts.settingsSaveFailed'));
@@ -902,13 +941,21 @@ export default function BoardViewClient({
   const columns: Column[] = (board.pyra_board_columns || []).sort(
     (a, b) => a.position - b.position
   );
+  const doneColumnIds = columns.filter((column) => column.is_done_column).map((column) => column.id);
+  const doneColumnIdSet = new Set(doneColumnIds);
 
   // Collect unique assignees for filter dropdown
   const assigneeList = Array.from(new Set(tasks.flatMap(t => (t.pyra_task_assignees || []).map(a => a.username))));
   const labelList = (board.pyra_board_labels as Array<{ id: string; name: string; color: string }>) || [];
 
   // Apply filters
-  const filteredTasks = applyFilters(tasks, filters, locale);
+  const filteredTasks = applyFilters(
+    tasks,
+    filters,
+    locale,
+    new Date(currentInstant),
+    doneColumnIdSet,
+  );
 
   return (
     <div className="p-6 space-y-4">
@@ -945,6 +992,7 @@ export default function BoardViewClient({
           tasks={filteredTasks}
           onAddTask={canCreate ? openAddTask : () => {}}
           onTaskClick={(task) => setSelectedTask(task)}
+          currentInstant={currentInstant}
         />
       ) : currentViewMode === 'list' ? (
         <BoardListView
@@ -954,18 +1002,19 @@ export default function BoardViewClient({
           onTaskClick={(task) => setSelectedTask(task)}
           onUpdate={fetchBoard}
           canEdit={canCreate}
+          currentInstant={currentInstant}
         />
       ) : currentViewMode === 'calendar' ? (
         <BoardCalendarView
           tasks={filteredTasks}
           onTaskClick={(task) => setSelectedTask(task)}
           onQuickAdd={(colId, dueDate) => {
-            setAddToColumn(colId);
-            setNewTaskDueDate(dueDate);
-            setNewTaskTitle('');
-            setShowAddTask(true);
+            openAddTask(colId, dueDate);
           }}
           defaultColumnId={columns[0]?.id || ''}
+          currentInstant={currentInstant}
+          doneColumnIds={doneColumnIds}
+          canCreate={canCreate}
         />
       ) : (
         /* ── Kanban Board ── */
@@ -996,6 +1045,7 @@ export default function BoardViewClient({
                   onQuickAddCancel={() => { setQuickAddCol(null); setQuickAddTitle(''); }}
                   canCreate={canCreate}
                   isPipeline={!!board?.is_pipeline}
+                  currentInstant={currentInstant}
                 />
               );
             })}
@@ -1016,15 +1066,29 @@ export default function BoardViewClient({
                     <Badge variant="outline" className="text-[9px] h-4">
                       {priorityLabel(activeTask.priority || 'medium')}
                     </Badge>
-                    {activeTask.due_date && (
-                      <span className="flex items-center gap-0.5">
-                        <Calendar className="h-3 w-3" />
-                        {new Date(activeTask.due_date).toLocaleDateString(
-                          locale === 'ar' ? 'ar-EG' : 'en-GB',
-                          { month: 'short', day: 'numeric' }
-                        )}
-                      </span>
-                    )}
+                    {(() => {
+                      const deadline = formatBoardTaskDeadline(activeTask, locale);
+                       return deadline ? (
+                         <span className={cn(
+                           'flex items-center gap-0.5',
+                           deadline.unverified && 'text-amber-700 dark:text-amber-300',
+                         )}>
+                           {deadline.unverified ? (
+                             <>
+                               <AlertTriangle className="h-3 w-3" />
+                               <span>{tDeadline('unverified')}</span>
+                               {deadline.date && <span>· {deadline.date}</span>}
+                             </>
+                           ) : (
+                             <>
+                               <Calendar className="h-3 w-3" />
+                               {deadline.date}
+                               {deadline.time && <span>· {deadline.time}</span>}
+                             </>
+                           )}
+                         </span>
+                       ) : null;
+                    })()}
                   </div>
                   {(activeTask.pyra_task_assignees?.length ?? 0) > 0 && (
                     <div className="flex items-center gap-1">
@@ -1062,7 +1126,7 @@ export default function BoardViewClient({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className={cn('grid gap-3', isProductionBoard ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2')}>
               <div className="space-y-2">
                 <label className="text-sm font-medium">{t('addTask.priorityLabel')}</label>
                 <Select
@@ -1081,14 +1145,35 @@ export default function BoardViewClient({
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">{t('addTask.dueDateLabel')}</label>
+                <label className="text-sm font-medium">
+                  {isProductionBoard ? t('addTask.dueDateUaeLabel') : t('addTask.dueDateLabel')}
+                </label>
                 <Input
                   type="date"
                   value={newTaskDueDate}
                   onChange={(e) => setNewTaskDueDate(e.target.value)}
+                  required={isProductionBoard}
                 />
               </div>
+              {isProductionBoard && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">{t('addTask.dueTimeUaeLabel')}</label>
+                  <Input
+                    type="time"
+                    step={60}
+                    value={newTaskDueTime}
+                    onChange={(e) => setNewTaskDueTime(e.target.value)}
+                    required
+                  />
+                </div>
+              )}
             </div>
+
+            {isProductionBoard && (
+              <p className="text-xs text-amber-700 dark:text-amber-300 rounded-md bg-amber-50 dark:bg-amber-950/30 px-3 py-2">
+                {t('addTask.exactDeadlineHelp')}
+              </p>
+            )}
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -1135,10 +1220,13 @@ export default function BoardViewClient({
 
             <Button
               onClick={addTask}
-              disabled={!newTaskTitle.trim()}
+              disabled={
+                createTaskMutation.isPending
+                || !canSubmitBoardTaskCreateDraft(newTaskDraft, isProductionBoard)
+              }
               className="w-full bg-orange-500 hover:bg-orange-600 text-white"
             >
-              {t('addTask.submit')}
+              {createTaskMutation.isPending ? t('addTask.submitting') : t('addTask.submit')}
             </Button>
           </div>
         </DialogContent>
@@ -1152,6 +1240,7 @@ export default function BoardViewClient({
           onClose={() => setSelectedTask(null)}
           onUpdate={fetchBoard}
           session={session}
+          currentInstant={currentInstant}
         />
       )}
 
@@ -1198,15 +1287,19 @@ function PipelineView({
   tasks,
   onAddTask,
   onTaskClick,
+  currentInstant,
 }: {
   columns: Column[];
   tasks: Task[];
   onAddTask: (columnId: string) => void;
   onTaskClick: (task: Task) => void;
+  currentInstant: string;
 }) {
   const t = useTranslations('boards.view.pipeline');
   const tCard = useTranslations('boards.view.card');
+  const tDeadline = useTranslations('boards.deadline');
   const locale = useLocale();
+  const deadlineNow = new Date(currentInstant);
   const totalTasks = tasks.length;
   const doneTasks = tasks.filter(t => {
     const col = columns.find(c => c.id === t.column_id);
@@ -1271,9 +1364,12 @@ function PipelineView({
                     <button
                       key={task.id}
                       onClick={() => onTaskClick(task)}
-                      className={`w-full text-start p-2.5 rounded-lg border border-border/50 bg-card hover:border-emerald-400/60 transition-colors cursor-pointer border-s-4 ${
-                        PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium
-                      }`}
+                      className={cn(
+                        'w-full text-start p-2.5 rounded-lg border border-border/50 bg-card hover:border-emerald-400/60 transition-colors cursor-pointer border-s-4',
+                        PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium,
+                        isBoardTaskDeadlineOverdue(task, deadlineNow, col.is_done_column)
+                          && 'ring-1 ring-red-300 dark:ring-red-800/50',
+                      )}
                       dir={locale === 'ar' ? 'rtl' : undefined}
                     >
                       <p className="text-sm font-medium line-clamp-2">{task.title}</p>
@@ -1284,12 +1380,29 @@ function PipelineView({
                         </Badge>
                       )}
                       <div className="flex items-center gap-2 mt-1.5 text-[10px] text-muted-foreground">
-                        {task.due_date && (
-                          <span className="flex items-center gap-0.5">
-                            <Calendar className="h-3 w-3" />
-                            {new Date(task.due_date).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', { month: 'short', day: 'numeric' })}
-                          </span>
-                        )}
+                        {(() => {
+                          const deadline = formatBoardTaskDeadline(task, locale);
+                          return deadline ? (
+                            <span className={cn(
+                              'flex items-center gap-0.5',
+                              deadline.unverified && 'text-amber-700 dark:text-amber-300',
+                            )}>
+                              {deadline.unverified ? (
+                                <>
+                                  <AlertTriangle className="h-3 w-3" />
+                                  <span>{tDeadline('unverified')}</span>
+                                  {deadline.date && <span>· {deadline.date}</span>}
+                                </>
+                              ) : (
+                                <>
+                                  <Calendar className="h-3 w-3" />
+                                  {deadline.date}
+                                  {deadline.time && <span>· {deadline.time}</span>}
+                                </>
+                              )}
+                            </span>
+                          ) : null;
+                        })()}
                         {(task.pyra_task_assignees?.length ?? 0) > 0 && (
                           <div className="flex items-center -space-x-1">
                             {task.pyra_task_assignees?.slice(0, 2).map((a, i) => (
@@ -1378,29 +1491,35 @@ function BoardSettingsForm({
   // Column CRUD
   const addColumn = async () => {
     if (!newColName.trim()) return;
-    const res = await fetch(`/api/boards/${boardId}/columns`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newColName.trim(), color: newColColor, position: cols.length }),
-    });
-    if (res.ok) { toast.success(t('toasts.columnAdded')); setNewColName(''); onUpdate(); const { data } = await res.json(); setCols(prev => [...prev, data]); }
-    else toast.error(t('toasts.columnAddFailed'));
+    try {
+      const data = await mutateAPI<Column>(`/api/boards/${boardId}/columns`, 'POST', {
+        name: newColName.trim(), color: newColColor, position: cols.length,
+      });
+      toast.success(t('toasts.columnAdded'));
+      setNewColName('');
+      setCols(prev => [...prev, data]);
+      onUpdate();
+    } catch { toast.error(t('toasts.columnAddFailed')); }
   };
 
   const saveColumns = async () => {
     const payload = cols.map((c, i) => ({ id: c.id, position: i, name: c.name, color: c.color }));
-    const res = await fetch(`/api/boards/${boardId}/columns`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ columns: payload }),
-    });
-    if (res.ok) { toast.success(t('toasts.columnsSaved')); onUpdate(); }
-    else toast.error(t('toasts.columnsSaveFailed'));
+    try {
+      await mutateAPI(`/api/boards/${boardId}/columns`, 'PATCH', { columns: payload });
+      toast.success(t('toasts.columnsSaved'));
+      onUpdate();
+    } catch { toast.error(t('toasts.columnsSaveFailed')); }
   };
 
   const deleteColumn = async (colId: string) => {
-    const res = await fetch(`/api/boards/${boardId}/columns?columnId=${colId}`, { method: 'DELETE' });
-    const json = await res.json();
-    if (res.ok) { toast.success(t('toasts.columnDeleted')); setCols(prev => prev.filter(c => c.id !== colId)); onUpdate(); }
-    else toast.error(json.error || t('toasts.columnDeleteFailed'));
+    try {
+      await mutateAPI(`/api/boards/${boardId}/columns?columnId=${colId}`, 'DELETE');
+      toast.success(t('toasts.columnDeleted'));
+      setCols(prev => prev.filter(c => c.id !== colId));
+      onUpdate();
+    } catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : t('toasts.columnDeleteFailed'));
+    }
   };
 
   const moveCol = (idx: number, dir: -1 | 1) => {
@@ -1414,18 +1533,26 @@ function BoardSettingsForm({
   // Label CRUD
   const addLabel = async () => {
     if (!newLblName.trim()) return;
-    const res = await fetch(`/api/boards/${boardId}/labels`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newLblName.trim(), color: newLblColor }),
-    });
-    if (res.ok) { toast.success(t('toasts.labelAdded')); setNewLblName(''); const { data } = await res.json(); setLbls(prev => [...prev, data]); onUpdate(); }
-    else toast.error(t('toasts.labelAddFailed'));
+    try {
+      const data = await mutateAPI<{ id: string; name: string; color: string }>(
+        `/api/boards/${boardId}/labels`,
+        'POST',
+        { name: newLblName.trim(), color: newLblColor },
+      );
+      toast.success(t('toasts.labelAdded'));
+      setNewLblName('');
+      setLbls(prev => [...prev, data]);
+      onUpdate();
+    } catch { toast.error(t('toasts.labelAddFailed')); }
   };
 
   const deleteLabel = async (labelId: string) => {
-    const res = await fetch(`/api/boards/${boardId}/labels?labelId=${labelId}`, { method: 'DELETE' });
-    if (res.ok) { toast.success(t('toasts.labelDeleted')); setLbls(prev => prev.filter(l => l.id !== labelId)); onUpdate(); }
-    else toast.error(t('toasts.labelDeleteFailed'));
+    try {
+      await mutateAPI(`/api/boards/${boardId}/labels?labelId=${labelId}`, 'DELETE');
+      toast.success(t('toasts.labelDeleted'));
+      setLbls(prev => prev.filter(l => l.id !== labelId));
+      onUpdate();
+    } catch { toast.error(t('toasts.labelDeleteFailed')); }
   };
 
   return (

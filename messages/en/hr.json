@@ -515,6 +515,226 @@
         }
       }
     },
+    "deductions": {
+      "myRisk": {
+        "title": "This month's deduction risk",
+        "month": "Current month: {month}",
+        "atRisk": "At risk",
+        "notAvailable": "N/A",
+        "projectionNotice": "This is a live projection, not a finalized payroll deduction. No money is applied without explicit admin approval.",
+        "breakdown": {
+          "attendance": "Attendance",
+          "delivery": "Projected delivery",
+          "quality": "Quality"
+        },
+        "attendance": {
+          "title": "Attendance incidents",
+          "empty": "No deductible attendance incidents this month.",
+          "lateMinutes": "{minutes} minutes late",
+          "noShow": "No show"
+        },
+        "delivery": {
+          "title": "Delivery evidence",
+          "empty": "No delivery evidence is available this month.",
+          "onTimeRate": "On-time rate: {value}%",
+          "noEligibleRate": "On-time rate: N/A (no eligible tasks)",
+          "taskId": "Task ID",
+          "deadlineDubai": "Deadline (Dubai): {value}",
+          "deadlineDateOnly": "Recorded due date: {value} (exact hour unavailable)",
+          "firstReviewDubai": "First review submission (Dubai): {value}",
+          "outcomes": {
+            "on_time": "On time",
+            "late": "Late",
+            "pending": "Pending",
+            "excluded": "Excluded"
+          },
+          "reasons": {
+            "leadTimeUnderMinimum": "Less than {hours} hours from creation to deadline — excluded from the rate.",
+            "legacyUnverified": "Legacy or unverified evidence — excluded from the rate.",
+            "unverifiedDeadline": "Unverified legacy deadline — excluded from the rate.",
+            "missingDeadline": "No exact deadline — excluded from the rate.",
+            "invalidTimestamp": "Invalid deadline evidence — excluded from the rate."
+          }
+        },
+        "quality": {
+          "title": "Quality evidence",
+          "empty": "No quality review evidence is available this month.",
+          "averageRounds": "Average review rounds: {value}",
+          "outrightRejections": "Outright rejections: {rejected} / {reviewed} ({rate}%)",
+          "withinBand": "The current month is not below the quality warning band.",
+          "warning": "Quality is below the warning band for {count} consecutive month(s).",
+          "eligible": "A repeated pattern is documented across {count} consecutive month(s); money still requires explicit admin approval.",
+          "guard": "Quality is never deducted automatically."
+        },
+        "finalized": {
+          "title": "Finalized deduction for this month",
+          "evidenceTitle": "Deduction case evidence needs payment verification",
+          "evidenceDescription": "The case remains visible as evidence, but no finalized amount or status is shown until its payment link is valid."
+        },
+        "manualFinalized": {
+          "title": "Documented manual deduction",
+          "evidenceTitle": "Documented manual deduction evidence",
+          "evidenceDescription": "Payment link needs verification; no finalized amount or status is shown."
+        },
+        "integrity": {
+          "title": "Money estimate unavailable",
+          "description": "The evidence remains visible, but the system will not show a money figure until these integrity issues are resolved.",
+          "codes": {
+            "invalidSalary": "Salary data is invalid.",
+            "invalidSalaryCurrency": "Salary currency is invalid.",
+            "historicalSalaryUnverified": "The salary and currency applicable to this past month are not historically verified; evidence is shown without money.",
+            "inactiveEmployee": "The employee is inactive; documented deductions remain visible, but no new projection is calculated.",
+            "attendanceTrackingUnverified": "Attendance tracking start is not documented; the system will not invent no-shows or present them as zero.",
+            "missingProductivityEvidence": "Monthly productivity evidence is incomplete.",
+            "missingEffectiveMonth": "An existing deduction is missing its effective month.",
+            "capExemptionInvalid": "An existing deduction has an invalid attendance cap-exemption split.",
+            "currencyMismatch": "An existing deduction uses a different currency.",
+            "casePaymentMissing": "The finalized deduction is missing its linked payment.",
+            "casePaymentMismatch": "The finalized deduction does not match its linked payment.",
+            "manualPaymentMissing": "A documented manual deduction is missing its linked payment.",
+            "manualPaymentMismatch": "A documented manual deduction does not match its linked payment.",
+            "calculationFailed": "The deduction projection could not be calculated safely."
+          }
+        },
+        "error": {
+          "title": "Could not load deduction risk",
+          "retry": "Try again"
+        }
+      },
+      "manualEvidence": {
+        "unavailable": "The retained evidence snapshot is not in the trusted current format.",
+        "legacyBasis": "Owner-attested legacy delivery",
+        "legacyGuard": "These legacy tasks were excluded from the automatic on-time rate because the exact deadline or historical assignee evidence was incomplete; the owner explicitly approved the documented later-day submissions.",
+        "taskId": "Task ID: {id}",
+        "dueDateOnly": "Recorded due date: {date} (exact hour unavailable)",
+        "dueExact": "Recorded exact deadline (Dubai): {value}",
+        "firstSubmitted": "First review submission (Dubai): {value}",
+        "attributionUnverified": "Historical assignee attribution was not verified; this item required the explicit owner attestation.",
+        "qualityBasis": "Repeated quality pattern",
+        "qualityGuard": "Explicit money decision after {count} consecutive below-band months; never auto-deducted.",
+        "qualityMonth": "{month}: average rounds {rounds}; outright rejections {rejected}/{reviewed} ({rate}%)",
+        "notAvailable": "N/A"
+      },
+      "admin": {
+        "meta": {
+          "title": "Deductions Review | Pyra Workspace"
+        },
+        "page": {
+          "title": "Employee deductions review",
+          "subtitle": "Review live evidence and explicitly approve documented deductions.",
+          "monthPickerAria": "Select deductions month",
+          "approvalGuard": "Computed and at-risk figures are projections. Finalized ledger amounts are labeled separately, and nothing new reaches payroll without explicit documented approval.",
+          "employeeCount": "Employees reviewed: {count}",
+          "generatedAt": "Evidence refreshed: {value}"
+        },
+        "error": {
+          "title": "Could not load deductions review",
+          "description": "No amounts can be approved until the evidence is loaded safely.",
+          "retry": "Try again"
+        },
+        "empty": {
+          "title": "No deduction evidence",
+          "description": "There are no active employees or production and attendance evidence for this month."
+        },
+        "attendanceTracking": {
+          "title": "Document attendance tracking start",
+          "description": "Choose the documented date when attendance counting began for {name}.",
+          "descriptionEmpty": "Select an employee first.",
+          "dateLabel": "Counting start date",
+          "guard": "The system does not infer this from hire date or the current schedule. From this date, a workday without attendance or an excuse is a full no-show.",
+          "cancel": "Cancel",
+          "confirm": "Document date",
+          "success": "Attendance tracking start was documented",
+          "error": "Attendance tracking start could not be documented"
+        },
+        "employee": {
+          "salary": "Salary: {amount}",
+          "manualAction": "Document manual deduction",
+          "attendanceTrackingAction": "Document attendance tracking start",
+          "excuseAttendance": "Review or excuse attendance",
+          "atRisk": "Live amount at risk",
+          "computedReview": "Computed review",
+          "alreadyFinalized": "Already finalized",
+          "attendance": "Attendance",
+          "attendanceUnits": "{units} deductible day units",
+          "delivery": "Delivery",
+          "deliveryNoEvidence": "No eligible delivery evidence",
+          "deliveryBands": {
+            "none": "{value}% on time · no band deduction",
+            "minor": "{value}% on time · minor band",
+            "moderate": "{value}% on time · moderate band",
+            "major": "{value}% on time · major band"
+          },
+          "quality": "Quality",
+          "qualityEligible": "Eligible after {count} consecutive months; still manual only",
+          "qualityTimingPending": "Warning eligible after {count} consecutive months; money approval is paused until month timing is confirmed",
+          "qualityWarningOnly": "Warning only · current streak {count} month(s)",
+          "capTotal": "{percent}% disciplinary ceiling (attendance excluded): {amount}",
+          "capUsed": "Already used: {amount}",
+          "capRemaining": "Remaining: {amount}",
+          "projectionNotice": "This computed figure is for review only. The separate documented-manual action requires an amount and reason and enforces the remaining monthly ceiling.",
+          "finalizedTitle": "Finalized deductions",
+          "systemFinalized": "Approved computed deduction",
+          "unlinkedEvidence": "Documented evidence not linked to payroll (no amount shown)",
+          "viewEvidence": "View attendance and delivery evidence"
+        },
+        "manualDialog": {
+          "title": "Document a deduction for {name}",
+          "description": "This explicit approval will create a payroll deduction for {month}.",
+          "remainingCap": "Remaining monthly ceiling",
+          "capNotice": "The disciplinary amount must stay within the remaining {percent}% ceiling; attendance deductions do not consume it.",
+          "basisLabel": "Documented basis",
+          "basisPlaceholder": "Select a verified basis",
+          "bases": {
+            "legacyDelivery": "Owner-attested legacy delivery delays",
+            "qualityPattern": "Repeated quality pattern"
+          },
+          "legacyTasksTitle": "Select the documented late deliveries",
+          "legacyTasksDescription": "Only legacy tasks first submitted on a later Dubai calendar day are available. Each row states separately whether its exact deadline or historical assignee evidence was unavailable.",
+          "taskId": "Task ID: {id}",
+          "legacyTaskDueAt": "Recorded exact deadline (Dubai): {value}",
+          "legacyTaskDueDateOnly": "Recorded due date: {date} (exact hour unavailable)",
+          "legacyTaskSubmittedAt": "First review submission (Dubai): {value}",
+          "legacyTaskAttributionUnverified": "Historical assignee attribution is unverified; explicit owner attestation is required.",
+          "timeUnavailable": "Unavailable",
+          "ownerAttestation": "I confirm this is an explicit owner decision based on the selected documented delivery delays.",
+          "qualityEvidence": "The server documented a below-band quality pattern for {count} consecutive months. The amount remains an explicit admin decision and is never calculated automatically.",
+          "qualityTimingPending": "The quality warning remains documented, but money approval is paused until the owner confirms whether the pattern uses the current month or completed months.",
+          "amountLabel": "Deduction amount",
+          "reasonLabel": "Documented reason",
+          "reasonPlaceholder": "State the exact incident, decision, and supporting evidence",
+          "evidenceNotice": "The server retains the selected basis, trusted task or quality snapshot, reason, amount, approving admin, salary snapshot, and month.",
+          "cancel": "Cancel",
+          "approving": "Approving...",
+          "approve": "Approve deduction",
+          "success": "The documented deduction was approved",
+          "error": "The deduction could not be approved safely",
+          "validation": {
+            "amount": "Enter a valid amount greater than zero",
+            "overCap": "The amount cannot exceed the remaining ceiling of {amount}",
+            "reason": "Enter the documented reason before approval",
+            "basis": "Select a verified deduction basis",
+            "tasks": "Select at least one documented late delivery",
+            "attestation": "Confirm the explicit owner decision before approval",
+            "quality": "The repeated quality pattern is not eligible for a money decision"
+          }
+        },
+        "unattributed": {
+          "title": "Unattributed production evidence ({count})",
+          "description": "These legacy tasks remain visible for investigation, but are not counted against any employee without proven ownership.",
+          "outcomes": {
+            "on_time": "On time",
+            "late": "Late",
+            "pending": "Pending",
+            "excluded": "Excluded"
+          },
+          "deadline": "Recorded deadline: {value}",
+          "deadlineDateOnly": "Recorded due date: {value} (exact hour unavailable)",
+          "deadlineMissing": "No verified exact deadline",
+          "notAssigned": "Not assigned to an employee deduction"
+        }
+      }
+    },
     "payslips": {
       "title": "My Payslips",
       "subtitle": "Payslips, payments, and commissions",
@@ -799,8 +1019,10 @@
         "shiftFrom": "Shift {time}",
         "clockOut": "Out {time}",
         "hours": "{hours} h",
-        "deduction": "Absences this month: {days} — deduct ≈ {amount}",
-        "totalDeduction": "{days} deduction days",
+        "deduction": "At risk this month: {incidents} incidents · {units} day units ≈ {amount}",
+        "deductionAmountUnavailable": "Amount unavailable until salary and currency are documented.",
+        "totalDeduction": "{units} at-risk day units",
+        "reviewDeductions": "Review deductions",
         "status": {
           "present": "On time",
           "late": "Late {minutes} min",
@@ -873,7 +1095,17 @@
         "empty": {
           "title": "Not Enough Trend Data",
           "description": "Trends will appear once production data exists across prior months"
+        },
+        "error": {
+          "title": "Couldn't load productivity trends",
+          "description": "Trend data could not be loaded. Try again.",
+          "retry": "Try Again"
         }
+      },
+      "error": {
+        "title": "Couldn't load the productivity report",
+        "description": "The report could not be loaded. Try again.",
+        "retry": "Try Again"
       },
       "empty": {
         "title": "No Production Data",
@@ -941,7 +1173,27 @@
         "finalDelivery": "Final Delivery",
         "onTime": "On time",
         "late": "Late {days} days",
+        "lateSameDay": "Late on the same day",
+        "exclusions": {
+          "shortLead": "Excluded · lead time under 24 hours",
+          "unverifiedLegacy": "Excluded · unverified legacy deadline"
+        },
         "notDelivered": "Not delivered"
+      },
+      "unattributed": {
+        "title": "Tasks needing attribution review",
+        "description": "Admin-only evidence kept separate from every employee's productivity metrics.",
+        "count": "{count, plural, one {# task} other {# tasks}}",
+        "table": {
+          "task": "Task",
+          "deadline": "Deadline",
+          "firstSubmission": "First Submission",
+          "reason": "Review reason"
+        },
+        "attribution": {
+          "legacyUnverified": "Legacy attribution is not verifiable",
+          "needsReview": "Employee attribution needs review"
+        }
       },
       "footer": {
         "onTimeDisclaimer": "On-time is measured on the first review submission (decision locked 2026-07-03) — review wait time and rounds are separate figures.",

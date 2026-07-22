@@ -11,16 +11,17 @@
 ## Global Constraints
 
 - Delivery deduction percentages are exactly: minor `3%`, moderate `7%`, major `12%` of monthly salary.
-- Monthly attendance + delivery + explicitly approved quality deduction is capped at exactly `25%` of that employee's salary snapshot.
+- Monthly attendance + delivery + explicitly approved quality deduction plus existing manual `source_type='deduction'` rows is capped at exactly `25%` of that employee's salary snapshot. Unpaid leave remains outside this disciplinary-deduction ceiling (owner-confirmed 2026-07-22).
 - A task whose exact `due_at - created_at` lead time is less than `24` hours is visible but excluded from the on-time-rate denominator. Exactly 24 hours remains eligible.
-- Quality is below band when monthly `avg_rounds > 2` OR outright-rejection rate is `>= 20%`; it becomes money-eligible only after `2` consecutive below-band months.
+- Quality is below band when monthly `avg_rounds > 2` OR outright-rejection rate is `>= 20%`; it becomes money-eligible only after `2` consecutive below-band months. The monthly cohort is the unique production tasks that received a native review decision in that month; the rejection numerator is the outright subset of that same cohort (owner-confirmed 2026-07-22).
 - Attendance tiers are: `<=15` late minutes free; `>15..60` quarter day; `>60..120` half day; `>120` or no-show full day. Daily rate is `salary / 30`.
 - Exact deadline comparison is `first_submitted_at <= due_at_snapshot`; equality is on time. Canonical wall time is `Asia/Dubai` (`+04:00`, no DST).
-- Existing production tasks with a day deadline backfill to `23:59:59.999 Asia/Dubai`. The completed historical task with no deadline remains null and unscored; no deadline is fabricated.
-- New production tasks require both date and time. Generic boards retain optional date-only behavior.
+- Existing production tasks with a day deadline received the migration-041 compatibility value `23:59:59.999 Asia/Dubai`; that value is explicitly unverified and excluded from delivery scoring. The identified historical task with no deadline remains null and unscored; no deadline is fabricated.
+- New production tasks and every duplicated production task require a newly chosen date and time. A duplicate never inherits the source production deadline. Generic boards retain optional date-only behavior (owner-confirmed 2026-07-22).
 - A production deadline cannot be changed after the first review submission. The immutable snapshot, not a later task edit, drives metrics.
-- Current-month employee data is an amber at-risk projection only. Approval is allowed only for a closed month and is always an explicit admin action.
-- Quality never supplies a money amount automatically. An admin may enter an amount only when the two-month eligibility rule is true.
+- A production task that entered review cannot be hard-deleted, including through a parent board/project cascade; it must be archived so payroll evidence survives (owner-confirmed 2026-07-22).
+- Current-month employee data is an amber at-risk projection only. Approval is always an explicit admin action; whether approval is restricted to a closed month is an unresolved owner decision.
+- Quality never supplies a money amount automatically. After eligibility, the admin enters the amount and documented reason explicitly (owner-confirmed 2026-07-22).
 - Admin page/API gates use `hr.manage`; the employee read endpoint uses existing `payroll.view`, exact self scope, and legacy role `employee`. Sales-agent and client roles receive no deductions surface.
 - No new RBAC permission is introduced, so no live `pyra_roles` row update is required.
 - A real deduction is exactly one `pyra_employee_payments` row with `source_type='deduction'`, `status='approved'`, `source_id=<case id>`, and the employee's `salary_currency`.
@@ -40,6 +41,7 @@
 - Live employee-payment ledger has one commission row and zero deduction rows; there are no duplicate `(source_type, source_id)` pairs.
 - Live task activity stores all 15 old `stage_rejected` details as JSONB strings, not JSON objects.
 - Current production create, calendar-create, quick-add, and task-sheet edit surfaces have no time field; they write `due_date` only. Production uses the generic `BoardViewClient`, so exact time must be gated by `PRODUCTION_BOARD_ID`, never by `is_pipeline`.
+- July 2026 live evidence for `wael.hany` contains 12 currently assigned production tasks and 9 review entries, but all deadlines/snapshots are migration-041 sentinels and all review assignee snapshots are null. Three submissions are provably after the entire due calendar day; same-day timing and the 24-hour exclusion cannot be reconstructed. The owner requires a July deduction, so it must be stored as an explicitly documented manual legacy exception with an owner-confirmed amount—not represented as an automatically calculated delivery band. The amount is still pending explicit confirmation, and no financial row has been written.
 
 ---
 
@@ -104,10 +106,11 @@ export interface StageEvent {
   due_at_snapshot?: string | null;
 }
 
-export interface QualityRejectionEvent {
+export interface QualityReviewDecisionEvent {
   task_id: string;
   created_at: string;
-  kind: 'revision' | 'outright';
+  action: 'approve' | 'reject';
+  kind: 'revision' | 'outright' | null;
 }
 
 export interface ProductionTaskInput {
@@ -123,7 +126,7 @@ export interface ProductionTaskInput {
 }
 ```
 
-`buildTaskJourney()` uses the first review event's `due_at_snapshot`, then current `due_at`, then legacy end-of-day fallback. It exposes `effective_due_at`, `delivery_eligible`, `delivery_exclusion`, and review-entry timestamps. `summarizeEmployee()` counts unique reviewed tasks in the month and unique structured outright-rejected tasks among them; legacy/unmarked activities remain ordinary revisions.
+`buildTaskJourney()` uses the first review event's `due_at_snapshot`, otherwise the current task `due_at`, only when that instant is a verified exact deadline. An exemption flag or the migration-041 end-of-day sentinel makes `effective_due_at` null and records `unverified_legacy_deadline`; there is no scoring fallback. It exposes `effective_due_at`, `delivery_eligible`, `delivery_exclusion`, and review-entry timestamps. `summarizeEmployee()` uses native decisions whose decision timestamp falls inside the selected Dubai month: the denominator is unique tasks with an approve/reject decision, review rounds are all decisions in that cohort, and the numerator is unique tasks with an explicit outright rejection. Legacy activity rows never enter this cohort.
 
 - [ ] **Step 5: Run GREEN tests and the full phase gate**
 
@@ -234,11 +237,13 @@ git commit -m "feat: add deduction approval storage"
 
 ---
 
-### Task 3: Exact deadline API, review snapshot, board UI, and all deadline consumers
+### Task 3: Exact deadline API, atomic transitions, review evidence, board UI, and all deadline consumers
 
 **Files:**
-- Create: `supabase/migrations/042_enforce_production_deadlines.sql`
-- Create: `scripts/sql/verify-042-production-deadlines.sql`
+- Create: `supabase/migrations/042_atomic_task_transitions.sql`
+- Create: `scripts/sql/verify-042-atomic-task-transitions.sql`
+- Create: `supabase/migrations/044_harden_production_evidence.sql`
+- Create: `scripts/sql/verify-044-production-evidence.sql`
 - Modify: `DATABASE-SCHEMA.md`
 - Modify: `types/database.ts`
 - Create: `hooks/useBoardTasks.ts`
@@ -249,6 +254,10 @@ git commit -m "feat: add deduction approval storage"
 - Modify: `app/api/tasks/[id]/move/route.ts`
 - Modify: `app/api/tasks/[id]/assignees/route.ts`
 - Modify: `app/api/boards/[id]/tasks/[taskId]/advance/route.ts`
+- Create: `lib/constants/task-transitions.ts`
+- Create: `__tests__/atomic-task-transition-migration.test.ts`
+- Create: `__tests__/atomic-task-transition-routes.test.ts`
+- Create: `__tests__/task-assignee-writer-security.test.ts`
 - Modify: `app/dashboard/boards/[id]/board-view-client.tsx`
 - Modify: `components/boards/task-sheet.tsx`
 - Modify: `components/boards/board-calendar-view.tsx`
@@ -277,7 +286,9 @@ git commit -m "feat: add deduction approval storage"
 - Production create requires `{due_date: 'YYYY-MM-DD', due_time: 'HH:mm'}` and the server derives trusted `due_at` in Dubai time. The API never trusts a browser timezone conversion.
 - Generic board create keeps optional `due_date`; `due_time` is ignored unless both values are valid.
 - Duplicate or cross-board move into `bd_production` requires a valid server-derived date/time pair when the source task has no exact `due_at`; the route must reject rather than invent a time.
-- Migration 042 is a mandatory post-deploy reconciliation/guard, not a pre-deploy migration: the current live date-only writer would fail its constraint. It is committed with Task 3 but applied and recorded only after the exact writer is verified live.
+- Migration 042 is additive and is applied before the transition-route deploy. It adds the persistent deadline lock, explicit deadline-exemption flag, immutable review-attribution snapshots, service-role-only atomic advance/move RPCs, and a non-rejecting assignee advisory-lock trigger that serializes old and new writers immediately; it adds no CHECK or table-DML revoke.
+- Migration 043 is reserved for the structured review/rejection RPC in Task 4.
+- Migration 044 is the mandatory post-deploy reconciliation/guard. It is committed with Task 3 but remains unapplied until every writer for tasks, stage history, board columns, and task assignees has moved behind permission gates and service role.
 
 - [ ] **Step 1: Write failing API-policy/helper tests**
 
@@ -289,9 +300,11 @@ Run: `pnpm.cmd test -- __tests__/production-deadlines.test.ts __tests__/producti
 
 - [ ] **Step 3: Implement server writes and snapshot**
 
-POST dual-writes `due_date` and `due_at` for `bd_production`. PATCH fetches task board and checks for a review-entry row before changing either deadline field. Duplicate copies both fields when already exact; duplicate/move into production otherwise requires and server-derives the pair. Advance selects `due_at` and writes it to `due_at_snapshot` only when entering a review column. Creation/assignment notifications format the exact Dubai date and time.
+POST dual-writes `due_date` and `due_at` for `bd_production`. PATCH reads `production_deadline_locked_at` before changing either deadline field and rechecks it after an optimistic-concurrency loss. Every production duplicate requires and server-derives a fresh date/time pair; moving an existing task into production may preserve a verified exact deadline, otherwise it also requires the pair. Service-role-only atomic transition RPCs own task movement, position changes, attachment/history writes, label cleanup, and default-assignee insertion in one transaction. Both RPCs acquire the same deterministic per-task advisory lock. Financial/productivity evidence timestamps come from the database `clock_timestamp()` only; a separate monotonic timestamp is used for CAS/version fields so an application-server clock cannot move first-submission evidence. Advance also compares the caller-observed next-column id with the target re-derived under the database column lock, returning a conflict if column order changed.
 
-Write forward-only migration 042, but do not apply it while the old writer is live. In one transaction it must: backfill every intervening dated production `due_at IS NULL` to the approved Dubai end-of-day legacy value; backfill its review snapshots; abort if any production task other than `tk_IOhdJMui9uW0bblj` still lacks an exact deadline; and add an idempotent CHECK requiring every production task either to have matching non-null `due_date`/Dubai-local `due_at`, or to be that identified historical task with both values null. No other null exception is allowed and no missing time is fabricated. Add the committed read-only `scripts/sql/verify-042-production-deadlines.sql` postflight to assert the validated constraint, zero non-exempt gaps, exact historical exception, snapshot coverage, and no deduction/payment side effects.
+Entering a `bd_production` review sets the persistent lock once and snapshots `due_at`, task `created_at`, and the sorted/deduplicated current assignee usernames before any review-stage default assignee is added. Legacy assignee attribution is never reconstructed or backfilled.
+
+Apply additive migration 042 before deployment and run its read-only verifier, including the assignee advisory-lock trigger. Prepare forward-only migration 044 but do not apply it while any protected-table writer still uses authenticated DML. In one post-deploy transaction, 044 must: discard every pre-hardening exemption flag; mark only exact migration-041 sentinels across all boards plus the independently verified live null task when it still matches; reject any other null production deadline; reconstruct persistent lock timestamps only from existing first-review history; never backfill or infer a missing deadline snapshot; abort on every unexplained gap; install a CHECK over the stored verified legacy markers; freeze the deadline, lock, exemption marker, and production-review evidence; recreate/verify the existing assignee advisory-lock trigger; and coherently revoke authenticated DML from tasks, stage history, board columns, and assignees. Clean rebuilds must not require the historical row. Add separate read-only verifiers for 042 and 044. Never backfill legacy assignee snapshots and never fabricate a missing deadline or time.
 
 - [ ] **Step 4: Implement React Query mutations and production form behavior**
 
@@ -308,7 +321,7 @@ Board card/list/calendar/filter, My Work API/hook/`MyWorkInbox`, board portion o
 - [ ] **Step 7: Commit**
 
 ```bash
-git add supabase/migrations/042_enforce_production_deadlines.sql scripts/sql/verify-042-production-deadlines.sql DATABASE-SCHEMA.md types/database.ts app/api app/dashboard components/boards components/dashboard/MyWorkInbox.tsx hooks/useBoardTasks.ts hooks/useBoardTaskMutations.ts hooks/useMyWork.ts lib/production messages/ar/boards.json messages/en/boards.json messages/ar/api.json messages/en/api.json messages/ar/mywork.json messages/en/mywork.json
+git add supabase/migrations/042_atomic_task_transitions.sql supabase/migrations/044_harden_production_evidence.sql scripts/sql/verify-042-atomic-task-transitions.sql scripts/sql/verify-044-production-evidence.sql DATABASE-SCHEMA.md types/database.ts app/api app/dashboard components/boards components/dashboard/MyWorkInbox.tsx hooks/useBoardTasks.ts hooks/useBoardTaskMutations.ts hooks/useMyWork.ts lib/constants/task-transitions.ts lib/production messages/ar/boards.json messages/en/boards.json messages/ar/api.json messages/en/api.json messages/ar/mywork.json messages/en/mywork.json __tests__
 git commit -m "feat: enforce exact production task deadlines"
 ```
 
@@ -430,7 +443,9 @@ git commit -m "feat: calculate monthly deduction risk"
 
 - [ ] **Step 1: Write failing period-selection tests**
 
-Test that generated deductions use `effective_month`, legacy/manual rows use `created_at`, a June case approved in July belongs to June, unrelated July bonus remains July, and final settlement remains excluded.
+Test that every deduction requires `effective_month`; only non-deduction rows may
+fall back to `created_at`. A June case approved in July belongs to June, an
+unrelated July bonus remains July, and final settlement remains excluded.
 
 - [ ] **Step 2: Run RED tests**
 
@@ -444,7 +459,11 @@ Reject current/future month, zero totals, invalid/negative quality amount, and q
 
 - [ ] **Step 5: Implement effective-month payroll selection**
 
-Fetch approved/unlinked rows with `effective_month IS NULL` under the legacy created-at window plus generated deductions with `effective_month = run month`; combine and deduplicate IDs. Preserve run-currency filtering and the locked `calculatePayrollItem()` behavior.
+Fetch approved/unlinked non-deduction rows with `effective_month IS NULL` under
+the created-at window plus deductions with `effective_month = run month`;
+combine and deduplicate IDs. A deduction with a null month is a classification
+error and never uses `created_at`. Preserve run-currency filtering and the locked
+`calculatePayrollItem()` behavior.
 
 - [ ] **Step 6: Run GREEN tests and the full phase gate**
 
@@ -572,15 +591,17 @@ Only after the owner approves the push: fetch again, push the reviewed commits t
 `origin/main`, and verify the exact production writer is live. Then re-read every
 production deadline. If a new no-date task exists beyond the one verified
 historical exception, stop and ask the owner for its real date/time; never
-fabricate it. Otherwise apply migration 042, run its postflight to prove zero
-dated gaps and the DB guard, record its checksum, and re-run a live read plus a
+fabricate it. Otherwise, only after every protected writer is verified on the
+service-role path, apply migration 044, run its postflight to prove zero dated
+gaps, persistent review locks, assignee serialization, and the coherent DML
+revokes; record its checksum, and re-run a live read plus a
 transactionally rolled-back invalid-insert test. Deployment is not complete
 until this reconciliation passes.
 
 ```powershell
-pnpm.cmd db:query supabase/migrations/042_enforce_production_deadlines.sql
-pnpm.cmd db:query scripts/sql/verify-042-production-deadlines.sql
-pnpm.cmd db:record 042_enforce_production_deadlines --by=codex --notes="Post-deploy exact production deadline guard"
+pnpm.cmd db:query supabase/migrations/044_harden_production_evidence.sql
+pnpm.cmd db:query scripts/sql/verify-044-production-evidence.sql
+pnpm.cmd db:record 044_harden_production_evidence --by=codex --notes="Post-deploy production evidence and writer hardening"
 ```
 
 ---
@@ -589,5 +610,5 @@ pnpm.cmd db:record 042_enforce_production_deadlines --by=codex --notes="Post-dep
 
 - Spec coverage: all locked attendance, delivery, quality, cap, approval, employee transparency, excuse, currency, idempotency, deadline, RBAC, i18n, navigation, guide, migration, verification, and deployment constraints map to a task.
 - No placeholder implementation steps remain; quality's denominator is explicitly defined and legacy rejections are explicitly excluded.
-- Type consistency: `due_at`, `due_at_snapshot`, `effective_month`, `QualityRejectionEvent.kind`, and deduction candidate/case fields have one spelling across tasks.
-- Deployment sequencing: migration 041 is additive and intentionally avoids a pre-deploy DB CHECK that would break the currently deployed date-only task writer. Mandatory post-deploy migration 042 reconciles any intervening rows and installs the exact-deadline DB guard after the new writer is live.
+- Type consistency: `due_at`, `due_at_snapshot`, `effective_month`, `QualityReviewDecisionEvent.action/kind`, and deduction candidate/case fields have one spelling across tasks.
+- Deployment sequencing: migration 041 supplies the exact deadline and deduction storage; additive migration 042 supplies atomic transitions and persistent evidence columns before the route deploy; migration 043 is reserved for structured review/rejection; mandatory post-deploy migration 044 reconciles intervening rows and installs the evidence guards plus coherent protected-table DML revokes only after every writer is converted.

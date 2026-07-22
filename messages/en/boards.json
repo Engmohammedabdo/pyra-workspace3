@@ -77,10 +77,14 @@
         "titlePlaceholder": "Task title...",
         "priorityLabel": "Priority",
         "dueDateLabel": "Due date",
+        "dueDateUaeLabel": "Delivery date (UAE)",
+        "dueTimeUaeLabel": "Delivery time (UAE)",
+        "exactDeadlineHelp": "Production delivery is measured against this exact UAE date and time. Calendar selection never fills the time for you.",
         "assigneesLabel": "Assignees",
         "assigneesSelected": "{count, plural, one {# selected} other {# selected}}",
         "noActiveUsers": "No active users",
-        "submit": "Add"
+        "submit": "Add",
+        "submitting": "Adding..."
       },
       "settingsDialogTitle": "Board settings",
       "pipeline": {
@@ -90,6 +94,9 @@
         "requiresApproval": "Requires approval",
         "addTask": "Add task"
       }
+    },
+    "deadline": {
+      "unverified": "Unverified deadline — set exact date and time"
     },
     "settings": {
       "toasts": {
@@ -136,7 +143,8 @@
       "prevMonth": "Previous month",
       "today": "Today",
       "overflow": "{count, plural, one {+#} other {+#}}",
-      "noDate": "{count, plural, one {No date (#)} other {No date (#)}}"
+      "noDate": "{count, plural, one {No date (#)} other {No date (#)}}",
+      "uaeTime": "{time} UAE"
     },
     "listView": {
       "toasts": {
@@ -149,6 +157,7 @@
       "priorityPlaceholder": "Priority...",
       "archive": "Archive",
       "cancel": "Cancel",
+      "uaeTime": "{time} UAE",
       "headers": {
         "title": "Title",
         "column": "List",
@@ -224,6 +233,25 @@
         "requestChanges": "Request changes",
         "working": "Working...",
         "approve": "Approve ✓",
+        "rejectionDialog": {
+          "title": "Classify rejection",
+          "description": "Choose the documented review decision and record the reason.",
+          "qualityDescription": "Choose the documented quality decision. This choice feeds the monthly quality score.",
+          "kindLabel": "Rejection type",
+          "revision": {
+            "title": "Revision required",
+            "description": "The version needs specific changes and can be corrected."
+          },
+          "outright": {
+            "title": "Outright rejection",
+            "description": "The submitted version is fundamentally unacceptable and must be rebuilt."
+          },
+          "noteLabel": "Review note",
+          "notePlaceholder": "Document the reason and required action...",
+          "cancel": "Cancel",
+          "confirm": "Confirm rejection",
+          "submitting": "Saving..."
+        },
         "reviewLinkLabel": "Version link (frame.io or Google Drive)",
         "optionalNotePlaceholder": "Optional note...",
         "submitReview": "Submit for Review 👀",
@@ -244,7 +272,8 @@
         "rejected": "Changes requested and task returned",
         "taskDeleted": "Task deleted",
         "taskMoved": "Task moved",
-        "taskDuplicated": "Task duplicated"
+        "taskDuplicated": "Task duplicated",
+        "deadlineUpdated": "Exact UAE deadline updated"
       },
       "errors": {
         "saveFailed": "Save failed",
@@ -267,11 +296,23 @@
         "assignees": "Members / Assign",
         "searchMemberPlaceholder": "Search for a member...",
         "noUsers": "No users found",
+        "usersLoadFailed": "Couldn't load members",
         "noneAssigned": "No one assigned",
         "labels": "Labels",
         "noLabels": "No labels",
         "startDate": "Start date",
         "dueDate": "Due date",
+        "exactDeadlineUae": "Exact deadline (UAE)",
+        "deadlineLocked": "Locked after review",
+        "deadlineReadOnly": "Read-only",
+        "deadlineUnverified": "Exact time required",
+        "dueDateUae": "Delivery date (UAE)",
+        "dueTimeUae": "Delivery time (UAE)",
+        "deadlineLockHelp": "After the first review submission, this deadline is locked and cannot be changed.",
+        "saveDeadline": "Save exact deadline",
+        "savingDeadline": "Saving...",
+        "productionMoveDeadlineHelp": "This task has no exact deadline. Set its UAE delivery date and time before moving it to Production.",
+        "productionDuplicateDeadlineHelp": "This production task has no exact deadline. Set its UAE delivery date and time before creating the duplicate.",
         "priority": "Priority",
         "hours": "Hours",
         "estimatedHours": "Estimated",
@@ -284,6 +325,8 @@
         "moveToBoard": "Move to another board",
         "chooseBoardAndColumn": "Choose the board and list",
         "duplicateTask": "Duplicate task",
+        "confirmDuplicate": "Create duplicate",
+        "duplicating": "Duplicating...",
         "archive": "Archive",
         "deletePermanentConfirm": "Delete permanently?",
         "delete": "Delete",
@@ -296,6 +339,7 @@
       "meta": {
         "startDate": "Start: {date}",
         "dueDate": "Due: {date}",
+        "exactDueDateUae": "Due: {date} at {time} UAE",
         "overdue": "Overdue",
         "description": "Description",
         "descriptionPlaceholder": "Add a task description...",

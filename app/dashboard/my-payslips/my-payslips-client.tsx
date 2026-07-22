@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
+import { MyDeductionRiskPanel } from '@/components/hr/deductions/MyDeductionRiskPanel';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
@@ -177,6 +178,8 @@ export default function MyPayslipsClient() {
         <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
         <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
       </div>
+
+      <MyDeductionRiskPanel />
 
       {/* Stats cards */}
       {loading ? (

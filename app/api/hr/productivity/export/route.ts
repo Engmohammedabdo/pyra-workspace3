@@ -1,17 +1,20 @@
 import { NextRequest } from 'next/server';
 import jsPDF from 'jspdf';
-import * as XLSX from 'xlsx';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import {
   computeProductivity,
   computeProductivityTrends,
-  type EmployeeReport,
   type ProductivityReport,
   type ProductivityTrends,
 } from '@/lib/production/report';
-import type { TaskJourney } from '@/lib/production/metrics';
+import {
+  buildProductivityWorkbook,
+  productivityAttributionReviewReason,
+  productivityMonthTasks,
+  productivityTaskPdfLine,
+} from '@/lib/production/productivity-export';
 import { registerArabicFont } from '@/lib/pdf/pdf-fonts';
 import { enableRtlPassthrough, prepareRtl } from '@/lib/pdf/arabic';
 import { loadServerPdfFonts } from '@/lib/pdf/pdf-assets-server';
@@ -21,20 +24,6 @@ import { logError } from '@/lib/observability/log-error';
 export const runtime = 'nodejs';
 
 type ExportFormat = 'pdf' | 'xlsx';
-
-function monthOf(iso: string): string {
-  return dubaiDayKey(new Date(iso)).slice(0, 7);
-}
-
-function monthTasks(emp: EmployeeReport, month: string): TaskJourney[] {
-  const isCurrentMonth = month === dubaiDayKey().slice(0, 7);
-  return emp.tasks.filter((task) => {
-    if (task.delivered_at && monthOf(task.delivered_at) === month) return true;
-    if (task.first_submitted_at && monthOf(task.first_submitted_at) === month) return true;
-    if (isCurrentMonth && !task.first_submitted_at && !task.delivered_at && !task.is_archived) return true;
-    return false;
-  });
-}
 
 function metricValue(value: number | null): string | number {
   return value === null ? '-' : value;
@@ -48,58 +37,13 @@ function bufferBody(buffer: Buffer): ArrayBuffer {
   return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
 }
 
-function buildWorkbook(report: ProductivityReport, trends: ProductivityTrends): Buffer {
-  const wb = XLSX.utils.book_new();
-
-  const summaryRows = report.employees.map((emp) => ({
-    'الموظف': emp.display_name, // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    'اسم المستخدم': emp.username, // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    'التسليمات': emp.metrics.deliveries, // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    'الالتزام %': metricValue(emp.metrics.on_time_pct), // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    'مهام متأخرة': emp.metrics.late_count, // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    'متوسط التأخير (يوم)': metricValue(emp.metrics.avg_delay_days), // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    'متوسط جولات التعديل': metricValue(emp.metrics.avg_rounds), // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    'سرعة أول نسخة (يوم)': metricValue(emp.metrics.avg_days_to_first_submission), // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    'انتظار المراجعة (ساعة)': metricValue(emp.metrics.avg_review_wait_hours), // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    'متأخرة ولم ترفع': emp.metrics.open_overdue, // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    'حضور': emp.attendance.present_days, // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    'تأخير حضور': emp.attendance.late_days, // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    'غياب': emp.attendance.absent_days, // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    'ساعات': emp.attendance.total_hours, // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-  }));
-
-  const taskRows = report.employees.flatMap((emp) =>
-    monthTasks(emp, report.month).map((task) => ({
-      'الموظف': emp.display_name, // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-      'المهمة': task.title, // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-      'الديدلاين': task.due_date || '', // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-      'أول رفع': task.first_submitted_at || '', // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-      'الالتزام': task.on_time === null ? '-' : task.on_time ? 'في الموعد' : 'متأخر', // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-      'أيام التأخير': task.delay_days ?? '', // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-      'جولات التعديل': task.review_rounds, // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-      'التسليم النهائي': task.delivered_at || '', // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    })),
-  );
-
-  const trendRows = trends.months.map((point) => ({
-    'الشهر': point.month, // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    'التسليمات': point.deliveries, // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    'الالتزام %': metricValue(point.on_time_pct), // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    'مهام متأخرة': point.late_count, // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    'متوسط التأخير (يوم)': metricValue(point.avg_delay_days), // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    'جولات التعديل': metricValue(point.avg_rounds), // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    'سرعة أول نسخة (يوم)': metricValue(point.avg_days_to_first_submission), // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-    'انتظار المراجعة (ساعة)': metricValue(point.avg_review_wait_hours), // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
-  }));
-
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), 'Summary');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(taskRows), 'Tasks');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(trendRows), 'Trends');
-
-  return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
-}
-
-function drawRtl(doc: jsPDF, text: string, x: number, y: number, opts: { size?: number; bold?: boolean; color?: [number, number, number] } = {}) {
+function drawRtl(
+  doc: jsPDF,
+  text: string,
+  x: number,
+  y: number,
+  opts: { size?: number; bold?: boolean; color?: [number, number, number] } = {},
+) {
   doc.setFont('Amiri', opts.bold ? 'bold' : 'normal');
   doc.setFontSize(opts.size || 10);
   if (opts.color) doc.setTextColor(...opts.color);
@@ -119,12 +63,12 @@ async function buildPdf(report: ProductivityReport, trends: ProductivityTrends):
   enableRtlPassthrough(doc);
 
   let y = 18;
-  drawRtl(doc, 'تقرير الإنتاجية الشهري', 195, y, { size: 18, bold: true, color: [249, 115, 22] }); // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
+  drawRtl(doc, 'تقرير الإنتاجية الشهري', 195, y, { size: 18, bold: true, color: [249, 115, 22] }); // i18n-exempt: Arabic productivity PDF export content
   y += 8;
-  drawRtl(doc, `الشهر: ${report.month}`, 195, y, { size: 11 }); // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
+  drawRtl(doc, `الشهر: ${report.month}`, 195, y, { size: 11 }); // i18n-exempt: Arabic productivity PDF export content
   y += 10;
 
-  drawRtl(doc, 'ملخص الموظفين', 195, y, { size: 13, bold: true }); // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
+  drawRtl(doc, 'ملخص الموظفين', 195, y, { size: 13, bold: true }); // i18n-exempt: Arabic productivity PDF export content
   y += 7;
   for (const emp of report.employees) {
     y = ensurePage(doc, y, 18);
@@ -132,7 +76,7 @@ async function buildPdf(report: ProductivityReport, trends: ProductivityTrends):
     y += 6;
     drawRtl(
       doc,
-      `تسليمات: ${emp.metrics.deliveries} | التزام: ${metricValue(emp.metrics.on_time_pct)}% | تأخير: ${metricValue(emp.metrics.avg_delay_days)} يوم | جولات: ${metricValue(emp.metrics.avg_rounds)} | حضور: ${emp.attendance.present_days} | غياب: ${emp.attendance.absent_days}`, // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
+      `تسليمات: ${emp.metrics.deliveries} | التزام: ${metricValue(emp.metrics.on_time_pct)}% | تأخير: ${metricValue(emp.metrics.avg_delay_days)} يوم | جولات: ${metricValue(emp.metrics.avg_rounds)} | حضور: ${emp.attendance.present_days} | غياب: ${emp.attendance.absent_days}`, // i18n-exempt: Arabic productivity PDF export content
       195,
       y,
       { size: 9 },
@@ -142,13 +86,13 @@ async function buildPdf(report: ProductivityReport, trends: ProductivityTrends):
 
   y += 3;
   y = ensurePage(doc, y, 38);
-  drawRtl(doc, 'اتجاه آخر 6 شهور', 195, y, { size: 13, bold: true }); // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
+  drawRtl(doc, 'اتجاه آخر 6 شهور', 195, y, { size: 13, bold: true }); // i18n-exempt: Arabic productivity PDF export content
   y += 7;
   for (const point of trends.months) {
     y = ensurePage(doc, y, 7);
     drawRtl(
       doc,
-      `${point.month} | تسليمات ${point.deliveries} | التزام ${metricValue(point.on_time_pct)}% | جولات ${metricValue(point.avg_rounds)} | سرعة ${metricValue(point.avg_days_to_first_submission)} يوم`, // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
+      `${point.month} | تسليمات ${point.deliveries} | التزام ${metricValue(point.on_time_pct)}% | جولات ${metricValue(point.avg_rounds)} | سرعة ${metricValue(point.avg_days_to_first_submission)} يوم`, // i18n-exempt: Arabic productivity PDF export content
       195,
       y,
       { size: 8.5 },
@@ -158,20 +102,38 @@ async function buildPdf(report: ProductivityReport, trends: ProductivityTrends):
 
   y += 4;
   y = ensurePage(doc, y, 18);
-  drawRtl(doc, 'تفاصيل المهام', 195, y, { size: 13, bold: true }); // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
+  drawRtl(doc, 'تفاصيل المهام', 195, y, { size: 13, bold: true }); // i18n-exempt: Arabic productivity PDF export content
   y += 7;
   for (const emp of report.employees) {
-    const tasks = monthTasks(emp, report.month);
+    const tasks = productivityMonthTasks(emp.tasks, report.month);
     if (!tasks.length) continue;
     y = ensurePage(doc, y, 10);
     drawRtl(doc, emp.display_name, 195, y, { size: 10, bold: true });
     y += 6;
     for (const task of tasks) {
       y = ensurePage(doc, y, 8);
-      const state = task.on_time === null ? '-' : task.on_time ? 'في الموعد' : `متأخر ${task.delay_days ?? 0} يوم`; // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
+      drawRtl(doc, productivityTaskPdfLine(task), 195, y, { size: 8 });
+      y += 5.5;
+    }
+  }
+
+  const reviewTasks = productivityMonthTasks(report.unattributed_tasks, report.month);
+  if (reviewTasks.length) {
+    y += 4;
+    y = ensurePage(doc, y, 18);
+    drawRtl(
+      doc,
+      'مهام تحتاج مراجعة الإسناد — منفصلة عن أرقام الموظفين', // i18n-exempt: Arabic productivity PDF export content
+      195,
+      y,
+      { size: 13, bold: true, color: [180, 83, 9] },
+    );
+    y += 7;
+    for (const task of reviewTasks) {
+      y = ensurePage(doc, y, 8);
       drawRtl(
         doc,
-        `${task.title} | ديدلاين: ${task.due_date || '-'} | أول رفع: ${task.first_submitted_at ? task.first_submitted_at.slice(0, 10) : '-'} | ${state} | جولات: ${task.review_rounds}`, // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
+        `${productivityTaskPdfLine(task)} | سبب المراجعة: ${productivityAttributionReviewReason(task)}`, // i18n-exempt: Arabic productivity PDF export content
         195,
         y,
         { size: 8 },
@@ -183,7 +145,7 @@ async function buildPdf(report: ProductivityReport, trends: ProductivityTrends):
   const pageCount = doc.getNumberOfPages();
   for (let page = 1; page <= pageCount; page++) {
     doc.setPage(page);
-    drawRtl(doc, `صفحة ${page} من ${pageCount}`, 195, 290, { size: 8, color: [110, 110, 110] }); // i18n-exempt: PDF/CSV productivity export (Phase 9 scope, outside T9 census)
+    drawRtl(doc, `صفحة ${page} من ${pageCount}`, 195, 290, { size: 8, color: [110, 110, 110] }); // i18n-exempt: Arabic productivity PDF export content
   }
 
   return Buffer.from(doc.output('arraybuffer'));
@@ -216,7 +178,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const body = buildWorkbook(report, trends);
+    const body = buildProductivityWorkbook(report, trends);
     return new Response(bufferBody(body), {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

@@ -5,7 +5,11 @@
       "dueDate": {
         "overdueDays": "{count, plural, one {Overdue # day} other {Overdue # days}}",
         "today": "Today",
-        "inDays": "{count, plural, one {In # day} other {In # days}}"
+        "inDays": "{count, plural, one {In # day} other {In # days}}",
+        "exact": "{date}, {time} (UAE time)",
+        "exactOverdue": "Overdue · {date}, {time} (UAE time)",
+        "unverified": "Unverified legacy deadline · {date}",
+        "unverifiedMissing": "Unverified legacy deadline · exact date and time required"
       },
       "error": {
         "title": "Couldn't load your work inbox",
@@ -65,17 +69,40 @@
         "title": "No tasks",
         "description": "No tasks have been assigned to you yet"
       },
+      "error": {
+        "title": "Couldn't load your tasks",
+        "description": "Your tasks could not be loaded. Try again.",
+        "retry": "Try Again"
+      },
       "sections": {
         "overdue": "Overdue",
         "today": "Today",
         "week": "This Week",
+        "unverified": "Needs exact deadline",
         "upcoming": "Upcoming",
         "done": "Done"
       },
       "noBoard": "No board",
       "noProject": "No project",
       "leadTaskBadge": "Lead",
-      "leadBoard": "Lead Tasks"
+      "leadBoard": "Lead Tasks",
+      "unverifiedDeadline": "Unverified legacy deadline",
+      "exactDeadline": "{date}, {time} (UAE time)",
+      "productivity": {
+        "title": "My productivity this month",
+        "daysShort": "{days}d",
+        "stats": {
+          "deliveries": "Deliveries",
+          "onTime": "On-time",
+          "reviewRounds": "Review rounds",
+          "firstDraftSpeed": "First draft speed",
+          "openOverdue": "Overdue without upload"
+        },
+        "error": {
+          "title": "Couldn't load your productivity",
+          "retry": "Try Again"
+        }
+      }
     }
   }
 }

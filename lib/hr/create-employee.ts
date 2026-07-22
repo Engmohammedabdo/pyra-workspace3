@@ -199,6 +199,10 @@ export async function createEmployeeUser(
       bank_details: bank_details || null,
       commission_rate: commission_rate ?? null,
       work_schedule_id: work_schedule_id || null,
+      // Enrollment in attendance deductions is an explicit fact, not inferred
+      // from hire date or the employee's current schedule.
+      attendance_tracking_started_on: null,
+      attendance_tracking_start_source: null,
     })
     .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at')
     .single();
@@ -356,6 +360,10 @@ export async function reactivateEmployeeUser(
       bank_details: bank_details || null,
       commission_rate: commission_rate ?? null,
       work_schedule_id: work_schedule_id || null,
+      // Re-hire starts a new employment period. Old attendance remains evidence,
+      // but its tracking start must never leak into the new period.
+      attendance_tracking_started_on: null,
+      attendance_tracking_start_source: null,
     })
     .eq('username', cleanUsername)
     .select('id, username, role, display_name')

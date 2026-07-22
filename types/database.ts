@@ -1,6 +1,8 @@
 // types/database.ts — TypeScript interfaces for all 22+1 Pyra Workspace tables
 // Matches PRD Section 12.4 and Section 2.3
 
+import type { ManualDeductionBasis } from '@/lib/constants/deductions';
+
 // ==========================================
 // Core Tables (14)
 // ==========================================
@@ -30,6 +32,10 @@ export interface PyraUser {
   manager_username?: string | null;
   // Work schedule
   work_schedule_id?: string | null;
+  /** Migration 048 — first date attendance tracking is backed by evidence. */
+  attendance_tracking_started_on?: string | null;
+  /** Provenance for the tracking start; NULL means attendance history is unverified. */
+  attendance_tracking_start_source?: 'observed' | 'admin' | null;
   commission_rate?: number | null;
   // Extended profile fields
   phone?: string;
@@ -185,6 +191,70 @@ export interface PyraTeamMember {
   username: string;
   added_by: string;
   added_at: string;
+}
+
+/** Board task row, including exact-deadline and persistent-lock columns. */
+export interface PyraTask {
+  id: string;
+  board_id: string;
+  column_id: string;
+  title: string;
+  description: string | null;
+  position: number | null;
+  priority: string | null;
+  due_date: string | null;
+  due_at: string | null;
+  production_deadline_locked_at: string | null;
+  production_deadline_exempt: boolean;
+  start_date: string | null;
+  estimated_hours: number | null;
+  actual_hours: number | null;
+  cover_image: string | null;
+  is_archived: boolean | null;
+  created_by: string;
+  created_at: string | null;
+  updated_at: string | null;
+  payment_amount: number | null;
+  payment_currency: string | null;
+  payment_status: string | null;
+  task_hourly_rate: number | null;
+  task_type: string | null;
+  stage_entered_at: string | null;
+  completion_percentage: number | null;
+  source_pipeline_id: string | null;
+  task_number: number | null;
+  /** API compatibility flag derived from production_deadline_locked_at. */
+  deadline_locked?: boolean;
+}
+
+/** Derived stage movement row with immutable review-entry evidence snapshots. */
+export interface PyraTaskStageHistory {
+  id: string;
+  task_id: string;
+  board_id: string;
+  from_column_id: string | null;
+  to_column_id: string;
+  moved_by: string;
+  approved_by: string | null;
+  time_in_stage: string | null;
+  created_at: string | null;
+  due_at_snapshot: string | null;
+  task_created_at_snapshot: string | null;
+  assignees_snapshot: string[] | null;
+}
+
+/** Native append-only review decision linked to one exact stage-history id. */
+export interface PyraTaskReviewDecision {
+  history_id: string;
+  task_id: string;
+  board_id: string;
+  action: 'approve' | 'reject';
+  rejection_kind: 'revision' | 'outright' | null;
+  note: string | null;
+  decided_by: string;
+  decided_at: string;
+  activity_id: string;
+  comment_id: string | null;
 }
 
 /** @deprecated Legacy table — archived. File access controlled via team→project→storage_path chain + RBAC. */
@@ -866,6 +936,8 @@ export interface PyraExpense {
   project_id: string | null;
   description: string | null;
   amount: number;
+  /** Attendance portion explicitly approved outside the 25% disciplinary cap. */
+  deduction_cap_exempt_amount: number;
   currency: string;
   vat_rate: number;
   vat_amount: number;
@@ -1227,6 +1299,10 @@ export interface PyraDeductionCase {
   monthly_cap_percentage: number;
   requested_amount: number;
   cap_amount: number;
+  /** Approved/paid deduction ledger amount already consuming this month's cap. */
+  prior_approved_amount: number;
+  /** Cap still available immediately before this case was approved. */
+  remaining_cap_amount: number;
   approved_amount: number;
   evidence: Record<string, unknown>;
   policy_snapshot: Record<string, unknown>;
@@ -1234,6 +1310,34 @@ export interface PyraDeductionCase {
   payment_id: string;
   approved_by: string;
   approved_at: string;
+  created_at: string;
+}
+
+// Immutable documented one-click manual deduction approval (migration 046)
+export interface PyraManualDeduction {
+  id: string;
+  payment_id: string;
+  employee_username: string;
+  /** First day of the approved month (YYYY-MM-01). */
+  period_month: string;
+  basis: ManualDeductionBasis;
+  salary_snapshot: number;
+  salary_currency: string;
+  monthly_cap_percentage: number;
+  requested_amount: number;
+  cap_amount: number;
+  prior_approved_amount: number;
+  approved_amount: number;
+  reason: string;
+  evidence: Record<string, unknown>;
+  approved_by: string;
+  approved_at: string;
+  created_at: string;
+}
+
+export interface PyraManualDeductionTask {
+  manual_deduction_id: string;
+  task_id: string;
   created_at: string;
 }
 

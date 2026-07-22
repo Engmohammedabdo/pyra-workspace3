@@ -1,6 +1,18 @@
 import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiUnauthorized, apiServerError } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import {
+  compareIsoInstants,
+  isUnverifiedProductionDeadline,
+  isValidIsoInstant,
+  legacyDubaiDayEndToIso,
+} from '@/lib/production/deadlines';
+import {
+  chunkValues,
+  collectCursorPages,
+  MY_WORK_TASK_PAGE_SIZE,
+} from '@/lib/production/my-work';
+import { logError } from '@/lib/observability/log-error';
 
 // =============================================================
 // GET /api/my-tasks
@@ -30,37 +42,49 @@ export async function GET() {
     const username = auth.pyraUser.username;
 
     // ── Source 1: board tasks (existing path) ────────────────
-    const { data: assignments, error: assignError } = await supabase
-      .from('pyra_task_assignees')
-      .select('task_id')
-      .eq('username', username);
+    const assignments = await collectCursorPages(
+      async (after, pageSize) => {
+        let query = supabase
+          .from('pyra_task_assignees')
+          .select('task_id')
+          .eq('username', username)
+          .order('task_id', { ascending: true })
+          .limit(pageSize);
+        if (after !== null) query = query.gt('task_id', after);
+        const { data, error } = await query;
+        if (error) throw new Error(`pyra_task_assignees: ${error.message}`);
+        return data ?? [];
+      },
+      (assignment) => assignment.task_id,
+    );
 
-    if (assignError) return apiServerError(assignError.message);
-
-    const taskIds = (assignments ?? []).map(a => a.task_id);
+    const taskIds = [...new Set(assignments.map((assignment) => assignment.task_id))];
 
     let boardTasks: unknown[] = [];
     if (taskIds.length > 0) {
-      const { data, error } = await supabase
-        .from('pyra_tasks')
-        .select(`
-          *,
-          pyra_boards!inner(id, name, project_id, view_mode, is_pipeline, pyra_projects!left(id, name)),
-          pyra_board_columns!inner(id, name, color, position, is_done_column, requires_approval),
-          pyra_task_labels(label_id, pyra_board_labels(id, name, color)),
-          pyra_task_checklist(id, title, is_checked),
-          pyra_task_assignees(id, username)
-        `)
-        .in('id', taskIds)
-        .eq('is_archived', false)
-        .order('due_date', { nullsFirst: false });
+      for (const taskIdChunk of chunkValues(taskIds, MY_WORK_TASK_PAGE_SIZE)) {
+        const { data, error } = await supabase
+          .from('pyra_tasks')
+          .select(`
+            *,
+            pyra_boards!inner(id, name, project_id, view_mode, is_pipeline, pyra_projects!left(id, name)),
+            pyra_board_columns!inner(id, name, color, position, is_done_column, requires_approval),
+            pyra_task_labels(label_id, pyra_board_labels(id, name, color)),
+            pyra_task_checklist(id, title, is_checked),
+            pyra_task_assignees(id, username)
+          `)
+          .in('id', taskIdChunk)
+          .eq('is_archived', false)
+          .order('id', { ascending: true })
+          .range(0, taskIdChunk.length - 1);
 
-      if (error) return apiServerError(error.message);
-      boardTasks = (data ?? []).map((t) => ({
-        ...(t as Record<string, unknown>),
-        _source: 'board_task',
-        target_path: `/dashboard/boards/${(t as { board_id: string }).board_id}`,
-      }));
+        if (error) throw new Error(`pyra_tasks: ${error.message}`);
+        boardTasks.push(...(data ?? []).map((task) => ({
+          ...(task as Record<string, unknown>),
+          _source: 'board_task',
+          target_path: `/dashboard/boards/${(task as { board_id: string }).board_id}`,
+        })));
+      }
     }
 
     // ── Source 2: lead tasks (Phase 15.1 Commit 2) ───────────
@@ -68,13 +92,22 @@ export async function GET() {
     // Completed tasks ARE included (the consumer categorizes them into
     // the "done" section via is_done_column). Cancelled is excluded
     // because it's a terminal off-ramp, not a "done" state.
-    const { data: leadTaskRows, error: leadErr } = await supabase
-      .from('pyra_lead_tasks')
-      .select('id, lead_id, title, description, due_date, priority, status, assigned_to, created_by, created_at, completed_at, metadata')
-      .eq('assigned_to', username)
-      .neq('status', 'cancelled');
-
-    if (leadErr) return apiServerError(leadErr.message);
+    const leadTaskRows = await collectCursorPages(
+      async (after, pageSize) => {
+        let query = supabase
+          .from('pyra_lead_tasks')
+          .select('id, lead_id, title, description, due_date, priority, status, assigned_to, created_by, created_at, completed_at, metadata')
+          .eq('assigned_to', username)
+          .neq('status', 'cancelled')
+          .order('id', { ascending: true })
+          .limit(pageSize);
+        if (after !== null) query = query.gt('id', after);
+        const { data, error } = await query;
+        if (error) throw new Error(`pyra_lead_tasks: ${error.message}`);
+        return data ?? [];
+      },
+      (task) => task.id,
+    );
 
     const leadTasks = (leadTaskRows ?? []).map((t) => {
       const isDone = t.status === 'completed';
@@ -95,6 +128,7 @@ export async function GET() {
         title: t.title,
         description: t.description,
         due_date: syntheticDueDate,
+        due_at: null,
         priority: t.priority ?? 'medium',
         status: t.status,
         created_at: t.created_at,
@@ -132,14 +166,36 @@ export async function GET() {
     });
 
     // ── Union ────────────────────────────────────────────────
-    // Combined sort: due_date asc NULLS LAST, then created_at desc.
+    // Combined sort: exact deadline asc, then legacy date-only deadline,
+    // then created_at desc. Lead tasks remain date-only.
     // The consumer further categorizes by overdue/today/week/upcoming.
     const all = [...boardTasks, ...leadTasks].sort((a, b) => {
-      const ad = (a as { due_date: string | null }).due_date;
-      const bd = (b as { due_date: string | null }).due_date;
-      if (ad && bd) return ad.localeCompare(bd);
-      if (ad) return -1;
-      if (bd) return 1;
+      const deadline = (row: unknown): string | null => {
+        const item = row as {
+          _source: 'board_task' | 'lead_task';
+          due_date: string | null;
+          due_at?: string | null;
+          production_deadline_exempt?: boolean;
+        };
+        if (item._source === 'board_task') {
+          if (isUnverifiedProductionDeadline({
+            dueDate: item.due_date,
+            dueAt: item.due_at,
+            deadlineExempt: item.production_deadline_exempt,
+          })) return null;
+          if (item.due_at !== null && item.due_at !== undefined) {
+            return isValidIsoInstant(item.due_at) ? item.due_at : null;
+          }
+        }
+        return item.due_date ? legacyDubaiDayEndToIso(item.due_date) : null;
+      };
+      const ad = deadline(a);
+      const bd = deadline(b);
+      if (ad && bd) {
+        const exact = compareIsoInstants(ad, bd);
+        if (exact !== null && exact !== 0) return exact;
+      } else if (ad) return -1;
+      else if (bd) return 1;
       const ac = (a as { created_at: string }).created_at ?? '';
       const bc = (b as { created_at: string }).created_at ?? '';
       return bc.localeCompare(ac);
@@ -147,6 +203,7 @@ export async function GET() {
 
     return apiSuccess(all);
   } catch (err) {
+    logError({ error: err, metadata: { action: 'my-tasks' } });
     console.error('[GET /api/my-tasks] error:', err);
     return apiServerError();
   }

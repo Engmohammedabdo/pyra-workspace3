@@ -8,10 +8,10 @@ import {
   apiError,
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { EMPLOYEE_PAYMENT_STATUS } from '@/lib/constants/statuses';
 import { logError } from '@/lib/observability/log-error';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 import { notify } from '@/lib/notifications/notify';
+import { EMPLOYEE_PAYMENT_SOURCE_TYPE, PAYROLL_RPC_STATUS } from '@/lib/constants/payroll';
 
 // =============================================================
 // PATCH /api/dashboard/employee-payments/[id]
@@ -41,104 +41,136 @@ export async function PATCH(
       .from('pyra_employee_payments')
       .select('*')
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
-    if (fetchError || !payment) {
+    if (fetchError) return apiServerError();
+    if (!payment) {
       return apiNotFound('سجل الدفع غير موجود');
     }
 
     if (action === 'approve') {
-      // Can only approve pending payments
-      if (payment.status !== EMPLOYEE_PAYMENT_STATUS.PENDING) {
-        return apiError('لا يمكن الموافقة — الحالة الحالية ليست "معلّق"', 409);
+      if (payment.source_type === EMPLOYEE_PAYMENT_SOURCE_TYPE.DEDUCTION) {
+        return apiError('الخصومات تُعتمد فقط من مراجعة الخصومات الموثقة', 409); // i18n-exempt: legacy dashboard API response outside MIGRATED_PATHS
       }
 
-      const { data, error } = await supabase
-        .from('pyra_employee_payments')
-        .update({
-          status: EMPLOYEE_PAYMENT_STATUS.APPROVED,
-          approved_by: auth.pyraUser.username,
-          approved_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select('*, pyra_users(display_name)')
-        .single();
-
-      if (error) return apiServerError(error.message);
+      const { data: rpcRows, error: rpcError } = await supabase
+        .rpc('pyra_approve_employee_payment', {
+          p_payment_id: id,
+          p_approved_by: auth.pyraUser.username,
+        });
+      if (rpcError) {
+        logError({
+          error: rpcError,
+          request: req,
+          metadata: { route: 'employee-payments/approve', step: 'atomic-approve', payment_id: id },
+        });
+        return apiServerError();
+      }
+      const result = (Array.isArray(rpcRows) ? rpcRows[0] : rpcRows) as {
+        status: string;
+        changed: boolean;
+        payment_data: Record<string, unknown> | null;
+      } | null;
+      if (!result) return apiServerError();
+      if (result.status === PAYROLL_RPC_STATUS.NOT_FOUND) return apiNotFound('سجل الدفع غير موجود');
+      if (result.status === PAYROLL_RPC_STATUS.DIRECT_PAY_DISALLOWED) {
+        return apiError('الخصومات تُعتمد فقط من مراجعة الخصومات الموثقة', 409); // i18n-exempt: legacy dashboard API response outside MIGRATED_PATHS
+      }
+      if (result.status === PAYROLL_RPC_STATUS.CLOSED_PERIOD) {
+        return apiError('لا يمكن اعتماد الدفعة بعد اعتماد أو صرف مسير رواتب الشهر', 409); // i18n-exempt: legacy dashboard API response outside MIGRATED_PATHS
+      }
+      if (result.status === PAYROLL_RPC_STATUS.INVALID_STATUS
+        || result.status === PAYROLL_RPC_STATUS.INTEGRITY_CONFLICT) {
+        return apiError('لا يمكن اعتماد الدفعة بسبب تعارض في حالتها أو فترة الرواتب', 409); // i18n-exempt: legacy dashboard API response outside MIGRATED_PATHS
+      }
+      if (result.status !== PAYROLL_RPC_STATUS.OK
+        && result.status !== PAYROLL_RPC_STATUS.ALREADY_APPROVED) return apiServerError();
+      if (!result.payment_data) return apiServerError();
+      const data = result.payment_data;
 
       // Activity log
-      logActivity(
-        auth.pyraUser.username,
-        auth.pyraUser.display_name,
-        `${ENTITY_TYPES.EMPLOYEE_PAYMENT}_${ACTIVITY_ACTIONS.UPDATE}`,
-        '/dashboard/payroll',
-        { payment_id: id, status: 'approved', source: 'employee_payment_updated' },
-        req.headers.get('x-forwarded-for') || 'unknown',
-      );
+      if (result.changed) {
+        logActivity(
+          auth.pyraUser.username,
+          auth.pyraUser.display_name,
+          `${ENTITY_TYPES.EMPLOYEE_PAYMENT}_${ACTIVITY_ACTIONS.UPDATE}`,
+          '/dashboard/payroll',
+          { payment_id: id, status: 'approved', source: 'employee_payment_updated' },
+          req.headers.get('x-forwarded-for') || 'unknown',
+        );
+      }
 
       // Notify the employee their payment was approved
-      await notify(supabase, {
-        to: payment.username,
-        type: 'employee_payment_approved',
-        title: 'تم اعتماد دفعة لك',
-        message: `${payment.description || payment.source_type}: ${payment.amount} ${payment.currency || 'AED'}`,
-        link: '/dashboard/my-payslips',
-        entity: { type: 'employee_payment', id },
-        from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
-      });
+      if (result.changed) {
+        await notify(supabase, {
+          to: String(data.username),
+          type: 'employee_payment_approved',
+          title: 'تم اعتماد دفعة لك',
+          message: `${data.description || data.source_type}: ${data.amount} ${data.currency || 'AED'}`,
+          link: '/dashboard/my-payslips',
+          entity: { type: 'employee_payment', id },
+          from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+        });
+      }
 
-      return apiSuccess(data);
+      return apiSuccess(data, { idempotent: !result.changed });
     }
 
     if (action === 'pay') {
-      // Can only pay approved payments
-      if (payment.status !== EMPLOYEE_PAYMENT_STATUS.APPROVED) {
-        return apiError('لا يمكن الدفع — يجب الموافقة على السجل أولاً', 409);
+      const { data: rpcRows, error: rpcError } = await supabase
+        .rpc('pyra_pay_employee_payment', { p_payment_id: id });
+      if (rpcError) {
+        logError({ error: rpcError, request: req, metadata: { route: 'employee-payments/pay', step: 'atomic-pay', payment_id: id } });
+        return apiServerError();
       }
-
-      const { data, error } = await supabase
-        .from('pyra_employee_payments')
-        .update({
-          status: EMPLOYEE_PAYMENT_STATUS.PAID,
-          paid_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select('*, pyra_users(display_name)')
-        .single();
-
-      if (error) return apiServerError(error.message);
-
-      // Settle the source task when this is a task payment
-      if (payment.source_type === 'task' && payment.source_id) {
-        const { error: taskErr } = await supabase
-          .from('pyra_tasks')
-          .update({ payment_status: EMPLOYEE_PAYMENT_STATUS.PAID, updated_at: new Date().toISOString() })
-          .eq('id', payment.source_id);
-        if (taskErr) logError({ error: taskErr, request: req, metadata: { route: 'employee-payments/pay', step: 'propagate-task', payment_id: id } });
+      const result = (Array.isArray(rpcRows) ? rpcRows[0] : rpcRows) as {
+        status: string;
+        changed: boolean;
+        payment_data: Record<string, unknown> | null;
+      } | null;
+      if (!result) return apiServerError();
+      if (result.status === PAYROLL_RPC_STATUS.NOT_FOUND) return apiNotFound('سجل الدفع غير موجود');
+      if (result.status === PAYROLL_RPC_STATUS.PAYMENT_LINKED) {
+        return apiError('لا يمكن صرف دفعة مرتبطة بمسير رواتب بشكل منفصل', 409); // i18n-exempt: legacy dashboard API response outside MIGRATED_PATHS
       }
+      if (result.status === PAYROLL_RPC_STATUS.DIRECT_PAY_DISALLOWED) {
+        return apiError('لا يمكن صرف الخصم مباشرة — يُصرف فقط ضمن مسير الرواتب', 409); // i18n-exempt: legacy dashboard API response outside MIGRATED_PATHS
+      }
+      if (result.status === PAYROLL_RPC_STATUS.INVALID_STATUS
+        || result.status === PAYROLL_RPC_STATUS.INTEGRITY_CONFLICT) {
+        return apiError('لا يمكن صرف الدفعة بسبب تعارض في حالتها أو مصدرها', 409); // i18n-exempt: legacy dashboard API response outside MIGRATED_PATHS
+      }
+      if (result.status !== PAYROLL_RPC_STATUS.OK
+        && result.status !== PAYROLL_RPC_STATUS.ALREADY_PAID) return apiServerError();
+      if (!result.payment_data) return apiServerError();
+      const data = result.payment_data;
 
       // Activity log
-      logActivity(
-        auth.pyraUser.username,
-        auth.pyraUser.display_name,
-        `${ENTITY_TYPES.EMPLOYEE_PAYMENT}_${ACTIVITY_ACTIONS.UPDATE}`,
-        '/dashboard/payroll',
-        { payment_id: id, status: 'paid', source: 'employee_payment_updated' },
-        req.headers.get('x-forwarded-for') || 'unknown',
-      );
+      if (result.changed) {
+        logActivity(
+          auth.pyraUser.username,
+          auth.pyraUser.display_name,
+          `${ENTITY_TYPES.EMPLOYEE_PAYMENT}_${ACTIVITY_ACTIONS.UPDATE}`,
+          '/dashboard/payroll',
+          { payment_id: id, status: 'paid', source: 'employee_payment_updated' },
+          req.headers.get('x-forwarded-for') || 'unknown',
+        );
+      }
 
       // Notify the employee their payment was paid
-      await notify(supabase, {
-        to: payment.username,
-        type: 'employee_payment_paid',
-        title: 'تم صرف دفعة لك',
-        message: `${payment.description || payment.source_type}: ${payment.amount} ${payment.currency || 'AED'}`,
-        link: '/dashboard/my-payslips',
-        entity: { type: 'employee_payment', id },
-        from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
-      });
+      if (result.changed) {
+        await notify(supabase, {
+          to: String(data.username),
+          type: 'employee_payment_paid',
+          title: 'تم صرف دفعة لك',
+          message: `${data.description || data.source_type}: ${data.amount} ${data.currency || 'AED'}`,
+          link: '/dashboard/my-payslips',
+          entity: { type: 'employee_payment', id },
+          from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+        });
+      }
 
-      return apiSuccess(data);
+      return apiSuccess(data, { idempotent: !result.changed });
     }
 
     return apiValidationError('إجراء غير معروف');

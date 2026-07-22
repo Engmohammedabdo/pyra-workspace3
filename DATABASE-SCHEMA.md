@@ -102,9 +102,54 @@
 ### Exact Deadlines and Employee Deductions (041_employee_deductions.sql)
 
 - [pyra_deduction_cases](#75a-pyra_deduction_cases) — Immutable approved monthly deduction cases
+- [pyra_manual_deductions](#75b-pyra_manual_deductions) — Immutable documented manual deduction approvals
+- [pyra_manual_deduction_tasks](#75c-pyra_manual_deduction_tasks) — One-charge-per-task evidence ledger
+- [pyra_deduction_write_capabilities](#75d-pyra_deduction_write_capabilities) — Private one-shot deduction write authorization
+- [pyra_task_review_decisions](#pyra_task_review_decisions) — Native append-only review decisions
 - `pyra_tasks.due_at` — Exact production deadline instant
 - `pyra_task_stage_history.due_at_snapshot` — Review-entry deadline snapshot
 - `pyra_employee_payments.effective_month` — Payroll attribution month
+
+Additive migration `042_atomic_task_transitions.sql` adds
+`production_deadline_locked_at`, `production_deadline_exempt`,
+`task_created_at_snapshot`, and `assignees_snapshot`, plus service-role-only
+atomic advance/move functions and the assignee advisory-lock trigger. Entering
+production review sets the persistent lock once and stores the deadline,
+original task timestamp, and sorted current
+assignees before adding a review-stage default assignee. History `created_at` is
+written from the database clock captured after transition locks and validation.
+
+Migration `043_atomic_task_review.sql` adds a service-role-only atomic review
+writer plus `pyra_task_review_decisions`, the native source for explicit
+revision/outright classification. Every row stores the exact stage-history id,
+task id, board id, decision timestamp, activity id, and optional comment id in
+the same transaction as the task move. The decision is inserted last and a
+database trigger verifies its exact history, activity, and rejection-comment
+links. Direct table writes are denied to `service_role`; only the atomic writer
+can create a decision. Reviewed production tasks cannot be hard-deleted,
+including through board/project cascades; they remain archive-only. Project
+deletion uses `pyra_delete_project_atomic(...)` so blocked cascades never leave
+partially deleted files/comments. Legacy JSON-string activity details are never
+promoted to outright rejection evidence.
+Post-deploy migration `044_harden_production_evidence.sql` marks only the exact
+migration-041 sentinel rows plus the independently verified historical null task
+as unverified, reconstructs legacy lock timestamps from existing first-review
+history, and aborts on every other deadline or snapshot gap. It never invents a
+historical deadline snapshot. The migration then validates the exact-deadline
+CHECK, freezes the deadline/lock/exemption evidence, recreates and verifies the
+assignee serialization already installed by 042, and coherently revokes
+authenticated DML on the protected production tables. It is applied only after
+every affected writer uses gate-then-service-role. Legacy assignee snapshots are
+never backfilled.
+
+Migration `048_attendance_tracking_start.sql` adds nullable
+`pyra_users.attendance_tracking_started_on` plus
+`attendance_tracking_start_source` (`observed` or `admin`). The pair stays
+NULL when no current-employment evidence exists; it is never inferred from a
+hire date, current schedule, or deployment date. Existing rows are backfilled
+only from the earliest attendance record at or after a documented hire date.
+New attendance inserts maintain the observed minimum, while an explicit
+admin-attested start is preserved.
 
 ### Employee Documents Vault (021_pyra_employee_documents.sql)
 
@@ -896,6 +941,8 @@ Task cards on Kanban boards with priority, dates, and hour tracking.
 | priority | varchar(20) | NULL | 'medium' |
 | due_date | date | NULL | — |
 | due_at | timestamptz | NULL | — |
+| production_deadline_locked_at | timestamptz | NULL | — |
+| production_deadline_exempt | boolean | NOT NULL | false |
 | start_date | date | NULL | — |
 | estimated_hours | numeric(6,2) | NULL | — |
 | actual_hours | numeric(6,2) | NULL | 0 |
@@ -909,17 +956,42 @@ Task cards on Kanban boards with priority, dates, and hour tracking.
 **FK**: `board_id` → `pyra_boards(id)` ON DELETE CASCADE, `column_id` → `pyra_board_columns(id)`
 **Indexes**: `idx_tasks_board`, `idx_tasks_column`, `idx_tasks_due` (partial, where `due_date IS NOT NULL`), `idx_tasks_due_at` (partial, where `due_at IS NOT NULL`)
 
-`due_at` is the trusted exact deadline for the production board. Migration 041
-backfills only dated `bd_production` tasks to `23:59:59.999 Asia/Dubai`; the
-historical production task without a date remains null. `due_date` stays as the
-date-only compatibility field, and migration 041 intentionally adds no
-production `NOT NULL`/`CHECK` before the exact-deadline API is deployed.
+`due_at` is the exact-deadline field for the production board. Migration 041
+backfills dated `bd_production` tasks to the deterministic compatibility value
+`23:59:59.999 Asia/Dubai`; that value is provenance evidence of a legacy
+date-only record, not a real user-entered time. The historical production task
+without a date remains null. `due_date` stays as the date-only compatibility
+field, and migration 041 intentionally adds no production `NOT NULL`/`CHECK`
+before the exact-deadline API is deployed.
 
-### pyra_task_stage_history — Migration 041 column
+The application writer accepts a production deadline only as a Dubai-local
+`due_date` plus `due_time`, derives `due_at` on the server, and ignores any
+client-supplied timestamp. Migration 042 persists the first-review lock
+atomically. After every protected writer is verified live, migration 044
+reconciles the deploy window and validates the database CHECK described above.
+It first discards every untrusted pre-hardening exemption flag, then marks every
+exact migration-041 sentinel across all boards and only the independently
+verified null task `tk_IOhdJMui9uW0bblj` as unverified. Any other null production
+deadline or unexplained review snapshot stops the migration. A production task
+satisfies the CHECK only when it is one of those explicit legacy cases or has a
+genuine Dubai date + time. The post-deploy review trigger derives the target
+column's board instead of trusting the history row's `board_id`, requires the
+snapshot to equal the task deadline, and rejects legacy sentinels. Migration
+044 also freezes the first-review deadline/lock and removes authenticated writes
+from the protected task evidence tables; service-role writers remain behind
+permission-gated API routes.
+
+### pyra_task_stage_history — Migration 041/042 evidence columns
 
 | Column | Type | Nullable | Default | Description |
 |--------|------|----------|---------|-------------|
-| due_at_snapshot | timestamptz | YES | — | Immutable deadline captured on entry to a review column; existing review entries are backfilled only when their task has `due_at` |
+| due_at_snapshot | timestamptz | YES | — | Immutable deadline captured atomically on entry to a review column; migration 044 aborts rather than infer a missing historical snapshot |
+| task_created_at_snapshot | timestamptz | YES | — | Original task creation instant captured on entry to a production review |
+| assignees_snapshot | jsonb | YES | — | Sorted, deduplicated username string array captured before a review-stage default assignee is added; no legacy backfill |
+
+Atomic transition functions explicitly write the history row's existing
+`created_at` column from a database clock captured after locks and validation;
+they never accept that timestamp from the caller.
 
 ---
 
@@ -939,6 +1011,12 @@ Junction table for task–user assignments.
 **FK**: `task_id` → `pyra_tasks(id)` ON DELETE CASCADE
 **Unique**: `(task_id, username)`
 **Indexes**: `idx_assignees_task`, `idx_assignees_user`
+
+Migration 042 installs `trg_task_assignees_atomic_lock`. INSERT/DELETE acquires
+the same per-task transaction advisory lock used by atomic transitions; UPDATE
+locks the old and new task ids in sorted order. Migration 044 recreates/verifies
+that trigger before the coordinated authenticated-DML revoke. Neither migration
+infers or backfills historical assignee attribution.
 
 ---
 
@@ -1032,6 +1110,53 @@ Activity log for task-level events (moved, assigned, edited, etc.).
 **PK**: `id`
 **FK**: `task_id` → `pyra_tasks(id)` ON DELETE CASCADE
 **Index**: `idx_task_activity`
+
+Migration 043 adds a NOT VALID compatibility CHECK: when a new
+`stage_rejected` activity uses a native JSON object containing
+`rejection_kind`, the value must be `revision` or `outright`. Historical JSON
+strings remain valid legacy rows.
+
+---
+
+## pyra_task_review_decisions
+
+Native, append-only evidence for admin review decisions (Migration 043).
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **history_id** | varchar | NOT NULL | — |
+| task_id | varchar | NOT NULL | — |
+| board_id | varchar | NOT NULL | — |
+| action | varchar | NOT NULL | — |
+| rejection_kind | varchar | NULL | — |
+| note | text | NULL | — |
+| decided_by | varchar | NOT NULL | — |
+| decided_at | timestamptz | NOT NULL | — |
+| activity_id | varchar | NOT NULL | — |
+| comment_id | varchar | NULL | — |
+
+**PK**: `history_id`
+**Unique**: `activity_id`
+**Checks**: approval has no rejection kind/comment; rejection requires a
+non-empty note, comment id, and `revision` or `outright`.
+**Indexes**: `(board_id, decided_at, history_id)`,
+`(task_id, decided_at, history_id)`
+**FKs**: `history_id` → `pyra_task_stage_history(id)`, `activity_id` →
+`pyra_task_activity(id)`, and nullable `comment_id` → `pyra_task_comments(id)`.
+All three are validated and use restrictive deletion behavior.
+
+**Security**: RLS enabled with no employee policies; `service_role` has direct
+`SELECT` only (no insert/update/delete). The `SECURITY DEFINER` atomic review
+function is the only application write boundary. A validation trigger matches
+each new row to its exact history/activity/comment evidence. The application
+report filters by the production board and verifies the same immutable history
+link before aggregation.
+
+**Retention**: after any production task first enters a review column, database
+triggers reject hard deletion of that task and reject parent board/project
+cascades that would delete it. Archiving remains allowed. The project delete
+route calls the service-only `pyra_delete_project_atomic(...)` function so its
+legacy child cleanup is rolled back together if the retention guard fires.
 
 ---
 
@@ -1791,6 +1916,8 @@ The following columns were added to `pyra_users` by the ERP migration:
 | department | varchar(100) | YES | — | Department name |
 | manager_username | varchar | YES | — | Reporting manager (self-referencing) |
 | work_schedule_id | varchar(20) | YES | — | FK to `pyra_work_schedules(id)` |
+| attendance_tracking_started_on | date | YES | — | Migration 048: earliest evidence-backed attendance-tracking date; NULL means unverified |
+| attendance_tracking_start_source | text | YES | — | Migration 048 provenance: `observed` or `admin`; constrained as a pair with the tracking date |
 | commission_rate | numeric | YES | — | Commission % (write path: users API + edit dialog) |
 | date_of_birth | date | YES | — | Birthday — feeds HR Overview celebrations (`020_pyra_users_date_of_birth.sql`) |
 
@@ -1963,7 +2090,8 @@ Employee payment ledger tracking all payment sources (salary, tasks, overtime, b
 | source_id | varchar(20) | YES | — |
 | description | text | YES | — |
 | amount | numeric(10,2) | NOT NULL | — |
-| currency | varchar(3) | YES | `'AED'` |
+| deduction_cap_exempt_amount | numeric(12,2) | NOT NULL | `0` |
+| currency | varchar(3) | NOT NULL | `'AED'` |
 | status | varchar(20) | YES | `'pending'` |
 | payroll_id | varchar(20) | YES | — |
 | effective_month | date | YES | — |
@@ -1976,9 +2104,14 @@ Employee payment ledger tracking all payment sources (salary, tasks, overtime, b
 **FK**: `payroll_id` -> `pyra_payroll_runs(id)` `ON DELETE SET NULL` (added migration 023)
 **Indexes**: `idx_emp_payments_user` on `username`, `idx_emp_payments_payroll` on `payroll_id`, `idx_emp_payments_effective_month` on `(effective_month, currency, username)` where `effective_month IS NOT NULL AND payroll_id IS NULL`, and unique partial `uq_emp_payments_deduction_source` on `(source_type, source_id)` where `source_type = 'deduction' AND source_id IS NOT NULL`
 
-`effective_month` attributes generated deductions to the month they describe,
-even if approval happens later. Legacy/manual payments may keep it null and use
-their existing created-at attribution.
+`effective_month` attributes every deduction to the month it describes, even if
+approval happens later. A deduction with `effective_month IS NULL` is invalid
+and migration 046 fails until an admin explicitly classifies it; `created_at`
+fallback is reserved for non-deduction payments only.
+`deduction_cap_exempt_amount` records the explicitly approved attendance portion
+of a deduction payment. It is zero for every non-deduction and manual
+disciplinary payment, cannot exceed the payment amount, and does not consume
+the 25% delivery/quality/manual disciplinary ceiling.
 
 ---
 
@@ -2011,6 +2144,8 @@ direct `SELECT` only.
 | monthly_cap_percentage | numeric(5,2) | NOT NULL | — |
 | requested_amount | numeric(12,2) | NOT NULL | — |
 | cap_amount | numeric(12,2) | NOT NULL | — |
+| prior_approved_amount | numeric(12,2) | NOT NULL | — |
+| remaining_cap_amount | numeric(12,2) | NOT NULL | — |
 | approved_amount | numeric(12,2) | NOT NULL | — |
 | evidence | jsonb | NOT NULL | `'{}'` |
 | policy_snapshot | jsonb | NOT NULL | `'{}'` |
@@ -2030,8 +2165,11 @@ direct `SELECT` only.
 money/attendance units; bounded delivery/quality/cap percentages; recognized
 delivery band; non-negative quality consecutive-month count; requested total
 equals the three component amounts; cap equals the rounded salary/cap-rate
-snapshot; approved equals `LEAST(requested_amount, cap_amount)`; a non-zero
-quality amount requires an eligible below-band quality snapshot.
+snapshot; remaining cap equals the rounded cap less prior approved/paid
+disciplinary deductions; approved equals `attendance_amount + LEAST(delivery_amount + quality_amount, remaining_cap_amount)`;
+the approved amount less attendance cannot exceed the remaining disciplinary cap;
+`quality_amount` is fixed to zero because quality money belongs exclusively to
+the documented manual workflow.
 
 **Index**: `idx_deduction_cases_period_month` on `period_month DESC` (in addition to constraint-backed indexes)
 
@@ -2045,6 +2183,117 @@ approved `pyra_employee_payments` deduction using the same database timestamp.
 The deferred payment FK makes both records one atomic transaction. Only
 `service_role` can execute the function; it receives the localized payment
 description as `p_payment_description` and does not hardcode user-visible text.
+
+Migration `046_atomic_payroll_integrity.sql` serializes computed and manual
+approvals per employee/effective month, counts only each approved or paid
+payment's amount **after subtracting its documented attendance exemption**
+toward the 25% ceiling, and snapshots the prior and remaining cap. Attendance
+and unpaid leave stay outside this disciplinary ceiling. Future Dubai months,
+the still-mutable current Dubai month, non-employee targets, ambiguous legacy
+months, cross-currency month conflicts, and approved/paid payroll periods fail
+closed for computed approval.
+
+---
+
+## 75b. pyra_manual_deductions
+
+Append-only evidence for a documented manual deduction explicitly approved by
+an HR admin. The approval RPC inserts this snapshot and its already-approved
+`pyra_employee_payments` deduction in one transaction. There is no pending
+manual-deduction row and no automatic amount.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| payment_id | varchar(20) | NOT NULL | — |
+| employee_username | varchar | NOT NULL | — |
+| period_month | date | NOT NULL | — |
+| basis | varchar(50) | NOT NULL | — |
+| salary_snapshot | numeric(12,2) | NOT NULL | — |
+| salary_currency | varchar(3) | NOT NULL | — |
+| monthly_cap_percentage | numeric(5,2) | NOT NULL | — |
+| requested_amount | numeric(12,2) | NOT NULL | — |
+| cap_amount | numeric(12,2) | NOT NULL | — |
+| prior_approved_amount | numeric(12,2) | NOT NULL | — |
+| approved_amount | numeric(12,2) | NOT NULL | — |
+| reason | text | NOT NULL | — |
+| evidence | jsonb | NOT NULL | — |
+| approved_by | varchar | NOT NULL | — |
+| approved_at | timestamptz | NOT NULL | `now()` |
+| created_at | timestamptz | NOT NULL | `now()` |
+
+**PK**: `id`
+
+**Unique**: `payment_id`; one `quality_repeated_pattern` row per employee/month
+
+**FK**: `payment_id` → `pyra_employee_payments(id)`, `DEFERRABLE INITIALLY DEFERRED`
+
+**Checks**: first-of-month period; positive salary/request/approval; approved
+amount equals the exact admin-requested amount; cap between 0–100%; aggregate
+approved amount cannot exceed the snapshotted cap; non-empty reason; non-empty
+JSON evidence object generated by the server; basis is limited to
+`owner_attested_legacy_delivery` or `quality_repeated_pattern`, and the evidence
+identity must match the employee, month, and basis columns.
+
+The table is RLS-enabled and `service_role` has direct `SELECT` only. Only
+`pyra_approve_manual_deduction(...)` writes it. Manual approval is restricted to
+the current Dubai month because historical salary/currency snapshots are not yet
+available. If a concurrent/stale preview asks for more than the remaining cap,
+the RPC returns `cap_changed` with no write; it never reduces the amount silently.
+New `quality_repeated_pattern` money currently fails closed with
+`quality_timing_unconfirmed`; the warning evidence remains visible until the
+owner locks whether charging uses the still-changing current month or completed
+months. `owner_attested_legacy_delivery` remains available for a documented
+current-month exception with exact task links.
+
+---
+
+## 75c. pyra_manual_deduction_tasks
+
+Append-only links from an owner-attested legacy-delivery deduction to the exact
+tasks retained in its trusted evidence snapshot. Global task uniqueness prevents
+the same delivery incident from being charged again under another request key.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| manual_deduction_id | varchar(20) | NOT NULL | — |
+| task_id | varchar(20) | NOT NULL | — |
+| created_at | timestamptz | NOT NULL | `now()` |
+
+**PK**: `(manual_deduction_id, task_id)`
+
+**Unique**: `task_id`
+
+**FKs**: `manual_deduction_id` → `pyra_manual_deductions(id)`;
+`task_id` → `pyra_tasks(id)`
+
+The table is RLS-enabled and `service_role` has direct `SELECT` only. The manual
+approval RPC is its only writer.
+
+---
+
+## 75d. pyra_deduction_write_capabilities
+
+Private one-shot authorization rows used only by approved atomic payroll RPCs
+and the migration 047 deduction-payment trigger.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| transaction_id | bigint | NOT NULL | — |
+| payment_id | varchar(20) | NOT NULL | — |
+| operation | text | NOT NULL | — |
+| created_at | timestamptz | NOT NULL | `clock_timestamp()` |
+
+**PK**: `(transaction_id, payment_id, operation)`
+
+**Check**: `operation IN ('insert', 'update', 'delete')`
+
+The table is RLS-enabled with all direct privileges revoked from `PUBLIC`,
+`anon`, `authenticated`, and `service_role`. Migration
+`047_harden_deduction_writes.sql` installs a `SECURITY DEFINER` trigger that
+atomically consumes the exact transaction/payment/operation capability. Direct
+deduction DML fails closed, caller-controlled session settings cannot mint
+authority, and every RPC cleans unused capabilities before it returns.
 
 ---
 
@@ -2070,7 +2319,9 @@ Monthly payroll runs with approval workflow.
 | created_at | timestamptz | YES | `now()` |
 
 **PK**: `id`
-**Unique**: `(month, year)`
+**Unique**: `(month, year, currency)` (migration 026). Migration 046 first
+fails closed on normalized duplicates, then converts the historical nullable
+AED representation to explicit `AED` and enforces `NOT NULL`.
 
 ---
 
@@ -2096,9 +2347,19 @@ Per-employee payroll line items within a payroll run.
 
 **PK**: `id`
 **FK**: `payroll_id` -> `pyra_payroll_runs(id)`
+**Unique**: `(payroll_id, username)` (migration 046; one employee line per run)
 
 > `commission` added in migration 022 (Payroll Integrity Fixes). `net_pay` = base_salary + task_payments + overtime_amount + bonus + commission − deductions (floored at 0).
 **Index**: `idx_payroll_items_run` on `payroll_id`, `idx_payroll_items_user` on `username`
+
+Migration `046_atomic_payroll_integrity.sql` moves calculate/recalculate,
+approve plus salary-expense creation, pay plus linked-payment/task settlement,
+generic payment approval, direct payment settlement, and draft-run deletion into
+service-role-only database RPCs. Generic payment approval and payroll approval
+lock the same monthly run before payment rows, so a payment cannot become newly
+approved across a concurrently closing payroll period. Expected
+stale/status/integrity conflicts return explicit statuses and every multi-table
+mutation commits or rolls back as one unit.
 
 ---
 

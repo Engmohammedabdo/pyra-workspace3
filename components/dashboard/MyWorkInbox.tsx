@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { useTranslations, useLocale } from 'next-intl';
 import { useMyWork } from '@/hooks/useMyWork';
@@ -23,6 +24,14 @@ import {
 import { cn } from '@/lib/utils/cn';
 import { formatRelativeDate, dubaiDayKey } from '@/lib/utils/format';
 import { useStatusLabels } from '@/lib/i18n/status-labels';
+import {
+  isDeadlineOverdue,
+  isUnverifiedProductionDeadline,
+  isoToDubaiDateTime,
+  legacyDubaiDayEndToIso,
+} from '@/lib/production/deadlines';
+import { useDeadlineClock } from '@/hooks/useDeadlineClock';
+import { myWorkTaskDeadline, sortMyWorkTasks } from '@/lib/production/my-work';
 
 interface SectionHeaderProps {
   icon: React.ComponentType<{ className?: string }>;
@@ -76,6 +85,7 @@ function InboxRow({
   subtitle,
   meta,
   urgent,
+  warning,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   iconClass?: string;
@@ -84,6 +94,7 @@ function InboxRow({
   subtitle?: string | null;
   meta?: string | null;
   urgent?: boolean;
+  warning?: boolean;
 }) {
   return (
     <Link
@@ -92,7 +103,9 @@ function InboxRow({
         'flex items-center gap-3 rounded-xl border bg-card/50 p-3 transition-colors hover:border-orange-300 hover:bg-orange-50/30 dark:hover:bg-orange-950/10 dark:hover:border-orange-700',
         urgent
           ? 'border-red-300/60 bg-red-50/40 dark:border-red-800/40 dark:bg-red-950/15'
-          : 'border-border/30'
+          : warning
+            ? 'border-amber-300/60 bg-amber-50/50 dark:border-amber-800/50 dark:bg-amber-950/20'
+            : 'border-border/30'
       )}
     >
       <div
@@ -113,7 +126,11 @@ function InboxRow({
         <span
           className={cn(
             'text-xs shrink-0 font-medium',
-            urgent ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
+            urgent
+              ? 'text-red-600 dark:text-red-400'
+              : warning
+                ? 'text-amber-700 dark:text-amber-300'
+                : 'text-muted-foreground'
           )}
         >
           {meta}
@@ -125,6 +142,9 @@ function InboxRow({
 
 function formatDueDate(
   dueDate: string | null,
+  dueAt: string | null,
+  productionDeadlineExempt: boolean,
+  currentInstant: string,
   // Scoped to the 'mywork.inbox' namespace (the only caller's `t`) rather
   // than the unscoped `ReturnType<typeof useTranslations>` — the unscoped
   // form forces TS to resolve a translator type across the ENTIRE global
@@ -132,21 +152,61 @@ function formatDueDate(
   // once enough namespaces/keys accumulate (surfaced by Phase 2 Task 4
   // filling in the calendar catalog).
   t: ReturnType<typeof useTranslations<'mywork.inbox'>>,
-): { label: string; urgent: boolean } {
-  if (!dueDate) return { label: '', urgent: false };
-  // dubaiDayKey() — Dubai-day comparison, NOT the UTC day (Phase 15.1 lock).
-  const today = dubaiDayKey();
-  if (dueDate < today) {
-    const daysAgo = Math.floor(
-      (Date.now() - new Date(dueDate).getTime()) / (1000 * 60 * 60 * 24)
-    );
-    return { label: t('dueDate.overdueDays', { count: daysAgo }), urgent: true };
+): { label: string; urgent: boolean; unverified: boolean } {
+  if (isUnverifiedProductionDeadline({
+    dueDate,
+    dueAt,
+    deadlineExempt: productionDeadlineExempt,
+  })) {
+    if (!dueDate) {
+      return {
+        label: t('dueDate.unverifiedMissing'),
+        urgent: false,
+        unverified: true,
+      };
+    }
+    return {
+      label: t('dueDate.unverified', { date: dueDate }),
+      urgent: false,
+      unverified: true,
+    };
   }
-  if (dueDate === today) return { label: t('dueDate.today'), urgent: true };
-  const days = Math.ceil(
-    (new Date(dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-  );
-  return { label: t('dueDate.inDays', { count: days }), urgent: false };
+  if (dueAt !== null) {
+    const exact = isoToDubaiDateTime(dueAt);
+    if (!exact) return { label: '', urgent: false, unverified: false };
+    const overdue = isDeadlineOverdue(dueAt, currentInstant);
+    return {
+      label: t(overdue ? 'dueDate.exactOverdue' : 'dueDate.exact', exact),
+      urgent: overdue || exact.date === dubaiDayKey(new Date(currentInstant)),
+      unverified: false,
+    };
+  }
+  if (!dueDate) return { label: '', urgent: false, unverified: false };
+  // dubaiDayKey() — Dubai-day comparison, NOT the UTC day (Phase 15.1 lock).
+  const today = dubaiDayKey(new Date(currentInstant));
+  const legacyDueAt = legacyDubaiDayEndToIso(dueDate);
+  if (!legacyDueAt) return { label: '', urgent: false, unverified: false };
+  if (isDeadlineOverdue(legacyDueAt, currentInstant)) {
+    const daysAgo = Math.max(1, Math.ceil(
+      (Date.parse(currentInstant) - Date.parse(legacyDueAt)) / (1000 * 60 * 60 * 24),
+    ));
+    return {
+      label: t('dueDate.overdueDays', { count: daysAgo }),
+      urgent: true,
+      unverified: false,
+    };
+  }
+  if (dueDate === today) {
+    return { label: t('dueDate.today'), urgent: true, unverified: false };
+  }
+  const days = Math.max(1, Math.ceil(
+    (Date.parse(legacyDueAt) - Date.parse(currentInstant)) / (1000 * 60 * 60 * 24),
+  ));
+  return {
+    label: t('dueDate.inDays', { count: days }),
+    urgent: false,
+    unverified: false,
+  };
 }
 
 export function MyWorkInbox() {
@@ -154,6 +214,39 @@ export function MyWorkInbox() {
   const t = useTranslations('mywork.inbox');
   const locale = useLocale();
   const leaveTypeLabel = useStatusLabels('leaveType');
+  const taskCandidates = useMemo(
+    () => data
+      ? [
+          ...data.tasks.overdue,
+          ...data.tasks.today,
+          ...data.tasks.this_week,
+          ...data.tasks.unverified,
+        ]
+      : [],
+    [data],
+  );
+  const deadlineInstants = useMemo(
+    () => taskCandidates.map((task) => myWorkTaskDeadline(task)),
+    [taskCandidates],
+  );
+  const currentInstant = useDeadlineClock(deadlineInstants);
+  const tasksAll = useMemo(
+    () => sortMyWorkTasks(taskCandidates, currentInstant),
+    [currentInstant, taskCandidates],
+  );
+  const overdueTaskCount = useMemo(
+    () => tasksAll.filter((task) =>
+      isDeadlineOverdue(myWorkTaskDeadline(task), currentInstant)).length,
+    [currentInstant, tasksAll],
+  );
+  const unverifiedTaskCount = useMemo(
+    () => tasksAll.filter((task) => isUnverifiedProductionDeadline({
+      dueDate: task.due_date,
+      dueAt: task.due_at,
+      deadlineExempt: task.production_deadline_exempt,
+    })).length,
+    [tasksAll],
+  );
 
   if (isLoading) {
     return (
@@ -176,7 +269,6 @@ export function MyWorkInbox() {
     );
   }
 
-  const tasksAll = [...data.tasks.overdue, ...data.tasks.today, ...data.tasks.this_week];
   const totalAll =
     data.counts.tasks_total +
     data.counts.approvals_total +
@@ -207,29 +299,40 @@ export function MyWorkInbox() {
             count={data.counts.tasks_total}
             href="/dashboard/my-tasks"
             gradient={
-              data.tasks.overdue.length > 0
+              overdueTaskCount > 0
                 ? 'from-red-500 to-rose-600'
-                : 'from-emerald-500 to-teal-600'
+                : unverifiedTaskCount > 0
+                  ? 'from-amber-500 to-yellow-600'
+                  : 'from-emerald-500 to-teal-600'
             }
-            urgent={data.tasks.overdue.length > 0}
+            urgent={overdueTaskCount > 0}
           />
           <div className="p-3 space-y-2">
             {tasksAll.slice(0, 6).map((task) => {
-              const due = formatDueDate(task.due_date, t);
+              const due = formatDueDate(
+                task.due_date,
+                task.due_at,
+                task.production_deadline_exempt,
+                currentInstant,
+                t,
+              );
               return (
                 <InboxRow
                   key={task.id}
-                  icon={due.urgent ? AlertTriangle : CheckSquare}
+                  icon={due.urgent || due.unverified ? AlertTriangle : CheckSquare}
                   iconClass={
                     due.urgent
                       ? 'bg-gradient-to-br from-red-500 to-rose-600'
-                      : 'bg-gradient-to-br from-emerald-500 to-teal-600'
+                      : due.unverified
+                        ? 'bg-gradient-to-br from-amber-500 to-yellow-600'
+                        : 'bg-gradient-to-br from-emerald-500 to-teal-600'
                   }
                   href={`/dashboard/boards/${task.board_id}?task=${task.id}`}
                   title={task.title}
                   subtitle={`${task.board_name} • ${task.column_name}`}
                   meta={due.label || null}
                   urgent={due.urgent}
+                  warning={due.unverified}
                 />
               );
             })}

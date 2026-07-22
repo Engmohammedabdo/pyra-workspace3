@@ -75,6 +75,7 @@ export const MODULE_GUIDES: Record<string, ModuleGuideEntry> = {
   '/dashboard/directory': { href: '/dashboard/directory', slug: 'dashboard_directory' },
   '/dashboard/hr': { href: '/dashboard/hr', slug: 'dashboard_hr' },
   '/dashboard/hr/productivity': { href: '/dashboard/hr/productivity', slug: 'dashboard_hr_productivity' },
+  '/dashboard/hr/deductions': { href: '/dashboard/hr/deductions', slug: 'dashboard_hr_deductions' },
   '/dashboard/approvals': { href: '/dashboard/approvals', slug: 'dashboard_approvals' },
   '/dashboard/timesheet': { href: '/dashboard/timesheet', slug: 'dashboard_timesheet' },
   '/dashboard/announcements': { href: '/dashboard/announcements', slug: 'dashboard_announcements' },

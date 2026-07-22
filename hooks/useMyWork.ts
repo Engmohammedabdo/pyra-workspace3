@@ -7,6 +7,8 @@ export interface MyWorkTaskItem {
   id: string;
   title: string;
   due_date: string | null;
+  due_at: string | null;
+  production_deadline_exempt: boolean;
   board_id: string;
   board_name: string;
   column_name: string;
@@ -73,6 +75,7 @@ export interface MyWorkResponse {
     overdue: MyWorkTaskItem[];
     today: MyWorkTaskItem[];
     this_week: MyWorkTaskItem[];
+    unverified: MyWorkTaskItem[];
   };
   approvals_waiting: {
     leave: MyWorkLeaveItem[];

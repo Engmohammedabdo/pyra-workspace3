@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { useBoards, useCreateBoard } from '@/hooks/useBoards';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
@@ -13,7 +14,15 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
-import { formatRelativeDate } from '@/lib/utils/format';
+import {
+  formatBoardTaskDeadline,
+  getBoardTaskDeadline,
+  isBoardTaskDeadlineOverdue,
+} from '@/hooks/useBoardTasks';
+import {
+  resolveTaskDeadlineDisplay,
+  useDeadlineClock,
+} from '@/hooks/useDeadlineClock';
 import {
   Plus,
   ExternalLink,
@@ -24,6 +33,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import Link from 'next/link';
+import { PRODUCTION_BOARD_ID } from '@/lib/constants/production';
 
 // ── Types ──
 
@@ -33,7 +43,9 @@ interface Task {
   column_id: string;
   position: number;
   priority: string;
-  due_date?: string;
+  due_date?: string | null;
+  due_at?: string | null;
+  production_deadline_exempt?: boolean;
   is_archived?: boolean;
   pyra_task_assignees?: { username: string }[];
   pyra_task_labels?: { pyra_board_labels: { name: string; color: string } }[];
@@ -96,15 +108,49 @@ function getAvatarColor(str: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
+function effectiveTaskDeadline(task: Task): string | null {
+  return getBoardTaskDeadline(task)?.instant ?? null;
+}
+
+function taskDeadlineLabel(
+  task: Task,
+  locale: string,
+  unverifiedLabel: string,
+): string | null {
+  const deadline = getBoardTaskDeadline(task);
+  if (!deadline) return null;
+  if (deadline.unverified) {
+    const formatted = formatBoardTaskDeadline(task, locale);
+    return formatted?.date
+      ? `${unverifiedLabel} · ${formatted.date}`
+      : unverifiedLabel;
+  }
+  const display = resolveTaskDeadlineDisplay(
+    deadline.exact ? deadline.instant : null,
+    deadline.date,
+    locale,
+  );
+  if (!display) return null;
+  if (display.kind === 'legacy') return display.label;
+  const timezoneLabel = locale.startsWith('ar') ? 'بتوقيت الإمارات' : 'UAE time';
+  return `${display.date} ${display.time} (${timezoneLabel})`;
+}
+
 // ── Main Component ──
 
 export function ProjectBoardEmbed({ projectId }: { projectId: string }) {
+  const locale = useLocale();
+  const t = useTranslations('boards.view');
+  const tDeadline = useTranslations('boards.deadline');
   const queryClient = useQueryClient();
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState('');
+  const [newDueDate, setNewDueDate] = useState('');
+  const [newDueTime, setNewDueTime] = useState('');
 
   const { data: boardsData = [], isLoading: loading, refetch: refetchBoards } = useBoards({ project_id: projectId });
   const board = (boardsData[0] as unknown as (Board & { pyra_board_columns: Column[] }) | undefined) ?? null;
+  const isProductionBoard = board?.id === PRODUCTION_BOARD_ID;
 
   const { data: tasksData = [], refetch: refetchTasks } = useQuery<Task[]>({
     queryKey: ['board-tasks', board?.id],
@@ -112,6 +158,7 @@ export function ProjectBoardEmbed({ projectId }: { projectId: string }) {
     enabled: !!board?.id,
   });
   const tasks = tasksData;
+  const currentInstant = useDeadlineClock(tasks.map(effectiveTaskDeadline));
 
   const createBoardMutation = useCreateBoard();
 
@@ -132,10 +179,20 @@ export function ProjectBoardEmbed({ projectId }: { projectId: string }) {
 
   const handleAddTask = async (columnId: string) => {
     if (!board || !newTitle.trim()) return;
+    if (isProductionBoard && (!newDueDate || !newDueTime)) return;
     try {
-      const data = await mutateAPI<Task>(`/api/boards/${board.id}/tasks`, 'POST', { title: newTitle.trim(), column_id: columnId });
+      const data = await mutateAPI<Task>(`/api/boards/${board.id}/tasks`, 'POST', {
+        title: newTitle.trim(),
+        column_id: columnId,
+        ...(isProductionBoard ? {
+          due_date: newDueDate,
+          due_time: newDueTime,
+        } : {}),
+      });
       queryClient.setQueryData(['board-tasks', board.id], (prev: Task[]) => [...(prev || []), data]);
       setNewTitle('');
+      setNewDueDate('');
+      setNewDueTime('');
       setAddingTo(null);
       toast.success('تم إضافة المهمة');
     } catch {
@@ -179,9 +236,8 @@ export function ProjectBoardEmbed({ projectId }: { projectId: string }) {
     return col?.is_done_column;
   }).length;
   const overdueTasks = tasks.filter(t => {
-    if (!t.due_date) return false;
     const col = columns.find(c => c.id === t.column_id);
-    return !col?.is_done_column && new Date(t.due_date) < new Date();
+    return isBoardTaskDeadlineOverdue(t, new Date(currentInstant), col?.is_done_column === true);
   }).length;
 
   return (
@@ -251,7 +307,12 @@ export function ProjectBoardEmbed({ projectId }: { projectId: string }) {
                   size="icon"
                   aria-label="إضافة مهمة"
                   className="h-5 w-5"
-                  onClick={() => { setAddingTo(addingTo === col.id ? null : col.id); setNewTitle(''); }}
+                  onClick={() => {
+                    setAddingTo(addingTo === col.id ? null : col.id);
+                    setNewTitle('');
+                    setNewDueDate('');
+                    setNewDueTime('');
+                  }}
                 >
                   <Plus className="h-3 w-3" />
                 </Button>
@@ -271,11 +332,55 @@ export function ProjectBoardEmbed({ projectId }: { projectId: string }) {
                       if (e.key === 'Escape') setAddingTo(null);
                     }}
                   />
+                  {isProductionBoard && (
+                    <div className="mb-1 grid grid-cols-2 gap-1">
+                      <div className="space-y-1">
+                        <label htmlFor={`project-task-due-date-${col.id}`} className="text-[10px] font-medium">
+                          {t('addTask.dueDateUaeLabel')}
+                        </label>
+                        <Input
+                          id={`project-task-due-date-${col.id}`}
+                          type="date"
+                          value={newDueDate}
+                          onChange={(event) => setNewDueDate(event.target.value)}
+                          className="h-7 text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label htmlFor={`project-task-due-time-${col.id}`} className="text-[10px] font-medium">
+                          {t('addTask.dueTimeUaeLabel')}
+                        </label>
+                        <Input
+                          id={`project-task-due-time-${col.id}`}
+                          type="time"
+                          step={60}
+                          value={newDueTime}
+                          onChange={(event) => setNewDueTime(event.target.value)}
+                          className="h-7 text-xs"
+                        />
+                      </div>
+                    </div>
+                  )}
                   <div className="flex gap-1">
-                    <Button size="sm" className="h-6 text-[10px] flex-1" onClick={() => handleAddTask(col.id)}>
+                    <Button
+                      size="sm"
+                      className="h-6 text-[10px] flex-1"
+                      disabled={!newTitle.trim() || (isProductionBoard && (!newDueDate || !newDueTime))}
+                      onClick={() => handleAddTask(col.id)}
+                    >
                       إضافة
                     </Button>
-                    <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => setAddingTo(null)}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 text-[10px]"
+                      onClick={() => {
+                        setAddingTo(null);
+                        setNewTitle('');
+                        setNewDueDate('');
+                        setNewDueTime('');
+                      }}
+                    >
                       إلغاء
                     </Button>
                   </div>
@@ -285,7 +390,18 @@ export function ProjectBoardEmbed({ projectId }: { projectId: string }) {
               {/* Task Cards */}
               <div className="space-y-1.5">
                 {colTasks.map(task => {
-                  const isOverdue = task.due_date && !col.is_done_column && new Date(task.due_date) < new Date();
+                  const isOverdue = isBoardTaskDeadlineOverdue(
+                    task,
+                    new Date(currentInstant),
+                    col.is_done_column,
+                  );
+                  const taskDeadline = getBoardTaskDeadline(task);
+                  const deadlineUnverified = taskDeadline?.unverified === true;
+                  const deadlineLabel = taskDeadlineLabel(
+                    task,
+                    locale,
+                    tDeadline('unverified'),
+                  );
                   const checklist = task.pyra_task_checklist || [];
                   const checkedCount = checklist.filter(c => c.is_checked).length;
                   const labels = task.pyra_task_labels || [];
@@ -323,10 +439,19 @@ export function ProjectBoardEmbed({ projectId }: { projectId: string }) {
                           {/* Meta row */}
                           <div className="flex items-center justify-between gap-1">
                             <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                              {task.due_date && (
-                                <span className={cn('flex items-center gap-0.5', isOverdue && 'text-red-500 font-medium')}>
-                                  <Calendar className="h-2.5 w-2.5" />
-                                  {formatRelativeDate(task.due_date)}
+                              {deadlineLabel && (
+                                <span className={cn(
+                                  'flex items-center gap-0.5',
+                                  isOverdue && 'text-red-500 font-medium',
+                                  deadlineUnverified
+                                    && 'text-amber-700 font-medium dark:text-amber-300',
+                                )}>
+                                  {deadlineUnverified ? (
+                                    <AlertTriangle className="h-2.5 w-2.5" />
+                                  ) : (
+                                    <Calendar className="h-2.5 w-2.5" />
+                                  )}
+                                  {deadlineLabel}
                                 </span>
                               )}
                               {checklist.length > 0 && (

@@ -1,23 +1,41 @@
 import { NextRequest } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiServerError, apiValidationError, apiForbidden } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import {
+  apiSuccess,
+  apiServerError,
+  apiValidationError,
+  apiForbidden,
+  apiError,
+  apiNotFound,
+} from '@/lib/api/response';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
-import { checkTaskScope } from '@/lib/auth/task-scope';
-import { logActivity } from '@/lib/api/activity';
+import { checkBoardScope, checkTaskScope } from '@/lib/auth/task-scope';
+import { ACTIVITY_ACTIONS, ENTITY_TYPES, logActivity } from '@/lib/api/activity';
 import { notifyMany } from '@/lib/notifications/notify';
 import { sendWhatsAppToUser, APP_URL } from '@/lib/notifications/whatsapp';
 import { logError } from '@/lib/observability/log-error';
+import { PRODUCTION_BOARD_ID } from '@/lib/constants/production';
+import {
+  isUnverifiedProductionDeadline,
+  resolveTaskTransferDeadline,
+  type TaskDeadlineFields,
+} from '@/lib/production/deadlines';
+import {
+  TASK_TRANSITION_STATUSES,
+  type AtomicTaskTransitionResult,
+} from '@/lib/constants/task-transitions';
 
 // =============================================================
 // POST /api/tasks/[id]/move
-// Move a task to a different column (and/or reorder)
-// Reorders sibling tasks to prevent position collisions
+// Move a task to a different column (and/or reorder). The PostgreSQL RPC is
+// the only writer for task position/state, stage history, and cross-board
+// label cleanup, so the whole transition commits or rolls back together.
 // =============================================================
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const t = await getTranslations('api');
   try {
@@ -25,57 +43,104 @@ export async function POST(
     if (isApiError(auth)) return auth;
 
     const { id } = await params;
-
-    // Board-scope gate: BASE_EMPLOYEE grants tasks.create to all internal
-    // users, so permission alone doesn't prove board access.
     if (!(await checkTaskScope(id, auth))) {
       return apiForbidden(t('common.noAccessTask'));
     }
 
     const body = await req.json();
-    const { column_id, position, target_board_id } = body;
-    if (!column_id) return apiValidationError('column_id is required');
+    const { column_id, position, target_board_id, due_date, due_time } = body;
+    if (typeof column_id !== 'string' || !column_id.trim()) {
+      return apiValidationError(t('boards.columnRequired'));
+    }
 
-    const supabase = await createServerSupabaseClient();
     const newPosition = position ?? 0;
+    if (!Number.isInteger(newPosition) || newPosition < 0) {
+      return apiValidationError(t('tasks.invalidTaskPosition'));
+    }
 
-    // Get the task's current column to know if it's a cross-column move
+    // Authenticated reads provide user-facing validation. The service client
+    // is intentionally not created until permission, task scope, target-board
+    // scope, deadline, and pipeline gates have all passed.
+    const supabase = await createServerSupabaseClient();
     const { data: currentTask, error: taskError } = await supabase
       .from('pyra_tasks')
-      .select('column_id, position, board_id')
+      .select('id, title, column_id, position, board_id, due_date, due_at, stage_entered_at, completion_percentage, updated_at, production_deadline_locked_at, production_deadline_exempt')
       .eq('id', id)
       .single();
 
     if (taskError || !currentTask) {
-      return apiServerError(t('common.taskNotFound'));
+      return apiNotFound(t('common.taskNotFound'));
     }
 
+    // checkTaskScope may have observed the task on an older board. Authorize
+    // the fresh board snapshot that is also passed to PostgreSQL for CAS.
+    if (!(await checkBoardScope(currentTask.board_id, auth))) {
+      return apiForbidden(t('common.noAccessTask'));
+    }
+
+    const effectiveBoardId = target_board_id || currentTask.board_id;
+    const isCrossBoard = effectiveBoardId !== currentTask.board_id;
     const isCrossColumn = currentTask.column_id !== column_id;
 
-    // Fetch all tasks in dest column (excluding the moved task), re-assign positions
-    const { data: destTasks } = await supabase
-      .from('pyra_tasks')
-      .select('id, position')
-      .eq('column_id', column_id)
-      .neq('id', id)
-      .order('position');
-
-    if (destTasks) {
-      let pos = 0;
-      for (const t of destTasks) {
-        if (pos === newPosition) pos++; // skip the slot for our task
-        if (t.position !== pos) {
-          await supabase
-            .from('pyra_tasks')
-            .update({ position: pos })
-            .eq('id', t.id);
-        }
-        pos++;
-      }
+    if (
+      isCrossBoard
+      && currentTask.board_id === PRODUCTION_BOARD_ID
+      && (
+        !currentTask.due_date
+        || !currentTask.due_at
+        || isUnverifiedProductionDeadline({
+          dueDate: currentTask.due_date,
+          dueAt: currentTask.due_at,
+          deadlineExempt: currentTask.production_deadline_exempt,
+        })
+      )
+    ) {
+      return apiValidationError(t('tasks.productionDeadlineRequired'));
     }
 
-    // Fetch board pipeline flag once (used by guard, history, and completion %)
-    const effectiveBoardId = target_board_id || currentTask.board_id;
+    if (isCrossBoard && !(await checkBoardScope(effectiveBoardId, auth))) {
+      return apiForbidden(t('common.noAccessBoard'));
+    }
+
+    const { data: destinationColumn, error: destinationColumnError } = await supabase
+      .from('pyra_board_columns')
+      .select('id, name, column_type, requires_approval')
+      .eq('id', column_id)
+      .eq('board_id', effectiveBoardId)
+      .single();
+    if (destinationColumnError || !destinationColumn) {
+      return apiValidationError(t('boards.columnNotInBoard'));
+    }
+
+    let transferDeadline: TaskDeadlineFields | null = null;
+    if (isCrossBoard && effectiveBoardId === PRODUCTION_BOARD_ID) {
+      const deadline = resolveTaskTransferDeadline({
+        targetBoardId: effectiveBoardId,
+        sourceDueDate: currentTask.due_date,
+        sourceDueAt: currentTask.due_at,
+        sourceDeadlineExempt: currentTask.production_deadline_exempt,
+        dueDate: due_date,
+        dueTime: due_time,
+      });
+      if (!deadline.ok) {
+        return apiValidationError(t(
+          deadline.error === 'required'
+            ? 'tasks.productionDeadlineRequired'
+            : 'tasks.productionDeadlineInvalid',
+        ));
+      }
+      if (
+        currentTask.production_deadline_locked_at
+        && (
+          deadline.value.due_date !== currentTask.due_date
+          || deadline.value.due_at !== currentTask.due_at
+        )
+      ) {
+        return apiValidationError(t('tasks.productionDeadlineLocked'));
+      }
+      transferDeadline = deadline.value;
+    }
+
     let isPipelineBoard = false;
     if (isCrossColumn) {
       const { data: board } = await supabase
@@ -86,203 +151,209 @@ export async function POST(
       isPipelineBoard = board?.is_pipeline === true;
     }
 
-    // Pipeline gated columns must go through /advance (link gates) or
-    // /approve (admin gate) — a raw drag-move would bypass required links
-    // and the approval permission (remote-production-tracking).
-    let targetCol: { id: string; name: string; column_type: string | null; requires_approval: boolean } | null = null;
-    if (isCrossColumn && isPipelineBoard) {
-      const { data: fetchedTargetCol } = await supabase
-        .from('pyra_board_columns')
-        .select('id, name, column_type, requires_approval')
-        .eq('id', column_id)
-        .single();
-      targetCol = fetchedTargetCol;
-      if (
-        targetCol &&
-        (targetCol.column_type === 'review' ||
-          targetCol.column_type === 'delivery' ||
-          targetCol.requires_approval)
-      ) {
-        return apiValidationError(t('tasks.gatedColumnMoveBlocked'));
-      }
+    if (
+      isCrossColumn
+      && isPipelineBoard
+      && (
+        destinationColumn.column_type === 'review'
+        || destinationColumn.column_type === 'delivery'
+        || destinationColumn.requires_approval
+      )
+    ) {
+      return apiValidationError(t('tasks.gatedColumnMoveBlocked'));
+    }
 
-      // Also block a raw drag OUT of a review/approved/approval-gated source
-      // column — that path is used to record a "decided" transition (approve/
-      // reject) and a raw exit would write a phantom decided-round stage_history
-      // row that corrupts productivity metrics.
-      const { data: sourceCol } = await supabase
+    if (isCrossColumn) {
+      const { data: sourceColumn } = await supabase
         .from('pyra_board_columns')
         .select('id, column_type, requires_approval')
         .eq('id', currentTask.column_id)
         .single();
       if (
-        sourceCol &&
-        (sourceCol.column_type === 'review' ||
-          sourceCol.column_type === 'approved' ||
-          sourceCol.requires_approval)
+        sourceColumn
+        && (
+          sourceColumn.column_type === 'review'
+          || sourceColumn.column_type === 'approved'
+          || sourceColumn.requires_approval
+        )
       ) {
         return apiValidationError(t('tasks.exitReviewApprovalBlocked'));
       }
     }
 
-    // Calculate completion % for pipeline boards
-    let completionPct: number | undefined;
-    if (isCrossColumn && isPipelineBoard) {
-      const { data: allCols } = await supabase
-        .from('pyra_board_columns')
-        .select('id, position')
-        .eq('board_id', effectiveBoardId)
-        .order('position');
-      if (allCols) {
-        const colIdx = allCols.findIndex(c => c.id === column_id);
-        if (colIdx >= 0) {
-          completionPct = Math.round(((colIdx + 1) / allCols.length) * 100);
-        }
-      }
-    }
+    const historyId = generateId('sh');
+    const activityId = generateId('act');
+    const serviceSupabase = createServiceRoleClient();
+    const { data: rpcRows, error: rpcError } = await serviceSupabase.rpc(
+      'pyra_move_task_atomic',
+      {
+        p_task_id: id,
+        p_expected_board_id: currentTask.board_id,
+        p_expected_column_id: currentTask.column_id,
+        p_expected_updated_at: currentTask.updated_at,
+        p_target_board_id: effectiveBoardId,
+        p_target_column_id: column_id,
+        p_target_position: newPosition,
+        p_moved_by: auth.pyraUser.username,
+        p_history_id: historyId,
+        p_due_date: transferDeadline?.due_date ?? null,
+        p_due_at: transferDeadline?.due_at ?? null,
+        p_actor_display_name: auth.pyraUser.display_name,
+        p_activity_id: activityId,
+      },
+    );
 
-    // Cross-board move
-    const isCrossBoard = target_board_id && target_board_id !== currentTask.board_id;
-
-    // Move the task
-    const updatePayload: Record<string, unknown> = {
-      column_id,
-      position: newPosition,
-      updated_at: new Date().toISOString(),
-    };
-    if (isCrossBoard) {
-      updatePayload.board_id = target_board_id;
-      // Remove board-specific labels when moving cross-board
-      await supabase.from('pyra_task_labels').delete().eq('task_id', id);
-    }
-    if (isCrossColumn) {
-      updatePayload.stage_entered_at = new Date().toISOString();
-    }
-    if (completionPct !== undefined) {
-      updatePayload.completion_percentage = completionPct;
-    }
-
-    const { data, error } = await supabase
-      .from('pyra_tasks')
-      .update(updatePayload)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) return apiServerError(error.message);
-
-    // Record stage history on pipeline boards so drag moves are visible to
-    // the productivity metrics (advance/approve already record their own)
-    if (isCrossColumn && isPipelineBoard) {
-      const { error: histError } = await supabase.from('pyra_task_stage_history').insert({
-        id: generateId('sh'),
-        task_id: id,
-        board_id: effectiveBoardId,
-        from_column_id: currentTask.column_id,
-        to_column_id: column_id,
-        moved_by: auth.pyraUser.username,
+    if (rpcError) {
+      logError({
+        error: rpcError,
+        request: req,
+        metadata: { action: 'task_move_rpc', task_id: id },
       });
-      if (histError) console.error('[move] stage history insert failed:', histError.message);
+      return apiServerError();
+    }
 
-      // Admins are blind to drag-moves otherwise (button-advances only
-      // notify assignees) — alert active admins on every pipeline stage
-      // move so they see e.g. "New -> In Progress". notifyMany auto-skips
-      // the actor (from.username), so an admin dragging their own task
-      // doesn't self-notify.
-      if (targetCol) {
+    const result = (Array.isArray(rpcRows) ? rpcRows[0] : rpcRows) as
+      | AtomicTaskTransitionResult
+      | null;
+    if (!result) {
+      logError({
+        error: new Error('Atomic move RPC returned no result'),
+        request: req,
+        metadata: { action: 'task_move_rpc_empty', task_id: id },
+      });
+      return apiServerError();
+    }
+
+    switch (result.status) {
+      case TASK_TRANSITION_STATUSES.OK:
+        break;
+      case TASK_TRANSITION_STATUSES.TASK_NOT_FOUND:
+        return apiNotFound(t('common.taskNotFound'));
+      case TASK_TRANSITION_STATUSES.TRANSITION_CONFLICT:
+        return apiError(t('tasks.taskTransitionConflict'), 409);
+      case TASK_TRANSITION_STATUSES.INVALID_DESTINATION:
+      case TASK_TRANSITION_STATUSES.INVALID_BOARD:
+        return apiValidationError(t('boards.columnNotInBoard'));
+      case TASK_TRANSITION_STATUSES.CURRENT_COLUMN_NOT_FOUND:
+        return apiValidationError(t('boards.currentColumnNotFound'));
+      case TASK_TRANSITION_STATUSES.GATED_DESTINATION:
+        return apiValidationError(t('tasks.gatedColumnMoveBlocked'));
+      case TASK_TRANSITION_STATUSES.GATED_SOURCE:
+        return apiValidationError(t('tasks.exitReviewApprovalBlocked'));
+      case TASK_TRANSITION_STATUSES.PRODUCTION_DEADLINE_REQUIRED:
+        return apiValidationError(t('tasks.productionDeadlineRequired'));
+      case TASK_TRANSITION_STATUSES.PRODUCTION_DEADLINE_INVALID:
+        return apiValidationError(t('tasks.productionDeadlineInvalid'));
+      case TASK_TRANSITION_STATUSES.PRODUCTION_DEADLINE_LOCKED:
+        return apiValidationError(t('tasks.productionDeadlineLocked'));
+      case TASK_TRANSITION_STATUSES.INVALID_POSITION:
+        return apiValidationError(t('tasks.invalidTaskPosition'));
+      case TASK_TRANSITION_STATUSES.INVALID_TRANSITION_INPUT:
+        return apiValidationError(t('tasks.taskTransitionInvalid'));
+      default:
+        logError({
+          error: new Error(`Unexpected atomic move status: ${String(result.status)}`),
+          request: req,
+          metadata: { action: 'task_move_rpc_status', task_id: id },
+        });
+        return apiServerError();
+    }
+
+    if (!result.task || !result.transition) {
+      logError({
+        error: new Error('Atomic move RPC success omitted committed data'),
+        request: req,
+        metadata: { action: 'task_move_rpc_shape', task_id: id },
+      });
+      return apiServerError();
+    }
+
+    const committedTask = result.task;
+    const committedTransition = result.transition;
+    const committedTarget = {
+      name: String(committedTransition.to_column_name),
+      column_type: committedTransition.to_column_type
+        ? String(committedTransition.to_column_type)
+        : null,
+    };
+    const committedBoardId = String(committedTask.board_id);
+    const committedColumnId = String(committedTask.column_id);
+    const committedPosition = Number(committedTask.position ?? newPosition);
+    const committedCrossColumn = committedTransition.is_cross_column === true;
+    const committedCrossBoard = committedTransition.is_cross_board === true;
+    const committedPipeline = committedTransition.is_pipeline_board === true;
+
+    // Notifications and the global audit log are post-commit side effects.
+    // The domain `moved` activity was committed atomically by the RPC.
+    try {
+      if (committedCrossColumn && committedPipeline) {
         const { data: adminRows } = await supabase
           .from('pyra_users')
           .select('username')
           .eq('role', 'admin')
           .eq('status', 'active');
-        const adminNames = (adminRows || []).map(a => a.username);
+        const adminNames = (adminRows || []).map((admin) => admin.username);
+        const taskLink = `/dashboard/boards/${committedBoardId}?task=${id}`;
+        const taskTitle = String(committedTask.title ?? currentTask.title);
 
-        const adminTaskLink = `/dashboard/boards/${data.board_id}?task=${id}`;
         await notifyMany(supabase, adminNames, {
           type: 'task_stage_advanced',
-          title: `📌 «${data.title}» انتقلت إلى ${targetCol.name}`, // i18n-exempt: notification content (Phase 8)
-          message: `${auth.pyraUser.display_name} نقل المهمة إلى "${targetCol.name}"`, // i18n-exempt: notification content (Phase 8)
-          link: adminTaskLink,
+          title: `📌 «${taskTitle}» انتقلت إلى ${committedTarget.name}`, // i18n-exempt: notification content (Phase 8)
+          message: `${auth.pyraUser.display_name} نقل المهمة إلى "${committedTarget.name}"`, // i18n-exempt: notification content (Phase 8)
+          link: taskLink,
           entity: { type: 'task', id },
           from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
         });
 
-        // WhatsApp the admins too (not just in-app) — the admin wants a push
-        // on WhatsApp when an employee moves a task, e.g. "New -> In Progress".
-        // Skip the actor so an admin dragging their own card isn't messaged.
-        // Fire-and-forget: this is the highest-frequency route and a slow
-        // Evolution API must never stall the drag-move response — the in-app
-        // notifyMany above is the guaranteed channel, WA is best-effort.
-        const waMessage = `📌 ${auth.pyraUser.display_name} نقل «${data.title}» إلى ${targetCol.name}\n${APP_URL}${adminTaskLink}`; // i18n-exempt: notification content (Phase 8)
+        const waMessage = `📌 ${auth.pyraUser.display_name} نقل «${taskTitle}» إلى ${committedTarget.name}\n${APP_URL}${taskLink}`; // i18n-exempt: notification content (Phase 8)
         void Promise.allSettled(
           adminNames
-            .filter(admin => admin !== auth.pyraUser.username)
-            .map(admin => sendWhatsAppToUser(supabase, admin, waMessage)),
-        ).catch(err =>
-          logError({ error: err, request: req, metadata: { action: 'task_move_admin_whatsapp', task_id: id } }),
-        );
+            .filter((admin) => admin !== auth.pyraUser.username)
+            .map((admin) => sendWhatsAppToUser(supabase, admin, waMessage)),
+        ).catch((error) => logError({
+          error,
+          request: req,
+          metadata: { action: 'task_move_admin_whatsapp', task_id: id },
+        }));
 
-        // Raw drag-moves also silently skipped assignees (only button-driven
-        // /advance and /approve notified them) — notify the task's assignees
-        // too, matching the advance route's pattern. notifyMany auto-skips
-        // the actor and dedups within this one call.
         const { data: assigneeRows } = await supabase
           .from('pyra_task_assignees')
           .select('username')
           .eq('task_id', id);
-        const assigneeNames = (assigneeRows || []).map(a => a.username);
-
-        await notifyMany(supabase, assigneeNames, {
+        await notifyMany(supabase, (assigneeRows || []).map((row) => row.username), {
           type: 'task_stage_advanced',
-          title: `📌 «${data.title}» انتقلت إلى ${targetCol.name}`, // i18n-exempt: notification content (Phase 8)
-          message: `انتقلت المهمة إلى "${targetCol.name}"`, // i18n-exempt: notification content (Phase 8)
-          link: `/dashboard/boards/${data.board_id}?task=${id}`,
+          title: `📌 «${taskTitle}» انتقلت إلى ${committedTarget.name}`, // i18n-exempt: notification content (Phase 8)
+          message: `انتقلت المهمة إلى "${committedTarget.name}"`, // i18n-exempt: notification content (Phase 8)
+          link: taskLink,
           entity: { type: 'task', id },
           from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
         });
       }
+
+      logActivity(
+        auth.pyraUser.username,
+        auth.pyraUser.display_name,
+        `${ENTITY_TYPES.TASK}_${ACTIVITY_ACTIONS.UPDATE}`,
+        `/dashboard/boards/${committedBoardId}`,
+        {
+          source: 'task_move',
+          task_id: id,
+          column_id: committedColumnId,
+          position: committedPosition,
+          cross_board: committedCrossBoard,
+        },
+      );
+    } catch (sideEffectError) {
+      logError({
+        error: sideEffectError,
+        request: req,
+        metadata: { action: 'task_move_post_commit', task_id: id },
+      });
     }
 
-    // If cross-column, compact the source column positions
-    if (isCrossColumn) {
-      const { data: srcTasks } = await supabase
-        .from('pyra_tasks')
-        .select('id')
-        .eq('column_id', currentTask.column_id)
-        .order('position');
-
-      if (srcTasks) {
-        for (let i = 0; i < srcTasks.length; i++) {
-          await supabase
-            .from('pyra_tasks')
-            .update({ position: i })
-            .eq('id', srcTasks[i].id);
-        }
-      }
-    }
-
-    // Log task activity
-    await supabase.from('pyra_task_activity').insert({
-      id: generateId('tl'),
-      task_id: id,
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      action: 'moved',
-      details: { column_id, position: newPosition },
-    });
-
-    logActivity(
-      auth.pyraUser.username,
-      auth.pyraUser.display_name,
-      'task_moved',
-      `/dashboard/boards/${data.board_id}`,
-      { task_id: id, column_id, position: newPosition, cross_board: !!isCrossBoard },
-    );
-
-    return apiSuccess(data);
-
+    return apiSuccess(committedTask);
   } catch (err) {
-    console.error('[POST /api/tasks/[id]/move] error:', err);
+    logError({ error: err, request: req, metadata: { action: 'task_move' } });
     return apiServerError();
   }
 }

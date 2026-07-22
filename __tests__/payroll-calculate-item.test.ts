@@ -89,11 +89,126 @@ describe('calculatePayrollItem', () => {
     expect(r.net_pay).toBe(1900);
   });
 
-  it('floors net at 0 (deductions exceed earnings)', () => {
+  it('caps all source_type=deduction money at 25% of monthly salary before unpaid leave', () => {
+    const r = calculatePayrollItem({
+      baseSalary: 2200, hourlyRate: 0,
+      payments: [
+        { source_type: 'deduction', amount: 400 },
+        { source_type: 'deduction', amount: 300 },
+      ],
+      overtimeTimesheets: [],
+      unpaidLeave: [{ days: 1, typeName: 'Unpaid leave' }],
+    });
+
+    expect(r.deduction_details).toEqual([
+      { type: 'deduction', amount: 400 },
+      { type: 'deduction', amount: 150 },
+      { type: 'unpaid_leave', amount: 100, reason: 'Unpaid leave — 1 يوم' },
+    ]);
+    expect(r.deductions).toBe(650);
+    expect(r.monetary_deductions).toBe(550);
+    expect(r.unpaid_leave_deductions).toBe(100);
+    expect(r.net_pay).toBe(1550);
+  });
+
+  it('uses the full monthly salary, not the prorated base, for the 25% monetary cap', () => {
+    const r = calculatePayrollItem({
+      baseSalary: 3000, hourlyRate: 0,
+      payments: [{ source_type: 'deduction', amount: 900 }],
+      overtimeTimesheets: [], unpaidLeave: [],
+      prorationFactor: 0.5,
+    });
+
+    expect(r.base_salary).toBe(1500);
+    expect(r.deductions).toBe(750);
+    expect(r.net_pay).toBe(750);
+  });
+
+  it('deducts an approved attendance exemption in full outside the 25% cap', () => {
+    const r = calculatePayrollItem({
+      baseSalary: 2000, hourlyRate: 0,
+      payments: [
+        { source_type: 'deduction', amount: 500 },
+        {
+          source_type: 'deduction',
+          amount: 300,
+          deduction_cap_exempt_amount: 300,
+        },
+      ],
+      overtimeTimesheets: [], unpaidLeave: [],
+    });
+
+    expect(r.deduction_details).toEqual([
+      { type: 'deduction', amount: 500 },
+      { type: 'deduction', amount: 300 },
+    ]);
+    expect(r.monetary_deductions).toBe(800);
+    expect(r.deductions).toBe(800);
+    expect(r.net_pay).toBe(1200);
+  });
+
+  it('only charges the non-exempt portion of a deduction against the 25% cap', () => {
+    const r = calculatePayrollItem({
+      baseSalary: 1000, hourlyRate: 0,
+      payments: [{
+        source_type: 'deduction',
+        amount: 500,
+        deduction_cap_exempt_amount: 150,
+      }],
+      overtimeTimesheets: [], unpaidLeave: [],
+    });
+
+    // 150 exempt + 250 capped = 400 applied from the requested 500.
+    expect(r.deduction_details).toEqual([{ type: 'deduction', amount: 400 }]);
+    expect(r.monetary_deductions).toBe(400);
+    expect(r.net_pay).toBe(600);
+  });
+
+  it('clamps an excessive exemption to the payment amount without consuming the cap', () => {
+    const r = calculatePayrollItem({
+      baseSalary: 400, hourlyRate: 0,
+      payments: [
+        {
+          source_type: 'deduction',
+          amount: 80,
+          deduction_cap_exempt_amount: 999,
+        },
+        { source_type: 'deduction', amount: 100 },
+      ],
+      overtimeTimesheets: [], unpaidLeave: [],
+    });
+
+    expect(r.deduction_details).toEqual([
+      { type: 'deduction', amount: 80 },
+      { type: 'deduction', amount: 100 },
+    ]);
+    expect(r.monetary_deductions).toBe(180);
+  });
+
+  it.each([
+    ['negative', -50],
+    ['non-numeric', 'not-a-number'],
+    ['non-finite', Number.POSITIVE_INFINITY],
+  ])('treats an invalid %s exemption as zero', (_label, exemption) => {
+    const r = calculatePayrollItem({
+      baseSalary: 400, hourlyRate: 0,
+      payments: [{
+        source_type: 'deduction',
+        amount: 150,
+        deduction_cap_exempt_amount: exemption,
+      }],
+      overtimeTimesheets: [], unpaidLeave: [],
+    });
+
+    expect(r.deduction_details).toEqual([{ type: 'deduction', amount: 100 }]);
+    expect(r.monetary_deductions).toBe(100);
+  });
+
+  it('floors net at 0 when capped monetary deductions plus unpaid leave exceed earnings', () => {
     const r = calculatePayrollItem({
       baseSalary: 100, hourlyRate: 0,
       payments: [{ source_type: 'deduction', amount: 500 }],
-      overtimeTimesheets: [], unpaidLeave: [],
+      overtimeTimesheets: [], unpaidLeave: [{ days: 22, typeName: 'Unpaid leave' }],
     });
     expect(r.net_pay).toBe(0);
   });

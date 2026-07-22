@@ -14,11 +14,21 @@ import { MyProductivityCard } from '@/components/dashboard/MyProductivityCard';
 import {
   CheckSquare, Search, Calendar, Briefcase, AlertCircle, Clock,
   ArrowRight, CheckCircle, Circle, GitBranch,
-  StickyNote, User,
+  StickyNote, User, RefreshCcw, AlertTriangle,
 } from 'lucide-react';
 import type { AuthSession } from '@/lib/auth/guards';
 import { dubaiDayKey } from '@/lib/utils/format';
 import { useStatusLabels } from '@/lib/i18n/status-labels';
+import { legacyDubaiDayEndToIso } from '@/lib/production/deadlines';
+import {
+  getBoardTaskDeadline,
+  isBoardTaskDeadlineOverdue,
+  isUnverifiedBoardTaskDeadline,
+} from '@/hooks/useBoardTasks';
+import {
+  resolveTaskDeadlineDisplay,
+  useDeadlineClock,
+} from '@/hooks/useDeadlineClock';
 
 const PRIORITY_STYLES: Record<string, string> = {
   urgent: 'bg-red-500/10 text-red-600 border-red-200 dark:border-red-800',
@@ -29,23 +39,122 @@ const PRIORITY_STYLES: Record<string, string> = {
 
 interface MyTasksClientProps { session: AuthSession; }
 
+export interface DeadlineTask {
+  _source?: 'board_task' | 'lead_task';
+  due_date?: string | null;
+  due_at?: string | null;
+  production_deadline_exempt?: boolean;
+  pyra_board_columns?: { is_done_column?: boolean | null } | null;
+}
+
+export function categorizeMyTasksByDeadline<T extends DeadlineTask>(
+  tasks: readonly T[],
+  currentInstant: string,
+  todayKey: string,
+  weekEndKey: string,
+) {
+  const active = tasks.filter((task) => !task.pyra_board_columns?.is_done_column);
+  const unverified = active.filter((task) =>
+    task._source !== 'lead_task' && isUnverifiedBoardTaskDeadline(task));
+  const isUnverified = (task: T) => unverified.includes(task);
+  const overdue = active.filter((task) =>
+    !isUnverified(task) && taskIsOverdue(task, currentInstant, todayKey));
+  const todayTasks = active.filter((task) => {
+    const dueDay = taskDeadlineDay(task);
+    return !isUnverified(task)
+      && !taskIsOverdue(task, currentInstant, todayKey)
+      && dueDay === todayKey;
+  });
+  const thisWeek = active.filter((task) => {
+    const dueDay = taskDeadlineDay(task);
+    return !isUnverified(task)
+      && !taskIsOverdue(task, currentInstant, todayKey)
+      && dueDay !== null
+      && dueDay > todayKey
+      && dueDay <= weekEndKey;
+  });
+  const upcoming = active.filter((task) => {
+    const dueDay = taskDeadlineDay(task);
+    return !isUnverified(task)
+      && !taskIsOverdue(task, currentInstant, todayKey)
+      && (dueDay === null || dueDay < todayKey || dueDay > weekEndKey);
+  });
+  const done = tasks.filter((task) => task.pyra_board_columns?.is_done_column);
+
+  return { overdue, todayTasks, thisWeek, upcoming, unverified, done };
+}
+
+function taskDeadlineDay(task: DeadlineTask): string | null {
+  if (task._source === 'lead_task') return task.due_date ?? null;
+  return getBoardTaskDeadline(task)?.date ?? null;
+}
+
+function taskEffectiveDeadline(task: DeadlineTask): string | null {
+  if (task._source === 'lead_task') {
+    return task.due_date ? legacyDubaiDayEndToIso(task.due_date) : null;
+  }
+  return getBoardTaskDeadline(task)?.instant ?? null;
+}
+
+function taskIsOverdue(
+  task: DeadlineTask,
+  currentInstant: string,
+  todayKey: string,
+): boolean {
+  if (task._source === 'lead_task') {
+    if (task.pyra_board_columns?.is_done_column) return false;
+    return !!task.due_date && task.due_date < todayKey;
+  }
+  return isBoardTaskDeadlineOverdue(
+    task,
+    new Date(currentInstant),
+    task.pyra_board_columns?.is_done_column === true,
+  );
+}
+
+function taskDeadlineDisplay(task: DeadlineTask, locale: string) {
+  if (task._source === 'lead_task') {
+    return resolveTaskDeadlineDisplay(null, task.due_date ?? null, locale);
+  }
+  const deadline = getBoardTaskDeadline(task);
+  if (!deadline) return null;
+  return resolveTaskDeadlineDisplay(
+    deadline.exact ? deadline.instant : null,
+    deadline.date,
+    locale,
+  );
+}
+
 export default function MyTasksClient({ session }: MyTasksClientProps) {
   const t = useTranslations('mywork.tasks');
-  const locale = useLocale();
   const priorityLabel = useStatusLabels('taskPriority');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'overdue' | 'today' | 'week'>('all');
   const [groupBy, setGroupBy] = useState<'date' | 'board' | 'priority' | 'project'>('date');
 
-  const { data: tasks = [], isLoading: loading } = useQuery<any[]>({
+  const {
+    data: tasks = [],
+    isLoading: loading,
+    isError,
+    refetch,
+  } = useQuery<any[]>({
     queryKey: ['my-tasks'],
     queryFn: () => fetchAPI('/api/my-tasks'),
     staleTime: 30_000,
   });
 
   // dubaiDayKey() — Dubai-day comparison, NOT the UTC day (Phase 15.1 lock).
-  const today = dubaiDayKey();
-  const weekEnd = dubaiDayKey(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+  const currentInstant = useDeadlineClock(
+    tasks
+      .filter((task) => !task.pyra_board_columns?.is_done_column)
+      .map((task) => taskEffectiveDeadline(task)),
+  );
+  const now = new Date(currentInstant);
+  const today = dubaiDayKey(now);
+  const [todayYear, todayMonth, todayDay] = today.split('-').map(Number);
+  const todayWeekday = new Date(Date.UTC(todayYear, todayMonth - 1, todayDay)).getUTCDay();
+  const daysUntilSaturday = (6 - todayWeekday + 7) % 7;
+  const weekEnd = dubaiDayKey(new Date(now.getTime() + daysUntilSaturday * 86_400_000));
 
   const categorized = useMemo(() => {
     let filtered = tasks;
@@ -54,19 +163,21 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
       filtered = filtered.filter(task => task.title.toLowerCase().includes(q));
     }
 
-    const overdue = filtered.filter(task => task.due_date && task.due_date < today && !task.pyra_board_columns?.is_done_column);
-    const todayTasks = filtered.filter(task => task.due_date === today && !task.pyra_board_columns?.is_done_column);
-    const thisWeek = filtered.filter(task => task.due_date && task.due_date > today && task.due_date <= weekEnd && !task.pyra_board_columns?.is_done_column);
-    const upcoming = filtered.filter(task => !task.due_date || (task.due_date > weekEnd && !task.pyra_board_columns?.is_done_column));
-    const done = filtered.filter(task => task.pyra_board_columns?.is_done_column);
+    const categorizedTasks = categorizeMyTasksByDeadline(
+      filtered,
+      currentInstant,
+      today,
+      weekEnd,
+    );
+    const { overdue, todayTasks, thisWeek, upcoming, unverified, done } = categorizedTasks;
 
-    if (filter === 'overdue') return { overdue, todayTasks: [], thisWeek: [], upcoming: [], done: [] };
-    if (filter === 'today') return { overdue: [], todayTasks, thisWeek: [], upcoming: [], done: [] };
-    if (filter === 'week') return { overdue: [], todayTasks: [], thisWeek, upcoming: [], done: [] };
-    return { overdue, todayTasks, thisWeek, upcoming, done };
-  }, [tasks, search, filter, today, weekEnd]);
+    if (filter === 'overdue') return { overdue, todayTasks: [], thisWeek: [], upcoming: [], unverified: [], done: [] };
+    if (filter === 'today') return { overdue: [], todayTasks, thisWeek: [], upcoming: [], unverified: [], done: [] };
+    if (filter === 'week') return { overdue: [], todayTasks: [], thisWeek, upcoming: [], unverified: [], done: [] };
+    return { overdue, todayTasks, thisWeek, upcoming, unverified, done };
+  }, [tasks, search, filter, currentInstant, today, weekEnd]);
 
-  const overdueCount = tasks.filter(task => task.due_date && task.due_date < today && !task.pyra_board_columns?.is_done_column).length;
+  const overdueCount = tasks.filter(task => taskIsOverdue(task, currentInstant, today)).length;
   const activeCount = tasks.filter(task => !task.pyra_board_columns?.is_done_column).length;
 
   if (loading) {
@@ -77,6 +188,23 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
           {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
         </div>
         {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="p-6">
+        <EmptyState
+          icon={AlertCircle}
+          title={t('error.title')}
+          description={t('error.description')}
+          actions={[{
+            label: t('error.retry'),
+            onClick: () => void refetch(),
+            icon: RefreshCcw,
+          }]}
+        />
       </div>
     );
   }
@@ -208,11 +336,12 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
         <EmptyState icon={CheckSquare} title={t('empty.title')} description={t('empty.description')} />
       ) : groupBy === 'date' ? (
         <div className="space-y-6">
-          <TaskSection title={t('sections.overdue')} icon={AlertCircle} color="text-red-500" tasks={categorized.overdue} />
-          <TaskSection title={t('sections.today')} icon={Calendar} color="text-blue-500" tasks={categorized.todayTasks} />
-          <TaskSection title={t('sections.week')} icon={Clock} color="text-green-500" tasks={categorized.thisWeek} />
-          <TaskSection title={t('sections.upcoming')} icon={ArrowRight} color="text-gray-500" tasks={categorized.upcoming} />
-          <TaskSection title={t('sections.done')} icon={CheckCircle} color="text-green-600 dark:text-green-400" tasks={categorized.done} collapsed />
+          <TaskSection title={t('sections.overdue')} icon={AlertCircle} color="text-red-500" tasks={categorized.overdue} currentInstant={currentInstant} />
+          <TaskSection title={t('sections.today')} icon={Calendar} color="text-blue-500" tasks={categorized.todayTasks} currentInstant={currentInstant} />
+          <TaskSection title={t('sections.week')} icon={Clock} color="text-green-500" tasks={categorized.thisWeek} currentInstant={currentInstant} />
+          <TaskSection title={t('sections.unverified')} icon={AlertTriangle} color="text-amber-600 dark:text-amber-400" tasks={categorized.unverified} currentInstant={currentInstant} />
+          <TaskSection title={t('sections.upcoming')} icon={ArrowRight} color="text-gray-500" tasks={categorized.upcoming} currentInstant={currentInstant} />
+          <TaskSection title={t('sections.done')} icon={CheckCircle} color="text-green-600 dark:text-green-400" tasks={categorized.done} currentInstant={currentInstant} collapsed />
         </div>
       ) : (
         <div className="space-y-6">
@@ -241,7 +370,7 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
               groups.get(key)!.tasks.push(task);
             });
             return Array.from(groups.entries()).map(([key, group]) => (
-              <TaskSection key={key} title={group.title} icon={CheckSquare} color="text-orange-500" tasks={group.tasks} />
+              <TaskSection key={key} title={group.title} icon={CheckSquare} color="text-orange-500" tasks={group.tasks} currentInstant={currentInstant} />
             ));
           })()}
         </div>
@@ -250,8 +379,8 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
   );
 }
 
-function TaskSection({ title, icon: Icon, color, tasks, collapsed = false }: {
-  title: string; icon: any; color: string; tasks: any[]; collapsed?: boolean;
+function TaskSection({ title, icon: Icon, color, tasks, currentInstant, collapsed = false }: {
+  title: string; icon: any; color: string; tasks: any[]; currentInstant: string; collapsed?: boolean;
 }) {
   const t = useTranslations('mywork.tasks');
   const locale = useLocale();
@@ -283,14 +412,21 @@ function TaskSection({ title, icon: Icon, color, tasks, collapsed = false }: {
             const projectName = task.pyra_boards?.pyra_projects?.name;
             const columnName = task.pyra_board_columns?.name;
             // dubaiDayKey() — Dubai-day comparison, NOT the UTC day (Phase 15.1 lock).
-            const isOverdue = task.due_date && task.due_date < dubaiDayKey() && !task.pyra_board_columns?.is_done_column;
+            const isOverdue = taskIsOverdue(
+              task,
+              currentInstant,
+              dubaiDayKey(new Date(currentInstant)),
+            );
+            const deadlineDisplay = taskDeadlineDisplay(task, locale);
+            const isUnverifiedDeadline = !isLeadTask
+              && isUnverifiedBoardTaskDeadline(task);
             const SourceIcon = isLeadTask ? StickyNote : Circle;
             const href: string = task.target_path
               || (task.board_id ? `/dashboard/boards/${task.board_id}` : '#');
 
             return (
               <Link key={task.id} href={href}>
-                <Card className={`hover:border-orange-300 dark:hover:border-orange-700 transition-colors cursor-pointer ${isOverdue ? 'border-s-4 border-s-red-500' : ''}`}>
+                <Card className={`hover:border-orange-300 dark:hover:border-orange-700 transition-colors cursor-pointer ${isOverdue ? 'border-s-4 border-s-red-500' : ''} ${isUnverifiedDeadline ? 'border-s-4 border-s-amber-500 bg-amber-50/40 dark:bg-amber-950/20' : ''}`}>
                   <CardContent className="p-3 flex items-center justify-between">
                     <div className="flex items-center gap-3 min-w-0">
                       <SourceIcon className={`h-4 w-4 shrink-0 ${task.pyra_board_columns?.is_done_column ? 'text-green-500 fill-green-500' : (isLeadTask ? 'text-orange-500' : 'text-muted-foreground')}`} />
@@ -327,12 +463,19 @@ function TaskSection({ title, icon: Icon, color, tasks, collapsed = false }: {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      {isUnverifiedDeadline && (
+                        <Badge className="border-0 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                          {t('unverifiedDeadline')}
+                        </Badge>
+                      )}
                       <Badge variant="outline" className={`text-[10px] ${PRIORITY_STYLES[task.priority]}`}>
                         {priorityLabel(task.priority)}
                       </Badge>
-                      {task.due_date && (
+                      {deadlineDisplay && (
                         <span className={`text-[10px] ${isOverdue ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>
-                          {new Date(task.due_date).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', { month: 'short', day: 'numeric' })}
+                          {deadlineDisplay.kind === 'exact'
+                            ? t('exactDeadline', deadlineDisplay)
+                            : deadlineDisplay.label}
                         </span>
                       )}
                     </div>

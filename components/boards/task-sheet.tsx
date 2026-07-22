@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, forwardRef } from 'react';
+import { useState, useEffect, useRef, forwardRef } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
+import { useQuery } from '@tanstack/react-query';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet';
@@ -18,15 +19,33 @@ import { cn } from '@/lib/utils/cn';
 import { hasPermission } from '@/lib/auth/rbac';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { MentionTextarea } from '@/components/ui/mention-textarea';
+import { TaskRejectionDialog, type TaskRejectionInput } from '@/components/boards/task-rejection-dialog';
 import { renderTextWithMentions } from '@/lib/utils/mentions';
 import { useStatusLabels } from '@/lib/i18n/status-labels';
-import { dubaiDayKey } from '@/lib/utils/format';
 import { dirFor, type Locale } from '@/lib/i18n/config';
+import { PRODUCTION_BOARD_ID } from '@/lib/constants/production';
+import { isoToDubaiDateTime } from '@/lib/production/deadlines';
+import { getTaskRejectionActivityDisplay } from '@/lib/production/quality';
+import {
+  canSubmitProductionDeadlineUpdate,
+  formatBoardTaskDeadline,
+  isBoardTaskDeadlineOverdue,
+  isUnverifiedBoardTaskDeadline,
+  needsProductionDeadlineOnTransfer,
+  useBoardTask,
+} from '@/hooks/useBoardTasks';
+import {
+  useAdvanceBoardTask,
+  useDuplicateBoardTask,
+  useMoveBoardTask,
+  useReviewBoardTask,
+  useUpdateBoardTask,
+} from '@/hooks/useBoardTaskMutations';
 import {
   Users, Tag, CalendarDays, CalendarClock, Flag, Clock, Paperclip, Image,
   FolderOpen, ArrowRightLeft, Archive, Trash2, Plus, Check, X, Send, Copy,
   ChevronDown, Download, FileText, MessageSquare, History, CheckSquare,
-  GripVertical, MoreHorizontal, Pencil, AlertTriangle, Loader2,
+  GripVertical, MoreHorizontal, Pencil, AlertTriangle, Loader2, Lock,
 } from 'lucide-react';
 import type { AuthSession } from '@/lib/auth/guards';
 
@@ -96,7 +115,7 @@ interface Activity {
   username: string;
   display_name: string;
   action: string;
-  details: string;
+  details: unknown;
   created_at: string;
 }
 
@@ -108,7 +127,10 @@ interface TaskDetail {
   board_id: string;
   position: number;
   priority: string;
-  due_date?: string;
+  due_date?: string | null;
+  due_at?: string | null;
+  production_deadline_exempt?: boolean;
+  deadline_locked?: boolean;
   start_date?: string;
   stage_entered_at?: string | null;
   estimated_hours?: number;
@@ -132,6 +154,7 @@ interface TaskSheetProps {
   onClose: () => void;
   onUpdate: () => void;
   session: AuthSession;
+  currentInstant: string;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -243,14 +266,20 @@ function StageStepper({ columns, currentColumnId }: { columns: Column[]; current
 // Main Component
 // ═══════════════════════════════════════════════════════════
 
-export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskSheetProps) {
+export function TaskSheet({
+  taskId,
+  board,
+  onClose,
+  onUpdate,
+  session,
+  currentInstant,
+}: TaskSheetProps) {
   const t = useTranslations('boards.sheet');
+  const commonT = useTranslations('common');
   const locale = useLocale() as Locale;
   const priorityLabel = useStatusLabels('taskPriority');
   const actionLabel = useActionLabel();
   const timeAgo = useTimeAgo();
-  const [task, setTask] = useState<TaskDetail | null>(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   // Inline edits
@@ -269,7 +298,6 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
 
   // Assignee search
   const [assigneeSearch, setAssigneeSearch] = useState('');
-  const [allUsers, setAllUsers] = useState<{ username: string; display_name: string }[]>([]);
 
   // Delete
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -280,15 +308,27 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
 
   // Pipeline actions
   const [advancing, setAdvancing] = useState(false);
-  const [rejectNote, setRejectNote] = useState('');
-  const [showReject, setShowReject] = useState(false);
+  const [rejectionDialogOpen, setRejectionDialogOpen] = useState(false);
   const [linkDialog, setLinkDialog] = useState<null | 'review' | 'delivery'>(null);
   const [actionLink, setActionLink] = useState('');
   const [actionNote, setActionNote] = useState('');
+  const taskQuery = useBoardTask<TaskDetail>(taskId);
+  const usersQuery = useQuery({
+    queryKey: ['users', 'task-assignees'],
+    queryFn: () => fetchAPI<{ username: string; display_name: string }[]>('/api/users/lite'),
+    staleTime: 60_000,
+  });
+  const updateTaskMutation = useUpdateBoardTask();
+  const moveTaskMutation = useMoveBoardTask();
+  const advanceTaskMutation = useAdvanceBoardTask();
+  const reviewTaskMutation = useReviewBoardTask();
+  const task = taskQuery.data || null;
+  const allUsers = usersQuery.data || [];
+  const isProductionTask = board.id === PRODUCTION_BOARD_ID;
 
-  const canEdit = hasPermission(session.pyraUser.rolePermissions, 'tasks.create');
-  const canDelete = hasPermission(session.pyraUser.rolePermissions, 'tasks.manage');
-  const canManage = canEdit; // tasks.create — can submit/advance
+  const canUseTaskActions = hasPermission(session.pyraUser.rolePermissions, 'tasks.create');
+  const canManageTaskProperties = hasPermission(session.pyraUser.rolePermissions, 'tasks.manage');
+  const canDelete = canManageTaskProperties;
   const canApprove = hasPermission(session.pyraUser.rolePermissions, 'boards.manage');
 
   const columns = (board.pyra_board_columns || []).sort((a, b) => a.position - b.position);
@@ -303,29 +343,35 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
     : null;
   const isLastStage = pipelineCols.length > 0 && currentColIdx === pipelineCols.length - 1;
 
-  // ── Fetch ──
-  const fetchTask = useCallback(async () => {
-    try {
-      const data = await fetchAPI<TaskDetail>(`/api/tasks/${taskId}`);
-      if (data) {
-        setTask(data);
-        setEditTitle(data.title);
-        setEditDesc(data.description || '');
-      }
-    } catch { toast.error(t('errors.loadFailed')); }
-    finally { setLoading(false); }
-  }, [taskId]);
-
-  useEffect(() => { fetchTask(); }, [fetchTask]);
-
-  // Fetch users for assignee search
   useEffect(() => {
-    fetchAPI<{ username: string; display_name: string }[]>('/api/users').then(users => {
-      if (users) setAllUsers(users.map(u => ({ username: u.username, display_name: u.display_name })));
-    }).catch(() => {});
-  }, []);
+    if (!taskQuery.data) return;
+    setEditTitle(taskQuery.data.title);
+    setEditDesc(taskQuery.data.description || '');
+  }, [taskQuery.data]);
 
-  if (loading || !task) {
+  useEffect(() => {
+    if (taskQuery.isError) toast.error(t('errors.loadFailed'));
+  }, [taskQuery.isError, t]);
+
+  const fetchTask = taskQuery.refetch;
+
+  if (taskQuery.isError && !task) {
+    return (
+      <Sheet open onOpenChange={onClose}>
+        <SheetContent side="left" className="w-full sm:max-w-3xl p-0" aria-describedby={undefined}>
+          <div className="flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
+            <AlertTriangle className="size-10 text-red-500" aria-hidden />
+            <SheetTitle>{t('errors.loadFailed')}</SheetTitle>
+            <Button variant="outline" onClick={() => void fetchTask()}>
+              {commonT('actions.retry')}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  if (taskQuery.isLoading || !task) {
     return (
       <Sheet open onOpenChange={onClose}>
         <SheetContent side="left" className="w-full sm:max-w-3xl p-0" aria-describedby={undefined}>
@@ -347,30 +393,64 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   const activities = (task.pyra_task_activity || []).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   const checkDone = checklist.filter(c => c.is_checked).length;
   const checkTotal = checklist.length;
-  const isOverdue = task.due_date && task.due_date < dubaiDayKey() && !currentCol?.is_done_column;
+  const isOverdue = isBoardTaskDeadlineOverdue(
+    task,
+    new Date(currentInstant),
+    currentCol?.is_done_column === true,
+  );
+  const formattedDeadline = formatBoardTaskDeadline(task, locale);
 
   // ── API Calls ──
   const saveField = async (field: string, value: unknown) => {
+    if (!canManageTaskProperties) return;
     setSaving(true);
     try {
-      await mutateAPI(`/api/tasks/${task.id}`, 'PATCH', { [field]: value });
-      fetchTask();
+      await updateTaskMutation.mutateAsync({
+        taskId: task.id,
+        boardId: board.id,
+        data: { [field]: value },
+      });
+      await fetchTask();
       onUpdate();
     } catch { toast.error(t('errors.saveFailed')); }
     finally { setSaving(false); }
   };
 
+  const saveProductionDeadline = async (date: string, time: string) => {
+    if (!canManageTaskProperties || !canSubmitProductionDeadlineUpdate(task, date, time)) return false;
+    setSaving(true);
+    try {
+      await updateTaskMutation.mutateAsync({
+        taskId: task.id,
+        boardId: board.id,
+        data: { due_date: date, due_time: time },
+      });
+      await fetchTask();
+      onUpdate();
+      toast.success(t('toasts.deadlineUpdated'));
+      return true;
+    } catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : t('errors.saveFailed'));
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const saveTitle = () => {
+    if (!canManageTaskProperties) return;
     if (editTitle.trim() && editTitle !== task.title) saveField('title', editTitle.trim());
     setEditingTitle(false);
   };
 
   const saveDescription = () => {
+    if (!canManageTaskProperties) return;
     if (editDesc !== (task.description || '')) saveField('description', editDesc || null);
     setEditingDesc(false);
   };
 
   const addAssignee = async (username: string) => {
+    if (!canUseTaskActions) return;
     try {
       await mutateAPI(`/api/tasks/${task.id}/assignees`, 'POST', { usernames: [username] });
       setAssigneeSearch('');
@@ -382,6 +462,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   };
 
   const removeAssignee = async (username: string) => {
+    if (!canUseTaskActions) return;
     try {
       await mutateAPI(`/api/tasks/${task.id}/assignees?username=${encodeURIComponent(username)}`, 'DELETE');
       fetchTask();
@@ -392,6 +473,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   };
 
   const toggleLabel = async (labelId: string) => {
+    if (!canManageTaskProperties) return;
     try {
       const has = taskLabels.some(l => l.label_id === labelId);
       if (has) {
@@ -408,6 +490,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   };
 
   const addComment = async () => {
+    if (!canUseTaskActions) return;
     if (!commentText.trim()) return;
     setSendingComment(true);
     try {
@@ -419,6 +502,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   };
 
   const deleteComment = async (commentId: string) => {
+    if (!canUseTaskActions) return;
     try {
       await mutateAPI(`/api/tasks/${task.id}/comments?commentId=${commentId}`, 'DELETE');
       fetchTask();
@@ -428,6 +512,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   };
 
   const addChecklistItem = async () => {
+    if (!canUseTaskActions) return;
     if (!newCheckItem.trim()) return;
     await mutateAPI(`/api/tasks/${task.id}/checklist`, 'POST', { title: newCheckItem.trim() });
     setNewCheckItem('');
@@ -437,6 +522,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   };
 
   const toggleCheckItem = async (itemId: string, currentChecked: boolean) => {
+    if (!canUseTaskActions) return;
     try {
       await mutateAPI(`/api/tasks/${task.id}/checklist?itemId=${itemId}`, 'PATCH', { is_checked: !currentChecked });
       fetchTask();
@@ -447,6 +533,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   };
 
   const deleteCheckItem = async (itemId: string) => {
+    if (!canUseTaskActions) return;
     try {
       await mutateAPI(`/api/tasks/${task.id}/checklist?itemId=${itemId}`, 'DELETE');
       fetchTask();
@@ -457,6 +544,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canUseTaskActions) return;
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
@@ -498,9 +586,14 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   };
 
   const moveToColumn = async (colId: string) => {
+    if (!canUseTaskActions) return;
     try {
-      await mutateAPI(`/api/tasks/${task.id}/move`, 'POST', { column_id: colId, position: 0 });
-      fetchTask();
+      await moveTaskMutation.mutateAsync({
+        taskId: task.id,
+        boardId: board.id,
+        data: { column_id: colId, position: 0 },
+      });
+      await fetchTask();
       onUpdate();
     } catch (e) {
       // Surface the server's Arabic guidance (e.g. gated-column 422 telling
@@ -511,23 +604,21 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
 
   // ── Pipeline: Advance / Approve / Reject ──
   const handleAdvance = async () => {
+    if (!canUseTaskActions) return;
     setAdvancing(true);
     try {
-      const res = await fetch(`/api/boards/${board.id}/tasks/${task.id}/advance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      const json = await res.json();
-      if (!res.ok) { toast.error(json.error || t('errors.moveFailed')); return; }
+      await advanceTaskMutation.mutateAsync({ taskId: task.id, boardId: board.id, data: {} });
       toast.success(t('toasts.advanced'));
-      fetchTask();
+      await fetchTask();
       onUpdate();
-    } catch { toast.error(t('errors.generic')); }
+    } catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : t('errors.generic'));
+    }
     finally { setAdvancing(false); }
   };
 
   const handleAdvanceWithLink = async (kind: 'review' | 'delivery') => {
+    if (!canUseTaskActions) return;
     const link = actionLink.trim();
     if (!/^https:\/\/.+/i.test(link)) {
       toast.error(t('errors.invalidLink'));
@@ -535,61 +626,58 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
     }
     setAdvancing(true);
     try {
-      const res = await fetch(`/api/boards/${board.id}/tasks/${task.id}/advance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
+      await advanceTaskMutation.mutateAsync({
+        taskId: task.id,
+        boardId: board.id,
+        data:
           kind === 'review'
             ? { review_link: link, note: actionNote.trim() }
-            : { delivery_link: link }
-        ),
+            : { delivery_link: link },
       });
-      const json = await res.json();
-      if (!res.ok) { toast.error(json.error || t('errors.moveFailed')); return; }
       toast.success(kind === 'review' ? t('toasts.reviewSubmitted') : t('toasts.deliverySubmitted'));
       setLinkDialog(null);
       setActionLink('');
       setActionNote('');
-      fetchTask();
+      await fetchTask();
       onUpdate();
-    } catch { toast.error(t('errors.generic')); }
+    } catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : t('errors.generic'));
+    }
     finally { setAdvancing(false); }
   };
 
   const handleApprove = async () => {
     setAdvancing(true);
     try {
-      const res = await fetch(`/api/boards/${board.id}/tasks/${task.id}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'approve' }),
+      await reviewTaskMutation.mutateAsync({
+        taskId: task.id,
+        boardId: board.id,
+        data: { action: 'approve' },
       });
-      const json = await res.json();
-      if (!res.ok) { toast.error(json.error || t('errors.approveFailed')); return; }
       toast.success(t('toasts.approved'));
-      fetchTask();
+      await fetchTask();
       onUpdate();
-    } catch { toast.error(t('errors.generic')); }
+    } catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : t('errors.approveFailed'));
+    }
     finally { setAdvancing(false); }
   };
 
-  const handleReject = async () => {
-    if (!rejectNote.trim()) return;
+  const handleReject = async (input: TaskRejectionInput) => {
     setAdvancing(true);
     try {
-      const res = await fetch(`/api/boards/${board.id}/tasks/${task.id}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'reject', note: rejectNote }),
+      await reviewTaskMutation.mutateAsync({
+        taskId: task.id,
+        boardId: board.id,
+        data: { action: 'reject', ...input },
       });
-      const json = await res.json();
-      if (!res.ok) { toast.error(json.error || t('errors.rejectFailed')); return; }
       toast.success(t('toasts.rejected'));
-      setShowReject(false);
-      setRejectNote('');
-      fetchTask();
+      setRejectionDialogOpen(false);
+      await fetchTask();
       onUpdate();
-    } catch { toast.error(t('errors.generic')); }
+    } catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : t('errors.rejectFailed'));
+    }
     finally { setAdvancing(false); }
   };
 
@@ -614,27 +702,17 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
             <p className="text-xs text-emerald-700 dark:text-emerald-300">{t('pipeline.reviewDecision')}</p>
           </div>
           <div className="flex gap-1.5 shrink-0">
-            {showReject ? (
-              <div className="flex items-center gap-1.5">
-                <Input value={rejectNote} onChange={e => setRejectNote(e.target.value)} placeholder={t('pipeline.rejectNotePlaceholder')} className="h-8 text-xs w-44" />
-                <Button size="sm" variant="destructive" className="h-8 text-xs" disabled={advancing || !rejectNote.trim()} onClick={handleReject}>{t('pipeline.requestChangesConfirm')}</Button>
-                <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowReject(false); setRejectNote(''); }}>{t('cancel')}</Button>
-              </div>
-            ) : (
-              <>
-                <Button size="sm" variant="ghost" className="h-8 text-xs text-red-500" onClick={() => setShowReject(true)}>{t('pipeline.requestChanges')}</Button>
-                <Button size="sm" className="h-8 text-xs bg-emerald-500 hover:bg-emerald-600 text-white" disabled={advancing} onClick={handleApprove}>
-                  {advancing ? <><Loader2 className="h-4 w-4 animate-spin" /> {t('pipeline.working')}</> : t('pipeline.approve')}
-                </Button>
-              </>
-            )}
+            <Button size="sm" variant="ghost" className="h-8 text-xs text-red-500" disabled={advancing} onClick={() => setRejectionDialogOpen(true)}>{t('pipeline.requestChanges')}</Button>
+            <Button size="sm" className="h-8 text-xs bg-emerald-500 hover:bg-emerald-600 text-white" disabled={advancing} onClick={handleApprove}>
+              {advancing ? <><Loader2 className="h-4 w-4 animate-spin" /> {t('pipeline.working')}</> : t('pipeline.approve')}
+            </Button>
           </div>
         </div>
       );
     }
 
     // 2. Review column — needs a review link
-    if (nextCol.column_type === 'review' && canManage) {
+    if (nextCol.column_type === 'review' && canUseTaskActions) {
       return linkDialog === 'review' ? (
         <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 space-y-2">
           <p className="text-xs font-medium text-amber-800 dark:text-amber-300">{t('pipeline.reviewLinkLabel')}</p>
@@ -655,7 +733,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
     }
 
     // 3. Delivery column — needs the final Drive link
-    if (nextCol.column_type === 'delivery' && canManage) {
+    if (nextCol.column_type === 'delivery' && canUseTaskActions) {
       return linkDialog === 'delivery' ? (
         <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 space-y-2">
           <p className="text-xs font-medium text-green-800 dark:text-green-300">{t('pipeline.deliveryLinkLabel')}</p>
@@ -675,7 +753,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
     }
 
     // 4. Untyped, non-gated column — generic advance
-    if (canManage) {
+    if (canUseTaskActions) {
       return (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
           <ArrowRightLeft className="h-4 w-4 text-emerald-500 shrink-0" />
@@ -693,6 +771,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   };
 
   const archiveTask = async () => {
+    if (!canManageTaskProperties) return;
     await saveField('is_archived', true);
     onClose();
   };
@@ -719,7 +798,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
     return (
       <>
         {/* Assignees */}
-        <div>
+        {canUseTaskActions && <div>
           <Popover>
             <PopoverTrigger asChild>
               <SidebarBtn icon={Users} label={t('sidebar.assignees')} compact={compact} />
@@ -756,25 +835,46 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
               )}
               {/* Pickable list — always visible, filtered by search when typed */}
               <div className="max-h-48 overflow-y-auto">
-                {filteredUsers.map(u => (
-                  <button
-                    key={u.username}
-                    onClick={() => addAssignee(u.username)}
-                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted text-xs text-start"
-                  >
-                    <Avatar className="h-5 w-5">
-                      <AvatarFallback className={cn('text-[8px] text-white', getAvatarColor(u.username))}>
-                        {u.username.slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p>{u.display_name}</p>
-                      <p className="text-[10px] text-muted-foreground">{u.username}</p>
+                {usersQuery.isError ? (
+                  <div className="rounded-md border border-red-200 bg-red-50/60 p-2 text-center dark:border-red-800/40 dark:bg-red-950/30">
+                    <div className="flex items-center justify-center gap-1.5 text-red-700 dark:text-red-300">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      <p className="text-xs font-medium">{t('sidebar.usersLoadFailed')}</p>
                     </div>
-                  </button>
-                ))}
-                {filteredUsers.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-2">{t('sidebar.noUsers')}</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 h-7 text-xs"
+                      disabled={usersQuery.isFetching}
+                      onClick={() => void usersQuery.refetch()}
+                    >
+                      {commonT('actions.retry')}
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    {filteredUsers.map(u => (
+                      <button
+                        key={u.username}
+                        onClick={() => addAssignee(u.username)}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted text-xs text-start"
+                      >
+                        <Avatar className="h-5 w-5">
+                          <AvatarFallback className={cn('text-[8px] text-white', getAvatarColor(u.username))}>
+                            {u.username.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p>{u.display_name}</p>
+                          <p className="text-[10px] text-muted-foreground">{u.username}</p>
+                        </div>
+                      </button>
+                    ))}
+                    {filteredUsers.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-2">{t('sidebar.noUsers')}</p>
+                    )}
+                  </>
                 )}
               </div>
             </PopoverContent>
@@ -784,35 +884,45 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
               {t('sidebar.noneAssigned')}
             </p>
           )}
-        </div>
+        </div>}
 
         {/* Labels */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <SidebarBtn icon={Tag} label={t('sidebar.labels')} compact={compact} />
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-48 p-2">
-            {labels.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-2">{t('sidebar.noLabels')}</p>
-            ) : labels.map(l => {
-              const active = taskLabels.some(tl => tl.label_id === l.id);
-              return (
-                <button
-                  key={l.id}
-                  onClick={() => toggleLabel(l.id)}
-                  className={cn(
-                    'w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-start transition-colors',
-                    active ? 'bg-orange-500/10' : 'hover:bg-muted'
-                  )}
-                >
-                  <div className={cn('w-3 h-3 rounded-sm', LABEL_COLOR_MAP[l.color] || 'bg-gray-500')} />
-                  <span className="flex-1">{l.name}</span>
-                  {active && <Check className="h-3 w-3 text-orange-500" />}
-                </button>
-              );
-            })}
-          </PopoverContent>
-        </Popover>
+        {canManageTaskProperties ? (
+          <Popover>
+            <PopoverTrigger asChild>
+              <SidebarBtn icon={Tag} label={t('sidebar.labels')} compact={compact} />
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-48 p-2">
+              {labels.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-2">{t('sidebar.noLabels')}</p>
+              ) : labels.map(l => {
+                const active = taskLabels.some(tl => tl.label_id === l.id);
+                return (
+                  <button
+                    key={l.id}
+                    onClick={() => toggleLabel(l.id)}
+                    className={cn(
+                      'w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-start transition-colors',
+                      active ? 'bg-orange-500/10' : 'hover:bg-muted'
+                    )}
+                  >
+                    <div className={cn('w-3 h-3 rounded-sm', LABEL_COLOR_MAP[l.color] || 'bg-gray-500')} />
+                    <span className="flex-1">{l.name}</span>
+                    {active && <Check className="h-3 w-3 text-orange-500" />}
+                  </button>
+                );
+              })}
+            </PopoverContent>
+          </Popover>
+        ) : (
+          <SidebarBtn
+            icon={Tag}
+            label={t('sidebar.labels')}
+            badge={taskLabels.length > 0 ? String(taskLabels.length) : undefined}
+            compact={compact}
+            disabled
+          />
+        )}
 
         {/* Start date */}
         <SidebarDateBtn
@@ -821,76 +931,113 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
           value={task.start_date || ''}
           onChange={v => saveField('start_date', v || null)}
           compact={compact}
+          readOnly={!canManageTaskProperties}
         />
 
-        {/* Due date */}
-        <SidebarDateBtn
-          icon={CalendarClock}
-          label={t('sidebar.dueDate')}
-          value={task.due_date || ''}
-          onChange={v => saveField('due_date', v || null)}
-          isOverdue={!!isOverdue}
-          compact={compact}
-        />
+        {/* Exact production deadline; generic boards keep their date-only contract. */}
+        {isProductionTask ? (
+          <ProductionDeadlineBtn
+            dueDate={task.due_date || ''}
+            dueAt={task.due_at || null}
+            deadlineExempt={isUnverifiedBoardTaskDeadline(task)}
+            locked={task.deadline_locked === true}
+            canManage={canManageTaskProperties}
+            onSave={saveProductionDeadline}
+            isOverdue={!!isOverdue}
+            compact={compact}
+            saving={saving}
+          />
+        ) : (
+          <SidebarDateBtn
+            icon={CalendarClock}
+            label={t('sidebar.dueDate')}
+            value={task.due_date || ''}
+            onChange={v => saveField('due_date', v || null)}
+            isOverdue={!!isOverdue}
+            compact={compact}
+            locked={task.deadline_locked === true}
+            readOnly={!canManageTaskProperties}
+          />
+        )}
 
         {/* Priority */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <SidebarBtn icon={Flag} label={t('sidebar.priority')} compact={compact} />
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-40 p-1">
-            {PRIORITY_KEYS.map(p => (
-              <button
-                key={p.key}
-                onClick={() => saveField('priority', p.key)}
-                className={cn(
-                  'w-full flex items-center gap-2 px-3 py-1.5 rounded text-xs text-start hover:bg-muted',
-                  task.priority === p.key && 'bg-orange-500/10'
-                )}
-              >
-                <div className={cn('w-2.5 h-2.5 rounded-full', p.color)} />
-                {priorityLabel(p.key)}
-                {task.priority === p.key && <Check className="h-3 w-3 ms-auto text-orange-500" />}
-              </button>
-            ))}
-          </PopoverContent>
-        </Popover>
+        {canManageTaskProperties ? (
+          <Popover>
+            <PopoverTrigger asChild>
+              <SidebarBtn icon={Flag} label={t('sidebar.priority')} compact={compact} />
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-40 p-1">
+              {PRIORITY_KEYS.map(p => (
+                <button
+                  key={p.key}
+                  onClick={() => saveField('priority', p.key)}
+                  className={cn(
+                    'w-full flex items-center gap-2 px-3 py-1.5 rounded text-xs text-start hover:bg-muted',
+                    task.priority === p.key && 'bg-orange-500/10'
+                  )}
+                >
+                  <div className={cn('w-2.5 h-2.5 rounded-full', p.color)} />
+                  {priorityLabel(p.key)}
+                  {task.priority === p.key && <Check className="h-3 w-3 ms-auto text-orange-500" />}
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
+        ) : (
+          <SidebarBtn
+            icon={Flag}
+            label={t('sidebar.priority')}
+            badge={priorityLabel(task.priority)}
+            compact={compact}
+            disabled
+          />
+        )}
 
         {/* Hours */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <SidebarBtn icon={Clock} label={t('sidebar.hours')} badge={task.estimated_hours ? `${task.actual_hours || 0}/${task.estimated_hours}` : undefined} compact={compact} />
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-48 p-3 space-y-2">
-            <div>
-              <label className="text-[10px] text-muted-foreground">{t('sidebar.estimatedHours')}</label>
-              <Input
-                type="number"
-                min={0}
-                step={0.5}
-                defaultValue={task.estimated_hours || ''}
-                onBlur={e => saveField('estimated_hours', Number(e.target.value) || null)}
-                className="h-8 text-xs"
-                dir="ltr"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] text-muted-foreground">{t('sidebar.actualHours')}</label>
-              <Input
-                type="number"
-                min={0}
-                step={0.5}
-                defaultValue={task.actual_hours || ''}
-                onBlur={e => saveField('actual_hours', Number(e.target.value) || null)}
-                className="h-8 text-xs"
-                dir="ltr"
-              />
-            </div>
-          </PopoverContent>
-        </Popover>
+        {canManageTaskProperties ? (
+          <Popover>
+            <PopoverTrigger asChild>
+              <SidebarBtn icon={Clock} label={t('sidebar.hours')} badge={task.estimated_hours ? `${task.actual_hours || 0}/${task.estimated_hours}` : undefined} compact={compact} />
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-48 p-3 space-y-2">
+              <div>
+                <label className="text-[10px] text-muted-foreground">{t('sidebar.estimatedHours')}</label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  defaultValue={task.estimated_hours || ''}
+                  onBlur={e => saveField('estimated_hours', Number(e.target.value) || null)}
+                  className="h-8 text-xs"
+                  dir="ltr"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-muted-foreground">{t('sidebar.actualHours')}</label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  defaultValue={task.actual_hours || ''}
+                  onBlur={e => saveField('actual_hours', Number(e.target.value) || null)}
+                  className="h-8 text-xs"
+                  dir="ltr"
+                />
+              </div>
+            </PopoverContent>
+          </Popover>
+        ) : (
+          <SidebarBtn
+            icon={Clock}
+            label={t('sidebar.hours')}
+            badge={task.estimated_hours ? `${task.actual_hours || 0}/${task.estimated_hours}` : undefined}
+            compact={compact}
+            disabled
+          />
+        )}
 
         {/* Attachment */}
-        {compact ? (
+        {canUseTaskActions && (compact ? (
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
@@ -908,10 +1055,10 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
             <Paperclip className="h-4 w-4 text-muted-foreground" />
             <span>{uploading ? t('sidebar.uploading') : t('sidebar.addAttachment')}</span>
           </button>
-        )}
+        ))}
 
         {/* Cover image */}
-        {attachments.some(a => /\.(jpg|jpeg|png|gif|webp)$/i.test(a.file_name)) && (
+        {canManageTaskProperties && attachments.some(a => /\.(jpg|jpeg|png|gif|webp)$/i.test(a.file_name)) && (
           <Popover>
             <PopoverTrigger asChild>
               <SidebarBtn icon={Image} label={t('sidebar.coverImage')} compact={compact} />
@@ -942,28 +1089,30 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         {!compact && <div className="border-t border-border/30 my-2" />}
 
         {/* Move */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <SidebarBtn icon={ArrowRightLeft} label={t('sidebar.moveToColumn')} compact={compact} />
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-44 p-1">
-            {columns.map(col => (
-              <button
-                key={col.id}
-                onClick={() => moveToColumn(col.id)}
-                className={cn(
-                  'w-full flex items-center gap-2 px-3 py-1.5 rounded text-xs text-start hover:bg-muted',
-                  col.id === task.column_id && 'bg-orange-500/10'
-                )}
-              >
-                {col.name}
-              </button>
-            ))}
-          </PopoverContent>
-        </Popover>
+        {canUseTaskActions && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <SidebarBtn icon={ArrowRightLeft} label={t('sidebar.moveToColumn')} compact={compact} />
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-44 p-1">
+              {columns.map(col => (
+                <button
+                  key={col.id}
+                  onClick={() => moveToColumn(col.id)}
+                  className={cn(
+                    'w-full flex items-center gap-2 px-3 py-1.5 rounded text-xs text-start hover:bg-muted',
+                    col.id === task.column_id && 'bg-orange-500/10'
+                  )}
+                >
+                  {col.name}
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
+        )}
 
         {/* Move to another board */}
-        {canEdit && (
+        {canUseTaskActions && (
           <Popover>
             <PopoverTrigger asChild>
               <SidebarBtn icon={FolderOpen} label={t('sidebar.moveToBoard')} compact={compact} />
@@ -973,6 +1122,9 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
               <MoveToBoardPicker
                 currentBoardId={board.id}
                 taskId={task.id}
+                sourceDueDate={task.due_date || null}
+                sourceDueAt={task.due_at || null}
+                sourceDeadlineExempt={task.production_deadline_exempt === true}
                 onMoved={() => { onUpdate(); onClose(); toast.success(t('toasts.taskMoved')); }}
               />
             </PopoverContent>
@@ -980,40 +1132,17 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         )}
 
         {/* Copy/Duplicate */}
-        {canEdit && (
-          compact ? (
-            <button
-              onClick={async () => {
-                try {
-                  await mutateAPI(`/api/tasks/${task.id}/duplicate`, 'POST', {});
-                  toast.success(t('toasts.taskDuplicated'));
-                  onUpdate();
-                } catch { toast.error(t('errors.duplicateFailed')); }
-              }}
-              className="h-8 px-2.5 rounded-lg border border-border/50 bg-muted/40 text-xs flex items-center gap-1.5 whitespace-nowrap hover:bg-muted transition-colors shrink-0"
-            >
-              <Copy className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span>{t('sidebar.duplicateTask')}</span>
-            </button>
-          ) : (
-            <button
-              onClick={async () => {
-                try {
-                  await mutateAPI(`/api/tasks/${task.id}/duplicate`, 'POST', {});
-                  toast.success(t('toasts.taskDuplicated'));
-                  onUpdate();
-                } catch { toast.error(t('errors.duplicateFailed')); }
-              }}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start hover:bg-muted transition-colors"
-            >
-              <Copy className="h-4 w-4 text-muted-foreground" />
-              <span>{t('sidebar.duplicateTask')}</span>
-            </button>
-          )
+        {canUseTaskActions && (
+          <TaskDuplicateAction
+            task={task}
+            boardId={board.id}
+            compact={compact}
+            onDuplicated={onUpdate}
+          />
         )}
 
         {/* Archive */}
-        {compact ? (
+        {canManageTaskProperties && (compact ? (
           <button
             onClick={archiveTask}
             className="h-8 px-2.5 rounded-lg border border-border/50 bg-muted/40 text-xs flex items-center gap-1.5 whitespace-nowrap hover:bg-muted transition-colors shrink-0"
@@ -1029,7 +1158,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
             <Archive className="h-4 w-4 text-muted-foreground" />
             <span>{t('sidebar.archive')}</span>
           </button>
-        )}
+        ))}
 
         {/* Delete */}
         {canDelete && (
@@ -1068,7 +1197,8 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
 
   // ── Render ──
   return (
-    <Sheet open onOpenChange={onClose}>
+    <>
+      <Sheet open onOpenChange={onClose}>
       <SheetContent side="left" className="w-full sm:max-w-3xl p-0 overflow-hidden flex flex-col" aria-describedby={undefined}>
         <SheetTitle className="sr-only">{t('detailsTitle')}</SheetTitle>
         {/* Single hidden file input — mounted ONCE outside renderActions (which
@@ -1084,7 +1214,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         {/* ═══ FIXED HEADER (title + journey stay while scrolling) ═══ */}
         <div className="px-6 pt-5 pb-4 border-b border-border/50 shrink-0" dir={dirFor(locale)}>
           {/* Title — inline editable */}
-          {editingTitle ? (
+          {canManageTaskProperties && editingTitle ? (
             <Input
               autoFocus
               value={editTitle}
@@ -1095,11 +1225,14 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
             />
           ) : (
             <h2
-              className="text-lg sm:text-xl font-bold leading-snug pe-10 cursor-pointer hover:text-orange-500 transition-colors group"
-              onClick={() => canEdit && setEditingTitle(true)}
+              className={cn(
+                'text-lg sm:text-xl font-bold leading-snug pe-10 transition-colors group',
+                canManageTaskProperties && 'cursor-pointer hover:text-orange-500',
+              )}
+              onClick={() => canManageTaskProperties && setEditingTitle(true)}
             >
               {task.title}
-              {canEdit && <Pencil className="inline h-3.5 w-3.5 ms-2 opacity-0 group-hover:opacity-50" />}
+              {canManageTaskProperties && <Pencil className="inline h-3.5 w-3.5 ms-2 opacity-0 group-hover:opacity-50" />}
             </h2>
           )}
 
@@ -1110,30 +1243,36 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
 
           {/* Column subtitle + time-in-stage */}
           <div className="flex items-center gap-2 flex-wrap mt-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
-                {t('inColumn')} <Badge variant="outline" className="text-[10px] cursor-pointer">{currentCol?.name || '—'}</Badge>
-                <ChevronDown className="h-3 w-3" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-48 p-1">
-              {columns.map(col => (
-                <button
-                  key={col.id}
-                  onClick={() => moveToColumn(col.id)}
-                  className={cn(
-                    'w-full text-start px-3 py-1.5 text-sm rounded-md hover:bg-muted transition-colors flex items-center gap-2',
-                    col.id === task.column_id && 'bg-orange-500/10 text-orange-600'
-                  )}
-                >
-                  <div className={cn('w-2 h-2 rounded-full', `bg-${col.color}-500`)} />
-                  {col.name}
-                  {col.id === task.column_id && <Check className="h-3.5 w-3.5 ms-auto" />}
+          {canUseTaskActions ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+                  {t('inColumn')} <Badge variant="outline" className="text-[10px] cursor-pointer">{currentCol?.name || '—'}</Badge>
+                  <ChevronDown className="h-3 w-3" />
                 </button>
-              ))}
-            </PopoverContent>
-          </Popover>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-48 p-1">
+                {columns.map(col => (
+                  <button
+                    key={col.id}
+                    onClick={() => moveToColumn(col.id)}
+                    className={cn(
+                      'w-full text-start px-3 py-1.5 text-sm rounded-md hover:bg-muted transition-colors flex items-center gap-2',
+                      col.id === task.column_id && 'bg-orange-500/10 text-orange-600'
+                    )}
+                  >
+                    <div className={cn('w-2 h-2 rounded-full', `bg-${col.color}-500`)} />
+                    {col.name}
+                    {col.id === task.column_id && <Check className="h-3.5 w-3.5 ms-auto" />}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <div className="text-xs text-muted-foreground flex items-center gap-1">
+              {t('inColumn')} <Badge variant="outline" className="text-[10px]">{currentCol?.name || '—'}</Badge>
+            </div>
+          )}
           {task.stage_entered_at && (
             <span className="text-[11px] text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" aria-hidden />
@@ -1165,7 +1304,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
               )}
 
               {/* ── Labels / Assignees / Dates / Priority ── */}
-              {(taskLabels.length > 0 || assignees.length > 0 || task.start_date || task.due_date || task.priority) && (
+              {(taskLabels.length > 0 || assignees.length > 0 || task.start_date || formattedDeadline || task.priority) && (
                 <div className="space-y-3 py-5 first:pt-0 last:pb-0">
                   {/* Labels bar */}
                   {taskLabels.length > 0 && (
@@ -1206,10 +1345,33 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                         {t('meta.startDate', { date: new Date(task.start_date).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', { day: 'numeric', month: 'short' }) })}
                       </div>
                     )}
-                    {task.due_date && (
-                      <div className={cn('flex items-center gap-1', isOverdue ? 'text-red-500 font-medium' : 'text-muted-foreground')}>
-                        <CalendarClock className="h-3.5 w-3.5" />
-                        {t('meta.dueDate', { date: new Date(task.due_date).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', { day: 'numeric', month: 'short' }) })}
+                    {formattedDeadline && (
+                      <div className={cn(
+                        'flex items-center gap-1',
+                        isOverdue ? 'text-red-500 font-medium' : 'text-muted-foreground',
+                        formattedDeadline.unverified
+                          && 'text-amber-700 font-medium dark:text-amber-300',
+                      )}>
+                        {formattedDeadline.unverified ? (
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                        ) : (
+                          <CalendarClock className="h-3.5 w-3.5" />
+                        )}
+                        {formattedDeadline.unverified
+                          ? (
+                              <>
+                                {t('sidebar.deadlineUnverified')}
+                                {formattedDeadline.date && <span>· {formattedDeadline.date}</span>}
+                              </>
+                            )
+                          : isProductionTask && formattedDeadline.time && formattedDeadline.date
+                            ? t('meta.exactDueDateUae', {
+                                date: formattedDeadline.date,
+                                time: formattedDeadline.time,
+                              })
+                            : formattedDeadline.date
+                              ? t('meta.dueDate', { date: formattedDeadline.date })
+                              : null}
                         {isOverdue && <span className="text-[10px] bg-red-500/10 px-1 rounded">{t('meta.overdue')}</span>}
                       </div>
                     )}
@@ -1228,7 +1390,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                   <FileText className="h-3.5 w-3.5" />
                   {t('meta.description')}
                 </div>
-                {editingDesc ? (
+                {canManageTaskProperties && editingDesc ? (
                   <div className="space-y-1">
                     {/* Phase 14.3 P1 fix B — placeholder + hint
                         updated to match the new plain-text rendering.
@@ -1254,10 +1416,11 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                 ) : (
                   <div
                     className={cn(
-                      'text-sm min-h-[60px] p-3 rounded-lg border border-dashed border-border/50 cursor-pointer hover:border-orange-300 transition-colors',
+                      'text-sm min-h-[60px] p-3 rounded-lg border border-dashed border-border/50 transition-colors',
+                      canManageTaskProperties && 'cursor-pointer hover:border-orange-300',
                       !task.description && 'text-muted-foreground/40 italic'
                     )}
-                    onClick={() => canEdit && setEditingDesc(true)}
+                    onClick={() => canManageTaskProperties && setEditingDesc(true)}
                   >
                     {task.description ? (
                       // Phase 14.3 P1 fix B — switched from
@@ -1292,7 +1455,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                     <CheckSquare className="h-3.5 w-3.5" />
                     {t('checklist.title')} {checkTotal > 0 && <span className="tabular-nums text-muted-foreground/60">({checkDone}/{checkTotal})</span>}
                   </div>
-                  {canEdit && (
+                  {canUseTaskActions && (
                     <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => setShowCheckInput(true)}>
                       <Plus className="h-3 w-3 me-1" /> {t('checklist.add')}
                     </Button>
@@ -1309,7 +1472,11 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                 <div className="space-y-1">
                   {checklist.map(item => (
                     <div key={item.id} className="flex items-center gap-2 group py-0.5">
-                      <button onClick={() => toggleCheckItem(item.id, item.is_checked)}>
+                      <button
+                        disabled={!canUseTaskActions}
+                        onClick={() => toggleCheckItem(item.id, item.is_checked)}
+                        className={!canUseTaskActions ? 'cursor-not-allowed opacity-70' : undefined}
+                      >
                         <div className={cn(
                           'w-4 h-4 rounded border flex items-center justify-center transition-colors',
                           item.is_checked ? 'bg-emerald-500 border-emerald-500' : 'border-border hover:border-emerald-400'
@@ -1320,7 +1487,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                       <span className={cn('text-sm flex-1', item.is_checked && 'line-through text-muted-foreground')}>
                         {item.title}
                       </span>
-                      {canEdit && (
+                      {canUseTaskActions && (
                         <button
                           onClick={() => deleteCheckItem(item.id)}
                           className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 transition-all"
@@ -1404,7 +1571,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                 </div>
 
                 {/* Add comment */}
-                {canEdit && (
+                {canUseTaskActions && (
                   <div className="flex items-start gap-2">
                     <Avatar className="h-7 w-7 shrink-0 mt-1">
                       <AvatarFallback className={cn('text-[10px] text-white', getAvatarColor(session.pyraUser.username))}>
@@ -1446,7 +1613,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-medium">{c.author_name}</span>
                           <span className="text-[10px] text-muted-foreground">{timeAgo(c.created_at)}</span>
-                          {(c.author_username === session.pyraUser.username || canDelete) && (
+                          {canUseTaskActions && (c.author_username === session.pyraUser.username || canDelete) && (
                             <button
                               onClick={() => deleteComment(c.id)}
                               className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 transition-all ms-auto"
@@ -1470,16 +1637,46 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                     {t('activityLog')}
                   </div>
                   <div className="space-y-1">
-                    {activities.slice(0, 15).map(act => (
-                      <div key={act.id} className="flex items-start gap-2 text-[11px] py-0.5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 mt-1.5 shrink-0" />
-                        <div className="text-muted-foreground">
-                          <span className="font-medium text-foreground">{act.display_name}</span>
-                          {' '}{actionLabel(act.action)}
-                          <span className="ms-1.5 text-muted-foreground/50">&middot; {timeAgo(act.created_at)}</span>
+                    {activities.slice(0, 15).map((act) => {
+                      const rejectionDisplay = getTaskRejectionActivityDisplay({
+                        task_id: task.id,
+                        action: act.action,
+                        details: act.details,
+                        created_at: act.created_at,
+                      });
+                      return (
+                        <div key={act.id} className="flex items-start gap-2 text-[11px] py-0.5">
+                          <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 mt-1.5 shrink-0" />
+                          <div className="min-w-0 text-muted-foreground">
+                            <span className="font-medium text-foreground">{act.display_name}</span>
+                            {' '}{actionLabel(act.action)}
+                            <span className="ms-1.5 text-muted-foreground/50">&middot; {timeAgo(act.created_at)}</span>
+                            {rejectionDisplay && (
+                              <div className="mt-1 space-y-1">
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    'text-[10px]',
+                                    rejectionDisplay.kind === 'outright'
+                                      ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300'
+                                      : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300',
+                                  )}
+                                >
+                                  {rejectionDisplay.kind === 'outright'
+                                    ? t('pipeline.rejectionDialog.outright.title')
+                                    : t('pipeline.rejectionDialog.revision.title')}
+                                </Badge>
+                                {rejectionDisplay.note && (
+                                  <p className="whitespace-pre-wrap break-words text-foreground/80">
+                                    {rejectionDisplay.note}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1493,8 +1690,16 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
             </div>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+        </SheetContent>
+      </Sheet>
+      <TaskRejectionDialog
+        open={rejectionDialogOpen}
+        isSubmitting={advancing}
+        feedsQualityScore={isProductionTask}
+        onOpenChange={setRejectionDialogOpen}
+        onConfirm={handleReject}
+      />
+    </>
   );
 }
 
@@ -1520,7 +1725,10 @@ const SidebarBtn = forwardRef<
         ref={ref}
         onClick={onClick}
         {...props}
-        className="h-8 px-2.5 rounded-lg border border-border/50 bg-muted/40 text-xs flex items-center gap-1.5 whitespace-nowrap hover:bg-muted transition-colors shrink-0"
+        className={cn(
+          'h-8 px-2.5 rounded-lg border border-border/50 bg-muted/40 text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors shrink-0',
+          props.disabled ? 'cursor-not-allowed opacity-70' : 'hover:bg-muted',
+        )}
       >
         <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
         <span>{label}</span>
@@ -1533,7 +1741,10 @@ const SidebarBtn = forwardRef<
       ref={ref}
       onClick={onClick}
       {...props}
-      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start hover:bg-muted transition-colors"
+      className={cn(
+        'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start transition-colors',
+        props.disabled ? 'cursor-not-allowed opacity-70' : 'hover:bg-muted',
+      )}
     >
       <Icon className="h-4 w-4 text-muted-foreground" />
       <span className="flex-1">{label}</span>
@@ -1543,37 +1754,161 @@ const SidebarBtn = forwardRef<
 });
 SidebarBtn.displayName = 'SidebarBtn';
 
-function SidebarDateBtn({ icon: Icon, label, value, onChange, isOverdue, compact }: {
-  icon: React.ElementType; label: string; value: string; onChange: (v: string) => void; isOverdue?: boolean; compact?: boolean;
+export function ProductionDeadlineBtn({ dueDate, dueAt, deadlineExempt = false, locked, canManage, onSave, isOverdue, compact, saving }: {
+  dueDate: string;
+  dueAt: string | null;
+  deadlineExempt?: boolean;
+  locked: boolean;
+  canManage: boolean;
+  onSave: (date: string, time: string) => Promise<boolean>;
+  isOverdue?: boolean;
+  compact?: boolean;
+  saving: boolean;
+}) {
+  const t = useTranslations('boards.sheet');
+  const locale = useLocale() as Locale;
+  const exact = !deadlineExempt && dueAt ? isoToDubaiDateTime(dueAt) : null;
+  const [date, setDate] = useState(exact?.date || dueDate);
+  const [time, setTime] = useState(exact?.time || '');
+  const [open, setOpen] = useState(false);
+  const formatted = formatBoardTaskDeadline({
+    due_date: dueDate,
+    due_at: deadlineExempt ? null : dueAt,
+    production_deadline_exempt: deadlineExempt,
+  }, locale);
+  const editable = canManage && !locked;
+  const statusLabel = locked
+    ? t('sidebar.deadlineLocked')
+    : !canManage
+      ? t('sidebar.deadlineReadOnly')
+      : deadlineExempt
+        ? t('sidebar.deadlineUnverified')
+        : null;
+
+  useEffect(() => {
+    const next = !deadlineExempt && dueAt ? isoToDubaiDateTime(dueAt) : null;
+    setDate(next?.date || dueDate);
+    setTime(next?.time || '');
+  }, [deadlineExempt, dueAt, dueDate]);
+
+  const button = (
+    <button
+      type="button"
+      disabled={!editable}
+      className={cn(
+        compact
+          ? 'h-8 px-2.5 rounded-lg border border-border/50 bg-muted/40 text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors shrink-0'
+          : 'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start transition-colors',
+        !editable ? 'cursor-not-allowed opacity-70' : 'hover:bg-muted',
+        isOverdue && 'text-red-500',
+      )}
+    >
+      {locked ? (
+        <Lock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+      ) : (
+        <CalendarClock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+      )}
+      <span className={compact ? undefined : 'flex-1'}>{t('sidebar.exactDeadlineUae')}</span>
+      {formatted && (
+        <span className="text-[10px] tabular-nums">
+          {formatted.date}{formatted.time ? ` · ${formatted.time}` : ''}
+        </span>
+      )}
+      {statusLabel && <span className="text-[9px] text-amber-700 dark:text-amber-300">{statusLabel}</span>}
+    </button>
+  );
+
+  if (!editable) return button;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{button}</PopoverTrigger>
+      <PopoverContent align="start" className="w-64 p-3 space-y-3">
+        <label className="block space-y-1.5 text-xs font-medium">
+          <span>{t('sidebar.dueDateUae')}</span>
+          <Input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+        </label>
+        <label className="block space-y-1.5 text-xs font-medium">
+          <span>{t('sidebar.dueTimeUae')}</span>
+          <Input type="time" step={60} value={time} onChange={(event) => setTime(event.target.value)} />
+        </label>
+        <p className="text-[10px] text-amber-700 dark:text-amber-300">
+          {t('sidebar.deadlineLockHelp')}
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          className="w-full bg-orange-500 text-white hover:bg-orange-600"
+          disabled={!date || !time || saving}
+          onClick={async () => {
+            if (await onSave(date, time)) setOpen(false);
+          }}
+        >
+          {saving ? t('sidebar.savingDeadline') : t('sidebar.saveDeadline')}
+        </Button>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+export function SidebarDateBtn({ icon: Icon, label, value, onChange, isOverdue, compact, locked = false, readOnly = false }: {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  isOverdue?: boolean;
+  compact?: boolean;
+  locked?: boolean;
+  readOnly?: boolean;
 }) {
   const t = useTranslations('boards.sheet');
   const locale = useLocale() as Locale;
   const formattedValue = value
     ? new Date(value).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', { day: 'numeric', month: 'short' })
     : '';
+  const disabled = locked || readOnly;
+  const statusLabel = locked
+    ? t('sidebar.deadlineLocked')
+    : readOnly
+      ? t('sidebar.deadlineReadOnly')
+      : null;
+  const button = compact ? (
+    <button
+      type="button"
+      disabled={disabled}
+      className={cn(
+        'h-8 px-2.5 rounded-lg border border-border/50 bg-muted/40 text-xs flex items-center gap-1.5 whitespace-nowrap transition-colors shrink-0',
+        disabled ? 'cursor-not-allowed opacity-70' : 'hover:bg-muted',
+        isOverdue && 'text-red-500',
+      )}
+    >
+      {locked ? <Lock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" /> : <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+      <span>{label}</span>
+      {value && <span className="text-[10px]">{formattedValue}</span>}
+      {statusLabel && <span className="text-[9px] text-amber-700 dark:text-amber-300">{statusLabel}</span>}
+    </button>
+  ) : (
+    <button
+      type="button"
+      disabled={disabled}
+      className={cn(
+        'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start transition-colors',
+        disabled ? 'cursor-not-allowed opacity-70' : 'hover:bg-muted',
+        isOverdue && 'text-red-500',
+      )}
+    >
+      {locked ? <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" /> : <Icon className="h-4 w-4 text-muted-foreground" />}
+      <span className="flex-1">{label}</span>
+      {value && <span className="text-[10px]">{formattedValue}</span>}
+      {statusLabel && <span className="text-[9px] text-amber-700 dark:text-amber-300">{statusLabel}</span>}
+    </button>
+  );
+
+  if (disabled) return button;
+
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        {compact ? (
-          <button className={cn(
-            'h-8 px-2.5 rounded-lg border border-border/50 bg-muted/40 text-xs flex items-center gap-1.5 whitespace-nowrap hover:bg-muted transition-colors shrink-0',
-            isOverdue && 'text-red-500'
-          )}>
-            <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <span>{label}</span>
-            {value && <span className="text-[10px]">{formattedValue}</span>}
-          </button>
-        ) : (
-          <button className={cn(
-            'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start hover:bg-muted transition-colors',
-            isOverdue && 'text-red-500'
-          )}>
-            <Icon className="h-4 w-4 text-muted-foreground" />
-            <span className="flex-1">{label}</span>
-            {value && <span className="text-[10px]">{formattedValue}</span>}
-          </button>
-        )}
-      </PopoverTrigger>
+      <PopoverTrigger asChild>{button}</PopoverTrigger>
       <PopoverContent align="start" className="w-auto p-3">
         <input
           type="date"
@@ -1591,31 +1926,158 @@ function SidebarDateBtn({ icon: Icon, label, value, onChange, isOverdue, compact
   );
 }
 
-/* ── Move to Board Picker ── */
-function MoveToBoardPicker({ currentBoardId, taskId, onMoved }: {
-  currentBoardId: string; taskId: string; onMoved: () => void;
+export function TaskDuplicateAction({ task, boardId, compact = false, onDuplicated }: {
+  task: Pick<TaskDetail, 'id' | 'due_date' | 'due_at' | 'production_deadline_exempt'>;
+  boardId: string;
+  compact?: boolean;
+  onDuplicated: () => void;
 }) {
   const t = useTranslations('boards.sheet');
-  const [boards, setBoards] = useState<Array<{ id: string; name: string; pyra_board_columns?: Array<{ id: string; name: string }> }>>([]);
+  const duplicateTaskMutation = useDuplicateBoardTask();
+  const [open, setOpen] = useState(false);
+  const [dueDate, setDueDate] = useState('');
+  const [dueTime, setDueTime] = useState('');
+  // A production duplicate is a new delivery commitment even when its source
+  // already has a trusted exact deadline. Never inherit that old promise.
+  const needsExactDeadline = boardId === PRODUCTION_BOARD_ID;
+
+  const duplicate = async (deadline?: { due_date: string; due_time: string }) => {
+    try {
+      await duplicateTaskMutation.mutateAsync({
+        taskId: task.id,
+        boardId,
+        ...(deadline ? { data: deadline } : {}),
+      });
+      toast.success(t('toasts.taskDuplicated'));
+      setOpen(false);
+      setDueDate('');
+      setDueTime('');
+      onDuplicated();
+    } catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : t('errors.duplicateFailed'));
+    }
+  };
+
+  const button = (
+    <button
+      type="button"
+      disabled={duplicateTaskMutation.isPending}
+      onClick={needsExactDeadline ? undefined : () => void duplicate()}
+      className={cn(
+        compact
+          ? 'h-8 px-2.5 rounded-lg border border-border/50 bg-muted/40 text-xs flex items-center gap-1.5 whitespace-nowrap hover:bg-muted transition-colors shrink-0'
+          : 'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start hover:bg-muted transition-colors',
+        duplicateTaskMutation.isPending && 'cursor-not-allowed opacity-70',
+      )}
+    >
+      <Copy className={compact ? 'h-3.5 w-3.5 text-muted-foreground shrink-0' : 'h-4 w-4 text-muted-foreground'} />
+      <span>{t('sidebar.duplicateTask')}</span>
+    </button>
+  );
+
+  if (!needsExactDeadline) return button;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{button}</PopoverTrigger>
+      <PopoverContent align="start" className="w-72 space-y-3 p-3">
+        <p className="text-xs text-amber-700 dark:text-amber-300">
+          {t('sidebar.productionDuplicateDeadlineHelp')}
+        </p>
+        <div className="space-y-1.5">
+          <label htmlFor={`duplicate-due-date-${task.id}`} className="text-xs font-medium">
+            {t('sidebar.dueDateUae')}
+          </label>
+          <Input
+            id={`duplicate-due-date-${task.id}`}
+            type="date"
+            value={dueDate}
+            onChange={(event) => setDueDate(event.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor={`duplicate-due-time-${task.id}`} className="text-xs font-medium">
+            {t('sidebar.dueTimeUae')}
+          </label>
+          <Input
+            id={`duplicate-due-time-${task.id}`}
+            type="time"
+            step={60}
+            value={dueTime}
+            onChange={(event) => setDueTime(event.target.value)}
+          />
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          className="w-full bg-orange-500 text-white hover:bg-orange-600"
+          disabled={!dueDate || !dueTime || duplicateTaskMutation.isPending}
+          onClick={() => void duplicate({ due_date: dueDate, due_time: dueTime })}
+        >
+          {duplicateTaskMutation.isPending ? t('sidebar.duplicating') : t('sidebar.confirmDuplicate')}
+        </Button>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/* ── Move to Board Picker ── */
+function MoveToBoardPicker({ currentBoardId, taskId, sourceDueDate, sourceDueAt, sourceDeadlineExempt, onMoved }: {
+  currentBoardId: string;
+  taskId: string;
+  sourceDueDate: string | null;
+  sourceDueAt: string | null;
+  sourceDeadlineExempt: boolean;
+  onMoved: () => void;
+}) {
+  const t = useTranslations('boards.sheet');
+  const boardsQuery = useQuery({
+    queryKey: ['boards', 'move-picker'],
+    queryFn: () => fetchAPI<Array<{
+      id: string;
+      name: string;
+      pyra_board_columns?: Array<{ id: string; name: string }>;
+    }>>('/api/boards'),
+    staleTime: 60_000,
+  });
+  const moveTaskMutation = useMoveBoardTask();
   const [selectedBoard, setSelectedBoard] = useState('');
   const [selectedCol, setSelectedCol] = useState('');
   const [moving, setMoving] = useState(false);
-
-  useEffect(() => {
-    fetchAPI<Array<{ id: string; name: string; pyra_board_columns?: Array<{ id: string; name: string }> }>>('/api/boards').then(allBoards => {
-      setBoards((allBoards || []).filter(b => b.id !== currentBoardId));
-    }).catch(() => {});
-  }, [currentBoardId]);
+  const [dueDate, setDueDate] = useState('');
+  const [dueTime, setDueTime] = useState('');
+  const boards = (boardsQuery.data || []).filter(board => board.id !== currentBoardId);
+  const movingIntoProductionWithoutExactDeadline = needsProductionDeadlineOnTransfer(
+    selectedBoard,
+    {
+      due_date: sourceDueDate,
+      due_at: sourceDueAt,
+      production_deadline_exempt: sourceDeadlineExempt,
+    },
+  );
 
   const selectedBoardCols = boards.find(b => b.id === selectedBoard)?.pyra_board_columns || [];
 
   const handleMove = async () => {
     if (!selectedBoard || !selectedCol) return;
+    if (movingIntoProductionWithoutExactDeadline && (!dueDate || !dueTime)) return;
     setMoving(true);
     try {
-      await mutateAPI(`/api/tasks/${taskId}/move`, 'POST', { column_id: selectedCol, target_board_id: selectedBoard, position: 0 });
+      await moveTaskMutation.mutateAsync({
+        taskId,
+        boardId: currentBoardId,
+        targetBoardId: selectedBoard,
+        data: {
+          column_id: selectedCol,
+          target_board_id: selectedBoard,
+          position: 0,
+          ...(movingIntoProductionWithoutExactDeadline ? { due_date: dueDate, due_time: dueTime } : {}),
+        },
+      });
       onMoved();
-    } catch { toast.error(t('errors.moveFailed')); }
+    } catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : t('errors.moveFailed'));
+    }
     finally { setMoving(false); }
   };
 
@@ -1623,7 +2085,12 @@ function MoveToBoardPicker({ currentBoardId, taskId, onMoved }: {
     <div className="space-y-2">
       <select
         value={selectedBoard}
-        onChange={e => { setSelectedBoard(e.target.value); setSelectedCol(''); }}
+        onChange={e => {
+          setSelectedBoard(e.target.value);
+          setSelectedCol('');
+          setDueDate('');
+          setDueTime('');
+        }}
         className="w-full h-8 text-xs bg-transparent border border-border rounded px-2"
       >
         <option value="">{t('sidebar.chooseBoard')}</option>
@@ -1639,8 +2106,26 @@ function MoveToBoardPicker({ currentBoardId, taskId, onMoved }: {
           {selectedBoardCols.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       )}
+      {movingIntoProductionWithoutExactDeadline && (
+        <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 p-2 dark:border-amber-800 dark:bg-amber-950/30">
+          <p className="text-[10px] text-amber-800 dark:text-amber-300">{t('sidebar.productionMoveDeadlineHelp')}</p>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium">{t('sidebar.dueDateUae')}</label>
+            <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium">{t('sidebar.dueTimeUae')}</label>
+            <Input type="time" step={60} value={dueTime} onChange={(event) => setDueTime(event.target.value)} />
+          </div>
+        </div>
+      )}
       {selectedCol && (
-        <Button size="sm" className="w-full h-7 text-xs bg-orange-500 hover:bg-orange-600 text-white" disabled={moving} onClick={handleMove}>
+        <Button
+          size="sm"
+          className="w-full h-7 text-xs bg-orange-500 hover:bg-orange-600 text-white"
+          disabled={moving || (movingIntoProductionWithoutExactDeadline && (!dueDate || !dueTime))}
+          onClick={handleMove}
+        >
           {moving ? t('sidebar.moving') : t('sidebar.move')}
         </Button>
       )}

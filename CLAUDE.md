@@ -4813,6 +4813,7 @@ Abou approved (2026-07-20) a monetary deductions system to precede employee-faci
 visibility: **tiered attendance lateness** (¼/½/full day past the 15-min grace) + **monthly on-time-rate
 band** for delivery lateness (NOT per-task fines; exclude unrealistic-lead-time tasks) +
 **warning-first quality** (rework/rejection score → money only by explicit admin action). Cross-cutting:
-detect + admin-approve (not auto-apply), 25% monthly cap, a transparency "this-month at-risk" panel,
+detect + admin-approve (not auto-apply), a 25% monthly cap for delivery/quality/manual disciplinary
+money (**attendance deductions are explicitly outside this cap**, owner override 2026-07-22), a transparency "this-month at-risk" panel,
 excuse window via the existing `'excused'` status. Needs its own brainstorm→spec→plan. All inputs are
 already COMPUTED (attendance-policy + production/metrics) — the work is metric→money + how much to automate.

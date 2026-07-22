@@ -9,9 +9,9 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { hasPermission } from '@/lib/auth/rbac';
 import { EMPLOYEE_PAYMENT_STATUS } from '@/lib/constants/statuses';
+import { EMPLOYEE_PAYMENT_SOURCE_TYPE, EMPLOYEE_PAYMENT_SOURCE_TYPES } from '@/lib/constants/payroll';
+import { buildEmployeePaymentMonthFilter } from '@/lib/payroll/payment-period';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
-
-const VALID_SOURCE_TYPES = ['task', 'overtime', 'bonus', 'deduction', 'commission', 'final_settlement'];
 
 // =============================================================
 // GET /api/dashboard/employee-payments
@@ -55,15 +55,8 @@ export async function GET(req: NextRequest) {
     // Filter by month (YYYY-MM)
     const monthParam = searchParams.get('month');
     if (monthParam) {
-      const parts = monthParam.split('-');
-      if (parts.length === 2) {
-        const year = parseInt(parts[0], 10);
-        const month = parseInt(parts[1], 10);
-        const startDate = `${year}-${String(month).padStart(2, '0')}-01T00:00:00`;
-        const lastDay = new Date(year, month, 0).getDate();
-        const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}T23:59:59`;
-        query = query.gte('created_at', startDate).lte('created_at', endDate);
-      }
+      const monthFilter = buildEmployeePaymentMonthFilter(monthParam);
+      if (monthFilter) query = query.or(monthFilter);
     }
 
     const { data, error } = await query;
@@ -106,8 +99,11 @@ export async function POST(req: NextRequest) {
     if (!username) {
       return apiValidationError('اسم المستخدم مطلوب');
     }
-    if (!source_type || !VALID_SOURCE_TYPES.includes(source_type)) {
+    if (!source_type || !EMPLOYEE_PAYMENT_SOURCE_TYPES.includes(source_type)) {
       return apiValidationError('نوع المصدر غير صالح — يجب أن يكون أحد: task, overtime, bonus, deduction');
+    }
+    if (source_type === EMPLOYEE_PAYMENT_SOURCE_TYPE.DEDUCTION) {
+      return apiValidationError('الخصم يحتاج شهر استحقاق وسبب موثق وأدلة، ويُعتمد من شاشة مراجعة الخصومات'); // i18n-exempt: legacy dashboard API response outside MIGRATED_PATHS
     }
     if (!description) {
       return apiValidationError('الوصف مطلوب');

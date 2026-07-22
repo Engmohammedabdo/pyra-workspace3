@@ -47,7 +47,7 @@ const EMPTY_FORM = {
 // Deliberately narrower than the full `paymentSourceType` entity (7 keys) —
 // `salary` and `advance` are not user-creatable via this form (they come from
 // payroll runs / other server-side paths). See CLAUDE.md HAZARD H2 note.
-const CREATABLE_SOURCE_TYPES = ['commission', 'task', 'bonus', 'deduction', 'overtime'] as const;
+const CREATABLE_SOURCE_TYPES = ['commission', 'task', 'bonus', 'overtime'] as const;
 
 export function AddPaymentDialog({ open, onOpenChange, users }: Props) {
   const t = useTranslations('hr.payroll.addPaymentDialog');
