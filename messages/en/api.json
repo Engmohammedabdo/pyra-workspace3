@@ -589,6 +589,12 @@
         "capExhausted": "The disciplinary deduction ceiling is already exhausted; attendance remains outside that ceiling",
         "stateChanged": "Salary, evidence, deduction ledger, or payroll state changed; refresh before approving",
         "paymentDescription": "Approved employee deduction for {month}"
+      },
+      "cancellation": {
+        "invalidPayload": "A deduction payment and documented cancellation reason are required",
+        "notFound": "The deduction payment could not be found",
+        "closedPayroll": "This deduction is paid or belongs to an approved payroll and cannot be changed",
+        "stateChanged": "The deduction or payroll state changed; refresh before cancelling"
       }
     },
     "teams": {

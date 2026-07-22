@@ -74,6 +74,64 @@ describe('admin deduction employee card payment truth', () => {
       .toBeInTheDocument();
   });
 
+  it('lets the admin cancel an active computed deduction but not a cancelled one', () => {
+    const value = employee();
+    value.existing_case = {
+      case: {
+        id: 'dc-existing',
+        payment_id: 'pay-case',
+        approved_amount: 180,
+        salary_currency: 'AED',
+      },
+      payment: { id: 'pay-case', status: 'approved' },
+    } as never;
+    const onCancelDeduction = vi.fn();
+
+    const { rerender } = render(
+      <NextIntlClientProvider locale="en" messages={hrMessages}>
+        <AdminDeductionEmployeeCard
+          employee={value}
+          month="2026-07"
+          currentMonth="2026-07"
+          onApproveComputed={vi.fn()}
+          onManualDeduction={vi.fn()}
+          onCancelDeduction={onCancelDeduction}
+        />
+      </NextIntlClientProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel deduction' }));
+    expect(onCancelDeduction).toHaveBeenCalledWith('pay-case');
+
+    value.existing_case = {
+      case: {
+        id: 'dc-existing',
+        payment_id: 'pay-case',
+        approved_amount: 180,
+        salary_currency: 'AED',
+      },
+      payment: {
+        id: 'pay-case',
+        status: 'rejected',
+        cancellation_reason: 'Excuse accepted',
+      },
+    } as never;
+    rerender(
+      <NextIntlClientProvider locale="en" messages={hrMessages}>
+        <AdminDeductionEmployeeCard
+          employee={value}
+          month="2026-07"
+          currentMonth="2026-07"
+          onApproveComputed={vi.fn()}
+          onManualDeduction={vi.fn()}
+          onCancelDeduction={onCancelDeduction}
+        />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.queryByRole('button', { name: 'Cancel deduction' })).toBeNull();
+    expect(screen.getByText('Deduction cancelled')).toBeInTheDocument();
+    expect(screen.getByText('Excuse accepted')).toBeInTheDocument();
+  });
+
   it('preserves an unlinked manual reason without presenting its amount as finalized', () => {
     const value = employee();
     value.manual_deductions = [{

@@ -25,6 +25,8 @@ import { generatePayslipPDF } from '@/lib/pdf/payslip-pdf';
 import { monthNamesFor } from '@/lib/constants/dates';
 import { useStatusLabels } from '@/lib/i18n/status-labels';
 import type { Locale } from '@/lib/i18n/config';
+import { EMPLOYEE_PAYMENT_SOURCE_TYPE } from '@/lib/constants/payroll';
+import { EMPLOYEE_PAYMENT_STATUS } from '@/lib/constants/statuses';
 
 // ============================================================
 // Types
@@ -82,6 +84,9 @@ interface Payment {
   amount: number;
   currency: string;
   status: string;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
+  cancellation_reason: string | null;
   created_at: string;
 }
 
@@ -355,12 +360,20 @@ export default function MyPayslipsClient() {
             <Wallet className="h-5 w-5 text-orange-500" aria-hidden="true" />
             {t('paymentsSectionTitle')}
           </h2>
-          {payments.map(p => (
-            <Card key={p.id} className="border-0 shadow-sm hover:shadow-md transition-shadow">
+          {payments.map(p => {
+            const cancelledDeduction = p.source_type === EMPLOYEE_PAYMENT_SOURCE_TYPE.DEDUCTION
+              && p.status === EMPLOYEE_PAYMENT_STATUS.REJECTED;
+            return (
+            <Card
+              key={p.id}
+              data-testid={cancelledDeduction ? `cancelled-payment-${p.id}` : undefined}
+              className="border-0 shadow-sm transition-shadow hover:shadow-md"
+            >
               <CardContent className="py-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      cancelledDeduction ? 'bg-slate-500/10 text-slate-500 dark:text-slate-400' :
                       p.source_type === 'commission' ? 'bg-purple-500/10 text-purple-500' :
                       p.source_type === 'bonus' ? 'bg-green-500/10 text-green-500' :
                       p.source_type === 'deduction' ? 'bg-red-500/10 text-red-500' :
@@ -375,30 +388,49 @@ export default function MyPayslipsClient() {
                           {sourceTypeLabelFor(p.source_type)}
                         </Badge>
                         <Badge className={`text-[10px] border-0 ${
+                          cancelledDeduction ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400' :
                           p.status === 'paid' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
                           p.status === 'approved' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' :
                           'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
                         }`}>
-                          {paymentStatusLabelFor(p.status)}
+                          {cancelledDeduction
+                            ? t('cancelledPayment.title')
+                            : paymentStatusLabelFor(p.status)}
                         </Badge>
                       </div>
                       {p.description && (
                         <p className="text-xs text-muted-foreground mt-1 truncate">{p.description}</p>
                       )}
+                      {cancelledDeduction && p.cancellation_reason && (
+                        <p className="mt-1 break-words text-xs text-slate-600 dark:text-slate-400">
+                          {t('cancelledPayment.reason', { reason: p.cancellation_reason })}
+                        </p>
+                      )}
                       <p className="text-[10px] text-muted-foreground/50 mt-0.5">
-                        {new Date(p.created_at).toLocaleDateString(locale === 'ar' ? 'ar-AE' : 'en-GB', { year: 'numeric', month: 'long', day: 'numeric' })}
+                        {new Date(cancelledDeduction && p.cancelled_at ? p.cancelled_at : p.created_at)
+                          .toLocaleDateString(locale === 'ar' ? 'ar-AE' : 'en-GB', {
+                            year: 'numeric', month: 'long', day: 'numeric',
+                          })}
                       </p>
                     </div>
                   </div>
                   <p className={`font-bold font-mono text-lg shrink-0 ${
-                    p.source_type === 'deduction' ? 'text-red-600 dark:text-red-400' : 'text-foreground'
+                    cancelledDeduction
+                      ? 'text-slate-600 line-through dark:text-slate-400'
+                      : p.source_type === EMPLOYEE_PAYMENT_SOURCE_TYPE.DEDUCTION
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-foreground'
                   }`}>
-                    {p.source_type === 'deduction' ? '-' : ''}{formatCurrency(p.amount, p.currency || 'AED')}
+                    {p.source_type === EMPLOYEE_PAYMENT_SOURCE_TYPE.DEDUCTION && !cancelledDeduction
+                      ? '-'
+                      : ''}
+                    {formatCurrency(p.amount, p.currency || 'AED')}
                   </p>
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 

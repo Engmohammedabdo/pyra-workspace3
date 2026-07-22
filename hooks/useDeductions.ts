@@ -76,6 +76,37 @@ export function useApproveComputedDeduction() {
   });
 }
 
+export interface CancelDeductionInput {
+  payment_id: string;
+  reason: string;
+}
+
+export interface CancelDeductionResponse {
+  payment: Record<string, unknown>;
+  payroll_run: Record<string, unknown> | null;
+}
+
+export function useCancelDeduction() {
+  const queryClient = useQueryClient();
+  const invalidateCancellationViews = () => {
+    queryClient.invalidateQueries({ queryKey: ['deductions'] });
+    queryClient.invalidateQueries({ queryKey: ['hr-overview'] });
+    queryClient.invalidateQueries({ queryKey: ['employee-payments'] });
+    queryClient.invalidateQueries({ queryKey: ['payroll'] });
+    queryClient.invalidateQueries({ queryKey: ['payroll-run'] });
+    queryClient.invalidateQueries({ queryKey: ['my-payslips'] });
+  };
+  return useMutation<CancelDeductionResponse, Error, CancelDeductionInput>({
+    mutationFn: (input) => mutateAPI<CancelDeductionResponse>(
+      '/api/hr/deductions/cancel',
+      'POST',
+      input,
+    ),
+    onSuccess: invalidateCancellationViews,
+    onError: invalidateCancellationViews,
+  });
+}
+
 export interface SetAttendanceTrackingStartInput {
   username: string;
   started_on: string;

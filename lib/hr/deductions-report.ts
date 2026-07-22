@@ -77,6 +77,9 @@ export interface DeductionPaymentEvidence {
   effective_month: string | null;
   approved_at: string | null;
   paid_at: string | null;
+  cancelled_at?: string | null;
+  cancelled_by?: string | null;
+  cancellation_reason?: string | null;
   created_at: string | null;
 }
 
@@ -394,10 +397,40 @@ function relevantPayments(
   month: string,
   payments: readonly DeductionPaymentEvidence[],
 ): DeductionPaymentEvidence[] {
-  return payments.filter((payment) =>
-    payment.username === username
-    && payment.status !== EMPLOYEE_PAYMENT_STATUS.REJECTED
-    && (payment.effective_month === null || dateMonth(payment.effective_month) === month));
+  return payments.filter((payment) => {
+    if (payment.username !== username) return false;
+    if (payment.status === EMPLOYEE_PAYMENT_STATUS.REJECTED) {
+      return Boolean(
+        payment.effective_month
+        && dateMonth(payment.effective_month) === month
+        && payment.cancelled_at
+        && payment.cancelled_by?.trim()
+        && payment.cancellation_reason?.trim(),
+      );
+    }
+    return [EMPLOYEE_PAYMENT_STATUS.APPROVED, EMPLOYEE_PAYMENT_STATUS.PAID]
+      .includes(payment.status as 'approved' | 'paid')
+      && (payment.effective_month === null || dateMonth(payment.effective_month) === month);
+  });
+}
+
+function paymentLifecycleIsValid(payment: DeductionPaymentEvidence): boolean {
+  if (payment.status === EMPLOYEE_PAYMENT_STATUS.REJECTED) {
+    return Boolean(
+      payment.cancelled_at
+      && payment.cancelled_by?.trim()
+      && payment.cancellation_reason?.trim()
+      && payment.payroll_id === null
+      && payment.paid_at === null,
+    );
+  }
+  return (
+    [EMPLOYEE_PAYMENT_STATUS.APPROVED, EMPLOYEE_PAYMENT_STATUS.PAID]
+      .includes(payment.status as 'approved' | 'paid')
+    && (payment.cancelled_at ?? null) === null
+    && (payment.cancelled_by ?? null) === null
+    && (payment.cancellation_reason ?? null) === null
+  );
 }
 
 function capSubjectPaymentAmount(payment: DeductionPaymentEvidence): number | null {
@@ -432,10 +465,7 @@ function casePaymentBlocker(
     || exemptAmount === null
     || roundMoney(exemptAmount) !== roundMoney(Number(existingCase.attendance_amount))
     || roundMoney(amount) !== roundMoney(Number(existingCase.approved_amount))
-    || ![
-      EMPLOYEE_PAYMENT_STATUS.APPROVED,
-      EMPLOYEE_PAYMENT_STATUS.PAID,
-    ].includes(payment.status as 'approved' | 'paid')
+    || !paymentLifecycleIsValid(payment)
   ) {
     return { code: 'deduction_case_payment_mismatch', payment_id: existingCase.payment_id };
   }
@@ -460,10 +490,7 @@ function manualPaymentBlocker(
     || exemptAmount === null
     || roundMoney(exemptAmount) !== 0
     || roundMoney(amount) !== roundMoney(Number(manual.approved_amount))
-    || ![
-      EMPLOYEE_PAYMENT_STATUS.APPROVED,
-      EMPLOYEE_PAYMENT_STATUS.PAID,
-    ].includes(payment.status as 'approved' | 'paid')
+    || !paymentLifecycleIsValid(payment)
   ) {
     return { code: 'manual_deduction_payment_mismatch', payment_id: manual.payment_id };
   }
@@ -872,7 +899,7 @@ export async function loadMonthlyDeductionsReport(
           (from, to) => supabase
             .from('pyra_employee_payments')
             .select(
-              'id, username, source_id, description, amount, deduction_cap_exempt_amount, currency, status, payroll_id, effective_month, approved_at, paid_at, created_at',
+              'id, username, source_id, description, amount, deduction_cap_exempt_amount, currency, status, payroll_id, effective_month, approved_at, paid_at, cancelled_at, cancelled_by, cancellation_reason, created_at',
             )
             .eq('source_type', EMPLOYEE_PAYMENT_SOURCE_TYPE.DEDUCTION)
             .in('username', usernameChunk)

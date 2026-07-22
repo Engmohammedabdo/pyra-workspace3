@@ -2098,6 +2098,9 @@ Employee payment ledger tracking all payment sources (salary, tasks, overtime, b
 | approved_by | varchar | YES | — |
 | approved_at | timestamptz | YES | — |
 | paid_at | timestamptz | YES | — |
+| cancelled_at | timestamptz | YES | — |
+| cancelled_by | varchar(100) | YES | — |
+| cancellation_reason | text | YES | — |
 | created_at | timestamptz | YES | `now()` |
 
 **PK**: `id`
@@ -2112,6 +2115,13 @@ fallback is reserved for non-deduction payments only.
 of a deduction payment. It is zero for every non-deduction and manual
 disciplinary payment, cannot exceed the payment amount, and does not consume
 the 25% delivery/quality/manual disciplinary ceiling.
+Approved deductions are never deleted. `pyra_cancel_employee_deduction(...)`
+changes the linked payment to `rejected` with all three cancellation audit
+fields populated. Paid deductions and approved/paid payroll runs are immutable.
+If the payment belongs to a draft/calculated run, the RPC unlinks that run's
+payments, removes its stale items, and resets it to `draft` for recalculation.
+The RPC is `SECURITY DEFINER`, owned by `postgres`, executable only by
+`service_role`, and follows the payroll run-first/payment-second lock order.
 
 ---
 

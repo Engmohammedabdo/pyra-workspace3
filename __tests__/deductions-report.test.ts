@@ -532,6 +532,33 @@ describe('monthly deductions report mapping', () => {
     });
   });
 
+  it('keeps a cancelled deduction as verified history but removes it from the cap ledger', () => {
+    const input = baseInput();
+    input.deduction_payments = input.deduction_payments.map((payment) => (
+      payment.id === 'pay-case'
+        ? {
+            ...payment,
+            status: 'rejected',
+            cancelled_at: '2026-07-22T12:00:00.000Z',
+            cancelled_by: 'admin',
+            cancellation_reason: 'Excuse accepted',
+          }
+        : payment
+    ));
+
+    const alice = buildMonthlyDeductionsReport(input).employees[0];
+    expect(alice.integrity_blockers).toEqual([]);
+    expect(alice.existing_case?.payment).toMatchObject({
+      status: 'rejected',
+      cancellation_reason: 'Excuse accepted',
+    });
+    expect(alice.cap_ledger).toEqual({
+      cap_amount: 750,
+      used_amount: 20,
+      remaining_amount: 730,
+    });
+  });
+
   it('keeps past-month unsubmitted tasks visible from their exact or legacy deadline evidence', () => {
     const exactDeadline = journey({
       task_id: 'exact-overdue',

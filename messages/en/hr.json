@@ -571,6 +571,9 @@
           "evidenceTitle": "Deduction case evidence needs payment verification",
           "evidenceDescription": "The case remains visible as evidence, but no finalized amount or status is shown until its payment link is valid."
         },
+        "cancelled": {
+          "title": "Deduction cancelled"
+        },
         "manualFinalized": {
           "title": "Documented manual deduction",
           "evidenceTitle": "Documented manual deduction evidence",
@@ -677,12 +680,30 @@
           "projectionNotice": "This computed figure is for review only. The separate documented-manual action requires an amount and reason and enforces the remaining monthly ceiling.",
           "finalizedTitle": "Finalized deductions",
           "systemFinalized": "Approved computed deduction",
+          "cancelAction": "Cancel deduction",
+          "cancelledTitle": "Deduction cancelled",
           "unlinkedEvidence": "Documented evidence not linked to payroll (no amount shown)",
           "viewEvidence": "View attendance and delivery evidence"
         },
         "computedApproval": {
           "success": "The computed deduction was approved for payroll",
           "error": "The computed deduction could not be approved safely"
+        },
+        "cancelDialog": {
+          "title": "Cancel this deduction",
+          "description": "The original evidence stays in the audit history, but the amount is removed from payroll. A linked draft calculation will be reset safely.",
+          "reasonLabel": "Documented cancellation reason",
+          "reasonPlaceholder": "For example: approved excuse or corrected admin decision",
+          "guard": "A paid deduction or an approved payroll run cannot be changed.",
+          "back": "Back",
+          "confirm": "Cancel deduction",
+          "cancelling": "Cancelling...",
+          "success": "The deduction was cancelled and removed from payroll",
+          "successRecalculate": "The deduction was cancelled; recalculate the draft payroll before approval",
+          "error": "The deduction could not be cancelled safely",
+          "validation": {
+            "reason": "Enter the documented cancellation reason"
+          }
         },
         "manualDialog": {
           "title": "Document a deduction for {name}",
@@ -765,6 +786,10 @@
       },
       "downloadButton": "Download",
       "paymentsSectionTitle": "Payments & Commissions Record",
+      "cancelledPayment": {
+        "title": "Deduction cancelled",
+        "reason": "Cancellation reason: {reason}"
+      },
       "toasts": {
         "downloadSuccess": "Payslip downloaded",
         "downloadError": "An error occurred while generating the payslip"

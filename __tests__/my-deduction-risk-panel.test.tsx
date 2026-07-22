@@ -324,6 +324,30 @@ describe('employee deduction risk panel', () => {
     expect(finalized).toHaveTextContent('approved');
   });
 
+  it('shows a cancelled deduction as history and never as a finalized amount', () => {
+    const response = structuredClone(BASE_RESPONSE);
+    response.employee.existing_case = {
+      case: {
+        approved_amount: 180,
+        salary_currency: 'AED',
+        approved_at: '2026-07-15T08:00:00.000Z',
+      },
+      payment: {
+        status: 'rejected',
+        cancellation_reason: 'Excuse accepted',
+        cancelled_at: '2026-07-22T12:00:00.000Z',
+      },
+    } as never;
+    mocks.risk.data = response;
+    renderPanel();
+
+    expect(screen.queryByTestId('deduction-risk-finalized')).toBeNull();
+    const cancelled = screen.getByTestId('deduction-risk-cancelled');
+    expect(cancelled).toHaveTextContent('Deduction cancelled');
+    expect(cancelled).toHaveTextContent('Excuse accepted');
+    expect(cancelled).toHaveTextContent('180.00');
+  });
+
   it('does not present a case as finalized when its linked payment is missing', () => {
     const response = structuredClone(BASE_RESPONSE);
     response.employee.existing_case = {

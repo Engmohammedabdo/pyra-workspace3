@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { AlertTriangle, Banknote, CalendarCheck, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Banknote, CalendarCheck, CheckCircle2, ShieldAlert, Undo2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -23,6 +23,7 @@ import {
   isLegacyDeliveryDelayEvidenceForMonth,
   parseTrustedManualDeductionEvidence,
 } from '@/lib/hr/manual-deduction';
+import { EMPLOYEE_PAYMENT_STATUS } from '@/lib/constants/statuses';
 
 function integrityKey(code: DeductionIntegrityBlocker['code']) {
   switch (code) {
@@ -50,6 +51,7 @@ export function AdminDeductionEmployeeCard({
   onApproveComputed,
   computedApproving = false,
   onManualDeduction,
+  onCancelDeduction,
   onAttendanceTracking,
 }: {
   employee: MonthlyEmployeeDeductionReport;
@@ -58,6 +60,7 @@ export function AdminDeductionEmployeeCard({
   onApproveComputed: () => void;
   computedApproving?: boolean;
   onManualDeduction: () => void;
+  onCancelDeduction?: (paymentId: string) => void;
   onAttendanceTracking?: () => void;
 }) {
   const t = useTranslations('hr.deductions.admin.employee');
@@ -73,7 +76,16 @@ export function AdminDeductionEmployeeCard({
     || blocker.code === 'deduction_case_payment_mismatch',
   );
   const validExistingCase = employee.existing_case?.payment && !hasCaseLinkageBlocker
-    ? employee.existing_case
+    ? {
+        case: employee.existing_case.case,
+        payment: employee.existing_case.payment,
+      }
+    : null;
+  const activeExistingCase = validExistingCase?.payment.status !== EMPLOYEE_PAYMENT_STATUS.REJECTED
+    ? validExistingCase
+    : null;
+  const cancelledExistingCase = validExistingCase?.payment.status === EMPLOYEE_PAYMENT_STATUS.REJECTED
+    ? validExistingCase
     : null;
   const validManualDeductions = employee.manual_deductions.filter(({ manual, payment }) =>
     payment
@@ -85,6 +97,12 @@ export function AdminDeductionEmployeeCard({
   );
   const unlinkedManualDeductions = employee.manual_deductions.filter(({ manual }) =>
     !validManualDeductions.some(({ manual: valid }) => valid.id === manual.id),
+  );
+  const activeManualDeductions = validManualDeductions.filter(
+    ({ payment }) => payment?.status !== EMPLOYEE_PAYMENT_STATUS.REJECTED,
+  );
+  const cancelledManualDeductions = validManualDeductions.filter(
+    ({ payment }) => payment?.status === EMPLOYEE_PAYMENT_STATUS.REJECTED,
   );
   const trustedManualEvidence = employee.manual_deductions
     .map(({ manual }) => parseTrustedManualDeductionEvidence(manual.evidence))
@@ -173,10 +191,10 @@ export function AdminDeductionEmployeeCard({
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/60 dark:bg-amber-950/25">
                 <p className="text-xs text-amber-800 dark:text-amber-200">
-                  {validExistingCase ? t('computedReview') : t('atRisk')}
+                  {activeExistingCase ? t('computedReview') : t('atRisk')}
                 </p>
                 <p className="text-lg font-bold text-amber-950 dark:text-amber-100">
-                  {validExistingCase
+                  {activeExistingCase
                     ? t('alreadyFinalized')
                     : formatCurrency(candidate.cap.approved_amount, currency)}
                 </p>
@@ -267,32 +285,93 @@ export function AdminDeductionEmployeeCard({
           </div>
         )}
 
-        {(validExistingCase || validManualDeductions.length > 0) && (
+        {(activeExistingCase || activeManualDeductions.length > 0) && (
           <div className="space-y-2 rounded-xl border border-red-200 bg-red-50/50 p-3 dark:border-red-900/60 dark:bg-red-950/20">
             <h3 className="flex items-center gap-2 text-sm font-semibold">
               <CheckCircle2 className="h-4 w-4 text-red-700 dark:text-red-300" />
               {t('finalizedTitle')}
             </h3>
-            {validExistingCase && (
-              <div className="flex justify-between gap-3 text-xs">
+            {activeExistingCase && (
+              <div className="flex items-center justify-between gap-3 text-xs">
                 <span>{t('systemFinalized')}</span>
-                <span className="font-semibold">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">
                   {formatCurrency(
-                    Number(validExistingCase.case.approved_amount),
-                    validExistingCase.case.salary_currency,
+                    Number(activeExistingCase.case.approved_amount),
+                    activeExistingCase.case.salary_currency,
+                  )}
+                  </span>
+                  {activeExistingCase.payment.status === EMPLOYEE_PAYMENT_STATUS.APPROVED && onCancelDeduction && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onCancelDeduction(activeExistingCase.payment.id)}
+                    >
+                      <Undo2 className="me-2 h-4 w-4" />
+                      {t('cancelAction')}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+            {activeManualDeductions.map(({ manual, payment }) => (
+              <div key={manual.id} className="text-xs">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="break-words">{manual.reason}</span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="font-semibold">
+                      {formatCurrency(Number(manual.approved_amount), manual.salary_currency)}
+                    </span>
+                    {payment?.status === EMPLOYEE_PAYMENT_STATUS.APPROVED && onCancelDeduction && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onCancelDeduction(payment.id)}
+                      >
+                        <Undo2 className="me-2 h-4 w-4" />
+                        {t('cancelAction')}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <ManualDeductionEvidenceSnapshot evidence={manual.evidence} />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {(cancelledExistingCase || cancelledManualDeductions.length > 0) && (
+          <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-950/30">
+            <h3 className="text-sm font-semibold">{t('cancelledTitle')}</h3>
+            {cancelledExistingCase && (
+              <div className="flex items-start justify-between gap-3 text-xs">
+                <div>
+                  <p>{t('systemFinalized')}</p>
+                  <p className="break-words text-muted-foreground">
+                    {cancelledExistingCase.payment.cancellation_reason}
+                  </p>
+                </div>
+                <span className="shrink-0 font-semibold line-through">
+                  {formatCurrency(
+                    Number(cancelledExistingCase.case.approved_amount),
+                    cancelledExistingCase.case.salary_currency,
                   )}
                 </span>
               </div>
             )}
-            {validManualDeductions.map(({ manual }) => (
-              <div key={manual.id} className="text-xs">
-                <div className="flex items-start justify-between gap-3">
-                  <span className="break-words">{manual.reason}</span>
-                  <span className="shrink-0 font-semibold">
-                    {formatCurrency(Number(manual.approved_amount), manual.salary_currency)}
-                  </span>
+            {cancelledManualDeductions.map(({ manual, payment }) => (
+              <div key={manual.id} className="flex items-start justify-between gap-3 text-xs">
+                <div>
+                  <p className="break-words">{manual.reason}</p>
+                  <p className="break-words text-muted-foreground">
+                    {payment?.cancellation_reason}
+                  </p>
                 </div>
-                <ManualDeductionEvidenceSnapshot evidence={manual.evidence} />
+                <span className="shrink-0 font-semibold line-through">
+                  {formatCurrency(Number(manual.approved_amount), manual.salary_currency)}
+                </span>
               </div>
             ))}
           </div>

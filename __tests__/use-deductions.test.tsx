@@ -17,6 +17,7 @@ import {
   useAdminDeductions,
   useApproveComputedDeduction,
   useApproveManualDeduction,
+  useCancelDeduction,
   useMyDeductionRisk,
   useSetAttendanceTrackingStart,
 } from '@/hooks/useDeductions';
@@ -140,6 +141,42 @@ describe('admin deduction hooks', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['employee-payments'] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['payroll'] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['my-payslips'] });
+  });
+
+  it('cancels through the dedicated endpoint and refreshes all money views', async () => {
+    mocks.mutateAPI.mockResolvedValue({ payment: { id: 'ep_deduction', status: 'rejected' } });
+    const { queryClient, Wrapper } = createWrapper();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    const input = { payment_id: 'ep_deduction', reason: 'Excuse accepted' };
+
+    const { result } = renderHook(() => useCancelDeduction(), { wrapper: Wrapper });
+    result.current.mutate(input);
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mocks.mutateAPI).toHaveBeenCalledWith(
+      '/api/hr/deductions/cancel',
+      'POST',
+      input,
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['deductions'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['employee-payments'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['payroll'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['payroll-run'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['my-payslips'] });
+  });
+
+  it('refreshes the deductions and payroll views after a cancellation conflict', async () => {
+    mocks.mutateAPI.mockRejectedValue(new Error('Payroll state changed'));
+    const { queryClient, Wrapper } = createWrapper();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHook(() => useCancelDeduction(), { wrapper: Wrapper });
+    result.current.mutate({ payment_id: 'ep_deduction', reason: 'Owner decision' });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['deductions'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['payroll'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['payroll-run'] });
   });
 
   it('documents attendance tracking through the admin endpoint and refreshes both views', async () => {

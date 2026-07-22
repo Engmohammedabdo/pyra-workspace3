@@ -62,6 +62,9 @@ export interface EmployeePaymentRow {
   amount: number;
   currency: string;
   status: string;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
+  cancellation_reason: string | null;
   created_at: string;
 }
 

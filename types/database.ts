@@ -1259,18 +1259,21 @@ export interface PyraTimesheetPeriod {
 export interface PyraEmployeePayment {
   id: string;
   username: string;
-  source_type: 'task' | 'overtime' | 'bonus' | 'deduction';
+  source_type: 'task' | 'overtime' | 'bonus' | 'deduction' | 'commission' | 'final_settlement';
   source_id: string | null;
   description: string | null;
   amount: number;
   currency: string;
-  status: 'pending' | 'approved' | 'paid';
+  status: 'pending' | 'approved' | 'paid' | 'rejected';
   payroll_id: string | null;
   /** Migration 041 — payroll month this payment belongs to (first day of month). */
   effective_month: string | null;
   approved_by: string | null;
   approved_at: string | null;
   paid_at: string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
+  cancellation_reason: string | null;
   created_at: string;
   // Joined
   display_name?: string;

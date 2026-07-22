@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AdminDeductionEmployeeCard } from '@/components/hr/deductions/AdminDeductionEmployeeCard';
 import { AttendanceTrackingStartDialog } from '@/components/hr/deductions/AttendanceTrackingStartDialog';
+import { CancelDeductionDialog } from '@/components/hr/deductions/CancelDeductionDialog';
 import { ManualDeductionDialog } from '@/components/hr/deductions/ManualDeductionDialog';
 import { useAdminDeductions, useApproveComputedDeduction } from '@/hooks/useDeductions';
 import { CALENDAR_TIMEZONE_OFFSET } from '@/lib/constants/statuses';
@@ -75,6 +76,7 @@ export function DeductionsClient() {
   const [month, setMonth] = useState(currentMonth);
   const [manualUsername, setManualUsername] = useState<string | null>(null);
   const [trackingUsername, setTrackingUsername] = useState<string | null>(null);
+  const [cancelPaymentId, setCancelPaymentId] = useState<string | null>(null);
   const deductions = useAdminDeductions(month);
   const approveComputed = useApproveComputedDeduction();
   const report = deductions.data;
@@ -160,6 +162,7 @@ export function DeductionsClient() {
                   && approveComputed.variables?.username === employee.username,
                 )}
                 onManualDeduction={() => setManualUsername(employee.username)}
+                onCancelDeduction={setCancelPaymentId}
                 onAttendanceTracking={() => setTrackingUsername(employee.username)}
               />
             ))}
@@ -184,6 +187,13 @@ export function DeductionsClient() {
         open={Boolean(trackingUsername && trackingEmployee)}
         onOpenChange={(open) => {
           if (!open) setTrackingUsername(null);
+        }}
+      />
+      <CancelDeductionDialog
+        paymentId={cancelPaymentId}
+        open={Boolean(cancelPaymentId)}
+        onOpenChange={(open) => {
+          if (!open) setCancelPaymentId(null);
         }}
       />
     </div>

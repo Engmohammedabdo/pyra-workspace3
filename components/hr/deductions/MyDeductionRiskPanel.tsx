@@ -8,6 +8,7 @@ import {
   FileWarning,
   ShieldAlert,
   Truck,
+  Undo2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,6 +21,7 @@ import { useStatusLabels } from '@/lib/i18n/status-labels';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
 import type { Locale } from '@/lib/i18n/config';
 import type { DeductionIntegrityBlocker } from '@/lib/hr/deductions-report';
+import { EMPLOYEE_PAYMENT_STATUS } from '@/lib/constants/statuses';
 
 function integrityKey(code: DeductionIntegrityBlocker['code']) {
   switch (code) {
@@ -106,7 +108,14 @@ export function MyDeductionRiskPanel() {
 
   const finalized = employee.existing_case;
   const finalizedPaymentVerified = Boolean(
-    finalized?.payment && !hasCasePaymentBlocker(blockers),
+    finalized?.payment
+    && finalized.payment.status !== EMPLOYEE_PAYMENT_STATUS.REJECTED
+    && !hasCasePaymentBlocker(blockers),
+  );
+  const cancelledPaymentVerified = Boolean(
+    finalized?.payment
+    && finalized.payment.status === EMPLOYEE_PAYMENT_STATUS.REJECTED
+    && !hasCasePaymentBlocker(blockers),
   );
   return (
     <section className="space-y-4" aria-label={t('title')}>
@@ -196,7 +205,34 @@ export function MyDeductionRiskPanel() {
         </Card>
       )}
 
-      {finalized && !finalizedPaymentVerified && (
+      {finalized && cancelledPaymentVerified && (
+        <Card
+          data-testid="deduction-risk-cancelled"
+          className="border-slate-200 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-950/30"
+        >
+          <CardContent className="flex flex-wrap items-start justify-between gap-3 p-4">
+            <div className="flex min-w-0 items-start gap-2">
+              <Undo2 className="mt-0.5 h-4 w-4 shrink-0 text-slate-700 dark:text-slate-300" />
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold">{t('cancelled.title')}</h3>
+                <p className="break-words text-xs text-muted-foreground">
+                  {finalized.payment?.cancellation_reason}
+                </p>
+                {finalized.payment?.cancelled_at && (
+                  <p className="text-xs text-muted-foreground">
+                    {formatDate(finalized.payment.cancelled_at, 'dd MMM yyyy', locale)}
+                  </p>
+                )}
+              </div>
+            </div>
+            <p className="font-semibold text-slate-700 line-through dark:text-slate-300">
+              {formatCurrency(Number(finalized.case.approved_amount), finalized.case.salary_currency)}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {finalized && !finalizedPaymentVerified && !cancelledPaymentVerified && (
         <Card
           data-testid="deduction-risk-case-evidence"
           className="border-amber-200 bg-amber-50/50 dark:border-amber-900/60 dark:bg-amber-950/20"
@@ -215,7 +251,31 @@ export function MyDeductionRiskPanel() {
         const paymentVerified = Boolean(
           payment && !hasManualPaymentBlocker(blockers, manual.payment_id),
         );
-        return paymentVerified ? (
+        const paymentCancelled = paymentVerified
+          && payment?.status === EMPLOYEE_PAYMENT_STATUS.REJECTED;
+        return paymentCancelled ? (
+          <Card
+            key={manual.id}
+            data-testid={`deduction-risk-manual-cancelled-${manual.id}`}
+            className="border-slate-200 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-950/30"
+          >
+            <CardContent className="flex flex-wrap items-start justify-between gap-3 p-4">
+              <div className="flex min-w-0 items-start gap-2">
+                <Undo2 className="mt-0.5 h-4 w-4 shrink-0 text-slate-700 dark:text-slate-300" />
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold">{t('cancelled.title')}</h3>
+                  <p className="break-words text-xs text-muted-foreground">{manual.reason}</p>
+                  <p className="break-words text-xs text-muted-foreground">
+                    {payment?.cancellation_reason}
+                  </p>
+                </div>
+              </div>
+              <p className="font-semibold text-slate-700 line-through dark:text-slate-300">
+                {formatCurrency(Number(manual.approved_amount), manual.salary_currency)}
+              </p>
+            </CardContent>
+          </Card>
+        ) : paymentVerified ? (
           <Card
             key={manual.id}
             data-testid={`deduction-risk-manual-${manual.id}`}
