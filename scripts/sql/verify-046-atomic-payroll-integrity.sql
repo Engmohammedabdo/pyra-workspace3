@@ -180,7 +180,18 @@ BEGIN
       AND pg_catalog.strpos(pg_catalog.pg_get_constraintdef(con.oid), 'reason') > 0
       AND pg_catalog.strpos(pg_catalog.pg_get_constraintdef(con.oid), 'evidence') > 0
       AND pg_catalog.strpos(pg_catalog.pg_get_constraintdef(con.oid), 'schema_version') > 0
-      AND pg_catalog.strpos(pg_catalog.pg_get_constraintdef(con.oid), 'IS NOT DISTINCT FROM') > 0
+      AND (
+        pg_catalog.strpos(
+          pg_catalog.pg_get_constraintdef(con.oid),
+          'IS NOT DISTINCT FROM'
+        ) > 0
+        OR (
+          -- PostgreSQL normalizes `a IS NOT DISTINCT FROM b` to
+          -- `NOT (a IS DISTINCT FROM b)` in pg_get_constraintdef().
+          pg_catalog.strpos(pg_catalog.pg_get_constraintdef(con.oid), 'IS DISTINCT FROM') > 0
+          AND pg_catalog.strpos(pg_catalog.pg_get_constraintdef(con.oid), 'NOT (') > 0
+        )
+      )
   ) OR NOT EXISTS (
     SELECT 1
     FROM pg_catalog.pg_constraint AS con

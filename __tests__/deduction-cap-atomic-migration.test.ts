@@ -199,6 +199,11 @@ describe('atomic aggregate disciplinary-deduction cap', () => {
     expect(verifier).toContain('pyra_approve_manual_deduction');
     expect(verifier).toContain('append-only');
     expect(verifier).toContain('ck_deduction_cases_approved_formula');
+    expect(verifier).toContain(
+      'PostgreSQL normalizes `a IS NOT DISTINCT FROM b`',
+    );
+    expect(verifier).toContain("'IS DISTINCT FROM'");
+    expect(verifier).toContain("'NOT ('");
     expect(verifier).toContain('manual deduction RPC is not current-month-only');
     expect(verifier).not.toContain(
       "has_table_privilege('service_role', 'public.pyra_payroll_runs', 'SELECT,INSERT,UPDATE,DELETE')",
