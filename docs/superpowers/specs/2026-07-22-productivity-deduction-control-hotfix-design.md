@@ -50,7 +50,7 @@ The administrator may cancel a deduction while its payroll run is not approved o
 
 - Extend stage-history reads with `moved_by`; do not store derived productivity counters.
 - Add the `legacy_actor_verified` attribution constant and pure attribution tests.
-- Migration `049` adds the cancelled payment state/audit fields and a guarded atomic cancellation function after verifying live column and constraint names.
+- Migration `050` adds the cancelled payment state/audit fields and a guarded atomic cancellation function after verifying live column and constraint names. Migration `049` is the owner-directed exact-deadline correction for Wael's two blocked July tasks.
 - Add admin-only apply/cancel endpoints gated by `hr.manage`, with `apiSuccess`/`apiError`, `logActivity`, and `logError`.
 - Keep the employee report own-scoped through an existing `BASE_EMPLOYEE` permission; no new employee permission is required unless code inspection proves otherwise.
 - React Query hooks use `fetchAPI`/`mutateAPI` and invalidate productivity, deductions, payments, and payroll-run queries after mutations.
@@ -70,4 +70,4 @@ The administrator may cancel a deduction while its payroll run is not approved o
 
 ## Test and release gates
 
-Implementation starts with failing tests for legacy actor attribution, deadline exclusion, cap treatment, cancellation eligibility, payroll invalidation, and admin/employee parity. Migration verification checks the live schema through `information_schema`, applies via `pnpm db:query`, re-reads the resulting objects, and records migration 049. Every implementation commit must pass `pnpm run check`, `pnpm test -- --run`, and `pnpm build`. Production deployment remains a separate explicit approval before pushing to `origin/main`.
+Implementation starts with failing tests for legacy actor attribution, deadline exclusion, cap treatment, cancellation eligibility, payroll invalidation, and admin/employee parity. Migration verification checks the live schema through `information_schema`, applies via `pnpm db:query`, re-reads the resulting objects, and records migration 050. Every implementation commit must pass `pnpm run check`, `pnpm test -- --run`, and `pnpm build`. Production deployment remains a separate explicit approval before pushing to `origin/main`.
