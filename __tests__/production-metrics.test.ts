@@ -185,7 +185,7 @@ describe('buildTaskJourney', () => {
     expect(j.on_time).toBeNull();
   });
 
-  it('excludes provenance-marked deadlines even when current and snapshot instants exist', () => {
+  it('preserves provenance-marked legacy deadlines on their calendar-day basis', () => {
     const j = buildTaskJourney(
       {
         ...TASK,
@@ -203,12 +203,12 @@ describe('buildTaskJourney', () => {
 
     expect(j.production_deadline_exempt).toBe(true);
     expect(j.effective_due_at).toBeNull();
-    expect(j.delivery_eligible).toBe(false);
-    expect(j.delivery_exclusion).toBe('unverified_legacy_deadline');
-    expect(j.on_time).toBeNull();
+    expect(j.delivery_eligible).toBe(true);
+    expect(j.delivery_exclusion).toBeNull();
+    expect(j.on_time).toBe(true);
   });
 
-  it('excludes the literal migration sentinel before its provenance flag is backfilled', () => {
+  it('recognizes the literal migration sentinel as a legacy calendar-day deadline', () => {
     const j = buildTaskJourney(
       {
         ...TASK,
@@ -227,9 +227,59 @@ describe('buildTaskJourney', () => {
 
     expect(j.production_deadline_exempt).toBe(true);
     expect(j.effective_due_at).toBeNull();
-    expect(j.delivery_eligible).toBe(false);
-    expect(j.delivery_exclusion).toBe('unverified_legacy_deadline');
-    expect(j.on_time).toBeNull();
+    expect(j.delivery_eligible).toBe(true);
+    expect(j.delivery_exclusion).toBeNull();
+    expect(j.on_time).toBe(true);
+  });
+
+  it('preserves legacy calendar-day scoring while exact deadlines remain strict to the minute', () => {
+    const legacy = buildTaskJourney(
+      {
+        ...TASK,
+        id: 'legacy-day',
+        due_date: '2026-07-10',
+        due_at: '2026-07-10T19:59:59.999Z',
+        production_deadline_exempt: true,
+      },
+      [ev(
+        'legacy-day',
+        'col_prod_wip',
+        'col_prod_review',
+        '2026-07-10T18:30:00.000Z',
+        '2026-07-10T19:59:59.999Z',
+      )],
+    );
+    const exact = buildTaskJourney(
+      {
+        ...TASK,
+        id: 'exact-minute',
+        due_date: '2026-07-10',
+        due_at: '2026-07-10T14:00:00.000Z',
+      },
+      [ev(
+        'exact-minute',
+        'col_prod_wip',
+        'col_prod_review',
+        '2026-07-10T14:01:00.000Z',
+        '2026-07-10T14:00:00.000Z',
+      )],
+    );
+
+    const metrics = summarizeEmployee(
+      [legacy, exact],
+      '2026-07',
+      '2026-07-20T12:00:00.000Z',
+      [],
+    );
+
+    expect(legacy.effective_due_at).toBeNull();
+    expect(legacy.delivery_eligible).toBe(true);
+    expect(legacy.delivery_exclusion).toBeNull();
+    expect(legacy.on_time).toBe(true);
+    expect(exact.on_time).toBe(false);
+    expect(metrics.on_time_count).toBe(1);
+    expect(metrics.on_time_eligible_count).toBe(2);
+    expect(metrics.on_time_pct).toBe(50);
   });
 
   it('keeps a missing deadline unscored and explicitly excluded', () => {
@@ -358,8 +408,61 @@ describe('summarizeEmployee', () => {
     expect(s.on_time_pct).toBe(50);   // t1 on time, t2 late
     expect(s.late_count).toBe(1);
     expect(s.avg_delay_days).toBe(3); // 07-05 vs 07-02
-    expect(s.avg_rounds).toBeNull(); // quality rounds require native review decisions
-    expect(s.review_rounds_total).toBe(0);
+    expect(s.avg_rounds).toBe(1);
+    expect(s.review_rounds_total).toBe(1);
+  });
+
+  it('keeps average review rounds derived from stage history for delivered work', () => {
+    const threeRounds = {
+      ...delivered,
+      task_id: 'three-rounds',
+      review_rounds: 3,
+    };
+    const twoRounds = {
+      ...delivered,
+      task_id: 'two-rounds',
+      review_rounds: 2,
+    };
+    const metrics = summarizeEmployee(
+      [threeRounds, twoRounds],
+      '2026-07',
+      '2026-07-20T12:00:00.000Z',
+      [{
+        task_id: 'two-rounds',
+        created_at: '2026-07-06T10:00:00Z',
+        action: 'reject',
+        kind: 'revision',
+      }],
+    );
+
+    expect(metrics.avg_rounds).toBe(2.5);
+    expect(metrics.review_rounds_total).toBe(5);
+    expect(metrics.reviewed_task_count).toBe(1);
+  });
+
+  it('preserves the pre-clock July cohort totals across the deadline transition', () => {
+    const reviewRounds = [2, 3, 4, 7, 2, 1, 1, 1, 3, 3, 2];
+    const journeys = reviewRounds.map((rounds, index) => ({
+      ...delivered,
+      task_id: `transition-task-${index}`,
+      on_time: index < 6,
+      delivery_eligible: true,
+      review_rounds: rounds,
+    }));
+
+    const metrics = summarizeEmployee(
+      journeys,
+      '2026-07',
+      '2026-07-22T12:00:00.000Z',
+      [],
+    );
+
+    expect(metrics.deliveries).toBe(11);
+    expect(metrics.on_time_count).toBe(6);
+    expect(metrics.on_time_eligible_count).toBe(11);
+    expect(metrics.on_time_pct).toBe(55);
+    expect(metrics.review_rounds_total).toBe(29);
+    expect(metrics.avg_rounds).toBe(2.6);
   });
 
   it('excludes short-lead tasks from delivery aggregation while including exactly-24-hour tasks', () => {
@@ -446,7 +549,7 @@ describe('summarizeEmployee', () => {
     expect(august.outright_rejection_rate).toBe(100);
   });
 
-  it('uses native decisions from one monthly cohort for average review rounds', () => {
+  it('does not replace stage-history review rounds with native decisions', () => {
     const submittedBeforeMonth = buildTaskJourney(
       { ...TASK, id: 'monthly-decision-cohort' },
       [
@@ -481,8 +584,8 @@ describe('summarizeEmployee', () => {
     );
 
     expect(august.reviewed_task_count).toBe(1);
-    expect(august.review_rounds_total).toBe(2);
-    expect(august.avg_rounds).toBe(2);
+    expect(august.review_rounds_total).toBe(0);
+    expect(august.avg_rounds).toBeNull();
   });
 
   it('keeps the exact 2.02 review average for the quality threshold', () => {

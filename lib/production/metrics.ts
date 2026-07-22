@@ -12,6 +12,7 @@ import {
   isUnverifiedProductionDeadline,
   isValidIsoInstant,
   isoInstantDifferenceMicroseconds,
+  legacyDubaiDayEndToIso,
 } from './deadlines';
 
 export interface StageEvent {
@@ -147,20 +148,28 @@ export function buildTaskJourney(
     deadlineExempt: task.production_deadline_exempt,
   });
   const effectiveDueAt = deadlineExempt ? null : selectedExactDueAt;
-  const invalidDeliveryTimestamp = (effectiveDueAt !== null && !isValidIsoInstant(effectiveDueAt))
-    || (effectiveDueAt !== null && !isValidIsoInstant(task.created_at))
+  // A task assigned under the former date-only contract keeps that calendar-
+  // day scoring basis. The synthetic day-end instant is used only to enforce
+  // the locked 24-hour lead-time exclusion; it is never presented as an exact
+  // employee deadline.
+  const legacyDayDueAt = deadlineExempt && task.due_date
+    ? legacyDubaiDayEndToIso(task.due_date)
+    : null;
+  const scoringDueAt = effectiveDueAt ?? legacyDayDueAt;
+  const invalidDeliveryTimestamp = (scoringDueAt !== null && !isValidIsoInstant(scoringDueAt))
+    || (scoringDueAt !== null && !isValidIsoInstant(task.created_at))
     || (firstSubmitted !== null && !isValidIsoInstant(firstSubmitted));
   const legacyAttribution =
     task.attribution_status === PRODUCTION_ATTRIBUTION_STATUS.LEGACY_UNVERIFIED;
   const deliveryExclusion = legacyAttribution
     ? 'legacy_unverified_attribution'
-    : deadlineExempt
+    : deadlineExempt && !legacyDayDueAt
     ? 'unverified_legacy_deadline'
-    : !effectiveDueAt
+    : !scoringDueAt
       ? 'missing_deadline'
     : invalidDeliveryTimestamp
       ? 'invalid_timestamp'
-    : (isoInstantDifferenceMicroseconds(effectiveDueAt, task.created_at) ?? 0)
+    : (isoInstantDifferenceMicroseconds(scoringDueAt, task.created_at) ?? 0)
         < DELIVERY_MIN_LEAD_TIME_HOURS * HOUR_MICROSECONDS
       ? 'lead_time_under_24h'
       : null;
@@ -190,12 +199,16 @@ export function buildTaskJourney(
 
   let onTime: boolean | null = null;
   let delayDays: number | null = null;
-  if (effectiveDueAt && firstSubmitted && deliveryExclusion !== 'invalid_timestamp') {
-    const submissionOrder = compareIsoInstants(firstSubmitted, effectiveDueAt);
-    onTime = submissionOrder !== null && submissionOrder <= 0;
+  if (scoringDueAt && firstSubmitted && deliveryExclusion !== 'invalid_timestamp') {
+    if (legacyDayDueAt && task.due_date) {
+      onTime = dubaiDayKey(new Date(firstSubmitted)) <= task.due_date;
+    } else {
+      const submissionOrder = compareIsoInstants(firstSubmitted, scoringDueAt);
+      onTime = submissionOrder !== null && submissionOrder <= 0;
+    }
     if (!onTime) {
       delayDays = Math.round(
-        dubaiDayOrdinal(firstSubmitted) - dubaiDayOrdinal(effectiveDueAt),
+        dubaiDayOrdinal(firstSubmitted) - dubaiDayOrdinal(scoringDueAt),
       );
     }
   }
@@ -270,7 +283,10 @@ export function summarizeEmployee(
       )
       .map((event) => event.task_id),
   );
-  const reviewRoundsTotal = monthlyQualityDecisions.length;
+  const reviewRoundsTotal = deliveredInMonth.reduce(
+    (total, journey) => total + journey.review_rounds,
+    0,
+  );
 
   return {
     deliveries: deliveredInMonth.length,
@@ -281,9 +297,7 @@ export function summarizeEmployee(
     on_time_eligible_count: onTimeEligible.length,
     late_count: late.length,
     avg_delay_days: avg(late.map((j) => j.delay_days || 0)),
-    avg_rounds: reviewedTaskIds.size
-      ? Math.round((reviewRoundsTotal / reviewedTaskIds.size) * 10) / 10
-      : null,
+    avg_rounds: avg(deliveredInMonth.map((journey) => journey.review_rounds)),
     review_rounds_total: reviewRoundsTotal,
     avg_days_to_first_submission: avg(
       submittedInMonth.map((j) => j.days_to_first_submission || 0),

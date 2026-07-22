@@ -39,7 +39,7 @@ export interface AttendanceDeductionIncident {
 export interface QualityMonthMetrics {
   avg_rounds: number | null;
   outright_rejection_rate: number | null;
-  /** Exact numerator/denominator used for policy; avg_rounds may be display-rounded. */
+  /** Exact stage-history numerator; deliveries is its denominator. */
   review_rounds_total?: number;
   deliveries?: number;
   /** Exact numerator/denominator used for policy; the rate may be display-rounded. */
@@ -278,11 +278,14 @@ export function isQualityBelowBand(
       throw new RangeError('outright_rejection_rate must be between 0 and 100');
     }
   }
+  const reviewRoundTaskCount = metrics.deliveries ?? (
+    metrics.review_rounds_total === undefined ? undefined : metrics.reviewed_task_count
+  );
   const reviewRounds = exactCountPair(
     metrics.review_rounds_total,
-    metrics.reviewed_task_count,
+    reviewRoundTaskCount,
     'review_rounds_total',
-    'reviewed_task_count',
+    metrics.deliveries === undefined ? 'reviewed_task_count' : 'deliveries',
   );
   const outrightRejections = exactCountPair(
     metrics.outright_rejection_count,
