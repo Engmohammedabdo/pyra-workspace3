@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Search, X } from 'lucide-react';
+import { AlertTriangle, Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,12 +34,19 @@ interface PipelineFilterBarProps {
   ownerOptions?: Array<{ value: string; label: string }>;
   /** Total leads visible after current filters (rendered as a small live counter). */
   total?: number;
+  /**
+   * Days threshold behind the `?filter=at_risk` chip label. Passed down from
+   * <PipelineClient> (single definition there, mirroring the deals-at-risk
+   * route default) so the number displayed here can never drift from the
+   * number actually applied to the lead list.
+   */
+  atRiskDays: number;
 }
 
-const SOURCE_VALUES = ['whatsapp', 'website', 'referral', 'manual', 'ad', 'social'] as const;
+const SOURCE_VALUES = ['phone_call', 'whatsapp', 'website', 'referral', 'manual', 'ad', 'social'] as const;
 const PRIORITY_VALUES = ['urgent', 'high', 'medium', 'low'] as const;
 
-export function PipelineFilterBar({ isAdmin, ownerOptions = [], total }: PipelineFilterBarProps) {
+export function PipelineFilterBar({ isAdmin, ownerOptions = [], total, atRiskDays }: PipelineFilterBarProps) {
   const t = useTranslations('crm.pipeline.filterBar');
   const priorityLabel = useStatusLabels('leadPriority');
   const router = useRouter();
@@ -58,6 +65,11 @@ export function PipelineFilterBar({ isAdmin, ownerOptions = [], total }: Pipelin
   const owner = sp.get('assigned_to') ?? 'all';
   const source = sp.get('source') ?? 'all';
   const priority = sp.get('priority') ?? 'all';
+  // Not a Select-driven filter — set only by external links (CRM dashboard
+  // "deals at risk" card, ai-insights, lead-idle-check reminder). The actual
+  // predicate lives in <PipelineClient>; this bar only reads it back to
+  // render the removable chip below.
+  const isAtRiskFilter = sp.get('filter') === 'at_risk';
 
   const [searchInput, setSearchInput] = useState(initialSearch);
 
@@ -92,8 +104,9 @@ export function PipelineFilterBar({ isAdmin, ownerOptions = [], total }: Pipelin
     if (owner !== 'all') n++;
     if (source !== 'all') n++;
     if (priority !== 'all') n++;
+    if (isAtRiskFilter) n++;
     return n;
-  }, [initialSearch, owner, source, priority]);
+  }, [initialSearch, owner, source, priority, isAtRiskFilter]);
 
   function clearAll() {
     router.replace('?', { scroll: false });
@@ -167,6 +180,31 @@ export function PipelineFilterBar({ isAdmin, ownerOptions = [], total }: Pipelin
           </SelectContent>
         </Select>
 
+        {/* At-risk chip renders in the main row (NOT the mobile-only strip
+            below) — this filter only ever arrives via an external link
+            (dashboard "deals at risk" card / ai-insights / lead-idle-check
+            reminder), so the desktop admin who clicked it needs the same
+            "why am I seeing fewer cards" visibility as mobile. Removable on
+            its own (clears just `filter`) independent of the clear-all
+            button below (which wipes every active filter). */}
+        {isAtRiskFilter && (
+          <Badge
+            variant="secondary"
+            className="text-xs gap-1 h-11 rounded-full border-amber-300 bg-amber-500/10 text-amber-700 dark:border-amber-700/40 dark:text-amber-400"
+          >
+            <AlertTriangle className="size-3.5" aria-hidden />
+            {t('chips.atRisk', { days: atRiskDays })}
+            <button
+              type="button"
+              onClick={() => setParam('filter', null)}
+              className="ms-0.5 rounded-full hover:bg-amber-500/20 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+              aria-label={t('chips.clearAtRisk')}
+            >
+              <X className="size-3" aria-hidden />
+            </button>
+          </Badge>
+        )}
+
         {/* Phase 10 Commit 4: h-11 (44px) for touch compliance. Dropped
             `size="sm"` (was h-9 = 36px) since the explicit className
             override would conflict semantically. */}
@@ -190,8 +228,11 @@ export function PipelineFilterBar({ isAdmin, ownerOptions = [], total }: Pipelin
           from the legacy follow-ups client, since migrated to
           app/dashboard/crm/follow-ups/). Read-only; users adjust filters
           via the Selects above or clear all via "مسح". Per-chip × removal // i18n-exempt: doc comment
-          deferred to v1.1. */}
-      {activeCount > 0 && (
+          deferred to v1.1. Guarded on the 4 Select-driven filters specifically
+          (not `activeCount`, which also counts at_risk) — at_risk renders its
+          own always-visible chip above, so this strip must not render an
+          empty gap when at_risk is the only active filter. */}
+      {(initialSearch || owner !== 'all' || source !== 'all' || priority !== 'all') && (
         <div className="md:hidden mt-2 flex flex-wrap gap-1.5">
           {initialSearch && (
             <Badge variant="secondary" className="text-xs gap-1">

@@ -181,6 +181,7 @@
       },
       "filterBar": {
         "sources": {
+          "phone_call": "مكالمة هاتفية",
           "whatsapp": "WhatsApp",
           "website": "الموقع",
           "referral": "إحالة",
@@ -201,7 +202,9 @@
           "search": "بحث: {query}",
           "owner": "المالك: {owner}",
           "source": "المصدر: {source}",
-          "priority": "الأولوية: {priority}"
+          "priority": "الأولوية: {priority}",
+          "atRisk": "في خطر (بدون تواصل ≥ {days} يوم)",
+          "clearAtRisk": "إزالة فلتر الصفقات في خطر"
         }
       },
       "empty": {

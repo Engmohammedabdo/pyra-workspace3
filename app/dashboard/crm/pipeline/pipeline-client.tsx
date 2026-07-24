@@ -53,8 +53,36 @@ import {
   type MoveStageConfirmPayload,
   type MoveStageConfirmTargetId,
 } from '@/components/crm/pipeline/move-stage-confirm-modal';
-import { PIPELINE_STAGE_IDS } from '@/lib/constants/statuses';
+import { PIPELINE_ACTIVE_STAGES, PIPELINE_STAGE_IDS } from '@/lib/constants/statuses';
 import type { PyraSalesLead } from '@/types/database';
+import type { StageSummary } from '@/hooks/useLeads';
+
+// "At risk" definition mirrors app/api/crm/dashboard/deals-at-risk/route.ts
+// (days default = 7 — same value used by useDealsAtRisk(7) on the CRM
+// dashboard card). Defined once here and threaded down to
+// <PipelineFilterBar>'s chip label so the number shown always matches the
+// number applied — never hardcode a second copy of this value.
+//
+// APPROXIMATION: the deals-at-risk route's staleness signal is
+// greatest(last_contact_at, latest pyra_lead_activities.created_at). This
+// board loads leads with `enrich=false` (the 1000-card fetch intentionally
+// skips the activity join) and even `enrich=true` only returns
+// activity_count/last_activity_type, never the latest activity's timestamp —
+// so there is no per-lead "last activity" datum available client-side here.
+// This predicate therefore falls back to `last_contact_at` ALONE. That is
+// safe now that Task 2 backfilled the ~107 leads whose last_contact_at was
+// poisoned by 0-second dials, but it can still disagree with the dashboard
+// card by a handful of leads whose most recent touch was a manual activity
+// note that never bumped last_contact_at.
+const AT_RISK_DAYS_THRESHOLD = 7;
+const ACTIVE_STAGE_IDS = PIPELINE_ACTIVE_STAGES as readonly string[];
+
+function isLeadAtRisk(lead: PyraSalesLead, cutoffMs: number): boolean {
+  if (!ACTIVE_STAGE_IDS.includes(lead.stage_id ?? '')) return false;
+  if (lead.is_converted) return false;
+  if (!lead.last_contact_at) return true;
+  return new Date(lead.last_contact_at).getTime() < cutoffMs;
+}
 
 export function PipelineClient() {
   const t = useTranslations('crm.pipeline');
@@ -158,9 +186,37 @@ export function PipelineClient() {
   const { data: stages, isLoading: stagesLoading } = usePipelineStages();
   const { data: leadsResp, isLoading: leadsLoading } = useLeads(filters);
 
-  const leads = leadsResp?.leads;
-  const total = leadsResp?.total;
-  const stageSummary = leadsResp?.stage_summary;
+  // `?filter=at_risk` — set only by external links (CRM dashboard "deals at
+  // risk" card, ai-insights, lead-idle-check reminder), never by a Select in
+  // <PipelineFilterBar>. There is no server-side query param for this (the
+  // deals-at-risk route's staleness join isn't available on this endpoint —
+  // see the APPROXIMATION note above), so it's applied as a client-side
+  // predicate over the SAME `leads` array the board already loaded — no
+  // second fetch, no parallel filtering path. `stage_summary` (per-column
+  // header counts) is recomputed locally too when active, so the numbers on
+  // the columns always match the cards actually rendered underneath them.
+  const isAtRiskFilter = sp.get('filter') === 'at_risk';
+
+  const leads = useMemo(() => {
+    const raw = leadsResp?.leads;
+    if (!isAtRiskFilter || !raw) return raw;
+    const cutoffMs = Date.now() - AT_RISK_DAYS_THRESHOLD * 24 * 60 * 60 * 1000;
+    return raw.filter((l) => isLeadAtRisk(l, cutoffMs));
+  }, [leadsResp, isAtRiskFilter]);
+
+  const stageSummary = useMemo<StageSummary | undefined>(() => {
+    if (!isAtRiskFilter) return leadsResp?.stage_summary;
+    const acc: StageSummary = {};
+    for (const l of leads ?? []) {
+      const sid = l.stage_id || '__none__';
+      if (!acc[sid]) acc[sid] = { count: 0, value: 0 };
+      acc[sid].count += 1;
+      acc[sid].value += Number(l.expected_value) || 0;
+    }
+    return acc;
+  }, [isAtRiskFilter, leads, leadsResp]);
+
+  const total = isAtRiskFilter ? leads?.length : leadsResp?.total;
   const isAdmin = me?.role === 'admin';
 
   // Owner options for the admin filter — sourced from ALL sales-capable users
@@ -330,7 +386,12 @@ export function PipelineClient() {
         onConfirm={handleConfirmModal}
       />
 
-      <PipelineFilterBar isAdmin={!!isAdmin} ownerOptions={ownerOptions} total={total} />
+      <PipelineFilterBar
+        isAdmin={!!isAdmin}
+        ownerOptions={ownerOptions}
+        total={total}
+        atRiskDays={AT_RISK_DAYS_THRESHOLD}
+      />
 
       <PipelineBoard
         stages={stages}

@@ -181,6 +181,7 @@
       },
       "filterBar": {
         "sources": {
+          "phone_call": "Phone call",
           "whatsapp": "WhatsApp",
           "website": "Website",
           "referral": "Referral",
@@ -201,7 +202,9 @@
           "search": "Search: {query}",
           "owner": "Owner: {owner}",
           "source": "Source: {source}",
-          "priority": "Priority: {priority}"
+          "priority": "Priority: {priority}",
+          "atRisk": "At risk (no contact ≥ {days} days)",
+          "clearAtRisk": "Remove at-risk filter"
         }
       },
       "empty": {
