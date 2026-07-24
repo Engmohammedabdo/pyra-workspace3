@@ -3,7 +3,7 @@ import { requireDeviceAuth } from '../_lib/device-auth';
 import { apiSuccess, apiError, apiValidationError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
-import { buildLeadPhoneIndex, matchLeadByPhone } from '@/lib/calls/match';
+import { buildLeadPhoneIndex, matchLeadByPhone, isConnectedCall } from '@/lib/calls/match';
 import { notify } from '@/lib/notifications/notify';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 import { PIPELINE_STAGE_IDS } from '@/lib/constants/statuses';
@@ -58,7 +58,7 @@ async function retroLinkCalls(
   if (!unlinked || unlinked.length === 0) return 0;
   for (const call of unlinked) {
     let activityId: string | null = null;
-    if (call.direction !== 'missed') {
+    if (isConnectedCall(call)) {
       activityId = generateId('la');
       const { error: actErr } = await supabase.from('pyra_lead_activities').insert({
         id: activityId,

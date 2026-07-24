@@ -23,3 +23,20 @@ export function matchLeadByPhone(
   if (!key) return null;
   return index.get(key) ?? null;
 }
+
+/**
+ * A call counts as real CONTACT only when someone actually picked up.
+ *
+ * The original gate was `direction !== 'missed'`, which classified a
+ * 0-second unanswered outgoing dial as contact — writing a `call_logged`
+ * timeline row and stamping `last_contact_at`. That poisoned every
+ * recency-driven signal (health score, deals-at-risk, lead-idle-check) and
+ * produced 257 fake activities + 107 falsely-fresh leads before it was
+ * caught. Duration is the only honest signal the Android CallLog gives us.
+ */
+export function isConnectedCall(call: {
+  direction: string;
+  duration_seconds: number;
+}): boolean {
+  return call.direction !== 'missed' && call.duration_seconds > 0;
+}

@@ -4,7 +4,7 @@ import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { phoneMatchKey } from '@/lib/utils/phone';
-import { buildLeadPhoneIndex, matchLeadByPhone } from '@/lib/calls/match';
+import { buildLeadPhoneIndex, matchLeadByPhone, isConnectedCall } from '@/lib/calls/match';
 import { logError } from '@/lib/observability/log-error';
 
 const MAX_BATCH = 100;
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
 
       const normalized = phoneMatchKey(call.phone);
       const lead = matchLeadByPhone(index, call.phone);
-      const connected = call.direction !== 'missed';
+      const connected = isConnectedCall(call);
       const matchStatus = lead ? 'matched' : ignoredSet.has(normalized) ? 'ignored' : 'unmatched';
 
       // Persist the call row FIRST (activity_id back-filled below) so a
