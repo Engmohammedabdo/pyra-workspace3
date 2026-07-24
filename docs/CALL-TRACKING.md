@@ -207,6 +207,22 @@ live: after syncing a missed call to an already-matched lead, the lead's
 `last_contact_at` stayed at the earlier connected call's timestamp (not
 overwritten by the later missed call).
 
+**0-second dial rule (design lock — do not regress, urgent-fix wave
+2026-07-25):** the "connected" gate is `isConnectedCall()`
+(`lib/calls/match.ts`) = `direction !== 'missed' AND duration_seconds > 0`
+— NOT direction alone. An `outgoing`/`incoming` call with
+`duration_seconds = 0` is a dial nobody answered: it is still stored in
+`pyra_agent_calls` and still counted by the calls report (it really
+happened), but exactly like a missed call it writes **no**
+`pyra_lead_activities` row and does **not** bump `last_contact_at` — no
+actual contact occurred, so it must not read as one. Before this fix the
+gate was direction-only, so an unanswered dial wrote a fake `call_logged`
+timeline row and stamped `last_contact_at` as if the lead had answered,
+poisoning the health-score recency factor and the `lead-idle-check`
+fallback for every lead with an unanswered outgoing dial (257 fake rows /
+107 leads backfilled — see `.superpowers/sdd/progress.md` urgent-fix
+wave entry).
+
 ### 3. `POST /api/mobile/leads` — quick-add from an unmatched call
 
 Auth: same device key. Body:
@@ -436,6 +452,11 @@ POST /api/mobile/log-error   (x-api-key: <device key>)
 - **Batch cap**: 100 calls per request (422 if 0 or >100).
 - **Missed-call rule**: stored + counted, but writes no timeline activity
   and does not bump `last_contact_at`.
+- **0-second dial rule**: same treatment as a missed call —
+  `isConnectedCall()` requires `duration_seconds > 0` in addition to
+  `direction !== 'missed'`. Stored + counted, but no timeline activity and
+  no `last_contact_at` bump (urgent-fix wave 2026-07-25 — previously any
+  non-missed direction counted as contact regardless of duration).
 - **Retro-link**: quick-add links not just the triggering call but every
   other unlinked call sharing the same normalized phone number.
 - **Phone matching**: `phoneMatchKey()` (`lib/utils/phone.ts`) — last 9
@@ -488,6 +509,22 @@ FROM   pyra_error_logs
 WHERE  metadata->>'source' = 'pyra-calls-app'
 ORDER  BY created_at DESC;
 ```
+
+**Proactive alerting (urgent-fix wave 2026-07-25):** manual triage above was
+previously the only path — `pyra_error_logs` had zero alerting, so a mobile
+sync/crash row (or any other server error, e.g. the `lead-idle-check` cron
+that failed silently for 11 days) could sit unresolved indefinitely with
+nobody notified. `POST /api/cron/error-digest` now runs daily (09:00 Dubai)
+and `notifyMany()`s every active admin with the rolling-24h new-error count,
+the true unresolved total, and the list of failing cron job names — skipped
+entirely on a clean day, and Dubai-day deduped so a same-day double-fire
+never double-notifies. It covers this table's ENTIRE contents, not just
+`pyra-calls-app` rows — mobile errors are one slice of what it surfaces.
+Same cron-endpoint pattern as `device-silent-check` above (`getExternalAuth`
+→ permission → service-role → `apiSuccess`). Not yet live in production —
+the n8n Schedule Trigger node is published in PyraCRM_Cron but the route
+only exists on `integrate-pending-fixes`; it 404s until the branch reaches
+`main`.
 
 ## Per-phone provisioning checklist
 

@@ -53,10 +53,12 @@ function parseCalls(raw: unknown): IncomingCall[] | null {
  *     the pre-check SELECT, repeated within the SAME batch, or caught via
  *     the unique-constraint race on insert — double-sync safe either way)
  *   - 'matched'   — phone matched an existing lead. If the call was
- *     CONNECTED (direction != 'missed') this ALSO writes a `call_logged`
+ *     CONNECTED (`isConnectedCall`: direction != 'missed' AND
+ *     duration_seconds > 0) this ALSO writes a `call_logged`
  *     pyra_lead_activities row + bumps the lead's last_contact_at. Missed
- *     calls are still stored + counted but get NO timeline activity and
- *     NO last_contact_at bump (design lock — see call-tracking spec).
+ *     calls AND 0-second unanswered dials are still stored + counted but
+ *     get NO timeline activity and NO last_contact_at bump (design lock —
+ *     see call-tracking spec).
  *   - 'ignored'   — phone matched a row in this agent's pyra_ignored_numbers
  *   - 'unmatched' — no lead, not ignored
  *   - 'error'     — the pyra_agent_calls insert failed for a NON-unique-

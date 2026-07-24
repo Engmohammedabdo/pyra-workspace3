@@ -125,7 +125,7 @@ export async function GET() {
           value: idleValue,
           message: t('idleWarning', { count: idleCount }),
           message_ar: tAr('idleWarning', { count: idleCount }),
-          link: '/dashboard/crm?filter=at_risk',
+          link: '/dashboard/crm/pipeline?filter=at_risk',
         });
       }
     }
