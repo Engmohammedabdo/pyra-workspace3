@@ -7,6 +7,7 @@ import { notify } from '@/lib/notifications/notify';
 import { PIPELINE_FINAL_STAGES } from '@/lib/constants/statuses';
 import { logError } from '@/lib/observability/log-error';
 import { dubaiDayKey } from '@/lib/utils/format';
+import { chunk } from '@/lib/utils/chunk';
 
 // ────────────────────────────────────────────────────────────────────────────
 // POST /api/cron/lead-idle-check
@@ -128,30 +129,41 @@ export async function POST(request: NextRequest) {
     const leadIds = allLeads.map((l) => l.id);
 
     // ── Q2: Most-recent activity per lead (across all activity types) ──
-    const { data: actData, error: actErr } = await supabase
-      .from('pyra_lead_activities')
-      .select('lead_id, created_at')
-      .in('lead_id', leadIds)
-      .order('created_at', { ascending: false });
-    if (actErr) {
-      // A swallowed error here would leave lastActivityByLead empty, so leads
-      // with a fresh note but null last_contact_at get mis-flagged idle → false
-      // warnings that also poison the 7-day dedup. Fail closed instead.
-      logError({
-        error: actErr,
-        request,
-        metadata: { source: 'cron', job: 'lead-idle-check', stage: 'activities_select' },
-      });
-      console.error('[cron/lead-idle-check] activities SELECT failed:', actErr.message);
-      return apiServerError();
+    // Batched: a single .in() with every lead id put ~13.5 KB in the query
+    // string and PostgREST answered "URI too long" — the cron then failed
+    // closed every day for 11 days (2026-07-14 → 2026-07-24) and nobody was
+    // told. Batch size 150 keeps each URL well under the proxy's 8 KB header
+    // buffer with room for the rest of the query.
+    const LEAD_ID_BATCH = 150;
+    const actRows: ActivityRow[] = [];
+    for (const idBatch of chunk(leadIds, LEAD_ID_BATCH)) {
+      const { data: actData, error: actErr } = await supabase
+        .from('pyra_lead_activities')
+        .select('lead_id, created_at')
+        .in('lead_id', idBatch)
+        .order('created_at', { ascending: false });
+      if (actErr) {
+        // A swallowed error here would leave lastActivityByLead empty, so leads
+        // with a fresh note but null last_contact_at get mis-flagged idle → false
+        // warnings that also poison the 7-day dedup. Fail closed instead.
+        logError({
+          error: actErr,
+          request,
+          metadata: { source: 'cron', job: 'lead-idle-check', stage: 'activities_select' },
+        });
+        console.error('[cron/lead-idle-check] activities SELECT failed:', actErr.message);
+        return apiServerError();
+      }
+      actRows.push(...((actData ?? []) as unknown as ActivityRow[]));
     }
 
     const lastActivityByLead = new Map<string, string>();
-    for (const row of ((actData ?? []) as unknown as ActivityRow[])) {
-      // First row per lead is the most recent (we ordered DESC)
-      if (!lastActivityByLead.has(row.lead_id)) {
-        lastActivityByLead.set(row.lead_id, row.created_at);
-      }
+    for (const row of actRows) {
+      // Rows for a given lead all come from one batch (batches partition by
+      // lead id), and each batch is DESC — but keep the max explicitly so this
+      // stays correct if batching ever changes.
+      const prev = lastActivityByLead.get(row.lead_id);
+      if (!prev || row.created_at > prev) lastActivityByLead.set(row.lead_id, row.created_at);
     }
 
     // ── Filter to truly idle leads ──
@@ -181,28 +193,32 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Q3: Per-lead 7-day idle_warning dedup (Q-11-2) ──
+    // Batched for the same reason as Q2 — idleLeadIds can be just as large as
+    // leadIds when the whole pipeline is stale (see the outage this fixed).
     const idleLeadIds = idleLeads.map((l) => l.id);
-    const { data: recentWarnings, error: dedupErr } = await supabase
-      .from('pyra_lead_activities')
-      .select('lead_id')
-      .in('lead_id', idleLeadIds)
-      .eq('activity_type', 'idle_warning')
-      .gte('created_at', dedupCutoffIso);
-    if (dedupErr) {
-      // A swallowed error empties the dedup set → already-warned leads get a
-      // duplicate idle_warning within the 7-day window. Fail closed.
-      logError({
-        error: dedupErr,
-        request,
-        metadata: { source: 'cron', job: 'lead-idle-check', stage: 'idle_dedup_select' },
-      });
-      console.error('[cron/lead-idle-check] idle_warning dedup SELECT failed:', dedupErr.message);
-      return apiServerError();
+    const alreadyWarnedSet = new Set<string>();
+    for (const idBatch of chunk(idleLeadIds, LEAD_ID_BATCH)) {
+      const { data: recentWarnings, error: dedupErr } = await supabase
+        .from('pyra_lead_activities')
+        .select('lead_id')
+        .in('lead_id', idBatch)
+        .eq('activity_type', 'idle_warning')
+        .gte('created_at', dedupCutoffIso);
+      if (dedupErr) {
+        // A swallowed error empties the dedup set → already-warned leads get a
+        // duplicate idle_warning within the 7-day window. Fail closed.
+        logError({
+          error: dedupErr,
+          request,
+          metadata: { source: 'cron', job: 'lead-idle-check', stage: 'idle_dedup_select' },
+        });
+        console.error('[cron/lead-idle-check] idle_warning dedup SELECT failed:', dedupErr.message);
+        return apiServerError();
+      }
+      for (const r of (recentWarnings ?? []) as Array<{ lead_id: string }>) {
+        alreadyWarnedSet.add(r.lead_id);
+      }
     }
-
-    const alreadyWarnedSet = new Set(
-      ((recentWarnings ?? []) as Array<{ lead_id: string }>).map((r) => r.lead_id),
-    );
     const newlyIdleLeads = idleLeads.filter((l) => !alreadyWarnedSet.has(l.id));
     const activitiesSkippedRecent = leadsIdle - newlyIdleLeads.length;
 
@@ -272,6 +288,9 @@ export async function POST(request: NextRequest) {
       const dubaiOffsetMs = 4 * 60 * 60 * 1000; // Asia/Dubai is UTC+4 (no DST)
       const dubaiTodayUtcIso = new Date(dubaiToday.getTime() - dubaiOffsetMs).toISOString();
 
+      // Not batched: agentsToCheck is bounded by the number of distinct
+      // sales agents/admins in the whole system (3 active today) — nowhere
+      // near the lead-id-count that caused the URI-too-long failure above.
       const { data: existingNotifs, error: notifDedupErr } = await supabase
         .from('pyra_notifications')
         .select('recipient_username')
