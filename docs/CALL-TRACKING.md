@@ -514,17 +514,27 @@ ORDER  BY created_at DESC;
 previously the only path — `pyra_error_logs` had zero alerting, so a mobile
 sync/crash row (or any other server error, e.g. the `lead-idle-check` cron
 that failed silently for 11 days) could sit unresolved indefinitely with
-nobody notified. `POST /api/cron/error-digest` now runs daily (09:00 Dubai)
-and `notifyMany()`s every active admin with the rolling-24h new-error count,
-the true unresolved total, and the list of failing cron job names — skipped
-entirely on a clean day, and Dubai-day deduped so a same-day double-fire
-never double-notifies. It covers this table's ENTIRE contents, not just
-`pyra-calls-app` rows — mobile errors are one slice of what it surfaces.
-Same cron-endpoint pattern as `device-silent-check` above (`getExternalAuth`
-→ permission → service-role → `apiSuccess`). Not yet live in production —
-the n8n Schedule Trigger node is published in PyraCRM_Cron but the route
-only exists on `integrate-pending-fixes`; it 404s until the branch reaches
-`main`.
+nobody notified. `POST /api/cron/error-digest` now runs daily (06:00 Dubai /
+02:00 UTC, on its own dedicated n8n Schedule Trigger — it was originally
+wired as a second branch off `lead-idle-check`'s shared trigger, which meant
+n8n's node halts the execution on error, exactly killing the digest in the
+scenario it exists to catch; split into its own trigger, one hour after
+idle-check's real fire time, same wave) and `notifyMany()`s every active
+admin with the rolling-24h new-error count, the true unresolved total, and
+the list of failing cron job names — skipped entirely on a clean day, and
+Dubai-day deduped so a same-day double-fire never double-notifies. It covers
+this table's ENTIRE contents, not just `pyra-calls-app` rows — mobile errors
+are one slice of what it surfaces. Same cron-endpoint pattern as
+`device-silent-check` above (`getExternalAuth` → permission → service-role →
+`apiSuccess`). Not yet live in production — the n8n Schedule Trigger node is
+published in PyraCRM_Cron but the route only exists on
+`integrate-pending-fixes`; it 404s until the branch reaches `main`.
+
+Note: `lead-idle-check`'s own trigger was also mislabeled — its node name
+said "09:00 Dubai (05:00 UTC)" but the cron expression `0 5 * * *` runs in
+the n8n instance's default timezone (Asia/Dubai), so it actually fires at
+**05:00 Dubai / 01:00 UTC**. Corrected on both the node name and this doc in
+the same wave.
 
 ## Per-phone provisioning checklist
 

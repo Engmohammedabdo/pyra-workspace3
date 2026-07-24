@@ -288,7 +288,11 @@ async function main(): Promise<void> {
   for (const [i, batch] of updateBatches.entries()) {
     const values = batch
       .map((l) => {
-        const newVal = l.genuine_max === null ? 'NULL' : `'${escapeSqlString(l.genuine_max)}'::timestamptz`;
+        // A bare NULL in a VALUES list resolves to `text`, and text->timestamptz
+        // has no assignment cast — a batch whose rows are ALL NULL throws 42804
+        // (verified against prod Postgres). NULL::timestamptz is unambiguous
+        // regardless of the other rows in the same batch.
+        const newVal = l.genuine_max === null ? 'NULL::timestamptz' : `'${escapeSqlString(l.genuine_max)}'::timestamptz`;
         return `('${escapeSqlString(l.lead_id)}', ${newVal})`;
       })
       .join(', ');

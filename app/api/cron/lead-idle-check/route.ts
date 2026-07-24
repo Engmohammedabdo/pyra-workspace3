@@ -14,7 +14,11 @@ import { chunk } from '@/lib/utils/chunk';
 //
 // Auth: x-api-key header → pyra_api_keys
 // Permission: 'cron.lead-idle-check' (or '*' wildcard)
-// Schedule: daily 09:00 Asia/Dubai via n8n Schedule Trigger → HTTP Request
+// Schedule: daily 05:00 Asia/Dubai (01:00 UTC) via n8n Schedule Trigger →
+//   HTTP Request. The n8n node was previously mislabeled "09:00 Dubai
+//   (05:00 UTC)" — its cron expression (`0 5 * * *`) runs in the n8n
+//   instance's default timezone, which is Asia/Dubai, so it actually fires
+//   at 05:00 Dubai / 01:00 UTC. Corrected 2026-07-25 (urgent-fixes wave).
 //
 // Logic per CRM-PRD §03 lines 480-495:
 //   - SELECT non-converted active-pipeline leads with assigned_to NOT NULL
@@ -108,10 +112,22 @@ export async function POST(request: NextRequest) {
     // delivered to a dead inbox nobody reads (that's the mechanism that kept the
     // orphaned-pipeline problem silent). The admin re-homes those via the
     // pipeline "المغادرين" filter instead.
-    const { data: activeUsers } = await supabase
+    const { data: activeUsers, error: activeUsersErr } = await supabase
       .from('pyra_users')
       .select('username')
       .eq('status', 'active');
+    if (activeUsersErr) {
+      // A swallowed error here would empty activeSet, filtering out every
+      // lead below — the cron would return SUCCESS with leads_checked: 0 and
+      // log nothing, invisible even to the new error-digest. Fail closed.
+      logError({
+        error: activeUsersErr,
+        request,
+        metadata: { source: 'cron', job: 'lead-idle-check', stage: 'active_users_select' },
+      });
+      console.error('[cron/lead-idle-check] active users SELECT failed:', activeUsersErr.message);
+      return apiServerError();
+    }
     const activeSet = new Set((activeUsers ?? []).map((u) => u.username));
     const allLeads = ownedLeads.filter((l) => activeSet.has(l.assigned_to));
     const leadsChecked = allLeads.length;

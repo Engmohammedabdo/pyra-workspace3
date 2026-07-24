@@ -18,23 +18,34 @@ import { dubaiDayKey } from '@/lib/utils/format';
 //
 // Auth: x-api-key header → pyra_api_keys
 // Permission: 'cron.error-digest' (or '*' wildcard)
-// Schedule: n8n Schedule Trigger — daily, 09:00 Dubai (05:00 UTC).
+// Schedule: n8n Schedule Trigger — daily, 06:00 Asia/Dubai (02:00 UTC), on
+//   its OWN dedicated Schedule Trigger node in PyraCRM_Cron.
+//
+//   Originally this HTTP node was wired as a second branch off the SAME
+//   Schedule Trigger that fires lead-idle-check — n8n halts a whole execution
+//   when a node errors with no onError set, and lead-idle-check ran first, so
+//   in the exact scenario this digest exists to catch (idle-check 500ing
+//   daily) the digest never ran either. Fixed 2026-07-25 by giving it its own
+//   trigger, one hour after idle-check's real fire time so same-day failures
+//   get reported same-day. (That real fire time was also mislabeled — the
+//   shared trigger's node name said "09:00 Dubai (05:00 UTC)" but its cron
+//   expression, `0 5 * * *` in the instance's Asia/Dubai default timezone,
+//   actually fires at 05:00 Dubai / 01:00 UTC. Corrected alongside this fix.)
 //
 // Window is a rolling 24h lookback (Date.now() - 24h), NOT a Dubai-calendar-day
 // bucket — the rolling window is only used to decide WHICH error rows count as
 // "new" for this run's message. As long as the cron fires once daily that
 // window naturally avoids re-describing the same rows twice.
 //
-// Notify dedup IS required though, mirroring device-silent-check: the n8n
-// trigger for this job shares a Schedule node with lead-idle-check, and this
-// wave's own rollout plan calls for manually re-firing that workflow once
-// deployed — a same-Dubai-day double-run is a near-certainty. Before calling
-// notifyMany we check for an existing 'system_error_digest' notification
-// created since Dubai midnight (dubaiDayKey() pure UTC+4 offset math, no DST —
-// Phase 15.1 lock, never a raw `.toISOString().slice(0, 10)`) and skip the
-// notify if one exists. The dedup lookup fails CLOSED (500, same as
-// device-silent-check's own dedup-query failure) — a DB blip must never
-// silently risk a double-send to every admin.
+// Notify dedup IS still required, mirroring device-silent-check: a manual
+// re-fire of this workflow (e.g. during rollout verification) on the same
+// Dubai day is a near-certainty. Before calling notifyMany we check for an
+// existing 'system_error_digest' notification created since Dubai midnight
+// (dubaiDayKey() pure UTC+4 offset math, no DST — Phase 15.1 lock, never a
+// raw `.toISOString().slice(0, 10)`) and skip the notify if one exists. The
+// dedup lookup fails CLOSED (500, same as device-silent-check's own
+// dedup-query failure) — a DB blip must never silently risk a double-send to
+// every admin.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const WINDOW_HOURS = 24;

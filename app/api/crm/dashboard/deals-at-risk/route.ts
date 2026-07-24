@@ -4,6 +4,7 @@ import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { getLeadScopeFilter } from '@/lib/auth/lead-scope';
 import { PIPELINE_ACTIVE_STAGES } from '@/lib/constants/statuses';
+import { chunk } from '@/lib/utils/chunk';
 
 /**
  * GET /api/crm/dashboard/deals-at-risk
@@ -49,12 +50,24 @@ export async function GET(request: NextRequest) {
 
     const ids = (leads ?? []).map((l) => l.id);
     const lastActMap = new Map<string, string>();
-    if (ids.length > 0) {
-      const { data: acts } = await supabase
+    // Batched: a single .in() with every lead id can put well over the proxy's
+    // header-size limit (admin scope is ~841 active-stage leads ≈ 17 KB of
+    // query string — the same "URI too long" failure mode that killed the
+    // lead-idle-check cron for 11 days). Batch size 150 matches that fix.
+    // Each batch's error is checked and handled the same way as the leads
+    // query above (console.error + apiServerError()) — this route's existing
+    // posture for a checked query, not a new one.
+    const ID_BATCH = 150;
+    for (const idBatch of chunk(ids, ID_BATCH)) {
+      const { data: acts, error: actsErr } = await supabase
         .from('pyra_lead_activities')
         .select('lead_id, created_at')
-        .in('lead_id', ids)
+        .in('lead_id', idBatch)
         .order('created_at', { ascending: false });
+      if (actsErr) {
+        console.error('GET /api/crm/dashboard/deals-at-risk error:', actsErr.message);
+        return apiServerError();
+      }
       for (const a of acts ?? []) {
         if (!lastActMap.has(a.lead_id)) lastActMap.set(a.lead_id, a.created_at);
       }

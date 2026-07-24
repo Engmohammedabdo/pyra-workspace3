@@ -7,6 +7,7 @@ import { getDirectReports } from '@/lib/auth/team-scope';
 import { hasPermission } from '@/lib/auth/rbac';
 import { PIPELINE_ACTIVE_STAGES, PIPELINE_STAGE_IDS } from '@/lib/constants/statuses';
 import { dubaiDayKey } from '@/lib/utils/format';
+import { chunk } from '@/lib/utils/chunk';
 
 /**
  * GET /api/crm/dashboard/ai-insights
@@ -94,15 +95,28 @@ export async function GET() {
     const { data: candidateLeads } = await idleQ.range(0, 99999);
     if (candidateLeads && candidateLeads.length > 0) {
       const candidateIds = candidateLeads.map((l) => l.id);
-      const { data: recentActs } = await supabase
-        .from('pyra_lead_activities')
-        .select('lead_id, created_at')
-        .in('lead_id', candidateIds)
-        .gte('created_at', sevenDaysAgo)
-        // Explicit .range so the "has recent activity" set is complete — a
-        // truncated fetch would wrongly mark active leads as idle.
-        .range(0, 99999);
-      const haveRecent = new Set((recentActs ?? []).map((a) => a.lead_id));
+      // Batched: a single .in() over every candidate id can exceed the proxy's
+      // header-size limit (admin scope is ~841 active-stage leads ≈ 17 KB of
+      // query string — the same "URI too long" failure mode that killed the
+      // lead-idle-check cron for 11 days). Batch size 150 matches that fix.
+      // This route has no other checked query (every other read here destructures
+      // `{ data }`/`{ count }` and lets a failure resolve to "nothing found" —
+      // the top-level try/catch is this route's sole error-handling surface), so
+      // a batch failure is thrown here to flow into that same catch rather than
+      // inventing a new early-return posture.
+      const haveRecent = new Set<string>();
+      for (const idBatch of chunk(candidateIds, 150)) {
+        const { data: recentActs, error: recentActsErr } = await supabase
+          .from('pyra_lead_activities')
+          .select('lead_id, created_at')
+          .in('lead_id', idBatch)
+          .gte('created_at', sevenDaysAgo)
+          // Explicit .range so the "has recent activity" set is complete — a
+          // truncated fetch would wrongly mark active leads as idle.
+          .range(0, 99999);
+        if (recentActsErr) throw recentActsErr;
+        for (const a of recentActs ?? []) haveRecent.add(a.lead_id);
+      }
       // Idle = no recent activity AND last_contact_at older than 7d (or null).
       // Including last_contact_at aligns this with deals-at-risk (which uses the
       // greatest of last_contact_at and latest activity) so a lead phoned today

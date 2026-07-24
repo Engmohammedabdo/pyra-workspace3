@@ -492,10 +492,10 @@ node + HTTP Request node hitting an endpoint under `/api/cron/*`.
 | Endpoint | Schedule | Permission key | What it does |
 |---|---|---|---|
 | `POST /api/cron/follow-up-reminders` | every 5 min | `cron.follow-up-reminders` | Sends WhatsApp reminders to assigned agents for due follow-ups (Phase 11) |
-| `POST /api/cron/lead-idle-check` | daily | `cron.lead-idle-check` | Per-agent grouped notifications for stale-deal warnings (Phase 11) |
+| `POST /api/cron/lead-idle-check` | daily, `0 5 * * *` (05:00 Dubai / 01:00 UTC) | `cron.lead-idle-check` | Per-agent grouped notifications for stale-deal warnings (Phase 11) |
 | `POST /api/cron/error-logs-cleanup` | `0 3 * * *` (daily 03:00 Dubai) | `cron.error-logs-cleanup` | Deletes `pyra_error_logs` rows older than 90 days (Phase D Commit 3) |
 | `POST /api/cron/leave-balance-rollover` | yearly, `0 0 1 1 *` (Jan 1 00:00 Dubai) | `cron.leave-balance-rollover` | Carries over remaining `pyra_leave_balances_v2` balances into the new year (reuses `calculateCarryOver()`) + seeds any still-missing employee×leave-type row for the new year |
-| `POST /api/cron/error-digest` | daily, `0 5 * * *` (09:00 Dubai) | `cron.error-digest` | Daily admin digest of new/unresolved `pyra_error_logs` rows in the last 24h — silent on a clean day (no rows = no notification). Closes the "write-only error table" gap that let `lead-idle-check` fail 11 consecutive days unnoticed |
+| `POST /api/cron/error-digest` | daily, `0 6 * * *` (06:00 Dubai / 02:00 UTC), own dedicated Schedule Trigger | `cron.error-digest` | Daily admin digest of new/unresolved `pyra_error_logs` rows in the last 24h — silent on a clean day (no rows = no notification). Closes the "write-only error table" gap that let `lead-idle-check` fail 11 consecutive days unnoticed. Originally shared `lead-idle-check`'s trigger, which meant a `lead-idle-check` failure halted the whole n8n execution and killed the digest too — split into its own trigger (urgent-fixes wave, 2026-07-25) one hour after idle-check's real fire time, which was itself mislabeled "09:00 Dubai (05:00 UTC)" until this same fix corrected it |
 
 **Auth pattern (all cron endpoints):**
 ```
