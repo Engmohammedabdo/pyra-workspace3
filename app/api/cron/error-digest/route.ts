@@ -4,6 +4,7 @@ import { apiError, apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { logError } from '@/lib/observability/log-error';
 import { notifyMany } from '@/lib/notifications/notify';
+import { dubaiDayKey } from '@/lib/utils/format';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/cron/error-digest
@@ -20,10 +21,20 @@ import { notifyMany } from '@/lib/notifications/notify';
 // Schedule: n8n Schedule Trigger — daily, 09:00 Dubai (05:00 UTC).
 //
 // Window is a rolling 24h lookback (Date.now() - 24h), NOT a Dubai-calendar-day
-// bucket — there is no per-day dedup requirement here (unlike
-// device-silent-check, which dedups per-device per-Dubai-day). As long as the
-// cron fires once daily the rolling window naturally avoids re-notifying about
-// the same rows twice. dubaiDayKey() is therefore intentionally NOT used.
+// bucket — the rolling window is only used to decide WHICH error rows count as
+// "new" for this run's message. As long as the cron fires once daily that
+// window naturally avoids re-describing the same rows twice.
+//
+// Notify dedup IS required though, mirroring device-silent-check: the n8n
+// trigger for this job shares a Schedule node with lead-idle-check, and this
+// wave's own rollout plan calls for manually re-firing that workflow once
+// deployed — a same-Dubai-day double-run is a near-certainty. Before calling
+// notifyMany we check for an existing 'system_error_digest' notification
+// created since Dubai midnight (dubaiDayKey() pure UTC+4 offset math, no DST —
+// Phase 15.1 lock, never a raw `.toISOString().slice(0, 10)`) and skip the
+// notify if one exists. The dedup lookup fails CLOSED (500, same as
+// device-silent-check's own dedup-query failure) — a DB blip must never
+// silently risk a double-send to every admin.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const WINDOW_HOURS = 24;
@@ -62,7 +73,23 @@ export async function POST(request: NextRequest) {
       return apiServerError();
     }
 
+    // True DB count for the window — `recent` above is capped at 500 rows for
+    // deriving `failing_jobs` only. During a real incident storm (the exact
+    // case this cron exists to catch) the capped array's .length would
+    // silently understate `new_errors` (project rule: user-facing counts come
+    // from a DB count/aggregate, never a capped array's .length).
+    const { count: newErrorsCount, error: newErrorsErr } = await supabase
+      .from('pyra_error_logs')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', sinceIso);
+    if (newErrorsErr) {
+      logError({ error: newErrorsErr, request, metadata: { source: 'cron', job: 'error-digest', stage: 'new_errors_count' } });
+      console.error('[cron/error-digest] new_errors count failed:', newErrorsErr.message);
+      return apiServerError();
+    }
+
     const rows = recent ?? [];
+    const newErrors = newErrorsCount ?? 0;
     // A failing cron is the loudest signal in the table — surface job names.
     const failingJobs = Array.from(
       new Set(
@@ -72,7 +99,7 @@ export async function POST(request: NextRequest) {
       ),
     );
 
-    if (rows.length === 0) {
+    if (newErrors === 0) {
       return apiSuccess({
         window_hours: WINDOW_HOURS,
         new_errors: 0,
@@ -80,6 +107,39 @@ export async function POST(request: NextRequest) {
         failing_jobs: [],
         admins_notified: 0,
         skipped_no_news: true,
+        skipped_already_notified_today: false,
+      });
+    }
+
+    // Per-Dubai-day notify dedup (mirrors device-silent-check). Fails CLOSED —
+    // a lookup error must never risk a same-day double-send to every admin.
+    const todayKey = dubaiDayKey();
+    const dubaiOffsetMs = 4 * 60 * 60 * 1000; // Asia/Dubai is UTC+4 (no DST)
+    const dubaiMidnightUtcIso = new Date(
+      new Date(`${todayKey}T00:00:00.000Z`).getTime() - dubaiOffsetMs,
+    ).toISOString();
+
+    const { data: existingDigest, error: dedupErr } = await supabase
+      .from('pyra_notifications')
+      .select('id')
+      .eq('type', 'system_error_digest')
+      .gte('created_at', dubaiMidnightUtcIso)
+      .limit(1);
+    if (dedupErr) {
+      logError({ error: dedupErr, request, metadata: { source: 'cron', job: 'error-digest', stage: 'dedup_select' } });
+      console.error('[cron/error-digest] dedup SELECT failed:', dedupErr.message);
+      return apiServerError();
+    }
+
+    if ((existingDigest ?? []).length > 0) {
+      return apiSuccess({
+        window_hours: WINDOW_HOURS,
+        new_errors: newErrors,
+        unresolved_total: unresolvedTotal ?? 0,
+        failing_jobs: failingJobs,
+        admins_notified: 0,
+        skipped_no_news: false,
+        skipped_already_notified_today: true,
       });
     }
 
@@ -102,9 +162,12 @@ export async function POST(request: NextRequest) {
         await notifyMany(supabase, adminUsernames, {
           type: 'system_error_digest',
           title: 'أخطاء جديدة في النظام',
-          message: `${rows.length} خطأ جديد خلال آخر ${WINDOW_HOURS} ساعة (${unresolvedTotal ?? 0} غير محلول إجمالاً)${jobsPart}`,
+          message: `${newErrors} خطأ جديد خلال آخر ${WINDOW_HOURS} ساعة (${unresolvedTotal ?? 0} غير محلول إجمالاً)${jobsPart}`,
           link: '/dashboard/admin/error-logs',
-          entity: { type: 'error_digest', id: rows[0].id },
+          // rows[0] backs the entity id purely for notify's grouping/dedup
+          // key; guard against the (rare) race where new_errors_count picks
+          // up a row inserted after the capped `recent` select already ran.
+          entity: { type: 'error_digest', id: rows[0]?.id ?? `digest-${todayKey}` },
           from: { username: 'system' },
         });
         adminsNotified = adminUsernames.length;
@@ -115,11 +178,12 @@ export async function POST(request: NextRequest) {
 
     return apiSuccess({
       window_hours: WINDOW_HOURS,
-      new_errors: rows.length,
+      new_errors: newErrors,
       unresolved_total: unresolvedTotal ?? 0,
       failing_jobs: failingJobs,
       admins_notified: adminsNotified,
       skipped_no_news: false,
+      skipped_already_notified_today: false,
     });
   } catch (err) {
     logError({ error: err, request, metadata: { source: 'cron', job: 'error-digest' } });
