@@ -8,6 +8,7 @@ import { hasPermission } from '@/lib/auth/rbac';
 import { PIPELINE_ACTIVE_STAGES, PIPELINE_STAGE_IDS } from '@/lib/constants/statuses';
 import { dubaiDayKey } from '@/lib/utils/format';
 import { chunk } from '@/lib/utils/chunk';
+import { logError } from '@/lib/observability/log-error';
 
 /**
  * GET /api/crm/dashboard/ai-insights
@@ -100,11 +101,17 @@ export async function GET() {
       // query string — the same "URI too long" failure mode that killed the
       // lead-idle-check cron for 11 days). Batch size 150 matches that fix.
       // This route has no other checked query (every other read here destructures
-      // `{ data }`/`{ count }` and lets a failure resolve to "nothing found" —
-      // the top-level try/catch is this route's sole error-handling surface), so
-      // a batch failure is thrown here to flow into that same catch rather than
-      // inventing a new early-return posture.
+      // `{ data }`/`{ count }` and lets a failure resolve to "nothing found").
+      // A batch failure here used to `throw` into the top-level catch, which
+      // 500s the WHOLE endpoint — killing Rules 2-4 too, even though they have
+      // nothing to do with lead activities. Posture (re-review fix): visible
+      // but non-fatal. Log it via logError() (surfaced by the daily
+      // /api/cron/error-digest, so it's never silently swallowed like the
+      // pre-batching code was), then skip ONLY Rule 1 below — emitting a
+      // knowingly-wrong idle count off a partial `haveRecent` set would be
+      // worse than omitting the insight; Rules 2-4 still return normally.
       const haveRecent = new Set<string>();
+      let idleActivityLookupFailed = false;
       for (const idBatch of chunk(candidateIds, 150)) {
         const { data: recentActs, error: recentActsErr } = await supabase
           .from('pyra_lead_activities')
@@ -114,7 +121,15 @@ export async function GET() {
           // Explicit .range so the "has recent activity" set is complete — a
           // truncated fetch would wrongly mark active leads as idle.
           .range(0, 99999);
-        if (recentActsErr) throw recentActsErr;
+        if (recentActsErr) {
+          logError({
+            error: recentActsErr,
+            user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+            metadata: { action: 'ai-insights', stage: 'idle_recent_activities_fetch' },
+          });
+          idleActivityLookupFailed = true;
+          break;
+        }
         for (const a of recentActs ?? []) haveRecent.add(a.lead_id);
       }
       // Idle = no recent activity AND last_contact_at older than 7d (or null).
@@ -131,7 +146,10 @@ export async function GET() {
       const idleValue = idleLeads.reduce((acc, l) => acc + (Number(l.expected_value) || 0), 0);
       // Phase 8 spec (CLAUDE.md "CRM AI Insights — Severity Scheme"):
       //   idle deals >= 3 → 'high' (single threshold; no medium tier)
-      if (idleCount >= 3) {
+      // `!idleActivityLookupFailed` — see the logError() call above: a failed
+      // activity batch means `haveRecent` is only partially populated, so
+      // `idleCount`/`idleValue` here are unreliable and must not be emitted.
+      if (!idleActivityLookupFailed && idleCount >= 3) {
         insights.push({
           type: 'idle_warning',
           severity: 'high',
