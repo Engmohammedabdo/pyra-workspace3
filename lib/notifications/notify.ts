@@ -112,6 +112,9 @@ export type NotificationType =
   | 'quote_signed'
   // Offboarding (2026-07 employee exit orchestrator)
   | 'offboarding_completed'
+  // Observability (2026-07-25 urgent-fixes wave) — daily admin digest of
+  // pyra_error_logs new/unresolved rows. Fired by /api/cron/error-digest.
+  | 'system_error_digest'
   // Generic
   | 'comment_reply'
   | 'mention'
