@@ -434,6 +434,28 @@
         "10": "rework"
       }
     },
+    "dashboard_hr_deductions": {
+      "description": "Monthly review of attendance, delivery, quality warnings, and documented employee deductions",
+      "goal": "See the evidence before deciding, keep every deduction inside the monthly ceiling, and apply money only through an explicit documented approval.",
+      "tips": {
+        "0": "The amber amount is a live projection, not a payroll deduction",
+        "1": "Attendance uses the employee salary divided by 30 and the approved lateness tiers",
+        "2": "Delivery uses the monthly on-time band; tasks below the configured minimum lead time remain visible but are excluded",
+        "3": "Quality is warning-first and never creates money automatically",
+        "4": "Use the documented manual action only after entering the exact amount and cause; the configured monthly ceiling is enforced"
+      },
+      "keywords": {
+        "0": "deductions",
+        "1": "penalties",
+        "2": "attendance",
+        "3": "delivery",
+        "4": "quality",
+        "5": "payroll",
+        "6": "cap",
+        "7": "approval",
+        "8": "evidence"
+      }
+    },
     "dashboard_approvals": {
       "description": "Team leave, expense, and timesheet approvals",
       "goal": "One place to review all requests from your direct reports: leave, expenses, and timesheets. Approve or reject with a single click.",

@@ -47,6 +47,7 @@ import {
   MessageCircle,
   CheckCircle,
   ShieldCheck,
+  ShieldAlert,
   FileCheck,
   Truck,
   ShoppingCart,
@@ -154,6 +155,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     items: [
       { key: 'hrOverview', href: '/dashboard/hr', icon: LayoutDashboard, permission: 'hr.view' },
       { key: 'productivity', href: '/dashboard/hr/productivity', icon: BarChart3, permission: 'hr.view' },
+      { key: 'deductions', href: '/dashboard/hr/deductions', icon: ShieldAlert, permission: 'hr.manage' },
       { key: 'teamApprovals', href: '/dashboard/approvals', icon: ClipboardCheck, permission: 'leave.approve', badgeKey: 'team_approvals' },
       { key: 'leaveSettings', href: '/dashboard/leave/settings', icon: Settings2, permission: 'leave.manage' },
       { key: 'leaveBalances', href: '/dashboard/hr/leave-balances', icon: CalendarDays, permission: 'leave.manage' },

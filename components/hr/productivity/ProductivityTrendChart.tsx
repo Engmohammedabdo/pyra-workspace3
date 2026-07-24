@@ -24,11 +24,13 @@ import {
   CHART_TOOLTIP_STYLE,
 } from '@/lib/constants/chart-colors';
 import { formatDate } from '@/lib/utils/format';
-import { TrendingUp } from 'lucide-react';
+import { AlertCircle, RefreshCcw, TrendingUp } from 'lucide-react';
 
 interface ProductivityTrendChartProps {
   trends?: ProductivityTrends;
   isLoading: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
 }
 
 function formatMonth(month: string, locale: Locale): string {
@@ -44,7 +46,12 @@ function signed(value: number): string {
   return value > 0 ? `+${value}` : String(value);
 }
 
-export function ProductivityTrendChart({ trends, isLoading }: ProductivityTrendChartProps) {
+export function ProductivityTrendChart({
+  trends,
+  isLoading,
+  isError = false,
+  onRetry,
+}: ProductivityTrendChartProps) {
   const t = useTranslations('hr.productivity.trends');
   const locale = useLocale() as Locale;
 
@@ -64,6 +71,17 @@ export function ProductivityTrendChart({ trends, isLoading }: ProductivityTrendC
 
   if (isLoading) {
     return <Skeleton className="h-[320px] w-full rounded-xl" />;
+  }
+
+  if (isError) {
+    return (
+      <EmptyState
+        icon={AlertCircle}
+        title={t('error.title')}
+        description={t('error.description')}
+        actions={onRetry ? [{ label: t('error.retry'), onClick: onRetry, icon: RefreshCcw }] : undefined}
+      />
+    );
   }
 
   if (!chartData.length) {

@@ -5,8 +5,7 @@ import { logError } from '@/lib/observability/log-error';
 /**
  * Mark employee payments as paid and propagate to source tasks.
  *
- * Used when a payroll run is paid (bulk) and when a single
- * employee-payment is paid manually. Service-role client required.
+ * Used when a payroll run is paid. Service-role client required.
  *
  * Errors are logged, never thrown — settling pay must not break the
  * caller's response after the money action already succeeded.

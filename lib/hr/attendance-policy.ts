@@ -1,9 +1,10 @@
-// Attendance policy — the "late = absent" deduction rule (locked 2026-07-10).
+// Attendance detection policy (Dubai wall-clock).
 //
 // Company rule: a clock-in later than (schedule start + GRACE) minutes, OR no
-// clock-in at all on a work day, counts as an ABSENCE for that day (deductible
-// from salary) — UNLESS the admin accepts an excuse / grants permission (that
-// stays a manual admin call; the system only DETECTS and counts).
+// clock-in at all on a work day, is surfaced as a deduction candidate UNLESS
+// the admin accepts an excuse / grants permission. The money tier is derived
+// separately in lib/hr/deductions.ts; this module only identifies dates and
+// measures clock-in timing.
 //
 // All wall-clock math is UAE (UTC+4, no DST) — consistent with dubaiDayKey.
 
@@ -74,7 +75,7 @@ export function deriveDayStatus(
  * work day, is not on approved leave, is on/after the hire date, and has NO
  * on-time clock-in. Today only counts once its grace window has passed.
  */
-export function countDeductibleAbsences(params: {
+export interface DeductibleAbsenceDateParams {
   monthKey: string;              // "YYYY-MM"
   todayKey: string;              // "YYYY-MM-DD" (UAE)
   workDays: number[];            // 0=Sun … 6=Sat
@@ -90,14 +91,19 @@ export function countDeductibleAbsences(params: {
   // employee's earliest attendance date this month.
   startCountingFrom?: string | null;
   grace?: number;
-}): number {
+}
+
+/** Return exact candidate dates so callers can attach late/no-show evidence. */
+export function listDeductibleAbsenceDates(
+  params: DeductibleAbsenceDateParams,
+): string[] {
   const { monthKey, todayKey, workDays, startHHMM, nowUaeMinutes, onTimeDates } = params;
   const leaveDates = params.leaveDates ?? new Set<string>();
   const excusedDates = params.excusedDates ?? new Set<string>();
   const grace = params.grace ?? ATTENDANCE_GRACE_MINUTES;
   const [y, m] = monthKey.split('-').map(Number);
   const lastDay = new Date(y, m, 0).getDate();
-  let count = 0;
+  const dates: string[] = [];
   for (let day = 1; day <= lastDay; day++) {
     const dateStr = `${monthKey}-${String(day).padStart(2, '0')}`;
     if (dateStr > todayKey) break;
@@ -110,7 +116,11 @@ export function countDeductibleAbsences(params: {
     if (onTimeDates.has(dateStr)) continue;         // clocked in on time
     // today only counts once its grace window has elapsed
     if (dateStr === todayKey && nowUaeMinutes <= startMinutesOf(startHHMM) + grace) continue;
-    count++;
+    dates.push(dateStr);
   }
-  return count;
+  return dates;
+}
+
+export function countDeductibleAbsences(params: DeductibleAbsenceDateParams): number {
+  return listDeductibleAbsenceDates(params).length;
 }

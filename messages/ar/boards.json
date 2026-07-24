@@ -77,10 +77,14 @@
         "titlePlaceholder": "عنوان المهمة...",
         "priorityLabel": "الأولوية",
         "dueDateLabel": "تاريخ التسليم",
+        "dueDateUaeLabel": "تاريخ التسليم (بتوقيت الإمارات)",
+        "dueTimeUaeLabel": "ساعة التسليم (بتوقيت الإمارات)",
+        "exactDeadlineHelp": "قياس تسليم مهام الإنتاج بيكون على التاريخ والساعة دول بالضبط بتوقيت الإمارات. اختيار يوم من التقويم مش بيحدد الساعة تلقائيًا.",
         "assigneesLabel": "الأعضاء المسؤولون",
         "assigneesSelected": "{count, plural, other {تم اختيار #}}",
         "noActiveUsers": "لا يوجد مستخدمون نشطون",
-        "submit": "إضافة"
+        "submit": "إضافة",
+        "submitting": "جاري الإضافة..."
       },
       "settingsDialogTitle": "إعدادات اللوحة",
       "pipeline": {
@@ -90,6 +94,9 @@
         "requiresApproval": "يتطلب موافقة",
         "addTask": "إضافة مهمة"
       }
+    },
+    "deadline": {
+      "unverified": "موعد التسليم غير مؤكد — حدّد تاريخ وساعة دقيقين"
     },
     "settings": {
       "toasts": {
@@ -136,7 +143,8 @@
       "prevMonth": "الشهر السابق",
       "today": "اليوم",
       "overflow": "{count, plural, other {+#}}",
-      "noDate": "{count, plural, other {بدون تاريخ (#)}}"
+      "noDate": "{count, plural, other {بدون تاريخ (#)}}",
+      "uaeTime": "{time} الإمارات"
     },
     "listView": {
       "toasts": {
@@ -149,6 +157,7 @@
       "priorityPlaceholder": "أولوية...",
       "archive": "أرشفة",
       "cancel": "إلغاء",
+      "uaeTime": "{time} الإمارات",
       "headers": {
         "title": "العنوان",
         "column": "القائمة",
@@ -224,6 +233,25 @@
         "requestChanges": "طلب تعديل",
         "working": "جاري...",
         "approve": "اعتماد ✓",
+        "rejectionDialog": {
+          "title": "تصنيف الرفض",
+          "description": "اختار قرار المراجعة الموثّق وسجّل السبب المطلوب.",
+          "qualityDescription": "اختار قرار الجودة الموثّق. الاختيار ده بيدخل في تقييم الجودة الشهري.",
+          "kindLabel": "نوع الرفض",
+          "revision": {
+            "title": "مطلوب تعديلات",
+            "description": "النسخة محتاجة تعديلات محددة وممكن تتصلح."
+          },
+          "outright": {
+            "title": "مرفوض تمامًا",
+            "description": "النسخة المرفوعة غير مقبولة من الأساس ولازم تتعمل من جديد."
+          },
+          "noteLabel": "ملاحظة المراجعة",
+          "notePlaceholder": "وثّق السبب والمطلوب تنفيذه...",
+          "cancel": "إلغاء",
+          "confirm": "تأكيد الرفض",
+          "submitting": "جاري الحفظ..."
+        },
         "reviewLinkLabel": "رابط النسخة (frame.io أو Google Drive)",
         "optionalNotePlaceholder": "ملاحظة اختيارية...",
         "submitReview": "رفع للمراجعة 👀",
@@ -244,7 +272,8 @@
         "rejected": "تم طلب التعديل وإرجاع المهمة",
         "taskDeleted": "تم حذف المهمة",
         "taskMoved": "تم نقل المهمة",
-        "taskDuplicated": "تم نسخ المهمة"
+        "taskDuplicated": "تم نسخ المهمة",
+        "deadlineUpdated": "تم تحديث موعد التسليم الدقيق بتوقيت الإمارات"
       },
       "errors": {
         "saveFailed": "فشل الحفظ",
@@ -267,11 +296,23 @@
         "assignees": "الأعضاء / تعيين",
         "searchMemberPlaceholder": "بحث عن عضو...",
         "noUsers": "لا يوجد مستخدمون",
+        "usersLoadFailed": "تعذّر تحميل الأعضاء",
         "noneAssigned": "لم يُعيَّن أحد",
         "labels": "التصنيفات",
         "noLabels": "لا توجد تصنيفات",
         "startDate": "تاريخ البداية",
         "dueDate": "تاريخ الاستحقاق",
+        "exactDeadlineUae": "موعد التسليم الدقيق (توقيت الإمارات)",
+        "deadlineLocked": "مقفول بعد المراجعة",
+        "deadlineReadOnly": "للقراءة فقط",
+        "deadlineUnverified": "محتاج ساعة تسليم حقيقية",
+        "dueDateUae": "تاريخ التسليم (توقيت الإمارات)",
+        "dueTimeUae": "ساعة التسليم (توقيت الإمارات)",
+        "deadlineLockHelp": "بعد أول رفع للمراجعة، موعد التسليم بيتقفل ومابيقدرش أي حد يغيّره.",
+        "saveDeadline": "حفظ الموعد الدقيق",
+        "savingDeadline": "جاري الحفظ...",
+        "productionMoveDeadlineHelp": "المهمة دي مافيهاش موعد دقيق. حدّد تاريخ وساعة التسليم بتوقيت الإمارات قبل نقلها للإنتاج.",
+        "productionDuplicateDeadlineHelp": "مهمة الإنتاج دي مافيهاش موعد دقيق. حدّد تاريخ وساعة التسليم بتوقيت الإمارات قبل إنشاء النسخة.",
         "priority": "الأولوية",
         "hours": "الساعات",
         "estimatedHours": "المقدرة",
@@ -284,6 +325,8 @@
         "moveToBoard": "نقل إلى لوحة أخرى",
         "chooseBoardAndColumn": "اختر اللوحة والقائمة",
         "duplicateTask": "نسخ المهمة",
+        "confirmDuplicate": "إنشاء النسخة",
+        "duplicating": "جاري النسخ...",
         "archive": "أرشفة",
         "deletePermanentConfirm": "حذف نهائي؟",
         "delete": "حذف",
@@ -296,6 +339,7 @@
       "meta": {
         "startDate": "البداية: {date}",
         "dueDate": "الاستحقاق: {date}",
+        "exactDueDateUae": "التسليم: {date} الساعة {time} بتوقيت الإمارات",
         "overdue": "متأخر",
         "description": "الوصف",
         "descriptionPlaceholder": "أضف وصف للمهمة...",

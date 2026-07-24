@@ -1,21 +1,51 @@
 import { NextRequest } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiServerError, apiValidationError, apiNotFound } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import {
+  apiError,
+  apiForbidden,
+  apiNotFound,
+  apiServerError,
+  apiSuccess,
+  apiValidationError,
+} from '@/lib/api/response';
+import {
+  createServerSupabaseClient,
+  createServiceRoleClient,
+} from '@/lib/supabase/server';
+import { checkBoardScope } from '@/lib/auth/task-scope';
+import { ACTIVITY_ACTIONS, ENTITY_TYPES, logActivity } from '@/lib/api/activity';
 import { generateId } from '@/lib/utils/id';
-import { logActivity } from '@/lib/api/activity';
 import { logError } from '@/lib/observability/log-error';
 import { notifyMany } from '@/lib/notifications/notify';
 import { sendWhatsAppToUser, APP_URL } from '@/lib/notifications/whatsapp';
+import {
+  TASK_REJECTION_KINDS,
+  TASK_REVIEW_ACTIONS,
+  TASK_REVIEW_STATUSES,
+  isTaskRejectionKind,
+  type AtomicTaskReviewResult,
+  type TaskReviewAction,
+} from '@/lib/constants/task-review';
 
 type RouteCtx = { params: Promise<{ id: string; taskId: string }> };
 
-// =============================================================
+interface ReviewColumn {
+  id: string;
+  name: string;
+  position: number | null;
+  column_type: string | null;
+  is_done_column: boolean | null;
+  requires_approval: boolean | null;
+  default_assignee: string | null;
+}
+
+function parseAtomicReviewResult(rows: unknown): AtomicTaskReviewResult | null {
+  return (Array.isArray(rows) ? rows[0] : rows) as AtomicTaskReviewResult | null;
+}
+
 // POST /api/boards/[id]/tasks/[taskId]/approve
-// Approve task advancement to a gated stage, or reject
-// Body: { action: 'approve' | 'reject', note?: string }
-// =============================================================
+// Explicit admin approval/rejection. The service-only RPC is the sole writer.
 export async function POST(req: NextRequest, ctx: RouteCtx) {
   const t = await getTranslations('api');
   try {
@@ -23,243 +53,235 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     if (isApiError(auth)) return auth;
 
     const { id: boardId, taskId } = await ctx.params;
-    const body = await req.json();
-    const action = body.action as string; // 'approve' | 'reject'
-    const note = (body.note as string) || '';
+    if (!(await checkBoardScope(boardId, auth))) {
+      return apiForbidden(t('common.noAccessTask'));
+    }
 
-    if (!action || !['approve', 'reject'].includes(action)) {
+    const body = await req.json().catch(() => null) as Record<string, unknown> | null;
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
       return apiValidationError(t('boards.actionRequiredApproveReject'));
     }
 
-    if (action === 'reject' && !note.trim()) {
+    const action = body.action;
+    if (action !== TASK_REVIEW_ACTIONS.APPROVE && action !== TASK_REVIEW_ACTIONS.REJECT) {
+      return apiValidationError(t('boards.actionRequiredApproveReject'));
+    }
+    const typedAction: TaskReviewAction = action;
+    if (body.note !== undefined && typeof body.note !== 'string') {
       return apiValidationError(t('boards.revisionNoteRequired'));
+    }
+    const note = typeof body.note === 'string' ? body.note.trim() : '';
+    const rejectionKind = body.rejection_kind;
+
+    if (typedAction === TASK_REVIEW_ACTIONS.REJECT) {
+      if (!note) return apiValidationError(t('boards.revisionNoteRequired'));
+      if (!isTaskRejectionKind(rejectionKind)) {
+        return apiValidationError(t('boards.rejectionKindRequired'));
+      }
+    } else if (rejectionKind !== undefined && rejectionKind !== null) {
+      return apiValidationError(t('boards.rejectionKindRequired'));
     }
 
     const supabase = await createServerSupabaseClient();
+    const { data: board, error: boardError } = await supabase
+      .from('pyra_boards')
+      .select('id, is_pipeline, pyra_board_columns(id, name, position, column_type, is_done_column, requires_approval, default_assignee)')
+      .eq('id', boardId)
+      .single();
+    if (boardError || !board) return apiNotFound(t('common.boardNotFound'));
+    if (board.is_pipeline !== true) {
+      return apiValidationError(t('boards.noPendingReviewAction'));
+    }
 
-    // Fetch task
-    const { data: task } = await supabase
+    const { data: task, error: taskError } = await supabase
       .from('pyra_tasks')
-      .select('id, column_id, board_id, title, stage_entered_at')
+      .select('id, title, board_id, column_id, stage_entered_at, completion_percentage, updated_at')
       .eq('id', taskId)
       .eq('board_id', boardId)
       .single();
+    if (taskError || !task) return apiNotFound(t('common.taskNotFound'));
 
-    if (!task) return apiNotFound(t('common.taskNotFound'));
-
-    // Get columns
-    const { data: cols } = await supabase
-      .from('pyra_board_columns')
-      .select('id, name, position, column_type, is_done_column, requires_approval, default_assignee')
-      .eq('board_id', boardId)
-      .order('position');
-
-    if (!cols) return apiServerError(t('boards.columnsLoadFailed'));
-
-    const currentIdx = cols.findIndex(c => c.id === task.column_id);
-    if (currentIdx >= cols.length - 1) return apiValidationError(t('boards.taskAlreadyLastStageAlt'));
-
-    const currentCol = cols[currentIdx];
-    const nextCol = cols[currentIdx + 1];
-
-    if (action === 'approve') {
-      // Only makes sense when advancing INTO an approval-gated column —
-      // otherwise this endpoint would let an admin skip a task straight
-      // past a stage with no real approval gate, writing a phantom
-      // stage_history row that corrupts productivity metrics.
-      if (nextCol.requires_approval !== true) {
-        return apiValidationError(t('boards.approveOnlyForGatedStage'));
-      }
-      // Move to next column
-      const completionPct = Math.round(((currentIdx + 2) / cols.length) * 100);
-
-      await supabase
-        .from('pyra_tasks')
-        .update({
-          column_id: nextCol.id,
-          stage_entered_at: new Date().toISOString(),
-          completion_percentage: completionPct,
-        })
-        .eq('id', taskId);
-
-      // Record history with approval
-      await supabase.from('pyra_task_stage_history').insert({
-        id: generateId('sh'),
-        task_id: taskId,
-        board_id: boardId,
-        from_column_id: task.column_id,
-        to_column_id: nextCol.id,
-        moved_by: auth.pyraUser.username,
-        approved_by: auth.pyraUser.username,
-      });
-
-      // Auto-assign next stage
-      if (nextCol.default_assignee) {
-        const { data: existing } = await supabase
-          .from('pyra_task_assignees')
-          .select('id')
-          .eq('task_id', taskId)
-          .eq('username', nextCol.default_assignee)
-          .maybeSingle();
-
-        if (!existing) {
-          await supabase.from('pyra_task_assignees').insert({
-            id: generateId('ta'),
-            task_id: taskId,
-            username: nextCol.default_assignee,
-            assigned_by: auth.pyraUser.username,
-            column_id: nextCol.id,
-            is_stage_assignee: true,
-          });
-        }
-      }
-
-      const { data: assignees } = await supabase
-        .from('pyra_task_assignees')
-        .select('username')
-        .eq('task_id', taskId);
-      const assigneeNames = (assignees || []).map(a => a.username);
-      const taskLink = `/dashboard/boards/${boardId}?task=${taskId}`;
-
-      const isDelivery = nextCol.is_done_column === true;
-      await notifyMany(supabase, assigneeNames, {
-        type: 'task_approved',
-        title: `✅ تمت الموافقة: ${task.title}`, // i18n-exempt: notification content (Phase 8)
-        message: isDelivery
-          ? `تمت الموافقة والمهمة اكتملت${note ? ` — ${note}` : ''}` // i18n-exempt: notification content (Phase 8)
-          // i18n hazard (documented, Phase 2): business logic keyed on Arabic column name — do not localize without a column-type migration
-          : `تمت الموافقة — ${nextCol.name === 'معتمد' ? 'ارفع التسليم النهائي على Drive' : `انتقلت إلى "${nextCol.name}"`}${note ? ` — ${note}` : ''}`, // i18n-exempt: notification content (Phase 8)
-        link: taskLink,
-        entity: { type: 'task', id: taskId },
-        from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
-      });
-      // i18n hazard (documented, Phase 2): business logic keyed on Arabic column name — do not localize without a column-type migration
-      const approveWaLine = isDelivery
-        ? 'المهمة اكتملت' // i18n-exempt: notification content (Phase 8)
-        : nextCol.name === 'معتمد' // i18n-exempt: i18n hazard — business logic keyed on Arabic column name (documented, Phase 2)
-          ? 'ارفع التسليم النهائي على Drive وسجّله من الداشبورد' // i18n-exempt: notification content (Phase 8)
-          : `انتقلت إلى "${nextCol.name}"`; // i18n-exempt: notification content (Phase 8)
-      // Fire-and-forget: WhatsApp is best-effort (the in-app notifyMany above
-      // is the guaranteed channel) — don't serialize N×8s Evolution timeouts
-      // in the response path. sendWhatsAppToUser never throws (returns false).
-      void Promise.allSettled(
-        assigneeNames
-          .filter(u => u !== auth.pyraUser.username)
-          .map(u => sendWhatsAppToUser(supabase, u,
-            `✅ تمت الموافقة على: ${task.title}\n${approveWaLine}\n${APP_URL}${taskLink}`)) // i18n-exempt: notification content (Phase 8)
-      ).catch(err => logError({ error: err, request: req, metadata: { action: 'task_approve_whatsapp' } }));
-
-      // Activity log
-      await supabase.from('pyra_task_activity').insert({
-        id: generateId('act'),
-        task_id: taskId,
-        username: auth.pyraUser.username,
-        display_name: auth.pyraUser.display_name,
-        action: 'stage_approved',
-        details: JSON.stringify({ to: nextCol.name, note }),
-      });
-
-      logActivity(
-        auth.pyraUser.username,
-        auth.pyraUser.display_name,
-        'task_approved',
-        `/dashboard/boards/${boardId}`,
-        { task_id: taskId, title: task.title, to_stage: nextCol.name },
-      );
-
-      return apiSuccess({ approved: true, to_column: nextCol.id });
-    } else {
-      // Reject only applies when the task is actually pending review/approval —
-      // either it's sitting in the review column, or the next column is itself
-      // approval-gated (admin rejecting before it even entered review would be
-      // a no-op transition otherwise).
-      if (currentCol.column_type !== 'review' && nextCol.requires_approval !== true) {
-        return apiValidationError(t('boards.noPendingReviewAction'));
-      }
-
-      // Reject — send back to previous column if exists, otherwise keep in place
-      const prevCol = currentIdx > 0 ? cols[currentIdx - 1] : null;
-
-      if (prevCol) {
-        await supabase
-          .from('pyra_tasks')
-          .update({
-            column_id: prevCol.id,
-            stage_entered_at: new Date().toISOString(),
-            completion_percentage: Math.round(((currentIdx) / cols.length) * 100),
-          })
-          .eq('id', taskId);
-
-        await supabase.from('pyra_task_stage_history').insert({
-          id: generateId('sh'),
-          task_id: taskId,
-          board_id: boardId,
-          from_column_id: task.column_id,
-          to_column_id: prevCol.id,
-          moved_by: auth.pyraUser.username,
-        });
-      }
-
-      const { data: assignees } = await supabase
-        .from('pyra_task_assignees')
-        .select('username')
-        .eq('task_id', taskId);
-      const assigneeNames = (assignees || []).map(a => a.username);
-      const taskLink = `/dashboard/boards/${boardId}?task=${taskId}`;
-
-      await notifyMany(supabase, assigneeNames, {
-        type: 'task_revision_requested',
-        title: `✏️ مطلوب تعديل: ${task.title}`, // i18n-exempt: notification content (Phase 8)
-        message: `رجعت المهمة للتنفيذ — ${note}`, // i18n-exempt: notification content (Phase 8)
-        link: taskLink,
-        entity: { type: 'task', id: taskId },
-        from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
-      });
-      // Fire-and-forget: WhatsApp is best-effort (the in-app notifyMany above
-      // is the guaranteed channel) — don't serialize N×8s Evolution timeouts
-      // in the response path. sendWhatsAppToUser never throws (returns false).
-      void Promise.allSettled(
-        assigneeNames
-          .filter(u => u !== auth.pyraUser.username)
-          .map(u => sendWhatsAppToUser(supabase, u,
-            `✏️ مطلوب تعديل على: ${task.title}\nالملاحظة: ${note}\nالتفاصيل على frame.io/التعليقات — ${APP_URL}${taskLink}`)) // i18n-exempt: notification content (Phase 8)
-      ).catch(err => logError({ error: err, request: req, metadata: { action: 'task_reject_whatsapp' } }));
-
-      // Comment with rejection note
-      if (note) {
-        await supabase.from('pyra_task_comments').insert({
-          id: generateId('tc'),
-          task_id: taskId,
-          author_username: auth.pyraUser.username,
-          author_name: auth.pyraUser.display_name,
-          content: `❌ مطلوب تعديل: ${note}`, // i18n-exempt: DB data
-        });
-      }
-
-      // Activity log
-      await supabase.from('pyra_task_activity').insert({
-        id: generateId('act'),
-        task_id: taskId,
-        username: auth.pyraUser.username,
-        display_name: auth.pyraUser.display_name,
-        action: 'stage_rejected',
-        details: JSON.stringify({ note, sent_back_to: prevCol?.name || 'نفس المرحلة' }), // i18n-exempt: DB data
-      });
-
-      logActivity(
-        auth.pyraUser.username,
-        auth.pyraUser.display_name,
-        'task_rejected',
-        `/dashboard/boards/${boardId}`,
-        { task_id: taskId, title: task.title, note },
-      );
-
-      return apiSuccess({ rejected: true, sent_back_to: prevCol?.id || task.column_id });
+    const columns = ((board.pyra_board_columns as ReviewColumn[] | null) || [])
+      .sort((left, right) => (
+        (left.position ?? Number.MAX_SAFE_INTEGER)
+        - (right.position ?? Number.MAX_SAFE_INTEGER)
+        || left.id.localeCompare(right.id)
+      ));
+    const currentIndex = columns.findIndex((column) => column.id === task.column_id);
+    if (currentIndex < 0) return apiValidationError(t('boards.currentColumnNotFound'));
+    const currentColumn = columns[currentIndex];
+    if (currentColumn.column_type !== 'review' || currentColumn.is_done_column === true) {
+      return apiValidationError(t('boards.noPendingReviewAction'));
+    }
+    const targetColumn = typedAction === TASK_REVIEW_ACTIONS.APPROVE
+      ? columns[currentIndex + 1]
+      : columns[currentIndex - 1];
+    if (!targetColumn) return apiValidationError(t('boards.noPendingReviewAction'));
+    if (
+      typedAction === TASK_REVIEW_ACTIONS.APPROVE
+      && targetColumn.requires_approval !== true
+    ) {
+      return apiValidationError(t('boards.approveOnlyForGatedStage'));
     }
 
-  } catch (err) {
-    logError({ error: err, request: req, metadata: { action: 'task_approve' } });
-    console.error('[POST /api/boards/[id]/tasks/[taskId]/approve] error:', err);
+    // Permission, board scope, request shape, and current transition semantics
+    // are all validated before the privileged client exists.
+    const historyId = generateId('sh');
+    const defaultAssigneeId = generateId('ta');
+    const commentId = typedAction === TASK_REVIEW_ACTIONS.REJECT ? generateId('tc') : null;
+    const activityId = generateId('act');
+    const serviceSupabase = createServiceRoleClient();
+    const { data: rpcRows, error: rpcError } = await serviceSupabase.rpc(
+      'pyra_review_task_atomic',
+      {
+        p_task_id: taskId,
+        p_board_id: boardId,
+        p_expected_column_id: task.column_id,
+        p_expected_updated_at: task.updated_at,
+        p_actor_username: auth.pyraUser.username,
+        p_actor_display_name: auth.pyraUser.display_name,
+        p_action: typedAction,
+        p_note: note,
+        p_rejection_kind: typedAction === TASK_REVIEW_ACTIONS.REJECT ? rejectionKind : null,
+        p_history_id: historyId,
+        p_default_assignee_id: defaultAssigneeId,
+        p_comment_id: commentId,
+        p_activity_id: activityId,
+      },
+    );
+
+    if (rpcError) {
+      logError({
+        error: rpcError,
+        request: req,
+        metadata: { action: 'task_review_rpc', task_id: taskId },
+      });
+      return apiServerError();
+    }
+
+    const result = parseAtomicReviewResult(rpcRows);
+    if (!result) {
+      logError({
+        error: new Error('Atomic review RPC returned no result'),
+        request: req,
+        metadata: { action: 'task_review_rpc_empty', task_id: taskId },
+      });
+      return apiServerError();
+    }
+
+    switch (result.status) {
+      case TASK_REVIEW_STATUSES.OK:
+        break;
+      case TASK_REVIEW_STATUSES.TASK_NOT_FOUND:
+        return apiNotFound(t('common.taskNotFound'));
+      case TASK_REVIEW_STATUSES.INVALID_BOARD:
+        return apiNotFound(t('common.boardNotFound'));
+      case TASK_REVIEW_STATUSES.CURRENT_COLUMN_NOT_FOUND:
+        return apiValidationError(t('boards.currentColumnNotFound'));
+      case TASK_REVIEW_STATUSES.NO_PENDING_REVIEW:
+        return apiValidationError(t('boards.noPendingReviewAction'));
+      case TASK_REVIEW_STATUSES.TRANSITION_CONFLICT:
+        return apiError(t('tasks.taskTransitionConflict'), 409);
+      case TASK_REVIEW_STATUSES.INVALID_REVIEW_INPUT:
+        return apiValidationError(t('tasks.taskTransitionInvalid'));
+      default:
+        logError({
+          error: new Error(`Unexpected atomic review status: ${String(result.status)}`),
+          request: req,
+          metadata: { action: 'task_review_rpc_status', task_id: taskId },
+        });
+        return apiServerError();
+    }
+
+    if (!result.task || !result.decision) {
+      logError({
+        error: new Error('Atomic review RPC success omitted committed data'),
+        request: req,
+        metadata: { action: 'task_review_rpc_shape', task_id: taskId },
+      });
+      return apiServerError();
+    }
+
+    const committedTargetName = String(result.decision.to_column_name ?? targetColumn.name);
+    const committedTargetId = String(result.decision.to_column_id ?? targetColumn.id);
+    const isReject = typedAction === TASK_REVIEW_ACTIONS.REJECT;
+    const isOutright = rejectionKind === TASK_REJECTION_KINDS.OUTRIGHT;
+
+    // Notifications and the global audit log are post-commit. Their failure
+    // is logged but cannot make the client retry an already committed decision.
+    try {
+      const { data: assignees } = await supabase
+        .from('pyra_task_assignees')
+        .select('username')
+        .eq('task_id', taskId);
+      const assigneeNames = (assignees || []).map((assignee) => assignee.username);
+      const taskLink = `/dashboard/boards/${boardId}?task=${taskId}`;
+
+      await notifyMany(supabase, assigneeNames, isReject ? {
+        type: 'task_revision_requested',
+        title: isOutright
+          ? `⛔ مرفوض تمامًا: ${task.title}` // i18n-exempt: persisted employee notification
+          : `✏️ مطلوب تعديلات: ${task.title}`, // i18n-exempt: persisted employee notification
+        message: `${note}`, // i18n-exempt: user-entered documented review note
+        link: taskLink,
+        entity: { type: 'task', id: taskId },
+        from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+      } : {
+        type: 'task_approved',
+        title: `✅ تمت الموافقة: ${task.title}`, // i18n-exempt: persisted employee notification
+        message: `انتقلت المهمة إلى "${committedTargetName}"`, // i18n-exempt: persisted employee notification
+        link: taskLink,
+        entity: { type: 'task', id: taskId },
+        from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+      });
+
+      const whatsappMessage = isReject
+        ? `${isOutright ? '⛔ مرفوض تمامًا' : '✏️ مطلوب تعديلات'}: ${task.title}\n${note}\n${APP_URL}${taskLink}` // i18n-exempt: persisted WhatsApp notification
+        : `✅ تمت الموافقة على: ${task.title}\n${APP_URL}${taskLink}`; // i18n-exempt: persisted WhatsApp notification
+      void Promise.allSettled(
+        assigneeNames
+          .filter((username) => username !== auth.pyraUser.username)
+          .map((username) => sendWhatsAppToUser(supabase, username, whatsappMessage)),
+      ).catch((error) => logError({
+        error,
+        request: req,
+        metadata: { action: 'task_review_whatsapp', task_id: taskId },
+      }));
+
+      logActivity(
+        auth.pyraUser.username,
+        auth.pyraUser.display_name,
+        `${ENTITY_TYPES.TASK}_${ACTIVITY_ACTIONS.UPDATE}`,
+        `/dashboard/boards/${boardId}`,
+        {
+          source: isReject ? 'task_review_reject' : 'task_review_approve',
+          task_id: taskId,
+          title: task.title,
+          to_stage: committedTargetName,
+          history_id: historyId,
+          rejection_kind: isReject ? rejectionKind : null,
+        },
+      );
+    } catch (sideEffectError) {
+      logError({
+        error: sideEffectError,
+        request: req,
+        metadata: { action: 'task_review_post_commit', task_id: taskId },
+      });
+    }
+
+    return apiSuccess(isReject ? {
+      rejected: true,
+      sent_back_to: committedTargetId,
+      rejection_kind: rejectionKind,
+      history_id: historyId,
+    } : {
+      approved: true,
+      to_column: committedTargetId,
+      history_id: historyId,
+    });
+  } catch (error) {
+    logError({ error, request: req, metadata: { action: 'task_review' } });
     return apiServerError();
   }
 }

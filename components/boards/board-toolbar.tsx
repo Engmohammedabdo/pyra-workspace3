@@ -11,6 +11,11 @@ import { useStatusLabels } from '@/lib/i18n/status-labels';
 import { dubaiDayKey } from '@/lib/utils/format';
 import type { Locale } from '@/lib/i18n/config';
 import {
+  compareBoardTaskDeadlines,
+  getBoardTaskDeadline,
+  isBoardTaskDeadlineOverdue,
+} from '@/hooks/useBoardTasks';
+import {
   Search, Filter, LayoutGrid, List, GitBranch, Users, Tag, Flag, CalendarClock, X, ArrowUpDown,
 } from 'lucide-react';
 
@@ -81,18 +86,22 @@ const PRIORITY_SORT: Record<string, number> = { urgent: 0, high: 1, medium: 2, l
 
 export function applyFilters<T extends {
   id: string; title: string; priority: string; column_id: string; position: number;
-  due_date?: string; created_at?: string;
+  due_date?: string | null; due_at?: string | null; created_at?: string;
+  production_deadline_exempt?: boolean;
   pyra_task_assignees?: { username: string }[];
   pyra_task_labels?: { label_id?: string }[];
 }>(
   tasks: T[],
   filters: BoardFilters,
-  locale: string = 'ar'
+  locale: string = 'ar',
+  now: Date = new Date(),
+  doneColumnIds: ReadonlySet<string> = new Set(),
 ): T[] {
-  const today = dubaiDayKey();
-  const weekEnd = dubaiDayKey(new Date(Date.now() + 7 * 86400000));
+  const today = dubaiDayKey(now);
+  const weekEnd = dubaiDayKey(new Date(now.getTime() + 7 * 86400000));
 
   const filtered = tasks.filter(t => {
+    const deadline = getBoardTaskDeadline(t);
     // Search
     if (filters.search && !t.title.toLowerCase().includes(filters.search.toLowerCase())) return false;
     // Assignee
@@ -108,10 +117,16 @@ export function applyFilters<T extends {
     // Priority
     if (filters.priorities.length > 0 && !filters.priorities.includes(t.priority)) return false;
     // Due date
-    if (filters.dueDateFilter === 'overdue' && !(t.due_date && t.due_date < today)) return false;
-    if (filters.dueDateFilter === 'today' && t.due_date !== today) return false;
-    if (filters.dueDateFilter === 'week' && !(t.due_date && t.due_date >= today && t.due_date <= weekEnd)) return false;
-    if (filters.dueDateFilter === 'none' && t.due_date) return false;
+    if (
+      filters.dueDateFilter === 'overdue'
+      && !isBoardTaskDeadlineOverdue(t, now, doneColumnIds.has(t.column_id))
+    ) return false;
+    if (filters.dueDateFilter === 'today' && deadline?.date !== today) return false;
+    if (
+      filters.dueDateFilter === 'week'
+      && !(deadline?.date && deadline.date >= today && deadline.date <= weekEnd)
+    ) return false;
+    if (filters.dueDateFilter === 'none' && deadline?.date) return false;
     return true;
   });
 
@@ -122,7 +137,7 @@ export function applyFilters<T extends {
         case 'newest': return (b.created_at || '').localeCompare(a.created_at || '');
         case 'oldest': return (a.created_at || '').localeCompare(b.created_at || '');
         case 'priority': return (PRIORITY_SORT[a.priority] ?? 2) - (PRIORITY_SORT[b.priority] ?? 2);
-        case 'due_date': return (a.due_date || '9999').localeCompare(b.due_date || '9999');
+        case 'due_date': return compareBoardTaskDeadlines(a, b);
         case 'title': return a.title.localeCompare(b.title, locale);
         default: return 0;
       }

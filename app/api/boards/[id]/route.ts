@@ -1,10 +1,18 @@
 import { NextRequest } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiServerError, apiNotFound, apiError } from '@/lib/api/response';
+import {
+  apiSuccess,
+  apiServerError,
+  apiNotFound,
+  apiError,
+  apiValidationError,
+} from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { resolveUserScope } from '@/lib/auth/scope';
-import { logActivity } from '@/lib/api/activity';
+import { ACTIVITY_ACTIONS, ENTITY_TYPES, logActivity } from '@/lib/api/activity';
+import { PRODUCTION_REVIEW_DELETE_BLOCKED_ERROR } from '@/lib/constants/task-review';
+import { logError } from '@/lib/observability/log-error';
 
 // =============================================================
 // GET /api/boards/[id]
@@ -104,6 +112,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('boards.manage');
     if (isApiError(auth)) return auth;
@@ -111,20 +120,33 @@ export async function DELETE(
     const { id } = await params;
     const supabase = await createServerSupabaseClient();
     const { error } = await supabase.from('pyra_boards').delete().eq('id', id);
-    if (error) return apiServerError(error.message);
+    if (error) {
+      logError({
+        error,
+        request: req,
+        metadata: { action: 'board_delete_writer', board_id: id },
+      });
+      if (
+        error.code === 'P0001'
+        && error.message.includes(PRODUCTION_REVIEW_DELETE_BLOCKED_ERROR)
+      ) {
+        return apiValidationError(t('tasks.productionReviewedTaskArchiveOnly'));
+      }
+      return apiServerError();
+    }
 
     logActivity(
       auth.pyraUser.username,
       auth.pyraUser.display_name,
-      'board_deleted',
+      `${ENTITY_TYPES.BOARD}_${ACTIVITY_ACTIONS.DELETE}`,
       `/dashboard/boards/${id}`,
-      { board_id: id },
+      { source: 'board_delete', board_id: id },
     );
 
     return apiSuccess({ deleted: true });
 
   } catch (err) {
-    console.error('[DELETE /api/boards/[id]] error:', err);
+    logError({ error: err, request: req, metadata: { action: 'board_delete' } });
     return apiServerError();
   }
 }

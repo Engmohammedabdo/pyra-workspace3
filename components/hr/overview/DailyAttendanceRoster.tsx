@@ -5,6 +5,8 @@ import { useTranslations } from 'next-intl';
 import { Clock, ArrowUpRight, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { usePermission } from '@/hooks/usePermission';
 import { formatCurrency } from '@/lib/utils/format';
 import type { HROverview } from '@/hooks/useHROverview';
 
@@ -28,7 +30,8 @@ const STATUS_CLS: Record<string, string> = {
 
 export function DailyAttendanceRoster({ roster }: DailyAttendanceRosterProps) {
   const t = useTranslations('hr.overview.dailyRoster');
-  const totalDeductible = roster.reduce((s, r) => s + r.deductible_absences, 0);
+  const canManageDeductions = usePermission('hr.manage');
+  const totalDeductibleUnits = roster.reduce((sum, row) => sum + row.deduction_units, 0);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/80 shadow-sm backdrop-blur-sm">
@@ -51,9 +54,9 @@ export function DailyAttendanceRoster({ roster }: DailyAttendanceRosterProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {totalDeductible > 0 && (
-            <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:text-red-400">
-              {t('totalDeduction', { days: totalDeductible })}
+          {totalDeductibleUnits > 0 && (
+            <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+              {t('totalDeduction', { units: totalDeductibleUnits })}
             </span>
           )}
           <ArrowUpRight
@@ -88,13 +91,16 @@ export function DailyAttendanceRoster({ roster }: DailyAttendanceRosterProps) {
                     {t('shiftFrom', { time: row.expected_start })}
                     {row.clock_out_time ? ` · ${t('clockOut', { time: row.clock_out_time })}` : ''}
                   </span>
-                  {row.deductible_absences > 0 && (
-                    <span className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-red-600 dark:text-red-400">
+                  {row.deduction_units > 0 && (
+                    <span className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-amber-700 dark:text-amber-300">
                       <AlertTriangle className="size-3 shrink-0" aria-hidden />
-                      {t('deduction', {
-                        days: row.deductible_absences,
-                        amount: formatCurrency(row.estimated_deduction, row.currency),
-                      })}
+                      {row.estimated_deduction !== null && row.currency
+                        ? t('deduction', {
+                            incidents: row.deductible_absences,
+                            units: row.deduction_units,
+                            amount: formatCurrency(row.estimated_deduction, row.currency),
+                          })
+                        : t('deductionAmountUnavailable')}
                     </span>
                   )}
                 </div>
@@ -120,6 +126,16 @@ export function DailyAttendanceRoster({ roster }: DailyAttendanceRosterProps) {
           </div>
         )}
       </div>
+      {canManageDeductions && (
+        <div className="flex justify-end border-t border-border/40 px-4 py-2">
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/dashboard/hr/deductions">
+              {t('reviewDeductions')}
+              <ArrowUpRight className="ms-2 h-3.5 w-3.5 rtl:rotate-180" aria-hidden />
+            </Link>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

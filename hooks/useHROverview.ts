@@ -37,10 +37,19 @@ export interface HROverview {
       late_minutes: number;
       /** Month-to-date deductible-absence days (grace policy). */
       deductible_absences: number;
-      /** Estimated deduction = deductible_absences × (salary / 22 work days). */
-      estimated_deduction: number;
+      /** Tiered quarter/half/full-day units across all candidate dates. */
+      deduction_units: number;
+      deduction_incidents: Array<{
+        date: string;
+        late_minutes: number | null;
+        kind: 'late' | 'no_show';
+        excused: boolean;
+        units: 0 | 0.25 | 0.5 | 1;
+      }>;
+      /** Estimated deduction = deduction_units × (salary / 30 calendar days). */
+      estimated_deduction: number | null;
       /** Currency of the estimated deduction (employee's salary currency). */
-      currency: string;
+      currency: string | null;
     }>;
   };
   leave: {

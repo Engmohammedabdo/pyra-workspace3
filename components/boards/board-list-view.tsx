@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
-import { mutateAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -13,10 +12,19 @@ import { cn } from '@/lib/utils/cn';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useStatusLabels } from '@/lib/i18n/status-labels';
-import { dubaiDayKey } from '@/lib/utils/format';
 import type { Locale } from '@/lib/i18n/config';
 import {
+  compareBoardTaskDeadlines,
+  formatBoardTaskDeadline,
+  isBoardTaskDeadlineOverdue,
+} from '@/hooks/useBoardTasks';
+import {
+  useMoveBoardTask,
+  useUpdateBoardTask,
+} from '@/hooks/useBoardTaskMutations';
+import {
   ChevronUp, ChevronDown, ArrowRightLeft, Flag, Archive, Check, CheckSquare, ClipboardList,
+  AlertTriangle,
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════
@@ -29,7 +37,9 @@ interface Task {
   column_id: string;
   position: number;
   priority: string;
-  due_date?: string;
+  due_date?: string | null;
+  due_at?: string | null;
+  production_deadline_exempt?: boolean;
   pyra_task_assignees?: { username: string }[];
   pyra_task_labels?: { label_id?: string; pyra_board_labels: { name: string; color: string } }[];
   pyra_task_checklist?: { id: string; title: string; is_checked: boolean }[];
@@ -39,6 +49,7 @@ interface Column {
   id: string;
   name: string;
   color: string;
+  is_done_column?: boolean;
 }
 
 interface BoardListViewProps {
@@ -48,6 +59,7 @@ interface BoardListViewProps {
   onTaskClick: (task: Task) => void;
   onUpdate: () => void;
   canEdit: boolean;
+  currentInstant: string;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -82,16 +94,26 @@ const PRIORITY_ORDER: Record<string, number> = { urgent: 0, high: 1, medium: 2, 
 // Component
 // ═══════════════════════════════════════════════════════════
 
-export function BoardListView({ tasks, columns, boardId, onTaskClick, onUpdate, canEdit }: BoardListViewProps) {
+export function BoardListView({
+  tasks,
+  columns,
+  boardId,
+  onTaskClick,
+  onUpdate,
+  canEdit,
+  currentInstant,
+}: BoardListViewProps) {
   const t = useTranslations('boards.listView');
+  const tDeadline = useTranslations('boards.deadline');
   const locale = useLocale() as Locale;
   const priorityLabel = useStatusLabels('taskPriority');
   const [sortKey, setSortKey] = useState<SortKey>('column');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState('');
-
-  const today = dubaiDayKey();
+  const moveTaskMutation = useMoveBoardTask();
+  const updateTaskMutation = useUpdateBoardTask();
+  const deadlineNow = new Date(currentInstant);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -111,7 +133,7 @@ export function BoardListView({ tasks, columns, boardId, onTaskClick, onUpdate, 
         break;
       }
       case 'priority': cmp = (PRIORITY_ORDER[a.priority] ?? 2) - (PRIORITY_ORDER[b.priority] ?? 2); break;
-      case 'due_date': cmp = (a.due_date || '9999').localeCompare(b.due_date || '9999'); break;
+      case 'due_date': cmp = compareBoardTaskDeadlines(a, b); break;
     }
     return sortDir === 'desc' ? -cmp : cmp;
   });
@@ -136,18 +158,22 @@ export function BoardListView({ tasks, columns, boardId, onTaskClick, onUpdate, 
     if (action.startsWith('move:')) {
       const colId = action.replace('move:', '');
       for (const id of ids) {
-        await mutateAPI(`/api/tasks/${id}/move`, 'POST', { column_id: colId, position: 0 });
+        await moveTaskMutation.mutateAsync({
+          taskId: id,
+          boardId,
+          data: { column_id: colId, position: 0 },
+        });
       }
       toast.success(t('toasts.moved', { count: ids.length }));
     } else if (action.startsWith('priority:')) {
       const pri = action.replace('priority:', '');
       for (const id of ids) {
-        await mutateAPI(`/api/tasks/${id}`, 'PATCH', { priority: pri });
+        await updateTaskMutation.mutateAsync({ taskId: id, boardId, data: { priority: pri } });
       }
       toast.success(t('toasts.priorityChanged', { count: ids.length }));
     } else if (action === 'archive') {
       for (const id of ids) {
-        await mutateAPI(`/api/tasks/${id}`, 'PATCH', { is_archived: true });
+        await updateTaskMutation.mutateAsync({ taskId: id, boardId, data: { is_archived: true } });
       }
       toast.success(t('toasts.archived', { count: ids.length }));
     }
@@ -238,7 +264,12 @@ export function BoardListView({ tasks, columns, boardId, onTaskClick, onUpdate, 
             <tbody>
               {sorted.map(task => {
                 const col = colMap.get(task.column_id);
-                const isOverdue = task.due_date && task.due_date < today;
+                const isOverdue = isBoardTaskDeadlineOverdue(
+                  task,
+                  deadlineNow,
+                  col?.is_done_column === true,
+                );
+                const deadline = formatBoardTaskDeadline(task, locale);
                 const checks = task.pyra_task_checklist || [];
                 const checkDone = checks.filter(c => c.is_checked).length;
                 return (
@@ -281,9 +312,26 @@ export function BoardListView({ tasks, columns, boardId, onTaskClick, onUpdate, 
                       </Badge>
                     </td>
                     <td className="p-2.5">
-                      {task.due_date ? (
+                      {deadline?.unverified ? (
+                        <span className="text-xs text-amber-700 dark:text-amber-300">
+                          <span className="flex items-center gap-1 text-amber-700 dark:text-amber-300">
+                            <AlertTriangle className="h-3 w-3 shrink-0" />
+                            {tDeadline('unverified')}
+                          </span>
+                          {deadline.date && (
+                            <span className="block text-[10px] tabular-nums text-amber-600 dark:text-amber-400">
+                              {deadline.date}
+                            </span>
+                          )}
+                        </span>
+                      ) : deadline ? (
                         <span className={cn('text-xs', isOverdue ? 'text-red-500 font-medium' : 'text-muted-foreground')}>
-                          {new Date(task.due_date).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', { month: 'short', day: 'numeric' })}
+                          {deadline.date}
+                          {deadline.time && (
+                            <span className="block text-[10px] tabular-nums">
+                              {t('uaeTime', { time: deadline.time })}
+                            </span>
+                          )}
                         </span>
                       ) : <span className="text-xs text-muted-foreground/30">—</span>}
                     </td>

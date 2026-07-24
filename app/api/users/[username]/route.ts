@@ -65,13 +65,14 @@ const EVIDENCE_TABLES: ReadonlyArray<{ table: string; column: string }> = [
  * in prod). `pyra_evaluations.employee_username` is in EVIDENCE_TABLES above —
  * that is the leaver's own record, and it blocks the delete outright.
  */
+// Task activity is intentionally not cleanup ephemera: its denormalised author
+// identity is production/quality evidence and must survive user hard-delete.
 const CLEANUP_TABLES: ReadonlyArray<{ table: string; column: string }> = [
   { table: 'pyra_leave_balances_v2', column: 'username' },
   { table: 'pyra_timesheet_periods', column: 'username' },
   { table: 'pyra_kpi_targets', column: 'username' },
   { table: 'pyra_task_assignees', column: 'username' },
   { table: 'pyra_task_comments', column: 'author_username' },
-  { table: 'pyra_task_activity', column: 'username' },
   { table: 'pyra_announcement_reads', column: 'username' },
   { table: 'pyra_board_members', column: 'username' },
   { table: 'pyra_sessions', column: 'username' },

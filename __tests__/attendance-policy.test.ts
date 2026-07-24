@@ -7,6 +7,7 @@ import {
   lateMinutesOf,
   deriveDayStatus,
   countDeductibleAbsences,
+  listDeductibleAbsenceDates,
 } from '@/lib/hr/attendance-policy';
 
 // UAE is UTC+4 (no DST): a UAE wall-clock time T is the UTC instant T-4h.
@@ -86,6 +87,10 @@ describe('countDeductibleAbsences — Abdelrahman scenario (July 2026)', () => {
   it('counts Thu (19:30, after grace) + Fri (no clock-in) = 2 absences', () => {
     const onTimeDates = new Set(['2026-07-06', '2026-07-07', '2026-07-08']); // 10:52, 11:11, 10:56
     expect(countDeductibleAbsences({ ...base, onTimeDates })).toBe(2);
+    expect(listDeductibleAbsenceDates({ ...base, onTimeDates })).toEqual([
+      '2026-07-09',
+      '2026-07-10',
+    ]);
   });
 
   it('an approved-leave day is not an absence', () => {

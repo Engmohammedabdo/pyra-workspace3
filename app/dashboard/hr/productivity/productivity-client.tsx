@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useProductivityReport, useProductivityTrends } from '@/hooks/useProductivity';
 import type { EmployeeReport } from '@/lib/production/report';
+import type { TaskJourney } from '@/lib/production/metrics';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +18,9 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import type { Locale } from '@/lib/i18n/config';
+import { isoToDubaiDateTime } from '@/lib/production/deadlines';
+import { CALENDAR_TIMEZONE_OFFSET } from '@/lib/constants/statuses';
+import { PRODUCTION_ATTRIBUTION_STATUS } from '@/lib/constants/production';
 
 type Tone = 'default' | 'good' | 'warn' | 'bad';
 
@@ -89,6 +93,24 @@ function qualityTone(rounds: number | null): Tone {
 
 const stateKey = (tone: Tone) => (tone === 'default' ? 'none' : tone);
 
+function dubaiDateTime(instant: string | null): string | null {
+  if (!instant) return null;
+  const dateTime = isoToDubaiDateTime(instant);
+  return dateTime
+    ? `${dateTime.date} ${dateTime.time} (${CALENDAR_TIMEZONE_OFFSET})`
+    : null;
+}
+
+function tasksForMonth(tasks: readonly TaskJourney[], month: string): TaskJourney[] {
+  const isCurrentMonth = month === dubaiDayKey().slice(0, 7);
+  const monthOf = (iso: string) => dubaiDayKey(new Date(iso)).slice(0, 7);
+  return tasks.filter((task) => {
+    if (task.delivered_at && monthOf(task.delivered_at) === month) return true;
+    if (task.first_submitted_at && monthOf(task.first_submitted_at) === month) return true;
+    return isCurrentMonth && !task.first_submitted_at && !task.delivered_at && !task.is_archived;
+  });
+}
+
 function EmployeeCard({ emp, month }: { emp: EmployeeReport; month: string }) {
   const t = useTranslations('hr.productivity');
   const locale = useLocale() as Locale;
@@ -100,14 +122,7 @@ function EmployeeCard({ emp, month }: { emp: EmployeeReport; month: string }) {
   // When viewing the CURRENT month, also keep not-yet-submitted open work so
   // in-flight tasks stay visible. Month key derived the same way the metrics
   // engine buckets (dubaiDayKey → YYYY-MM) so past months reconcile exactly.
-  const isCurrentMonth = month === dubaiDayKey().slice(0, 7);
-  const monthOf = (iso: string) => dubaiDayKey(new Date(iso)).slice(0, 7);
-  const visibleTasks = emp.tasks.filter((task) => {
-    if (task.delivered_at && monthOf(task.delivered_at) === month) return true;
-    if (task.first_submitted_at && monthOf(task.first_submitted_at) === month) return true;
-    if (isCurrentMonth && !task.first_submitted_at && !task.delivered_at) return true;
-    return false;
-  });
+  const visibleTasks = tasksForMonth(emp.tasks, month);
 
   const otTone = onTimeTone(m.on_time_pct);
   const qTone = qualityTone(m.avg_rounds);
@@ -223,12 +238,26 @@ function EmployeeCard({ emp, month }: { emp: EmployeeReport; month: string }) {
                 {visibleTasks.map((task) => (
                   <tr key={task.task_id} className="border-b transition-colors last:border-b-0 hover:bg-muted/30">
                     <td className="p-2 font-medium">{task.title}</td>
-                    <td className="p-2">{task.due_date ? formatDate(task.due_date, undefined, locale) : '—'}</td>
-                    <td className="p-2">{task.first_submitted_at ? formatDate(task.first_submitted_at, undefined, locale) : '—'}</td>
                     <td className="p-2">
-                      {task.on_time === null ? <span className="text-muted-foreground">—</span>
+                      {task.effective_due_at !== null
+                        ? dubaiDateTime(task.effective_due_at) ?? '—'
+                        : task.due_date
+                          ? formatDate(task.due_date, undefined, locale)
+                          : '—'}
+                    </td>
+                    <td className="p-2">{dubaiDateTime(task.first_submitted_at) ?? '—'}</td>
+                    <td className="p-2">
+                      {task.delivery_exclusion === 'lead_time_under_24h'
+                        ? <Badge className="border-0 bg-amber-500/10 text-amber-700 dark:text-amber-300">{t('table.exclusions.shortLead')}</Badge>
+                        : task.delivery_exclusion === 'unverified_legacy_deadline'
+                          ? <Badge className="border-0 bg-amber-500/10 text-amber-700 dark:text-amber-300">{t('table.exclusions.unverifiedLegacy')}</Badge>
+                          : task.on_time === null ? <span className="text-muted-foreground">—</span>
                         : task.on_time ? <Badge className="border-0 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">{t('table.onTime')}</Badge>
-                        : <Badge className="border-0 bg-red-500/10 text-red-600 dark:text-red-400">{t('table.late', { days: task.delay_days ?? 0 })}</Badge>}
+                        : <Badge className="border-0 bg-red-500/10 text-red-600 dark:text-red-400">
+                            {task.delay_days === 0
+                              ? t('table.lateSameDay')
+                              : t('table.late', { days: task.delay_days ?? 0 })}
+                          </Badge>}
                     </td>
                     <td className="p-2">{task.review_rounds}</td>
                     <td className="p-2">{task.delivered_at ? formatDate(task.delivered_at, undefined, locale) : <span className="text-muted-foreground">{t('table.notDelivered')}</span>}</td>
@@ -243,11 +272,71 @@ function EmployeeCard({ emp, month }: { emp: EmployeeReport; month: string }) {
   );
 }
 
+function UnattributedTasksCard({ tasks, month }: { tasks: TaskJourney[]; month: string }) {
+  const t = useTranslations('hr.productivity.unattributed');
+  const visibleTasks = tasksForMonth(tasks, month);
+  if (!visibleTasks.length) return null;
+
+  const attributionLabel = (task: TaskJourney) => {
+    if (task.attribution_status === PRODUCTION_ATTRIBUTION_STATUS.LEGACY_UNVERIFIED) {
+      return t('attribution.legacyUnverified');
+    }
+    return t('attribution.needsReview');
+  };
+
+  return (
+    <Card className="space-y-3 border-amber-200 bg-amber-50/60 p-4 dark:border-amber-800/40 dark:bg-amber-950/20">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+          <div>
+            <h2 className="font-semibold">{t('title')}</h2>
+            <p className="text-xs text-muted-foreground">{t('description')}</p>
+          </div>
+        </div>
+        <Badge variant="outline">{t('count', { count: visibleTasks.length })}</Badge>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b text-muted-foreground">
+              <th scope="col" className="p-2 text-start">{t('table.task')}</th>
+              <th scope="col" className="p-2 text-start">{t('table.deadline')}</th>
+              <th scope="col" className="p-2 text-start">{t('table.firstSubmission')}</th>
+              <th scope="col" className="p-2 text-start">{t('table.reason')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visibleTasks.map((task) => (
+              <tr key={task.task_id} className="border-b last:border-b-0">
+                <td className="p-2 font-medium">{task.title}</td>
+                <td className="p-2">{dubaiDateTime(task.effective_due_at) ?? task.due_date ?? '—'}</td>
+                <td className="p-2">{dubaiDateTime(task.first_submitted_at) ?? '—'}</td>
+                <td className="p-2">
+                  <Badge variant="outline" className="border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-300">
+                    {attributionLabel(task)}
+                  </Badge>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
 export function ProductivityClient() {
   const t = useTranslations('hr.productivity');
   const [month, setMonth] = useState(dubaiDayKey().slice(0, 7));
-  const { data, isLoading } = useProductivityReport(month);
-  const { data: trends, isLoading: isTrendsLoading } = useProductivityTrends(6);
+  const { data, isLoading, isError, refetch } = useProductivityReport(month);
+  const {
+    data: trends,
+    isLoading: isTrendsLoading,
+    isError: isTrendsError,
+    refetch: refetchTrends,
+  } = useProductivityTrends(6);
   const exportBase = `/api/hr/productivity/export?month=${encodeURIComponent(month)}`;
 
   return (
@@ -285,21 +374,40 @@ export function ProductivityClient() {
         </div>
       </div>
 
-      <ProductivityTrendChart trends={trends} isLoading={isTrendsLoading} />
+      <ProductivityTrendChart
+        trends={trends}
+        isLoading={isTrendsLoading}
+        isError={isTrendsError}
+        onRetry={() => void refetchTrends()}
+      />
 
       {isLoading ? (
         <div className="space-y-3">
           <Skeleton className="h-40 w-full" />
           <Skeleton className="h-40 w-full" />
         </div>
-      ) : !data?.employees.length ? (
+      ) : isError ? (
+        <EmptyState
+          icon={AlertCircle}
+          title={t('error.title')}
+          description={t('error.description')}
+          actions={[{
+            label: t('error.retry'),
+            onClick: () => void refetch(),
+            icon: RefreshCcw,
+          }]}
+        />
+      ) : !data || (!data.employees.length && !data.unattributed_tasks.length) ? (
         <EmptyState
           icon={PackageCheck}
           title={t('empty.title')}
           description={t('empty.description')}
         />
       ) : (
-        data.employees.map((emp) => <EmployeeCard key={emp.username} emp={emp} month={month} />)
+        <>
+          {data.employees.map((emp) => <EmployeeCard key={emp.username} emp={emp} month={month} />)}
+          <UnattributedTasksCard tasks={data.unattributed_tasks} month={month} />
+        </>
       )}
 
       <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">

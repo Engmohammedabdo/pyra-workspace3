@@ -1,8 +1,17 @@
+import { NextRequest } from 'next/server';
 import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiUnauthorized, apiServerError } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { getDirectReports } from '@/lib/auth/team-scope';
 import { hasPermission } from '@/lib/auth/rbac';
+import { dubaiDayKey } from '@/lib/utils/format';
+import {
+  categorizeMyWorkTasks,
+  chunkValues,
+  collectCursorPages,
+  MY_WORK_TASK_PAGE_SIZE,
+} from '@/lib/production/my-work';
+import { logError } from '@/lib/observability/log-error';
 
 // =============================================================
 // GET /api/my-work
@@ -21,6 +30,7 @@ interface MyWorkResponse {
     overdue: TaskItem[];
     today: TaskItem[];
     this_week: TaskItem[];
+    unverified: TaskItem[];
   };
   approvals_waiting: {
     leave: LeaveItem[];
@@ -44,6 +54,8 @@ interface TaskItem {
   id: string;
   title: string;
   due_date: string | null;
+  due_at: string | null;
+  production_deadline_exempt: boolean;
   board_id: string;
   board_name: string;
   column_name: string;
@@ -101,7 +113,7 @@ interface FollowUpItem {
   lead_name: string | null;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const auth = await getApiAuth();
     if (!auth) return apiUnauthorized();
@@ -112,51 +124,66 @@ export async function GET() {
     const isAdmin = auth.pyraUser.role === 'admin';
 
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-    const endOfWeekStr = endOfWeek.toISOString().split('T')[0];
+    const nowIso = now.toISOString();
+    const todayStr = dubaiDayKey(now);
+    const [todayYear, todayMonth, todayDay] = todayStr.split('-').map(Number);
+    const todayWeekday = new Date(Date.UTC(todayYear, todayMonth - 1, todayDay)).getUTCDay();
+    const daysUntilSaturday = (6 - todayWeekday + 7) % 7;
+    const endOfWeekStr = dubaiDayKey(new Date(now.getTime() + daysUntilSaturday * 86_400_000));
 
     // ─── TASKS — assigned to me ────────────────────────────────
-    const { data: assignments } = await supabase
-      .from('pyra_task_assignees')
-      .select('task_id')
-      .eq('username', username);
+    const assignments = await collectCursorPages(
+      async (after, pageSize) => {
+        let query = supabase
+          .from('pyra_task_assignees')
+          .select('task_id')
+          .eq('username', username)
+          .order('task_id', { ascending: true })
+          .limit(pageSize);
+        if (after !== null) query = query.gt('task_id', after);
+        const { data, error } = await query;
+        if (error) throw error;
+        return data || [];
+      },
+      (assignment) => assignment.task_id,
+    );
 
-    const taskIds = (assignments || []).map((a) => a.task_id);
+    const taskIds = [...new Set(assignments.map((assignment) => assignment.task_id))];
     let allTasks: TaskItem[] = [];
 
     if (taskIds.length > 0) {
-      const { data: tasksData } = await supabase
-        .from('pyra_tasks')
-        .select('id, title, due_date, board_id, pyra_boards!inner(name), pyra_board_columns!inner(name, is_done_column)')
-        .in('id', taskIds)
-        .eq('is_archived', false)
-        .limit(100);
+      for (const taskIdChunk of chunkValues(taskIds, MY_WORK_TASK_PAGE_SIZE)) {
+        const { data: tasksData, error } = await supabase
+          .from('pyra_tasks')
+          .select('id, title, due_date, due_at, production_deadline_exempt, board_id, pyra_boards!inner(name), pyra_board_columns!inner(name, is_done_column)')
+          .in('id', taskIdChunk)
+          .eq('is_archived', false)
+          .order('id', { ascending: true });
+        if (error) throw error;
 
-      allTasks = (tasksData || []).map((t) => {
-        const board = Array.isArray(t.pyra_boards) ? t.pyra_boards[0] : t.pyra_boards;
-        const col = Array.isArray(t.pyra_board_columns) ? t.pyra_board_columns[0] : t.pyra_board_columns;
-        return {
-          id: t.id as string,
-          title: t.title as string,
-          due_date: (t.due_date as string) || null,
-          board_id: t.board_id as string,
-          board_name: (board?.name as string) || '',
-          column_name: (col?.name as string) || '',
-          is_done_column: !!col?.is_done_column,
-        };
-      });
+        allTasks.push(...(tasksData || []).map((t) => {
+          const board = Array.isArray(t.pyra_boards) ? t.pyra_boards[0] : t.pyra_boards;
+          const col = Array.isArray(t.pyra_board_columns) ? t.pyra_board_columns[0] : t.pyra_board_columns;
+          return {
+            id: t.id as string,
+            title: t.title as string,
+            due_date: (t.due_date as string) || null,
+            due_at: (t.due_at as string) || null,
+            production_deadline_exempt: t.production_deadline_exempt === true,
+            board_id: t.board_id as string,
+            board_name: (board?.name as string) || '',
+            column_name: (col?.name as string) || '',
+            is_done_column: !!col?.is_done_column,
+          };
+        }));
+      }
     }
 
-    const activeTasks = allTasks.filter((t) => !t.is_done_column);
-    const overdueTasks = activeTasks.filter((t) => t.due_date && t.due_date < todayStr);
-    const todayTasks = activeTasks.filter((t) => t.due_date === todayStr);
-    const thisWeekTasks = activeTasks.filter(
-      (t) => t.due_date && t.due_date > todayStr && t.due_date <= endOfWeekStr
-    );
+    const categorizedTasks = categorizeMyWorkTasks(allTasks, nowIso, todayStr, endOfWeekStr);
+    const overdueTasks = categorizedTasks.overdue;
+    const todayTasks = categorizedTasks.today;
+    const thisWeekTasks = categorizedTasks.thisWeek;
+    const unverifiedTasks = categorizedTasks.unverified;
 
     // ─── APPROVALS — for direct reports (admin sees all) ───────
     // Defense in depth: require leave.approve permission EVEN IF the user
@@ -343,6 +370,7 @@ export async function GET() {
         overdue: overdueTasks,
         today: todayTasks,
         this_week: thisWeekTasks,
+        unverified: unverifiedTasks,
       },
       approvals_waiting: {
         leave: leaveItems,
@@ -354,7 +382,8 @@ export async function GET() {
       leads: { needs_action: leads },
       follow_ups: { due: follow_ups },
       counts: {
-        tasks_total: overdueTasks.length + todayTasks.length + thisWeekTasks.length,
+        tasks_total: overdueTasks.length + todayTasks.length + thisWeekTasks.length
+          + unverifiedTasks.length,
         approvals_total: approvalsTotal,
         // The list arrays above are capped at 10 for display; the badge counts
         // come from head:true COUNT queries so they show the real total (?? falls
@@ -367,6 +396,7 @@ export async function GET() {
 
     return apiSuccess(response);
   } catch (err) {
+    logError({ error: err, request, metadata: { action: 'my-work' } });
     console.error('[GET /api/my-work] error:', err);
     return apiServerError();
   }

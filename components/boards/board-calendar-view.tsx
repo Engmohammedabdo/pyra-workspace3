@@ -7,7 +7,12 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils/cn';
 import { dubaiDayKey } from '@/lib/utils/format';
 import type { Locale } from '@/lib/i18n/config';
-import { ChevronRight, ChevronLeft, CalendarDays } from 'lucide-react';
+import {
+  formatBoardTaskDeadline,
+  getBoardTaskDeadline,
+  isBoardTaskDeadlineOverdue,
+} from '@/hooks/useBoardTasks';
+import { AlertTriangle, ChevronRight, ChevronLeft, CalendarDays } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════
 
@@ -17,7 +22,9 @@ interface Task {
   column_id: string;
   position: number;
   priority: string;
-  due_date?: string;
+  due_date?: string | null;
+  due_at?: string | null;
+  production_deadline_exempt?: boolean;
   task_number?: number;
 }
 
@@ -26,6 +33,9 @@ interface BoardCalendarViewProps {
   onTaskClick: (task: Task) => void;
   onQuickAdd: (columnId: string, dueDate: string) => void;
   defaultColumnId: string;
+  currentInstant: string;
+  doneColumnIds: string[];
+  canCreate: boolean;
 }
 
 // Sunday-first order — matches the reuse of the `calendar.dayNames` keyed
@@ -44,30 +54,45 @@ const PRIORITY_DOTS: Record<string, string> = {
 
 // ═══════════════════════════════════════════════════════════
 
-export function BoardCalendarView({ tasks, onTaskClick, onQuickAdd, defaultColumnId }: BoardCalendarViewProps) {
+export function BoardCalendarView({
+  tasks,
+  onTaskClick,
+  onQuickAdd,
+  defaultColumnId,
+  currentInstant,
+  doneColumnIds,
+  canCreate,
+}: BoardCalendarViewProps) {
   const t = useTranslations('boards.calView');
+  const tDeadline = useTranslations('boards.deadline');
   const tCalendar = useTranslations('calendar');
   const locale = useLocale() as Locale;
   const dayNames = DAY_NAME_KEYS.map((key) => tCalendar(`dayNames.${key}`));
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(() => {
+    const [year, month] = dubaiDayKey(new Date(currentInstant)).split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, 1));
+  });
+  const now = useMemo(() => new Date(currentInstant), [currentInstant]);
+  const doneColumnIdSet = useMemo(() => new Set(doneColumnIds), [doneColumnIds]);
 
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
+  const year = currentDate.getUTCFullYear();
+  const month = currentDate.getUTCMonth();
 
   const { days, startDay } = useMemo(() => {
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0=Sun
+    const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    const firstDayOfWeek = new Date(Date.UTC(year, month, 1)).getUTCDay(); // 0=Sun
     const d: number[] = [];
     for (let i = 1; i <= daysInMonth; i++) d.push(i);
     return { days: d, startDay: firstDayOfWeek };
   }, [year, month]);
 
-  // Group tasks by due_date
+  // Exact production instants are grouped by their Dubai calendar date.
   const tasksByDate = useMemo(() => {
     const map = new Map<string, Task[]>();
     tasks.forEach(t => {
-      if (t.due_date) {
-        const key = t.due_date;
+      const deadline = getBoardTaskDeadline(t);
+      if (deadline?.date) {
+        const key = deadline.date;
         if (!map.has(key)) map.set(key, []);
         map.get(key)!.push(t);
       }
@@ -75,14 +100,19 @@ export function BoardCalendarView({ tasks, onTaskClick, onQuickAdd, defaultColum
     return map;
   }, [tasks]);
 
-  const noDateTasks = tasks.filter(t => !t.due_date);
-  const todayStr = dubaiDayKey();
+  const noDateTasks = tasks.filter(t => !getBoardTaskDeadline(t)?.date);
+  const todayStr = dubaiDayKey(now);
 
-  const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-  const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
-  const goToday = () => setCurrentDate(new Date());
+  const prevMonth = () => setCurrentDate(new Date(Date.UTC(year, month - 1, 1)));
+  const nextMonth = () => setCurrentDate(new Date(Date.UTC(year, month + 1, 1)));
+  const goToday = () => {
+    const [todayYear, todayMonth] = todayStr.split('-').map(Number);
+    setCurrentDate(new Date(Date.UTC(todayYear, todayMonth - 1, 1)));
+  };
 
-  const monthName = currentDate.toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', { month: 'long', year: 'numeric' });
+  const monthName = currentDate.toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', {
+    month: 'long', year: 'numeric', timeZone: 'UTC',
+  });
 
   return (
     <div className="space-y-4">
@@ -131,11 +161,13 @@ export function BoardCalendarView({ tasks, onTaskClick, onQuickAdd, defaultColum
               return (
                 <div
                   key={day}
+                  data-date={dateStr}
                   className={cn(
-                    'bg-card/50 min-h-[80px] p-1 hover:bg-muted/30 transition-colors cursor-pointer',
+                    'bg-card/50 min-h-[80px] p-1 transition-colors',
+                    canCreate && 'hover:bg-muted/30 cursor-pointer',
                     isToday && 'ring-1 ring-inset ring-orange-500/50 bg-orange-500/5'
                   )}
-                  onClick={() => onQuickAdd(defaultColumnId, dateStr)}
+                  onClick={canCreate ? () => onQuickAdd(defaultColumnId, dateStr) : undefined}
                 >
                   <div className="flex items-center justify-between mb-0.5">
                     <span className={cn(
@@ -150,16 +182,43 @@ export function BoardCalendarView({ tasks, onTaskClick, onQuickAdd, defaultColum
                     )}
                   </div>
                   <div className="space-y-0.5">
-                    {dayTasks.slice(0, 3).map(t => (
-                      <button
-                        key={t.id}
-                        onClick={e => { e.stopPropagation(); onTaskClick(t); }}
-                        className="w-full text-start px-1 py-0.5 rounded text-[9px] truncate hover:bg-orange-500/10 transition-colors flex items-center gap-1"
-                      >
-                        <div className={cn('w-1.5 h-1.5 rounded-full shrink-0', PRIORITY_DOTS[t.priority] || PRIORITY_DOTS.medium)} />
-                        <span className="truncate">{t.task_number ? `#${t.task_number} ` : ''}{t.title}</span>
-                      </button>
-                    ))}
+                    {dayTasks.slice(0, 3).map(task => {
+                      const deadline = formatBoardTaskDeadline(task, locale);
+                      const overdue = isBoardTaskDeadlineOverdue(
+                        task,
+                        now,
+                        doneColumnIdSet.has(task.column_id),
+                      );
+                      return (
+                        <button
+                          key={task.id}
+                          onClick={e => { e.stopPropagation(); onTaskClick(task); }}
+                          className={cn(
+                            'w-full text-start px-1 py-0.5 rounded text-[9px] truncate hover:bg-orange-500/10 transition-colors flex items-center gap-1',
+                            overdue && 'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300',
+                            deadline?.unverified
+                              && 'bg-amber-50 text-amber-900 hover:bg-amber-100/70 dark:bg-amber-950/30 dark:text-amber-200 dark:hover:bg-amber-950/40',
+                          )}
+                        >
+                          {deadline?.unverified ? (
+                            <AlertTriangle className="h-3 w-3 shrink-0 text-amber-700 dark:text-amber-300" />
+                          ) : (
+                            <div className={cn('w-1.5 h-1.5 rounded-full shrink-0', PRIORITY_DOTS[task.priority] || PRIORITY_DOTS.medium)} />
+                          )}
+                          <span className="truncate">{task.task_number ? `#${task.task_number} ` : ''}{task.title}</span>
+                          {deadline?.unverified && (
+                            <span className="shrink-0 text-[8px] font-medium text-amber-700 dark:text-amber-300">
+                              {tDeadline('unverified')}
+                            </span>
+                          )}
+                          {deadline?.time && (
+                            <span className="shrink-0 tabular-nums text-muted-foreground">
+                              {t('uaeTime', { time: deadline.time })}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                     {dayTasks.length > 3 && (
                       <p className="text-[8px] text-muted-foreground/50 text-center">{t('overflow', { count: dayTasks.length - 3 })}</p>
                     )}
@@ -178,18 +237,34 @@ export function BoardCalendarView({ tasks, onTaskClick, onQuickAdd, defaultColum
               <span className="text-[10px] font-medium text-muted-foreground">{t('noDate', { count: noDateTasks.length })}</span>
             </div>
             <div className="space-y-1 max-h-[500px] overflow-y-auto">
-              {noDateTasks.map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => onTaskClick(t)}
-                  className="w-full text-start p-2 rounded-lg border border-border/50 bg-card/50 hover:border-orange-300 transition-colors"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <div className={cn('w-1.5 h-1.5 rounded-full shrink-0', PRIORITY_DOTS[t.priority])} />
-                    <span className="text-[10px] font-medium truncate">{t.title}</span>
-                  </div>
-                </button>
-              ))}
+              {noDateTasks.map((task) => {
+                const unverified = getBoardTaskDeadline(task)?.unverified === true;
+                return (
+                  <button
+                    key={task.id}
+                    onClick={() => onTaskClick(task)}
+                    className={cn(
+                      'w-full text-start p-2 rounded-lg border border-border/50 bg-card/50 hover:border-orange-300 transition-colors',
+                      unverified
+                        && 'border-amber-300 bg-amber-50/70 hover:border-amber-400 dark:border-amber-800 dark:bg-amber-950/20 dark:hover:border-amber-700',
+                    )}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      {unverified ? (
+                        <AlertTriangle className="h-3 w-3 shrink-0 text-amber-700 dark:text-amber-300" />
+                      ) : (
+                        <div className={cn('w-1.5 h-1.5 rounded-full shrink-0', PRIORITY_DOTS[task.priority])} />
+                      )}
+                      <span className="text-[10px] font-medium truncate">{task.title}</span>
+                    </div>
+                    {unverified && (
+                      <span className="mt-1 block text-[8px] font-medium text-amber-700 dark:text-amber-300">
+                        {tDeadline('unverified')}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

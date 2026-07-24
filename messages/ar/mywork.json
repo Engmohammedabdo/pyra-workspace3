@@ -5,7 +5,11 @@
       "dueDate": {
         "overdueDays": "{count, plural, other {متأخر # يوم}}",
         "today": "اليوم",
-        "inDays": "{count, plural, other {بعد # يوم}}"
+        "inDays": "{count, plural, other {بعد # يوم}}",
+        "exact": "{date}، {time} (بتوقيت الإمارات)",
+        "exactOverdue": "متأخر · {date}، {time} (بتوقيت الإمارات)",
+        "unverified": "موعد قديم غير مؤكد · {date}",
+        "unverifiedMissing": "موعد قديم غير مؤكد · لازم تاريخ وساعة دقيقين"
       },
       "error": {
         "title": "تعذّر تحميل صندوق الشغل",
@@ -65,17 +69,61 @@
         "title": "لا توجد مهام",
         "description": "لم يتم تعيين أي مهام لك بعد"
       },
+      "error": {
+        "title": "تعذّر تحميل مهامك",
+        "description": "لم نتمكن من تحميل مهامك. حاول مرة أخرى.",
+        "retry": "إعادة المحاولة"
+      },
       "sections": {
         "overdue": "متأخرة",
         "today": "اليوم",
         "week": "هذا الأسبوع",
+        "unverified": "يحتاج موعد تسليم دقيق",
         "upcoming": "قادمة",
         "done": "مكتملة"
       },
       "noBoard": "بدون لوحة",
       "noProject": "بدون مشروع",
       "leadTaskBadge": "عميل محتمل",
-      "leadBoard": "مهام Lead"
+      "leadBoard": "مهام Lead",
+      "unverifiedDeadline": "موعد قديم غير مؤكد",
+      "exactDeadline": "{date}، {time} (بتوقيت الإمارات)",
+      "productivity": {
+        "title": "إنتاجيتي هذا الشهر",
+        "daysShort": "{days}ي",
+        "stats": {
+          "deliveries": "تسليمات",
+          "onTime": "الالتزام",
+          "reviewRounds": "جولات تعديل",
+          "firstDraftSpeed": "سرعة أول نسخة",
+          "openOverdue": "متأخرة بلا رفع"
+        },
+        "details": {
+          "toggle": "المهام والأرقام ({count})",
+          "table": {
+            "task": "المهمة",
+            "deadline": "موعد التسليم",
+            "firstSubmission": "أول تسليم",
+            "commitment": "الالتزام",
+            "rounds": "الجولات",
+            "finalDelivery": "التسليم النهائي"
+          },
+          "exclusions": {
+            "shortLead": "مستبعد · مدة التنفيذ أقل من 24 ساعة",
+            "unverifiedLegacy": "مستبعد · موعد قديم غير مؤكد",
+            "unverifiedAttribution": "مستبعد · يحتاج مراجعة المسؤول"
+          },
+          "onTime": "في الموعد",
+          "lateSameDay": "متأخر في نفس اليوم",
+          "late": "متأخر {days} يوم",
+          "notScored": "غير محتسب",
+          "notDelivered": "لم يُسلّم"
+        },
+        "error": {
+          "title": "تعذّر تحميل إنتاجيتك",
+          "retry": "إعادة المحاولة"
+        }
+      }
     }
   }
 }

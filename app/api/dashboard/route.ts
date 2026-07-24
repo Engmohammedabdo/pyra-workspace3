@@ -7,6 +7,12 @@ import {
 } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
+import { dubaiDayKey } from '@/lib/utils/format';
+import {
+  countVerifiedExactDeadlineRows,
+  MY_WORK_TASK_PAGE_SIZE,
+  type ExactDeadlineAssignmentRow,
+} from '@/lib/production/my-work';
 
 // =============================================================
 // GET /api/dashboard
@@ -104,6 +110,38 @@ async function getAdminDashboard(
 // =============================================================
 // Employee dashboard: scoped to their permissions
 // =============================================================
+async function countEmployeeVerifiedExactOverdueTasks(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  username: string,
+  currentInstant: string,
+): Promise<number> {
+  let offset = 0;
+  let total = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('pyra_task_assignees')
+      .select(
+        'task_id, pyra_tasks!inner(due_date, due_at, production_deadline_exempt, is_archived, column_id, pyra_board_columns!inner(is_done_column))',
+      )
+      .eq('username', username)
+      .eq('pyra_tasks.is_archived', false)
+      .eq('pyra_tasks.pyra_board_columns.is_done_column', false)
+      .eq('pyra_tasks.production_deadline_exempt', false)
+      .lt('pyra_tasks.due_at', currentInstant)
+      .order('task_id', { ascending: true })
+      .range(offset, offset + MY_WORK_TASK_PAGE_SIZE - 1);
+    if (error) throw error;
+
+    const rows = (data ?? []) as unknown as ExactDeadlineAssignmentRow[];
+    total += countVerifiedExactDeadlineRows(rows);
+    if (rows.length < MY_WORK_TASK_PAGE_SIZE) break;
+    offset += rows.length;
+  }
+
+  return total;
+}
+
 async function getEmployeeDashboard(
   supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
   pyraUser: { username: string; permissions: import('@/types/database').UserPermissions }
@@ -119,6 +157,8 @@ async function getEmployeeDashboard(
 
   // Week boundaries for timesheet
   const now = new Date();
+  const currentInstant = now.toISOString();
+  const todayKey = dubaiDayKey(now);
   const startOfWeek = new Date(now);
   startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
   startOfWeek.setHours(0, 0, 0, 0);
@@ -127,7 +167,6 @@ async function getEmployeeDashboard(
   endOfWeek.setHours(23, 59, 59, 999);
   const weekStart = startOfWeek.toISOString().split('T')[0];
   const weekEnd = endOfWeek.toISOString().split('T')[0];
-  const today = now.toISOString().split('T')[0];
 
   // Run queries in parallel
   const [
@@ -135,7 +174,8 @@ async function getEmployeeDashboard(
     notificationsResult,
     filesResult,
     myTasksResult,
-    overdueTasksResult,
+    exactOverdueTasksResult,
+    legacyOverdueTasksResult,
     weekTimesheetResult,
     unreadAnnouncementsResult,
     leaveBalanceResult,
@@ -170,13 +210,29 @@ async function getEmployeeDashboard(
       .select('id', { count: 'exact', head: true })
       .eq('username', pyraUser.username),
 
-    // Overdue tasks
+    // Load all exact overdue candidates in bounded pages, then reject the
+    // migration-041 literal sentinel in the shared pure guard. SQL alone
+    // cannot distinguish that sentinel until migration 044 backfills flags.
+    countEmployeeVerifiedExactOverdueTasks(
+      supabase,
+      pyraUser.username,
+      currentInstant,
+    ),
+
+    // Legacy date-only tasks fall back only when due_at is genuinely null.
+    // Dubai end-of-day means a legacy task becomes overdue on the next day.
     supabase
       .from('pyra_task_assignees')
-      .select('task_id, pyra_tasks!inner(due_date, column_id, pyra_board_columns!inner(is_done_column))')
+      .select(
+        'task_id, pyra_tasks!inner(due_date, due_at, is_archived, column_id, pyra_board_columns!inner(is_done_column))',
+        { count: 'exact', head: true },
+      )
       .eq('username', pyraUser.username)
-      .lt('pyra_tasks.due_date', today)
-      .eq('pyra_tasks.pyra_board_columns.is_done_column', false),
+      .eq('pyra_tasks.is_archived', false)
+      .eq('pyra_tasks.pyra_board_columns.is_done_column', false)
+      .eq('pyra_tasks.production_deadline_exempt', false)
+      .is('pyra_tasks.due_at', null)
+      .lt('pyra_tasks.due_date', todayKey),
 
     // Timesheet hours this week
     supabase
@@ -209,6 +265,8 @@ async function getEmployeeDashboard(
       .eq('status', 'pending'),
   ]);
 
+  if (legacyOverdueTasksResult.error) throw legacyOverdueTasksResult.error;
+
   // Calculate read announcements
   const totalAnnouncements = unreadAnnouncementsResult.count ?? 0;
   let unreadAnnouncements = totalAnnouncements;
@@ -225,6 +283,9 @@ async function getEmployeeDashboard(
     (sum, entry) => sum + (parseFloat(String(entry.hours)) || 0),
     0
   );
+
+  const overdueTasksCount = exactOverdueTasksResult
+    + (legacyOverdueTasksResult.count ?? 0);
 
   // Leave balance (v2) — map rows by leave_type_id. A missing row (not yet
   // seeded for this employee/year) defaults that pair to 0.
@@ -258,7 +319,7 @@ async function getEmployeeDashboard(
     permitted_paths: allPaths,
     // Employee-specific stats
     my_tasks_count: myTasksResult.count ?? 0,
-    my_tasks_overdue: overdueTasksResult.data?.length ?? 0,
+    my_tasks_overdue: overdueTasksCount,
     my_hours_this_week: Math.round(weekHours * 10) / 10,
     unread_announcements: unreadAnnouncements,
     leave_balance: {

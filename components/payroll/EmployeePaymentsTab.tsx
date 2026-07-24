@@ -23,6 +23,10 @@ import {
   type EmployeePayment,
 } from '@/hooks/useEmployeePayments';
 import type { Locale } from '@/lib/i18n/config';
+import {
+  canApproveEmployeePaymentDirectly,
+  canPayEmployeePaymentDirectly,
+} from '@/lib/payroll/payment-policy';
 
 const PAYMENT_STATUS_STYLES: Record<string, string> = {
   pending: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
@@ -139,7 +143,8 @@ export function EmployeePaymentsTab({ payments, loading, onAdd }: Props) {
                         {new Date(p.created_at).toLocaleDateString(locale === 'ar' ? 'ar-AE' : 'en-GB')}
                       </td>
                       <td className="py-3">
-                        {(p.status === 'pending' || p.status === 'approved') && (
+                        {((p.status === 'pending' && canApproveEmployeePaymentDirectly(p.source_type)) ||
+                          (p.status === 'approved' && canPayEmployeePaymentDirectly(p.source_type))) && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
@@ -157,7 +162,7 @@ export function EmployeePaymentsTab({ payments, loading, onAdd }: Props) {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              {p.status === 'pending' && (
+                              {p.status === 'pending' && canApproveEmployeePaymentDirectly(p.source_type) && (
                                 <DropdownMenuItem
                                   onClick={() => handleApprove(p.id)}
                                   className="gap-2 text-green-600 dark:text-green-400"
@@ -166,7 +171,7 @@ export function EmployeePaymentsTab({ payments, loading, onAdd }: Props) {
                                   {t('approveAction')}
                                 </DropdownMenuItem>
                               )}
-                              {p.status === 'approved' && (
+                              {p.status === 'approved' && canPayEmployeePaymentDirectly(p.source_type) && (
                                 <DropdownMenuItem
                                   onClick={() => handlePay(p.id)}
                                   className="gap-2 text-emerald-600 dark:text-emerald-400"

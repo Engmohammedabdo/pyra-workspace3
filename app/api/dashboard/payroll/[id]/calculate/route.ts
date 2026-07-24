@@ -4,10 +4,13 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
-import { TIMESHEET_STATUS } from '@/lib/constants/statuses';
+import { EMPLOYEE_PAYMENT_STATUS, TIMESHEET_STATUS } from '@/lib/constants/statuses';
 import { calculatePayrollItem, hireProrationFactor, leaveOverlapDays } from '@/lib/payroll/calculate-item';
 import { logError } from '@/lib/observability/log-error';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
+import { EMPLOYEE_PAYMENT_SOURCE_TYPE, PAYROLL_RPC_STATUS } from '@/lib/constants/payroll';
+import { mergePayrollPeriodPayments, payrollPaymentPeriodRange } from '@/lib/payroll/payment-period';
+import { MONTHLY_DEDUCTION_CAP_PERCENT } from '@/lib/constants/deductions';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -23,19 +26,28 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
     const supabase = createServiceRoleClient();
+    const failFinancialOperation = (error: { message: string }, step: string) => {
+      logError({
+        error,
+        request: req,
+        metadata: { route: 'payroll/calculate', step, payroll_id: id },
+      });
+      return apiServerError(error.message);
+    };
 
     // 1. Fetch the payroll run
     const { data: run, error: runError } = await supabase
       .from('pyra_payroll_runs')
       .select('*')
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
-    if (runError || !run) return apiNotFound(t('payroll.runNotFound'));
+    if (runError) return failFinancialOperation(runError, 'run-read');
+    if (!run) return apiNotFound(t('payroll.runNotFound'));
 
     // Verify status is draft or calculated (allow recalculation)
     if (!['draft', 'calculated'].includes(run.status)) {
-      return apiError(t('payroll.cannotCalculateInStatus', { status: run.status }), 400);
+      return apiError(t('payroll.cannotCalculateInStatus', { status: run.status }), 409);
     }
 
     const { month, year } = run;
@@ -43,26 +55,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     // the currency column (migration 025).
     const runCurrency: string = run.currency || 'AED';
 
-    // 2. Backup existing items for rollback, then delete
-    const { data: existingItems } = await supabase
-      .from('pyra_payroll_items')
-      .select('*')
-      .eq('payroll_id', id);
-
-    const { data: existingLinkedPayments } = await supabase
+    const { data: existingLinkedPayments, error: existingLinkedPaymentsError } = await supabase
       .from('pyra_employee_payments')
-      .select('id')
+      .select('id, username, source_type, amount, deduction_cap_exempt_amount, currency, status, payroll_id, effective_month, created_at')
       .eq('payroll_id', id);
 
-    await supabase
-      .from('pyra_payroll_items')
-      .delete()
-      .eq('payroll_id', id);
-
-    await supabase
-      .from('pyra_employee_payments')
-      .update({ payroll_id: null })
-      .eq('payroll_id', id);
+    if (existingLinkedPaymentsError) {
+      return failFinancialOperation(existingLinkedPaymentsError, 'existing-payment-links-read');
+    }
 
     // 3. Fetch all active employees
     // Only ACTIVE employees are paid. Excludes 'inactive' AND 'suspended' —
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       .select('username, display_name, salary, hourly_rate, department, payment_type, employment_type, status, hire_date, salary_currency')
       .eq('status', 'active');
 
-    if (empError) return apiServerError(empError.message);
+    if (empError) return failFinancialOperation(empError, 'employees-read');
     if (!employees || employees.length === 0) {
       return apiError(t('payroll.noActiveEmployees'), 400);
     }
@@ -101,20 +101,44 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     const lastDay = new Date(year, month, 0).getDate();
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-    // 4. Fetch all relevant employee_payments (unlinked, approved)
-    const { data: allPayments } = await supabase
+    const periodMonth = `${year}-${String(month).padStart(2, '0')}`;
+    const paymentPeriod = payrollPaymentPeriodRange(periodMonth);
+    if (!paymentPeriod) return apiError(t('payroll.yearInvalid'), 422);
+
+    // 4a. Non-deduction rows belong to their created-at month only when they
+    // have no explicit effective month. A deduction must be classified with
+    // an explicit effective_month before payroll can use it.
+    const { data: legacyPayments, error: legacyPaymentsError } = await supabase
       .from('pyra_employee_payments')
-      .select('id, username, source_type, amount, currency, status, payroll_id, created_at')
-      .eq('status', 'approved')
+      .select('id, username, source_type, amount, deduction_cap_exempt_amount, currency, status, payroll_id, effective_month, created_at')
+      .eq('status', EMPLOYEE_PAYMENT_STATUS.APPROVED)
       .is('payroll_id', null)
-      .gte('created_at', startDate + 'T00:00:00')
-      .lte('created_at', endDate + 'T23:59:59')
+      .is('effective_month', null)
+      .neq('source_type', EMPLOYEE_PAYMENT_SOURCE_TYPE.DEDUCTION)
+      .gte('created_at', paymentPeriod.createdAtStart)
+      .lt('created_at', paymentPeriod.createdAtEndExclusive)
       // A final_settlement is an off-cycle obligation paid manually — never
       // swept into a monthly run (which would mark it paid without paying it).
-      .neq('source_type', 'final_settlement');
+      .neq('source_type', EMPLOYEE_PAYMENT_SOURCE_TYPE.FINAL_SETTLEMENT);
+
+    if (legacyPaymentsError) return failFinancialOperation(legacyPaymentsError, 'legacy-payments-read');
+
+    // 4b. System-generated deductions belong to their effective month even
+    // when the explicit admin approval happened in a later calendar month.
+    const { data: effectiveMonthDeductions, error: effectiveMonthDeductionsError } = await supabase
+      .from('pyra_employee_payments')
+      .select('id, username, source_type, amount, deduction_cap_exempt_amount, currency, status, payroll_id, effective_month, created_at')
+      .eq('status', EMPLOYEE_PAYMENT_STATUS.APPROVED)
+      .is('payroll_id', null)
+      .eq('source_type', EMPLOYEE_PAYMENT_SOURCE_TYPE.DEDUCTION)
+      .eq('effective_month', startDate);
+
+    if (effectiveMonthDeductionsError) {
+      return failFinancialOperation(effectiveMonthDeductionsError, 'effective-month-deductions-read');
+    }
 
     // 5. Fetch all overtime timesheets for this month
-    const { data: allTimesheets } = await supabase
+    const { data: allTimesheets, error: allTimesheetsError } = await supabase
       .from('pyra_timesheets')
       .select('username, hours, is_overtime, overtime_multiplier, status')
       .eq('is_overtime', true)
@@ -122,18 +146,22 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       .gte('date', startDate)
       .lte('date', endDate);
 
+    if (allTimesheetsError) return failFinancialOperation(allTimesheetsError, 'overtime-read');
+
     // 5b. Fetch approved unpaid leave OVERLAPPING this month (cross-month safe).
     // NOTE: pyra_leave_requests columns are `type` (a NAME string, NOT an id) and
     // `days_count` — there is NO leave_type_id / total_days. The previous code
     // selected the non-existent columns, so PostgREST returned null and NO unpaid
     // leave was EVER deducted. Overlap filter (start <= monthEnd AND end >= monthStart)
     // catches leaves spanning a month boundary.
-    const { data: leaveRequests } = await supabase
+    const { data: leaveRequests, error: leaveRequestsError } = await supabase
       .from('pyra_leave_requests')
       .select('username, type, start_date, end_date')
       .eq('status', 'approved')
       .lte('start_date', endDate)
       .gte('end_date', startDate);
+
+    if (leaveRequestsError) return failFinancialOperation(leaveRequestsError, 'unpaid-leave-read');
 
     // Resolve which leave TYPE NAMES are unpaid (is_paid=false). `type` matches
     // pyra_leave_types.name (there is no id link on the request).
@@ -143,10 +171,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         ...new Set(leaveRequests.map((lr: { type: string | null }) => lr.type).filter(Boolean)),
       ] as string[];
       if (typeNames.length > 0) {
-        const { data: types } = await supabase
+        const { data: types, error: leaveTypesError } = await supabase
           .from('pyra_leave_types')
           .select('name, is_paid')
           .in('name', typeNames);
+        if (leaveTypesError) return failFinancialOperation(leaveTypesError, 'leave-types-read');
         if (types) {
           for (const t of types as { name: string; is_paid: boolean }[]) {
             if (!t.is_paid) unpaidTypeNames.add(t.name);
@@ -177,17 +206,42 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     // Currency gate: only include payments whose currency matches this run's currency.
     // Mismatched payments (e.g. a USD bonus in an AED run) are skipped and counted
     // separately so the caller can surface a warning.
-    const paymentsByUser: Record<string, Array<{ id: string; source_type: string; amount: number }>> = {};
+    const paymentsByUser: Record<string, Array<{
+      id: string;
+      source_type: string;
+      amount: number;
+      deduction_cap_exempt_amount: number | null;
+    }>> = {};
     let skippedMismatchedPayments = 0;
-    const allPaymentsCombined = [...(allPayments || [])];
-    allPaymentsCombined.forEach((p: { id: string; username: string; source_type: string; amount: number; currency: string | null }) => {
+    const previouslyLinkedApproved = (existingLinkedPayments || []).filter(
+      (payment: { status: string }) => payment.status === EMPLOYEE_PAYMENT_STATUS.APPROVED,
+    );
+    const allPaymentsCombined = mergePayrollPeriodPayments(
+      periodMonth,
+      legacyPayments || [],
+      effectiveMonthDeductions || [],
+      previouslyLinkedApproved,
+    );
+    allPaymentsCombined.forEach((p: {
+      id: string;
+      username: string;
+      source_type: string;
+      amount: number;
+      deduction_cap_exempt_amount: number | null;
+      currency: string | null;
+    }) => {
       const pCurrency = p.currency || 'AED';
       if (pCurrency !== runCurrency) {
         skippedMismatchedPayments++;
         return;
       }
       if (!paymentsByUser[p.username]) paymentsByUser[p.username] = [];
-      paymentsByUser[p.username].push({ id: p.id, source_type: p.source_type, amount: p.amount });
+      paymentsByUser[p.username].push({
+        id: p.id,
+        source_type: p.source_type,
+        amount: p.amount,
+        deduction_cap_exempt_amount: p.deduction_cap_exempt_amount,
+      });
     });
 
     const timesheetsByUser: Record<string, Array<{ hours: number; overtime_multiplier: number }>> = {};
@@ -201,11 +255,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       id: string;
       payroll_id: string;
       username: string;
+      salary_snapshot: number;
       base_salary: number;
       task_payments: number;
       overtime_amount: number;
       bonus: number;
       commission: number;
+      monetary_deductions: number;
+      unpaid_leave_deductions: number;
       deductions: number;
       deduction_details: Array<{ type: string; amount: number; reason?: string }>;
       net_pay: number;
@@ -228,7 +285,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       const result = calculatePayrollItem({
         baseSalary: Number(emp.salary) || 0,
         hourlyRate: Number(emp.hourly_rate) || 0,
-        payments: userPayments.map(p => ({ source_type: p.source_type, amount: p.amount })),
+        payments: userPayments.map(p => ({
+          source_type: p.source_type,
+          amount: p.amount,
+          deduction_cap_exempt_amount: p.deduction_cap_exempt_amount,
+        })),
         overtimeTimesheets: userTimesheets.map(t => ({ hours: t.hours, multiplier: t.overtime_multiplier })),
         unpaidLeave: unpaidLeaveByUser[emp.username] || [],
         prorationFactor,
@@ -238,11 +299,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         id: generateId('pi'),
         payroll_id: id,
         username: emp.username,
+        salary_snapshot: Number(emp.salary) || 0,
         base_salary: result.base_salary,
         task_payments: result.task_payments,
         overtime_amount: result.overtime_amount,
         bonus: result.bonus,
         commission: result.commission,
+        monetary_deductions: result.monetary_deductions,
+        unpaid_leave_deductions: result.unpaid_leave_deductions,
         deductions: result.deductions,
         deduction_details: result.deduction_details,
         net_pay: result.net_pay,
@@ -256,89 +320,46 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       userPayments.forEach(p => linkedPaymentIds.push(p.id));
     }
 
-    // 7. Insert all payroll items
-    if (payrollItems.length > 0) {
-      const { error: insertError } = await supabase
-        .from('pyra_payroll_items')
-        .insert(payrollItems);
+    const uniqueLinkedPaymentIds = [...new Set(linkedPaymentIds)];
 
-      if (insertError) {
-        // Rollback: restore old items
-        if (existingItems && existingItems.length > 0) {
-          await supabase.from('pyra_payroll_items').insert(existingItems);
-        }
-        if (existingLinkedPayments && existingLinkedPayments.length > 0) {
-          await supabase.from('pyra_employee_payments')
-            .update({ payroll_id: id })
-            .in('id', existingLinkedPayments.map((p: { id: string }) => p.id));
-        }
-        return apiServerError(insertError.message);
-      }
+    const { data: rpcRows, error: rpcError } = await supabase
+      .rpc('pyra_commit_payroll_calculation', {
+        p_payroll_id: id,
+        p_expected_calculated_at: run.calculated_at,
+        p_items: payrollItems,
+        p_payment_ids: uniqueLinkedPaymentIds,
+        p_monthly_cap_percentage: MONTHLY_DEDUCTION_CAP_PERCENT,
+      });
+
+    if (rpcError) return failFinancialOperation(rpcError, 'atomic-calculation');
+    const result = (Array.isArray(rpcRows) ? rpcRows[0] : rpcRows) as {
+      status: string;
+      changed: boolean;
+      run_data: Record<string, unknown> | null;
+      items_data: Array<Record<string, unknown>> | null;
+    } | null;
+
+    if (!result) return apiServerError();
+    if (result.status === PAYROLL_RPC_STATUS.NOT_FOUND) {
+      return apiNotFound(t('payroll.runNotFound'));
+    }
+    if (result.status === PAYROLL_RPC_STATUS.INVALID_PAYLOAD) {
+      return apiError(t('payroll.atomicInvalidPayload'), 422);
+    }
+    if (result.status === PAYROLL_RPC_STATUS.INVALID_STATUS
+      || result.status === PAYROLL_RPC_STATUS.STALE_CALCULATION
+      || result.status === PAYROLL_RPC_STATUS.BLOCKED_INPUT) {
+      return apiError(t('payroll.atomicConflict'), 409);
+    }
+    if (result.status !== PAYROLL_RPC_STATUS.OK || !result.run_data) {
+      return apiServerError();
     }
 
-    // 8. Update the payroll run
-    const { data: updatedRun, error: updateError } = await supabase
-      .from('pyra_payroll_runs')
-      .update({
-        total_amount: totalAmount,
-        employee_count: payrollItems.length,
-        status: 'calculated',
-        calculated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (updateError) {
-      // Rollback: delete new items, restore old
-      await supabase.from('pyra_payroll_items').delete().eq('payroll_id', id);
-      if (existingItems && existingItems.length > 0) {
-        await supabase.from('pyra_payroll_items').insert(existingItems);
-      }
-      if (existingLinkedPayments && existingLinkedPayments.length > 0) {
-        await supabase.from('pyra_employee_payments')
-          .update({ payroll_id: id })
-          .in('id', existingLinkedPayments.map((p: { id: string }) => p.id));
-      }
-      return apiServerError(updateError.message);
-    }
-
-    // 9. Link employee_payments to this payroll
-    if (linkedPaymentIds.length > 0) {
-      await supabase
-        .from('pyra_employee_payments')
-        .update({ payroll_id: id })
-        .in('id', linkedPaymentIds);
-    }
-
-    // Fetch the newly created items with user info
-    const { data: finalItems } = await supabase
-      .from('pyra_payroll_items')
-      .select('*')
-      .eq('payroll_id', id)
-      .order('username', { ascending: true });
-
-    // Enrich with display names
-    const usernames = (finalItems || []).map((item: { username: string }) => item.username);
-    let usersMap: Record<string, { display_name: string; department: string | null }> = {};
-
-    if (usernames.length > 0) {
-      const { data: users } = await supabase
-        .from('pyra_users')
-        .select('username, display_name, department')
-        .in('username', usernames);
-
-      if (users) {
-        usersMap = Object.fromEntries(
-          users.map((u: { username: string; display_name: string; department: string | null }) => [
-            u.username,
-            { display_name: u.display_name, department: u.department },
-          ])
-        );
-      }
-    }
-
-    const enrichedItems = (finalItems || []).map((item: Record<string, unknown>) => ({
+    const usersMap = Object.fromEntries(activeEmployees.map((employee) => [
+      employee.username,
+      { display_name: employee.display_name, department: employee.department },
+    ]));
+    const enrichedItems = (result.items_data || []).map((item) => ({
       ...item,
       display_name: usersMap[item.username as string]?.display_name || item.username,
       department: usersMap[item.username as string]?.department || null,
@@ -360,7 +381,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       warnings.push(t('payroll.mismatchedCurrencyWarning', { count: skippedMismatchedPayments }));
     }
 
-    return apiSuccess({ ...updatedRun, items: enrichedItems, warnings });
+    return apiSuccess({ ...result.run_data, items: enrichedItems, warnings });
   } catch (err) {
     logError({ error: err, request: req, metadata: { route: 'payroll/calculate' } });
     console.error('POST /api/dashboard/payroll/[id]/calculate error:', err);

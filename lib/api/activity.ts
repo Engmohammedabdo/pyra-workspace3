@@ -37,6 +37,7 @@ export const ENTITY_TYPES = {
   ATTENDANCE: 'attendance',
   WORK_SCHEDULE: 'work_schedule',
   EMPLOYEE_PAYMENT: 'employee_payment',
+  DEDUCTION: 'deduction',
   EVALUATION: 'evaluation',
   OFFBOARDING: 'offboarding',
 } as const;

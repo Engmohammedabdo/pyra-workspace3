@@ -1,12 +1,23 @@
 import { NextRequest } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import {
+  apiError,
+  apiNotFound,
+  apiSuccess,
+  apiServerError,
+  apiValidationError,
+} from '@/lib/api/response';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { getBoardTemplate } from '@/lib/config/board-templates';
 import { resolveUserScope, invalidateScopeCache } from '@/lib/auth/scope';
-import { logActivity } from '@/lib/api/activity';
+import { ACTIVITY_ACTIONS, ENTITY_TYPES, logActivity } from '@/lib/api/activity';
+import { logError } from '@/lib/observability/log-error';
+import {
+  BOARD_WRITE_STATUSES,
+  type AtomicBoardWriteResult,
+} from '@/lib/constants/board-writes';
 
 // =============================================================
 // GET /api/boards
@@ -63,93 +74,168 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { name, description, project_id, template, view_mode, is_pipeline, auto_advance } = body;
-    if (!name) return apiValidationError(t('boards.nameRequired'));
+    if (typeof name !== 'string' || !name.trim()) {
+      return apiValidationError(t('boards.nameRequired'));
+    }
 
-    const supabase = await createServerSupabaseClient();
     const boardId = generateId('bd');
-
-    // Create board
-    const { error: boardError } = await supabase
-      .from('pyra_boards')
-      .insert({
-        id: boardId,
-        name,
-        description: description || null,
-        project_id: project_id || null,
-        template: template || null,
-        view_mode: view_mode || 'kanban',
-        is_pipeline: is_pipeline || false,
-        auto_advance: auto_advance || false,
-        created_by: auth.pyraUser.username,
-      });
-
-    if (boardError) return apiServerError(boardError.message);
-
-    // Create columns from template or defaults
-    const tmpl = template ? getBoardTemplate(template) : null;
+    const templateKey = typeof template === 'string' && template ? template : null;
+    const tmpl = templateKey ? getBoardTemplate(templateKey) : undefined;
     const cols = tmpl?.columns || [
       { name: 'قائمة المهام', color: 'gray' }, // i18n-exempt: DB data — seeded default board-column name
       { name: 'قيد التنفيذ', color: 'blue' }, // i18n-exempt: DB data — seeded default board-column name
       { name: 'مكتمل', color: 'green', isDoneColumn: true }, // i18n-exempt: DB data — seeded default board-column name
     ];
 
-    const columnInserts = cols.map((col, i) => ({
+    const columns = cols.map((col, i) => ({
       id: generateId('bc'),
-      board_id: boardId,
       name: col.name,
       color: col.color,
       position: i,
-      is_done_column: col.isDoneColumn || false,
+      is_done_column: col.isDoneColumn ?? false,
     }));
 
-    await supabase.from('pyra_board_columns').insert(columnInserts);
-
-    // Create labels from template
-    if (tmpl?.labels) {
-      const labelInserts = tmpl.labels.map(l => ({
+    const labels = (tmpl?.labels ?? []).map((label) => ({
         id: generateId('bl'),
-        board_id: boardId,
-        name: l.name,
-        color: l.color,
-      }));
-      await supabase.from('pyra_board_labels').insert(labelInserts);
+        name: label.name,
+        color: label.color,
+    }));
+
+    const supabase = createServiceRoleClient();
+    const { data: rpcRows, error: rpcError } = await supabase.rpc(
+      'pyra_create_board_atomic',
+      {
+        p_board_id: boardId,
+        p_name: name,
+        p_description: typeof description === 'string' && description ? description : null,
+        p_project_id: typeof project_id === 'string' && project_id ? project_id : null,
+        p_template: templateKey,
+        p_view_mode: typeof view_mode === 'string' && view_mode ? view_mode : 'kanban',
+        p_is_pipeline: typeof is_pipeline === 'boolean' ? is_pipeline : false,
+        p_auto_advance: typeof auto_advance === 'boolean' ? auto_advance : false,
+        p_created_by: auth.pyraUser.username,
+        p_columns: columns,
+        p_labels: labels,
+      },
+    );
+
+    if (rpcError) {
+      logError({
+        error: rpcError,
+        request: req,
+        metadata: { action: 'board_create_rpc', board_id: boardId },
+      });
+      return apiServerError();
     }
 
-    // Invalidate scope cache for team members when board is created under a project
-    if (project_id) {
-      const { data: project } = await supabase
-        .from('pyra_projects')
-        .select('team_id')
-        .eq('id', project_id)
-        .single();
-      if (project?.team_id) {
-        const { data: teamMembers } = await supabase
-          .from('pyra_team_members')
-          .select('username')
-          .eq('team_id', project.team_id);
-        teamMembers?.forEach(m => invalidateScopeCache(m.username));
-      }
+    const result = (Array.isArray(rpcRows) ? rpcRows[0] : rpcRows) as
+      | AtomicBoardWriteResult
+      | null;
+    if (!result) {
+      logError({
+        error: new Error('Atomic board create RPC returned no result'),
+        request: req,
+        metadata: { action: 'board_create_rpc_empty', board_id: boardId },
+      });
+      return apiServerError();
     }
 
-    // Fetch created board with columns
-    const { data } = await supabase
-      .from('pyra_boards')
-      .select('*, pyra_board_columns(id, name, color, position, wip_limit, is_done_column, requires_approval, approval_role, default_assignee, column_type)')
-      .eq('id', boardId)
-      .single();
+    switch (result.status) {
+      case BOARD_WRITE_STATUSES.OK:
+        break;
+      case BOARD_WRITE_STATUSES.INVALID_BOARD_INPUT:
+        return apiValidationError(t('boards.invalidBoardInput'));
+      case BOARD_WRITE_STATUSES.INVALID_COLUMN_INPUT:
+      case BOARD_WRITE_STATUSES.INVALID_COLUMNS_PAYLOAD:
+        return apiValidationError(t('boards.invalidColumnsPayload'));
+      case BOARD_WRITE_STATUSES.INVALID_LABELS_PAYLOAD:
+        return apiValidationError(t('boards.invalidLabelsPayload'));
+      case BOARD_WRITE_STATUSES.PROJECT_NOT_FOUND:
+        return apiValidationError(t('projects.notFound'));
+      case BOARD_WRITE_STATUSES.BOARD_NOT_FOUND:
+        return apiNotFound(t('common.boardNotFound'));
+      case BOARD_WRITE_STATUSES.COLUMN_NOT_IN_BOARD:
+        return apiValidationError(t('boards.columnNotInBoard'));
+      case BOARD_WRITE_STATUSES.COLUMN_HAS_TASKS:
+        return apiValidationError(t('boards.columnHasTasks', {
+          count: Number(result.mutation?.task_count ?? 0),
+        }));
+      case BOARD_WRITE_STATUSES.COLUMN_HAS_HISTORY:
+        return apiValidationError(t('boards.columnHasHistory', {
+          count: Number(result.mutation?.history_count ?? 0),
+        }));
+      case BOARD_WRITE_STATUSES.WRITE_CONFLICT:
+        return apiError(t('boards.writeConflict'), 409);
+      default:
+        logError({
+          error: new Error(`Unexpected atomic board create status: ${String(result.status)}`),
+          request: req,
+          metadata: { action: 'board_create_rpc_status', board_id: boardId },
+        });
+        return apiServerError();
+    }
+
+    if (!result.board || !result.mutation) {
+      logError({
+        error: new Error('Atomic board create RPC success omitted committed result'),
+        request: req,
+        metadata: { action: 'board_create_rpc_shape', board_id: boardId },
+      });
+      return apiServerError();
+    }
 
     logActivity(
       auth.pyraUser.username,
       auth.pyraUser.display_name,
-      'board_created',
+      `${ENTITY_TYPES.BOARD}_${ACTIVITY_ACTIONS.CREATE}`,
       `/dashboard/boards/${boardId}`,
-      { name, template: template || null, project_id: project_id || null },
+      {
+        source: 'board_atomic_create',
+        name,
+        template: templateKey,
+        project_id: typeof project_id === 'string' && project_id ? project_id : null,
+      },
     );
 
-    return apiSuccess(data, undefined, 201);
+    // This is post-commit cache hygiene. A lookup failure cannot make the
+    // caller retry an already committed board creation.
+    if (typeof project_id === 'string' && project_id) {
+      try {
+        const { data: project, error: projectError } = await supabase
+          .from('pyra_projects')
+          .select('team_id')
+          .eq('id', project_id)
+          .single();
+        if (projectError) throw projectError;
+
+        if (project?.team_id) {
+          const { data: teamMembers, error: teamMembersError } = await supabase
+            .from('pyra_team_members')
+            .select('username')
+            .eq('team_id', project.team_id);
+          if (teamMembersError) throw teamMembersError;
+          teamMembers?.forEach((member: { username: string }) => {
+            invalidateScopeCache(member.username);
+          });
+        }
+      } catch (scopeError) {
+        logError({
+          severity: 'warning',
+          error: scopeError,
+          request: req,
+          metadata: {
+            action: 'board_create_scope_invalidation',
+            board_id: boardId,
+            project_id,
+          },
+        });
+      }
+    }
+
+    return apiSuccess(result.board, undefined, 201);
 
   } catch (err) {
-    console.error('[POST /api/boards] error:', err);
+    logError({ error: err, request: req, metadata: { action: 'board_create' } });
     return apiServerError();
   }
 }

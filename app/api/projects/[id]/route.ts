@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -7,8 +8,14 @@ import {
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import {
+  createServerSupabaseClient,
+  createServiceRoleClient,
+} from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { ACTIVITY_ACTIONS, ENTITY_TYPES, logActivity } from '@/lib/api/activity';
+import { PRODUCTION_REVIEW_DELETE_BLOCKED_ERROR } from '@/lib/constants/task-review';
+import { logError } from '@/lib/observability/log-error';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -209,9 +216,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 // =============================================================
 // DELETE /api/projects/[id]
 // Delete project. Admin only.
-// Cascades: delete linked project_files and comments first.
+// One atomic DB writer deletes the project and its linked files/comments.
 // =============================================================
 export async function DELETE(request: NextRequest, context: RouteContext) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('projects.delete');
     if (isApiError(auth)) return auth;
@@ -231,57 +239,52 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       return apiNotFound('المشروع غير موجود');
     }
 
-    // Cascade: delete file approvals linked to this project's files
-    const { data: projectFiles } = await supabase
-      .from('pyra_project_files')
-      .select('id')
-      .eq('project_id', id);
-
-    if (projectFiles && projectFiles.length > 0) {
-      const fileIds = projectFiles.map((f) => f.id);
-      await supabase
-        .from('pyra_file_approvals')
-        .delete()
-        .in('file_id', fileIds);
-    }
-
-    // Cascade: delete project files
-    await supabase
-      .from('pyra_project_files')
-      .delete()
-      .eq('project_id', id);
-
-    // Cascade: delete comments
-    await supabase
-      .from('pyra_client_comments')
-      .delete()
-      .eq('project_id', id);
-
-    // Delete the project itself
-    const { error } = await supabase
-      .from('pyra_projects')
-      .delete()
-      .eq('id', id);
+    // Permission and existence are verified before the service-role writer is
+    // created. The RPC makes child cleanup + project delete one transaction.
+    const serviceSupabase = createServiceRoleClient();
+    const { data: deleteStatus, error } = await serviceSupabase.rpc(
+      'pyra_delete_project_atomic',
+      { p_project_id: id },
+    );
 
     if (error) {
-      console.error('Project delete error:', error);
-      return apiServerError('فشل في حذف المشروع');
+      logError({
+        error,
+        request,
+        metadata: { action: 'project_delete_writer', project_id: id },
+      });
+      if (
+        error.code === 'P0001'
+        && error.message.includes(PRODUCTION_REVIEW_DELETE_BLOCKED_ERROR)
+      ) {
+        return apiValidationError(t('tasks.productionReviewedTaskArchiveOnly'));
+      }
+      return apiServerError();
+    }
+    if (deleteStatus === 'project_not_found') {
+      return apiNotFound('المشروع غير موجود');
+    }
+    if (deleteStatus !== 'ok') {
+      logError({
+        error: new Error(`Unexpected project delete status: ${String(deleteStatus)}`),
+        request,
+        metadata: { action: 'project_delete_writer_status', project_id: id },
+      });
+      return apiServerError();
     }
 
-    // Log activity
-    await supabase.from('pyra_activity_log').insert({
-      id: generateId('al'),
-      action_type: 'project_deleted',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: id,
-      details: { project_name: existing.name },
-      ip_address: request.headers.get('x-forwarded-for') || 'unknown',
-    });
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      `${ENTITY_TYPES.PROJECT}_${ACTIVITY_ACTIONS.DELETE}`,
+      `/dashboard/projects/${id}`,
+      { source: 'project_delete', project_id: id, project_name: existing.name },
+      request.headers.get('x-forwarded-for') || 'unknown',
+    );
 
     return apiSuccess({ deleted: true });
   } catch (err) {
-    console.error('Project DELETE error:', err);
+    logError({ error: err, request, metadata: { action: 'project_delete' } });
     return apiServerError();
   }
 }

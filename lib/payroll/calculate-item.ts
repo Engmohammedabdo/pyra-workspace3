@@ -2,10 +2,13 @@ import {
   PAYROLL_WORKING_DAYS_PER_MONTH,
   DEFAULT_OVERTIME_MULTIPLIER,
 } from '@/lib/constants/payroll';
+import { MONTHLY_DEDUCTION_CAP_PERCENT } from '@/lib/constants/deductions';
 
 export interface PayrollPaymentInput {
   source_type: string; // 'task' | 'bonus' | 'commission' | 'deduction' | 'overtime'
   amount: number | string;
+  /** Explicitly approved portion that does not consume the general deduction cap. */
+  deduction_cap_exempt_amount?: number | string | null;
 }
 export interface OvertimeTimesheetInput {
   hours: number | string;
@@ -37,6 +40,8 @@ export interface PayrollItemResult {
   bonus: number;
   commission: number;
   deductions: number;
+  monetary_deductions: number;
+  unpaid_leave_deductions: number;
   deduction_details: DeductionDetail[];
   net_pay: number;
 }
@@ -52,7 +57,10 @@ const sum = (rows: PayrollPaymentInput[], type: string) =>
  * (task / bonus / commission / overtime payments) + timesheet overtime,
  * minus manual deductions + unpaid-leave deductions. net floored at 0.
  *
- * Attendance/absence is intentionally NOT a factor (user decision).
+ * Attendance remains detection-only and raw attendance is never a payroll
+ * factor. It reaches payroll only through an explicitly approved deduction
+ * payment. An approved attendance portion may be marked cap-exempt on that
+ * payment; unpaid leave also remains outside the general deduction cap.
  */
 export function calculatePayrollItem(
   input: PayrollItemInput,
@@ -80,16 +88,36 @@ export function calculatePayrollItem(
   const overtimeAmount = timesheetOvertime + sum(input.payments, 'overtime');
 
   // Deductions: manual deduction payments + unpaid-leave (base/workingDays × days)
+  const monetaryDeductionCap = round2(baseSalary * MONTHLY_DEDUCTION_CAP_PERCENT / 100);
+  let remainingMonetaryCap = monetaryDeductionCap;
   const deductionDetails: DeductionDetail[] = input.payments
     .filter(p => p.source_type === 'deduction')
-    .map(p => ({ type: 'deduction', amount: Number(p.amount) }));
-  let deductions = deductionDetails.reduce((s, d) => s + d.amount, 0);
+    .map(p => {
+      const rawRequested = Number(p.amount);
+      const requested = Number.isFinite(rawRequested)
+        ? Math.max(0, round2(rawRequested))
+        : 0;
+      const rawExempt = Number(p.deduction_cap_exempt_amount ?? 0);
+      const exemptAmount = Number.isFinite(rawExempt)
+        ? Math.min(requested, Math.max(0, round2(rawExempt)))
+        : 0;
+      const capEligibleAmount = round2(requested - exemptAmount);
+      const cappedAmount = Math.min(capEligibleAmount, remainingMonetaryCap);
+      const amount = round2(exemptAmount + cappedAmount);
+      remainingMonetaryCap = round2(remainingMonetaryCap - cappedAmount);
+      return { type: 'deduction', amount };
+    })
+    .filter(detail => detail.amount > 0);
+  const monetaryDeductions = round2(deductionDetails.reduce((s, d) => s + d.amount, 0));
+  let unpaidLeaveDeductions = 0;
+  let deductions = monetaryDeductions;
 
   if (baseSalary > 0) {
     const dailyRate = baseSalary / workingDays;
     for (const leave of input.unpaidLeave) {
       const amount = round2(dailyRate * leave.days);
       deductions += amount;
+      unpaidLeaveDeductions += amount;
       deductionDetails.push({ type: 'unpaid_leave', amount, reason: `${leave.typeName} — ${leave.days} يوم` }); // i18n-exempt: stored data (pyra_payroll_items.deduction_details), computed-per-request
     }
   }
@@ -106,6 +134,8 @@ export function calculatePayrollItem(
     bonus,
     commission,
     deductions: round2(deductions),
+    monetary_deductions: monetaryDeductions,
+    unpaid_leave_deductions: round2(unpaidLeaveDeductions),
     deduction_details: deductionDetails,
     net_pay: round2(netPay),
   };

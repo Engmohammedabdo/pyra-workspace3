@@ -12,9 +12,12 @@ import { PAYROLL_WORKING_DAYS_PER_MONTH } from '@/lib/constants/payroll';
 import { DEFAULT_WORK_DAYS } from '@/lib/constants/auth';
 import { NON_DEDUCTIBLE_ATTENDANCE_STATUSES } from '@/lib/constants/statuses';
 import {
-  deriveDayStatus, isOnTimeClockIn, lateMinutesOf, countDeductibleAbsences,
-  DEDUCTION_DAYS_PER_MONTH,
+  deriveDayStatus, isOnTimeClockIn, lateMinutesOf, listDeductibleAbsenceDates,
 } from '@/lib/hr/attendance-policy';
+import {
+  calculateAttendanceDeduction,
+  isEmployeeDeductionAudience,
+} from '@/lib/hr/deductions';
 
 // ============================================================
 // GET /api/hr/overview
@@ -64,7 +67,7 @@ export async function GET(request: NextRequest) {
     // ── Headcount ──────────────────────────────────────────────────────────────
     const { data: allUsers, error: usersError } = await supabase
       .from('pyra_users')
-      .select('username, display_name, status, employment_type, department, hire_date, date_of_birth, role, deactivated_at, salary, salary_currency, work_schedule_id')
+      .select('username, display_name, status, employment_type, department, hire_date, date_of_birth, role, deactivated_at, salary, salary_currency, work_schedule_id, attendance_tracking_started_on, attendance_tracking_start_source')
       .neq('role', 'client');
 
     if (usersError) throw new Error(`pyra_users: ${usersError.message}`);
@@ -111,9 +114,12 @@ export async function GET(request: NextRequest) {
     // bucketed by that user's own salary_currency.
     const userSalaryMap = new Map<string, { salary: number; currency: string }>();
     for (const u of allNonClientUsers) {
+      const salary = Number(u.salary);
+      const currency = typeof u.salary_currency === 'string' ? u.salary_currency : '';
+      if (!Number.isFinite(salary) || salary < 0 || !/^[A-Z]{3}$/.test(currency)) continue;
       userSalaryMap.set(u.username, {
-        salary: Number(u.salary) || 0,
-        currency: (u.salary_currency as string) || 'AED',
+        salary,
+        currency,
       });
     }
 
@@ -200,38 +206,54 @@ export async function GET(request: NextRequest) {
       .gte('end_date', monthStart);
     if (monthLeaveError) throw new Error(`pyra_leave_requests (month): ${monthLeaveError.message}`);
 
-    // Only staff who actually participate in punch-clock tracking this month
-    // appear on the roster — an employee with ZERO records isn't in the program,
-    // so we must NOT flag them as absent-all-month (false alarm / false deduction).
-    const trackedThisMonth = new Set((monthAttData ?? []).map((r) => r.username as string));
+    const monthAttendanceByUserDate = new Map<
+      string,
+      Map<string, NonNullable<typeof monthAttData>[number]>
+    >();
+    for (const row of monthAttData ?? []) {
+      const username = row.username as string;
+      const date = String(row.date).slice(0, 10);
+      const byDate = monthAttendanceByUserDate.get(username) ?? new Map();
+      byDate.set(date, row);
+      monthAttendanceByUserDate.set(username, byDate);
+    }
 
     const startFullOf = (u: { work_schedule_id: string | null }) =>
       (u.work_schedule_id && scheduleStartMap.get(u.work_schedule_id)) || defaultStart;
     const workDaysOf = (u: { work_schedule_id: string | null }) =>
       (u.work_schedule_id && scheduleWorkDaysMap.get(u.work_schedule_id)) || [...DEFAULT_WORK_DAYS];
+    const trackingStartOf = (u: {
+      attendance_tracking_started_on: string | null;
+      attendance_tracking_start_source: string | null;
+      hire_date: string | null;
+    }) => {
+      const startedOn = u.attendance_tracking_started_on?.slice(0, 10) ?? null;
+      if (u.attendance_tracking_start_source !== 'observed'
+        && u.attendance_tracking_start_source !== 'admin') return null;
+      if (!startedOn || !/^\d{4}-\d{2}-\d{2}$/.test(startedOn)) return null;
+      if (u.hire_date && startedOn < String(u.hire_date).slice(0, 10)) return null;
+      return startedOn;
+    };
 
-    // Per-user on-time dates, admin-excused dates, + earliest tracked date.
+    // Per-user on-time dates and admin-excused dates. Tracking start is a
+    // separately documented employee fact; it never resets with the month.
     // Excused (permission) / holiday / weekend rows are admin intent → the day is
     // NOT a deductible absence even without an on-time clock-in.
     const excusedStatuses = new Set<string>(NON_DEDUCTIBLE_ATTENDANCE_STATUSES);
     const onTimeDatesByUser = new Map<string, Set<string>>();
     const excusedDatesByUser = new Map<string, Set<string>>();
-    const firstAttDateByUser = new Map<string, string>();
     for (const u of rosterUsers) {
       const startFull = startFullOf(u);
       const onTime = new Set<string>();
       const excused = new Set<string>();
-      let first: string | null = null;
       for (const r of monthAttData ?? []) {
         if (r.username !== u.username) continue;
         const day = String(r.date).slice(0, 10);
-        if (!first || day < first) first = day;
         if (isOnTimeClockIn(r.clock_in, startFull)) onTime.add(day);
         if (excusedStatuses.has(r.status as string)) excused.add(day);
       }
       onTimeDatesByUser.set(u.username, onTime);
       excusedDatesByUser.set(u.username, excused);
-      if (first) firstAttDateByUser.set(u.username, first);
     }
 
     // Per-user approved-leave dates this month (expanded over the range).
@@ -251,21 +273,20 @@ export async function GET(request: NextRequest) {
     }
 
     const rosterStatusOrder: Record<string, number> = {
-      absent: 0, not_clocked_in: 1, present: 2, on_leave: 3,
+      absent: 0, late: 1, not_clocked_in: 2, present: 3, on_leave: 4,
     };
     const roster = rosterUsers
-      .filter((u) => trackedThisMonth.has(u.username) || onLeaveTodayUsernames.has(u.username))
+      .filter((u) => Boolean(trackingStartOf(u)) || onLeaveTodayUsernames.has(u.username))
       .map((u) => {
         const startFull = startFullOf(u);
         const expected_start = startFull.slice(0, 5); // HH:MM
         const a = attByUser.get(u.username);
         const sal = userSalaryMap.get(u.username);
 
-        // Only count deductions from the employee's first tracked day this month
-        // — never before they entered the program (guards the setup gap).
-        const firstAtt = firstAttDateByUser.get(u.username);
-        const deductible_absences = firstAtt
-          ? countDeductibleAbsences({
+        const trackingStart = trackingStartOf(u);
+        const deductionEligible = isEmployeeDeductionAudience(u.role);
+        const candidateDates = deductionEligible && trackingStart
+          ? listDeductibleAbsenceDates({
               monthKey,
               todayKey,
               workDays: workDaysOf(u),
@@ -275,14 +296,21 @@ export async function GET(request: NextRequest) {
               leaveDates: leaveDatesByUser.get(u.username),
               excusedDates: excusedDatesByUser.get(u.username),
               hireDateKey: u.hire_date ? String(u.hire_date).slice(0, 10) : null,
-              startCountingFrom: firstAtt,
+              startCountingFrom: trackingStart,
             })
-          : 0;
-        const currency = sal?.currency || 'AED';
-        // Calendar-month daily rate (salary/30) — the monthly salary covers the
-        // whole month incl. the paid weekly rest day (owner's decision 2026-07-10).
-        const estimated_deduction =
-          Math.round(deductible_absences * ((sal?.salary ?? 0) / DEDUCTION_DAYS_PER_MONTH) * 100) / 100;
+          : [];
+        const currency = sal?.currency ?? null;
+        const rowsByDate = monthAttendanceByUserDate.get(u.username);
+        const attendanceDeduction = calculateAttendanceDeduction(
+          sal?.salary ?? 0,
+          candidateDates.map((date) => {
+            const row = rowsByDate?.get(date);
+            return {
+              date,
+              late_minutes: row?.clock_in ? lateMinutesOf(row.clock_in, startFull) : null,
+            };
+          }),
+        );
 
         // Today's status — admin intent (excused/holiday) wins; else re-derived
         // with the grace policy.
@@ -291,7 +319,11 @@ export async function GET(request: NextRequest) {
           status = a.status as string; // excused / holiday / weekend
         } else if (a) {
           const d = deriveDayStatus(a.clock_in, startFull, nowUaeMinutes);
-          status = d === 'pending' ? 'not_clocked_in' : d; // present | absent
+          status = d === 'pending'
+            ? 'not_clocked_in'
+            : d === 'absent' && a.clock_in
+              ? 'late'
+              : d;
         } else if (onLeaveTodayUsernames.has(u.username)) {
           status = 'on_leave';
         } else {
@@ -307,8 +339,10 @@ export async function GET(request: NextRequest) {
           total_hours: Number(a?.total_hours) || 0,
           expected_start,
           late_minutes: a ? lateMinutesOf(a.clock_in, startFull) : 0,
-          deductible_absences,
-          estimated_deduction,
+          deductible_absences: attendanceDeduction.incidents.length,
+          deduction_units: attendanceDeduction.total_units,
+          deduction_incidents: attendanceDeduction.incidents,
+          estimated_deduction: sal ? attendanceDeduction.amount : null,
           currency,
         };
       })
@@ -397,8 +431,9 @@ export async function GET(request: NextRequest) {
 
       const remainingDays = Math.max(0, (b.total_days ?? 0) + (b.carried_over ?? 0) - (b.used_days ?? 0));
       const employee = userSalaryMap.get(b.username);
-      const currency = employee?.currency || 'AED';
-      const dailyRate = (employee?.salary ?? 0) / PAYROLL_WORKING_DAYS_PER_MONTH;
+      if (!employee) continue;
+      const currency = employee.currency;
+      const dailyRate = employee.salary / PAYROLL_WORKING_DAYS_PER_MONTH;
 
       const bucket = liabilityByCurrency.get(currency) ?? { amount: 0, days: 0 };
       bucket.amount += remainingDays * dailyRate;

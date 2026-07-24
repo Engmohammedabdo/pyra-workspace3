@@ -5,7 +5,7 @@ import { apiSuccess, apiServerError, apiValidationError, apiForbidden } from '@/
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { checkBoardScope } from '@/lib/auth/task-scope';
-import { logActivity } from '@/lib/api/activity';
+import { ACTIVITY_ACTIONS, ENTITY_TYPES, logActivity } from '@/lib/api/activity';
 
 // =============================================================
 // GET /api/boards/[id]/labels
@@ -54,6 +54,11 @@ export async function POST(
     if (isApiError(auth)) return auth;
 
     const { id: boardId } = await params;
+
+    if (!(await checkBoardScope(boardId, auth))) {
+      return apiForbidden(t('common.noAccessBoard'));
+    }
+
     const { name, color } = await req.json();
     if (!name) return apiValidationError(t('boards.labelNameRequired'));
 
@@ -64,21 +69,21 @@ export async function POST(
       .select()
       .single();
 
-    if (error) return apiServerError(error.message);
+    if (error) return apiServerError(error.message, error, req);
 
     logActivity(
       auth.pyraUser.username,
       auth.pyraUser.display_name,
-      'label_created',
+      `${ENTITY_TYPES.BOARD}_${ACTIVITY_ACTIONS.CREATE}`,
       `/dashboard/boards/${boardId}`,
-      { label_name: name, color: color || 'gray' },
+      { source: 'board_label', label_name: name, color: color || 'gray' },
     );
 
     return apiSuccess(data, undefined, 201);
 
   } catch (err) {
     console.error('[POST /api/boards/[id]/labels] error:', err);
-    return apiServerError();
+    return apiServerError(undefined, err, req);
   }
 }
 
@@ -95,6 +100,12 @@ export async function PATCH(
     const auth = await requireApiPermission('boards.manage');
     if (isApiError(auth)) return auth;
 
+    const { id: boardId } = await params;
+
+    if (!(await checkBoardScope(boardId, auth))) {
+      return apiForbidden(t('common.noAccessBoard'));
+    }
+
     const body = await req.json();
     if (!body.id) return apiValidationError(t('boards.labelIdRequired'));
 
@@ -107,24 +118,26 @@ export async function PATCH(
       .from('pyra_board_labels')
       .update(updates)
       .eq('id', body.id)
+      .eq('board_id', boardId)
       .select()
-      .single();
+      .maybeSingle();
 
-    if (error) return apiServerError(error.message);
+    if (error) return apiServerError(error.message, error, req);
+    if (!data) return apiValidationError(t('boards.labelNotInBoard'));
 
     logActivity(
       auth.pyraUser.username,
       auth.pyraUser.display_name,
-      'label_updated',
-      `/dashboard/boards/${(await params).id}`,
-      { label_id: body.id, updated_fields: Object.keys(updates) },
+      `${ENTITY_TYPES.BOARD}_${ACTIVITY_ACTIONS.UPDATE}`,
+      `/dashboard/boards/${boardId}`,
+      { source: 'board_label', label_id: body.id, updated_fields: Object.keys(updates) },
     );
 
     return apiSuccess(data);
 
   } catch (err) {
     console.error('[PATCH /api/boards/[id]/labels] error:', err);
-    return apiServerError();
+    return apiServerError(undefined, err, req);
   }
 }
 
@@ -140,28 +153,38 @@ export async function DELETE(
     const auth = await requireApiPermission('boards.manage');
     if (isApiError(auth)) return auth;
 
+    const { id: boardId } = await params;
+
+    if (!(await checkBoardScope(boardId, auth))) {
+      return apiForbidden(t('common.noAccessBoard'));
+    }
+
     const labelId = req.nextUrl.searchParams.get('labelId');
     if (!labelId) return apiValidationError(t('boards.labelIdQueryRequired'));
 
     const supabase = await createServerSupabaseClient();
-    // Remove from tasks first
-    await supabase.from('pyra_task_labels').delete().eq('label_id', labelId);
-    // Delete label
-    const { error } = await supabase.from('pyra_board_labels').delete().eq('id', labelId);
-    if (error) return apiServerError(error.message);
+    const { data: deletedLabel, error } = await supabase
+      .from('pyra_board_labels')
+      .delete()
+      .eq('id', labelId)
+      .eq('board_id', boardId)
+      .select('id')
+      .maybeSingle();
+    if (error) return apiServerError(error.message, error, req);
+    if (!deletedLabel) return apiValidationError(t('boards.labelNotInBoard'));
 
     logActivity(
       auth.pyraUser.username,
       auth.pyraUser.display_name,
-      'label_deleted',
-      `/dashboard/boards/${(await params).id}`,
-      { label_id: labelId },
+      `${ENTITY_TYPES.BOARD}_${ACTIVITY_ACTIONS.DELETE}`,
+      `/dashboard/boards/${boardId}`,
+      { source: 'board_label', label_id: labelId },
     );
 
     return apiSuccess({ deleted: true });
 
   } catch (err) {
     console.error('[DELETE /api/boards/[id]/labels] error:', err);
-    return apiServerError();
+    return apiServerError(undefined, err, req);
   }
 }
