@@ -303,3 +303,7 @@ Migration number: 040 (039 taken by app_releases)
 - Task 12 (statuses + guide + final verify): complete (commit 5dc29ec, opus review clean). FINAL VERIFY GREEN: check clean, 189 tests / 27 files pass, build ok w/ both routes (/api/users/[username]/exit + /api/cron/access-reconcile). MINORS for final: (a) guide tip overgeneralizes archive to all buckets (tasks-only); (b) StatusEntity union lacks offboarding (no call site today).
 
 ALL 12 TASKS COMPLETE + whole-branch review clean. Baseline 4953c8e -> HEAD (18 offboarding commits). One whole-branch FIX applied: unban-on-reactivate PATCH (70d522b, opus re-review clean). All 14 accumulated Minors triaged to BACKLOG (none block merge). Feature READY. Remaining OPERATIONAL (need Abou): (1) wire access-reconcile cron in n8n PyraHR_Cron; (2) live dry-run on a test/real exit; (3) push to main (deploys prod).
+
+## Urgent fixes wave (2026-07-25) — plan docs/superpowers/plans/2026-07-25-calls-urgent-fixes.md
+Bundle chosen by Abdou: live bugs 1+2+4 + broken filters. Backfill decision: FULL cleanup (delete fake activities + correct timestamps).
+- UF-T1: complete (bec8682..4027a11, review clean). isConnectedCall in lib/calls/match.ts; both call sites; 0-sec pyra_agent_calls insert preserved. Minor deferred: stale JSDoc in sync/route.ts still says connected = direction != 'missed' -> fix in T6 docs step.
