@@ -17,6 +17,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils/cn';
 import { toast } from 'sonner';
 import type { BusinessHoursConfig, DaySchedule } from '@/lib/whatsapp/business-hours';
+import { parseSettingObject, parseSettingBool } from '@/lib/settings/parse';
+import { MASK_BODY as MASK_PREFIX } from '@/lib/settings/mask';
 
 type AutoAssignMode = 'manual' | 'round_robin' | 'least_busy';
 
@@ -58,53 +60,34 @@ export function SalesSettingsContent() {
       ]);
       setData({ stages, instances, agents, templates });
 
-      // Fetch auto-assignment setting
+      // All settings in ONE request. GET /api/settings ignores any ?key= filter
+      // and always returns the full { key: value } map — the previous per-setting
+      // fetches asked for `?key=…`, got the whole map back, ran Array.isArray()
+      // on it, and silently discarded every value. Hence four round trips that
+      // all resolved to the defaults.
       try {
-        const settings = await fetchAPI<any[]>('/api/settings?key=whatsapp_auto_assignment');
-        const setting = Array.isArray(settings) ? settings.find((s: any) => s.key === 'whatsapp_auto_assignment') : null;
-        if (setting?.value?.mode) {
-          setAutoAssignMode(setting.value.mode);
-        }
-      } catch {
-        // Setting doesn't exist yet — use default
-      }
+        const all = await fetchAPI<Record<string, unknown>>('/api/settings');
 
-      // Fetch AI suggestions setting + AI provider
-      try {
-        const allSettings = await fetchAPI<Record<string, unknown>>('/api/settings');
-        if (allSettings && allSettings.whatsapp_ai_suggestions_enabled === false) {
-          setAiSuggestEnabled(false);
-        }
-        if (allSettings?.whatsapp_ai_provider) {
-          setAiProvider(allSettings.whatsapp_ai_provider as 'rules' | 'claude');
-        }
-        if (allSettings?.whatsapp_ai_api_key) {
-          setAiApiKey(String(allSettings.whatsapp_ai_api_key));
-        }
-      } catch {
-        // Setting doesn't exist yet — default enabled
-      }
+        const assign = parseSettingObject<{ mode?: AutoAssignMode }>(all?.whatsapp_auto_assignment);
+        if (assign?.mode) setAutoAssignMode(assign.mode);
 
-      // Fetch CSAT setting
-      try {
-        const csatSettings = await fetchAPI<any[]>('/api/settings?key=whatsapp_csat_enabled');
-        const csatSetting = Array.isArray(csatSettings) ? csatSettings.find((s: any) => s.key === 'whatsapp_csat_enabled') : null;
-        if (csatSetting?.value?.enabled === true) {
-          setCsatEnabled(true);
+        setAiSuggestEnabled(parseSettingBool(all?.whatsapp_ai_suggestions_enabled, true));
+        if (all?.whatsapp_ai_provider) {
+          setAiProvider(all.whatsapp_ai_provider as 'rules' | 'claude');
         }
-      } catch {
-        // Setting doesn't exist yet — default disabled
-      }
+        // Arrives masked (••••) when a key is stored — see lib/settings/mask.ts.
+        // Shown as-is so the admin can tell one IS configured; the save path
+        // refuses to write a masked value back.
+        if (all?.whatsapp_ai_api_key) {
+          setAiApiKey(String(all.whatsapp_ai_api_key));
+        }
 
-      // Fetch Business Hours setting
-      try {
-        const bhSettings = await fetchAPI<any[]>('/api/settings?key=whatsapp_business_hours');
-        const bhSetting = Array.isArray(bhSettings) ? bhSettings.find((s: any) => s.key === 'whatsapp_business_hours') : null;
-        if (bhSetting?.value) {
-          setBusinessHours(bhSetting.value);
-        }
+        setCsatEnabled(parseSettingBool(all?.whatsapp_csat_enabled, false));
+
+        const bh = parseSettingObject<BusinessHoursConfig>(all?.whatsapp_business_hours);
+        if (bh) setBusinessHours(bh);
       } catch {
-        // Setting doesn't exist yet — use defaults
+        // Settings unreadable — keep the defaults already in state.
       }
     } catch { } finally { setLoading(false); }
   }
@@ -115,9 +98,8 @@ export function SalesSettingsContent() {
     setAutoAssignMode(mode);
     setSavingAutoAssign(true);
     try {
-      await mutateAPI('/api/settings', 'PUT', {
-        key: 'whatsapp_auto_assignment',
-        value: { mode },
+      await mutateAPI('/api/settings', 'PATCH', {
+        whatsapp_auto_assignment: JSON.stringify({ mode }),
       });
       toast.success('تم حفظ إعداد التعيين التلقائي');
     } catch {
@@ -131,9 +113,8 @@ export function SalesSettingsContent() {
     setAiSuggestEnabled(enabled);
     setSavingAiSuggest(true);
     try {
-      await mutateAPI('/api/settings', 'PUT', {
-        key: 'whatsapp_ai_suggestions_enabled',
-        value: enabled,
+      await mutateAPI('/api/settings', 'PATCH', {
+        whatsapp_ai_suggestions_enabled: String(enabled),
       });
       toast.success(enabled ? 'تم تفعيل الردود الذكية' : 'تم تعطيل الردود الذكية');
     } catch {
@@ -147,16 +128,15 @@ export function SalesSettingsContent() {
   async function handleAiProviderSave(provider: 'rules' | 'claude', key: string) {
     setSavingAiProvider(true);
     try {
-      await mutateAPI('/api/settings', 'PUT', {
-        key: 'whatsapp_ai_provider',
-        value: provider,
-      });
-      if (provider === 'claude' && key) {
-        await mutateAPI('/api/settings', 'PUT', {
-          key: 'whatsapp_ai_api_key',
-          value: key,
-        });
+      // One PATCH: the route takes a { key: value } map. Sending the API key
+      // in the same call keeps provider and key consistent if one write fails.
+      // A masked key (the UI shows •••• for a stored secret) is omitted — the
+      // route also guards this, but not sending it is clearer.
+      const payload: Record<string, string> = { whatsapp_ai_provider: provider };
+      if (provider === 'claude' && key && !key.startsWith(MASK_PREFIX)) {
+        payload.whatsapp_ai_api_key = key;
       }
+      await mutateAPI('/api/settings', 'PATCH', payload);
       toast.success('تم حفظ إعداد مزود الذكاء الاصطناعي');
     } catch {
       toast.error('فشل حفظ الإعداد');
@@ -169,9 +149,8 @@ export function SalesSettingsContent() {
     setCsatEnabled(enabled);
     setSavingCsat(true);
     try {
-      await mutateAPI('/api/settings', 'PUT', {
-        key: 'whatsapp_csat_enabled',
-        value: { enabled },
+      await mutateAPI('/api/settings', 'PATCH', {
+        whatsapp_csat_enabled: JSON.stringify({ enabled }),
       });
       toast.success(enabled ? '\u062a\u0645 \u062a\u0641\u0639\u064a\u0644 \u0627\u0633\u062a\u0628\u064a\u0627\u0646 \u0631\u0636\u0627 \u0627\u0644\u0639\u0645\u0644\u0627\u0621' : '\u062a\u0645 \u062a\u0639\u0637\u064a\u0644 \u0627\u0633\u062a\u0628\u064a\u0627\u0646 \u0631\u0636\u0627 \u0627\u0644\u0639\u0645\u0644\u0627\u0621');
     } catch {
@@ -185,9 +164,8 @@ export function SalesSettingsContent() {
   async function handleSaveBusinessHours(config: BusinessHoursConfig) {
     setSavingBH(true);
     try {
-      await mutateAPI('/api/settings', 'PUT', {
-        key: 'whatsapp_business_hours',
-        value: config,
+      await mutateAPI('/api/settings', 'PATCH', {
+        whatsapp_business_hours: JSON.stringify(config),
       });
       setBusinessHours(config);
       toast.success('تم حفظ ساعات العمل');

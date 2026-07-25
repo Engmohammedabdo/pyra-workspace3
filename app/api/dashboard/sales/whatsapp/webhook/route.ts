@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'node:crypto';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { parseSettingObject, parseSettingBool } from '@/lib/settings/parse';
 import { generateId } from '@/lib/utils/id';
 import type { EvoMessageData } from '@/lib/evolution/types';
 import { CONVERSATION_STATUS, CONVERSATION_PRIORITY } from '@/lib/constants/statuses';
@@ -692,7 +693,10 @@ async function resolveAutoAssignment(
       .eq('key', 'whatsapp_auto_assignment')
       .maybeSingle();
 
-    const mode = setting?.value?.mode || 'manual';
+    // pyra_settings.value is TEXT — `setting.value.mode` read a property off a
+    // string and was always undefined, so this silently returned 'manual' every
+    // time and auto-assignment never ran.
+    const mode = parseSettingObject<{ mode?: string }>(setting?.value)?.mode || 'manual';
     if (mode === 'manual') return null;
 
     // Get all sales agents
@@ -775,7 +779,9 @@ async function handleCsatResponse(
       .eq('key', 'whatsapp_csat_enabled')
       .maybeSingle();
 
-    if (setting?.value?.enabled !== true) return;
+    // TEXT column — `setting.value.enabled` was always undefined, so this
+    // returned early every time and the CSAT survey never sent.
+    if (!parseSettingBool(setting?.value, false)) return;
 
     // Check if conversation was resolved within the last 24 hours
     const { data: conv } = await supabase
@@ -870,10 +876,12 @@ async function handleBusinessHoursAutoReply(
       .eq('key', 'whatsapp_business_hours')
       .maybeSingle();
 
-    if (!setting?.value?.enabled) return;
+    // TEXT column — the old `setting.value.enabled` was always undefined, so
+    // this returned early every time and the away message never sent.
+    const config = parseSettingObject<import('@/lib/whatsapp/business-hours').BusinessHoursConfig>(setting?.value);
+    if (!config?.enabled) return;
 
     const { isWithinBusinessHours } = await import('@/lib/whatsapp/business-hours');
-    const config = setting.value;
 
     if (isWithinBusinessHours(config)) return;
 

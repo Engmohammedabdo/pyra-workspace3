@@ -8,7 +8,7 @@ import {
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { logActivity } from '@/lib/api/activity';
-import { maskSecretSettings, isMaskedValue, isSecretSettingKey } from './mask';
+import { maskSecretSettings, isMaskedValue, isSecretSettingKey } from '@/lib/settings/mask';
 
 // ── Allowed setting keys (whitelist) ─────────────────────────
 // Only these keys can be written via the PATCH endpoint.
@@ -104,6 +104,11 @@ const ALLOWED_KEYS = new Set([
   'whatsapp_ai_provider',
   'whatsapp_ai_api_key',
   'whatsapp_business_hours',
+  // Written by the sales-settings page. Both were missing from this allowlist,
+  // so even once their save stopped 405-ing on a non-existent PUT handler they
+  // would have been rejected as disallowed keys.
+  'whatsapp_auto_assignment',
+  'whatsapp_csat_enabled',
 ]);
 
 // =============================================================

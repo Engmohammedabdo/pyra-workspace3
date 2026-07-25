@@ -5,7 +5,7 @@ import {
   isSecretSettingKey,
   MASK_BODY,
   SECRET_SETTING_KEYS,
-} from '@/app/api/settings/mask';
+} from '@/lib/settings/mask';
 
 /**
  * GET /api/settings returned every value verbatim, so the live sk_live_ Stripe

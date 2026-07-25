@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiNotFound, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { parseSettingBool } from '@/lib/settings/parse';
 import { isSuperAdmin } from '@/lib/auth/rbac';
 import { WA_CONVERSATION_FIELDS } from '@/lib/supabase/fields';
 import { logActivity } from '@/lib/api/activity';
@@ -136,7 +137,9 @@ async function sendCsatSurvey(
     .eq('key', 'whatsapp_csat_enabled')
     .maybeSingle();
 
-  const isEnabled = setting?.value?.enabled === true;
+  // pyra_settings.value is TEXT — `setting.value.enabled` read a property off a
+  // string and was always undefined, so the CSAT survey never sent.
+  const isEnabled = parseSettingBool(setting?.value, false);
   if (!isEnabled) return;
 
   const rawPhone = (conversation.contact_phone as string | null) || '';
