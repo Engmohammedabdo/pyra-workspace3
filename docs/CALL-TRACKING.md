@@ -444,6 +444,94 @@ POST /api/mobile/log-error   (x-api-key: <device key>)
 `422 {"error":"errors مطلوبة"}` on an empty/missing array;
 `422 {"error":"الحد الأقصى 20 خطأ في الدفعة"}` over the cap.
 
+### 9. `GET /api/mobile/my-day`
+
+Auth: device key (`calls:device`) via `requireDeviceAuth`. The "شغل
+النهاردة" (today's work) feed behind the app's Home screen — everything the
+agent should call today, in one round trip.
+
+**`requireDeviceAuth` carries no RBAC scope** (no `canAccessLead` applied for
+free) — every query in this route filters by the authenticated device's
+`agentUsername` itself. A missing filter here would leak the whole pipeline
+to any device.
+
+Response: `{ follow_ups: FollowUpItem[], going_cold: ColdLeadItem[], counts:
+{ follow_ups: number, going_cold: number } }` where
+
+- `FollowUpItem = { id, lead_id, lead_name, phone, title, due_at, status }`
+  — `status` is `'overdue' | 'pending'`.
+- `ColdLeadItem = { lead_id, lead_name, phone, company, days_since_contact }`.
+
+**Scope rules, both server-enforced:**
+
+- **`follow_ups`**: `assigned_to = me` AND `status IN ('pending','overdue')`
+  AND `due_at <= now() + interval '1 day'`, ordered `due_at ASC`, capped at
+  **20** rows. Lead name/phone are resolved with ONE batched
+  `.in('id', leadIds)` query against `pyra_sales_leads` — not an N+1 loop.
+- **`going_cold`**: `assigned_to = me` AND `archived_at IS NULL` AND
+  `is_converted IS NOT TRUE` (NULL-safe — a bare `.eq(false)` would silently
+  drop legacy NULL rows) AND
+  `greatest(last_contact_at, created_at) < now() - interval '7 days'`,
+  ordered oldest-effective-contact first, capped at **20** rows. Excludes
+  any lead already surfaced in `follow_ups` (already actionable there via
+  the other list). Because `pyra_sales_leads` already carries
+  `name`/`phone`/`company` directly, this list needs no join/second query at
+  all — the primary query IS the enrichment.
+  - The `greatest()` filter is expressed via two column-level conditions
+    ANDed together (`created_at < cutoff` AND
+    (`last_contact_at IS NULL` OR `last_contact_at < cutoff`)) — mathematically
+    identical to `greatest(a,b) < cutoff`, since Postgres's `GREATEST()`
+    ignores NULL args, and `max(a,b) < c` iff `a < c AND b < c`. Supabase-js
+    can't express a computed-expression filter directly, so this is the
+    exact equivalent built from two real-column filters.
+  - Because Supabase-js also can't `.order()` by that same computed
+    expression, the route fetches every matching row (capped generously —
+    `GOING_COLD_FETCH_CAP = 500` — far above any single agent's realistic
+    going-cold portfolio) and does the precise oldest-first sort in JS.
+    `count: 'exact'` still reports the TRUE total regardless of that fetch
+    cap (same PostgREST behavior documented for `GET /api/crm/follow-ups`).
+
+`counts.follow_ups` / `counts.going_cold` are the TRUE totals (independent
+of the 20-row response cap) — the app can render "20 من 34" without a
+second call.
+
+**Verified 2026-07-25 — by SQL against production, not a live device call.**
+This route is device-authed; the n8n `PyraCRM_Cron` API key does not carry
+`calls:device` and would 403. Obtaining a real device key would require
+either inventing one (not done) or logging in as `youssef`/`cosette` via
+`POST /api/mobile/auth/login`, which **deactivates their live device key**
+and would knock a real phone offline — also not done. Verification instead
+replayed the route's exact filter logic as raw SQL against the two ACTIVE
+sales agents:
+
+```
+-- follow_ups (mirrors the route's WHERE, true count):
+youssef: 128   cosette: (absent → 0)
+
+-- going_cold (mirrors the route's WHERE + exclusion, true count):
+youssef: 139   cosette: 278
+
+-- proof the follow_ups exclusion is load-bearing (count WITHOUT it):
+youssef: 220 (81 leads excluded — already in his follow_ups)
+cosette: 278 (0 excluded — she has zero follow-ups, nothing to exclude)
+```
+
+Cosette having an **empty** follow-up list is expected (confirmed
+separately: she has zero follow-ups of any status, ever) — and is exactly
+why the `going_cold` half of the feed matters for her: 278 of her leads
+would otherwise show nothing to call today.
+
+A `GREATEST(last_contact_at, created_at) ASC LIMIT 10` sample confirmed the
+ordering and the NULL-collapse behavior directly: rows with
+`last_contact_at IS NULL` show `effective_contact = created_at`, and at
+least one row (`Mr Smart Dubai`, cosette) has `last_contact_at` later than
+`created_at` and correctly sorts by the later value — matching the route's
+`Math.max(lastContactMs, createdMs)` JS logic exactly. Separately, a check
+for `is_converted IS NULL` rows on these two agents returned zero rows
+today — the `IS NOT TRUE` guard is still correct/required by codebase
+convention, but is not currently exercised by live data for youssef/cosette
+specifically.
+
 ## Sync semantics summary
 
 - **Idempotency**: unique `(agent_username, device_call_key)` — safe to
