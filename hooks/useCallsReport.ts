@@ -20,6 +20,8 @@ export interface CallsReportAgent {
   ignored: number;
   total_duration_seconds: number;
   avg_duration_seconds: number;
+  answered: number;
+  answer_rate: number;
 }
 
 export interface CallsReport {

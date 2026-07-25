@@ -8,6 +8,8 @@ import {
   PhoneOutgoing,
   PhoneIncoming,
   PhoneMissed,
+  PhoneCall,
+  Percent,
   Link2,
   Link2Off,
   EyeOff,
@@ -67,6 +69,8 @@ function AgentCard({ agent }: { agent: CallsReportAgent }) {
         <Stat icon={PhoneOutgoing} label={t('outgoing')} value={agent.outgoing} />
         <Stat icon={PhoneIncoming} label={t('incoming')} value={agent.incoming} />
         <Stat icon={PhoneMissed} label={t('missed')} value={agent.missed} warn={agent.missed > 0} />
+        <Stat icon={PhoneCall} label={t('answered')} value={agent.answered} />
+        <Stat icon={Percent} label={t('answerRate')} value={`${agent.answer_rate}%`} />
         <Stat icon={Link2} label={t('matched')} value={agent.matched} />
         <Stat icon={Link2Off} label={t('unmatched')} value={agent.unmatched} />
         <Stat icon={EyeOff} label={t('ignored')} value={agent.ignored} />

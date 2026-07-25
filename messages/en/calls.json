@@ -8,6 +8,8 @@
     "outgoing": "Outgoing",
     "incoming": "Incoming",
     "missed": "Missed",
+    "answered": "Answered",
+    "answerRate": "Answer rate",
     "matched": "Linked to lead",
     "unmatched": "Unlinked",
     "ignored": "Ignored",

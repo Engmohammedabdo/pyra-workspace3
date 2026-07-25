@@ -8,6 +8,8 @@
     "outgoing": "صادر",
     "incoming": "وارد",
     "missed": "فائتة",
+    "answered": "تم الرد",
+    "answerRate": "نسبة الرد",
     "matched": "مرتبطة بعميل",
     "unmatched": "غير مرتبطة",
     "ignored": "متجاهلة",
