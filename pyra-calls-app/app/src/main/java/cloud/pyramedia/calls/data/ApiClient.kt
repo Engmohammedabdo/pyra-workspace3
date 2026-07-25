@@ -49,6 +49,10 @@ class ApiClient(
         post("/api/mobile/calls/ignore", IgnoreRequest(deviceCallKey),
             IgnoreRequest.serializer(), IgnoreData.serializer(), withKey = true)
 
+    fun callOutcome(req: CallOutcomeRequest): ApiResult<CallOutcomeData> =
+        post("/api/mobile/call-outcome", req,
+            CallOutcomeRequest.serializer(), CallOutcomeData.serializer(), withKey = true)
+
     fun logErrors(events: List<ErrorEvent>): ApiResult<LogErrorData> =
         post("/api/mobile/log-error", LogErrorRequest(events),
             LogErrorRequest.serializer(), LogErrorData.serializer(), withKey = true)

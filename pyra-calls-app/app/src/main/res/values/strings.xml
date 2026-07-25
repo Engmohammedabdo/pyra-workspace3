@@ -22,7 +22,8 @@
     <string name="notif_feedback_title">مطلوب: إضافة فيدباك</string>
     <string name="notif_feedback_body">تم إنشاء %1$s — ادخل وسجّل نتيجة المكالمة</string>
     <string name="notif_matched_title">مكالمة مع %1$s</string>
-    <string name="notif_matched_body">اضغط لفتح كارت العميل</string>
+    <string name="notif_matched_body">اضغط لتسجيل نتيجة المكالمة</string>
+    <string name="notif_matched_browser_action">فتح في المتصفح</string>
     <string name="qa_title">إضافة عميل جديد</string>
     <string name="qa_phone_label">الرقم</string>
     <string name="qa_type_b2b">شركة</string>
@@ -88,4 +89,20 @@
     <string name="my_day_cold_days">بدون تواصل منذ %1$d يوم</string>
     <string name="my_day_empty_follow_ups">لا توجد متابعات متأخرة أو مستحقة النهاردة — شوف قائمة العملاء البرد تحت وابدأ اتصال</string>
     <string name="my_day_empty_going_cold">كل عملاءك متابَعين بانتظام — مفيش عميل برد دلوقتي</string>
+
+    <string name="co_title">تسجيل نتيجة المكالمة</string>
+    <string name="co_lead_label">العميل: %1$s</string>
+    <string name="co_outcome_required">اختر نتيجة المكالمة</string>
+    <string name="co_outcome_interested">مهتم</string>
+    <string name="co_outcome_not_interested">غير مهتم</string>
+    <string name="co_outcome_call_again">يحتاج إعادة اتصال</string>
+    <string name="co_note_label">ملاحظة (اختياري)</string>
+    <string name="co_follow_up_label">اتصل مرة أخرى في… (اختياري)</string>
+    <string name="co_preset_tomorrow">غدًا</string>
+    <string name="co_preset_in_3_days">بعد 3 أيام</string>
+    <string name="co_preset_next_week">الأسبوع القادم</string>
+    <string name="co_save">حفظ</string>
+    <string name="co_saving">جارٍ الحفظ…</string>
+    <string name="co_saved">تم تسجيل نتيجة المكالمة</string>
+    <string name="co_follow_up_error">تم تسجيل نتيجة المكالمة، لكن تعذر جدولة المتابعة — حاول لاحقًا من لوحة الـ CRM</string>
 </resources>

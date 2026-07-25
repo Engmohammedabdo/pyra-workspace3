@@ -58,4 +58,43 @@ class PayloadsTest {
         assertEquals(1, d.going_cold.size)
         assertEquals(0, d.counts.follow_ups)
     }
+    // Field names mirror app/api/mobile/call-outcome/route.ts's
+    // apiSuccess({ activity_id, follow_up_id, follow_up_error, deduplicated })
+    // shape EXACTLY (route.ts:303) — a renamed field would silently decode to
+    // null/default under PyraJson's ignoreUnknownKeys instead of failing loudly.
+    @Test fun decodesCallOutcomeEnvelope() {
+        val body = """{"data":{"activity_id":"la_1","follow_up_id":"fu_1","follow_up_error":false,"deduplicated":false},"error":null,"meta":null}"""
+        val env = PyraJson.decodeFromString<Envelope<CallOutcomeData>>(body)
+        val d = env.data!!
+        assertEquals("la_1", d.activity_id)
+        assertEquals("fu_1", d.follow_up_id)
+        assertTrue(!d.follow_up_error)
+        assertTrue(!d.deduplicated)
+    }
+    // Flip-and-warn shape (route.ts:58-65): HTTP 200, outcome saved, but the
+    // optional follow-up insert failed — follow_up_id is null and
+    // follow_up_error is true. This is NOT an ApiResult.Err on the client.
+    @Test fun decodesCallOutcomeEnvelopeWithFollowUpError() {
+        val body = """{"data":{"activity_id":"la_2","follow_up_id":null,"follow_up_error":true,"deduplicated":false},"error":null,"meta":null}"""
+        val env = PyraJson.decodeFromString<Envelope<CallOutcomeData>>(body)
+        val d = env.data!!
+        assertEquals(null, d.follow_up_id)
+        assertTrue(d.follow_up_error)
+        assertTrue(!d.deduplicated)
+    }
+    @Test fun encodesCallOutcomeRequestWithoutNullOptionalFields() {
+        val json = PyraJson.encodeToString(CallOutcomeRequest.serializer(),
+            CallOutcomeRequest(lead_id = "sl_1", outcome = "interested"))
+        assertTrue(!json.contains("note"))
+        assertTrue(!json.contains("next_follow_up_at"))
+    }
+    @Test fun encodesCallOutcomeRequestWithNoteAndFollowUpDate() {
+        val json = PyraJson.encodeToString(CallOutcomeRequest.serializer(),
+            CallOutcomeRequest(
+                lead_id = "sl_1", outcome = "call_again",
+                note = "اتصل بعد الظهر", next_follow_up_at = "2026-07-26T06:00:00Z",
+            ))
+        assertTrue(json.contains("\"note\":\"اتصل بعد الظهر\""))
+        assertTrue(json.contains("\"next_follow_up_at\":\"2026-07-26T06:00:00Z\""))
+    }
 }

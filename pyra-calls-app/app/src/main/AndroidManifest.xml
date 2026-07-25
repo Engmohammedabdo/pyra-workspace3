@@ -20,6 +20,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".ui.QuickAddActivity" android:exported="false" />
+        <activity android:name=".ui.CallOutcomeActivity" android:exported="false" />
         <activity android:name=".ui.UpdateActivity" android:exported="false" />
         <receiver android:name=".sync.PhoneStateReceiver" android:exported="true">
             <intent-filter>

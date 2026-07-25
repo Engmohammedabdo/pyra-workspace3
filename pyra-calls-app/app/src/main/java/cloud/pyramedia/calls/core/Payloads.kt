@@ -56,6 +56,30 @@ val PyraJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
     val url: String, val version_code: Int, val sha256: String, val size_bytes: Long,
 )
 
+// POST /api/mobile/call-outcome — field names mirror
+// app/api/mobile/call-outcome/route.ts EXACTLY (cross-checked against the
+// route, not the task brief): request reads body.lead_id/outcome/note/
+// next_follow_up_at (route.ts:90-93); response is apiSuccess({ activity_id,
+// follow_up_id, follow_up_error, deduplicated }) (route.ts:303). `outcome`
+// is a free string here (not a Kotlin enum) — the server is the single
+// source of truth for the 3 allowed values (interested/not_interested/
+// call_again); duplicating them as a Kotlin enum would just be a second
+// place to keep in sync.
+@Serializable data class CallOutcomeRequest(
+    val lead_id: String, val outcome: String,
+    val note: String? = null, val next_follow_up_at: String? = null,
+)
+@Serializable data class CallOutcomeData(
+    val activity_id: String, val follow_up_id: String? = null,
+    // Flip-and-warn (route.ts:58-65): the route returns HTTP 200 with
+    // follow_up_error=true when the optional follow-up insert failed AFTER
+    // the outcome itself was already saved — this is NOT a request failure.
+    // deduplicated=true means a 60s retry matched an existing outcome and is
+    // also NOT an error — both booleans default false for forward-compat if
+    // a future response ever omits them.
+    val follow_up_error: Boolean = false, val deduplicated: Boolean = false,
+)
+
 // GET /api/mobile/my-day — field names mirror app/api/mobile/my-day/route.ts's
 // followUpItems/goingCold/counts mapping EXACTLY (cross-checked against the
 // route, not the original task plan — PyraJson's ignoreUnknownKeys silently

@@ -10,6 +10,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import cloud.pyramedia.calls.BuildConfig
 import cloud.pyramedia.calls.R
+import cloud.pyramedia.calls.ui.CallOutcomeActivity
 import cloud.pyramedia.calls.ui.QuickAddActivity
 import cloud.pyramedia.calls.ui.UpdateActivity
 
@@ -85,9 +86,23 @@ object Notifier {
     // showFeedback, so it reuses CHANNEL_FEEDBACK instead of a fourth channel.
     // Notification id is leadId.hashCode(): repeated calls to the same lead
     // replace the existing notification rather than stacking duplicates.
+    //
+    // W2-5: the content intent now opens CallOutcomeActivity (log
+    // interested/not_interested/call_again right from the phone) instead of
+    // the web deep link — the primary action is capturing the outcome, not
+    // just viewing the lead. The web deep link survives as a secondary
+    // action button for agents who still want the full CRM lead page.
     fun showMatched(context: Context, leadName: String, leadId: String) {
-        val open = PendingIntent.getActivity(
+        val openOutcome = PendingIntent.getActivity(
             context, leadId.hashCode(),
+            Intent(context, CallOutcomeActivity::class.java)
+                .putExtra("lead_id", leadId)
+                .putExtra("lead_name", leadName)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val openBrowser = PendingIntent.getActivity(
+            context, leadId.hashCode() + 1,
             Intent(Intent.ACTION_VIEW, Uri.parse(BuildConfig.BASE_URL + "/dashboard/crm/leads/" + leadId)),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -96,7 +111,8 @@ object Notifier {
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentTitle(context.getString(R.string.notif_matched_title, leadName))
                 .setContentText(context.getString(R.string.notif_matched_body))
-                .setContentIntent(open)
+                .setContentIntent(openOutcome)
+                .addAction(0, context.getString(R.string.notif_matched_browser_action), openBrowser)
                 .setAutoCancel(true)
                 .build())
     }
