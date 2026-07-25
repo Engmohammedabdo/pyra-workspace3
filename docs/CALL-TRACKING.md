@@ -569,6 +569,79 @@ today — the `IS NOT TRUE` guard is still correct/required by codebase
 convention, but is not currently exercised by live data for youssef/cosette
 specifically.
 
+### 10. `POST /api/mobile/call-outcome`
+
+Auth: device key (`calls:device`) via `requireDeviceAuth`. Lets a sales
+agent log the result of a call from the app: interested / not_interested /
+call_again, with an optional note and an optional next-follow-up date.
+
+Body: `{ lead_id, outcome: 'interested'|'not_interested'|'call_again', note?,
+next_follow_up_at? }`. `outcome` is validated against the 3-value whitelist
+(422 on anything else); `note` capped at 2000 chars (422 over); if
+`next_follow_up_at` is present it must parse as a valid date (422 if not).
+
+**Ownership re-check is mandatory** (`app/api/mobile/call-outcome/route.ts:104`):
+`requireDeviceAuth` returns an agent, not a scope — no `canAccessLead`
+equivalent is applied for free on this auth path. The route loads the lead
+(`SELECT assigned_to`) and rejects with `403` unless
+`lead.assigned_to === agentUsername`. A missing lead and a not-owned lead
+both resolve to the same generic 403 message — never leaks whether a given
+`lead_id` exists to a caller who doesn't own it.
+
+Response: `{ activity_id, follow_up_id }` — `follow_up_id` is `null` when no
+follow-up was requested.
+
+**Side effects:**
+
+1. Always writes ONE `pyra_lead_activities` row: `activity_type='note'` (an
+   existing timeline value — no new type invented), `description` = the
+   note text, or a default derived from the outcome (e.g.
+   `"نتيجة المكالمة: مهتم"`) when no note was given, `metadata = { source:
+   'mobile_call_outcome', outcome, auto: false }`.
+2. Always bumps `pyra_sales_leads.last_contact_at` to now — a genuine human
+   touch (unlike the 0-second-dial sync bug above, this always represents a
+   real, agent-confirmed contact).
+3. If `next_follow_up_at` is present: inserts a `pyra_sales_follow_ups` row
+   + a `follow_up_created` timeline activity + syncs
+   `leads.next_follow_up` to the earliest pending/overdue `due_at` —
+   mirroring `POST /api/crm/follow-ups` field-for-field (`id`, `lead_id`,
+   `assigned_to`, `due_at`, `reminder_at` [default `due_at - 30min`],
+   `send_whatsapp_reminder` [default `true`], `title`, `notes`, `status:
+   'pending'`, `created_by`). `assigned_to` is always the calling agent
+   (the mobile app only ever schedules follow-ups for itself) — the CRM
+   route's `leads.assign`-gated "assign to someone else" branch has no
+   mobile equivalent by design, so it was deliberately NOT mirrored.
+4. Writes an audit row via `logActivity()` —
+   `` `${ENTITY_TYPES.LEAD}_${ACTIVITY_ACTIONS.UPDATE}` `` +
+   `metadata.source = 'mobile_call_outcome'` (locked project convention).
+
+**No `notify()` call.** The CRM follow-ups route only notifies when
+`assignedTo !== caller` — here `assigned_to` is always the calling agent, so
+that branch is structurally dead and was omitted rather than kept as an
+always-false no-op.
+
+**Rollback:** if the `last_contact_at` update fails after the note activity
+was inserted, the activity row is deleted so a half-write never reports
+success. A failure in the OPTIONAL follow-up insert (which only runs AFTER
+the note + bump already succeeded) is intentionally **not** rolled back —
+the call outcome itself (a note was logged, contact was bumped) is already
+a true, committed fact regardless of whether scheduling a future reminder
+on top of it also succeeded; the response is a `500` in that case
+(`"تم تسجيل نتيجة المكالمة لكن فشل جدولة المتابعة"`) so the caller knows the
+follow-up specifically didn't land, while the underlying call log is not
+undone. Known tradeoff: a client retry after this specific failure mode
+would duplicate the note activity (no idempotency key on this endpoint,
+same as the CRM follow-ups route) — acceptable for v1, same as elsewhere in
+this codebase where no transactions exist (backup-rollback pattern).
+
+**Verified 2026-07-25 — by code inspection + schema check, not a live device
+call**, for the same reason as `GET /api/mobile/my-day` above (a real device
+key would require logging in as youssef/cosette, which deactivates their
+live phone). `pyra_lead_activities.activity_type='note'` and
+`pyra_sales_follow_ups`'s column set were both confirmed against
+`information_schema.columns` before writing the route. The live E2E happens
+in a later task once the app ships this screen.
+
 ## Sync semantics summary
 
 - **Idempotency**: unique `(agent_username, device_call_key)` — safe to
