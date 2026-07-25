@@ -76,8 +76,20 @@ export async function POST(req: NextRequest) {
       const paymentRef = paymentIntentId || `session_${session.id}`;
 
       if (!invoiceId) {
-        console.error('[Stripe Webhook] No invoice_id in session metadata');
-        return NextResponse.json({ error: 'Missing invoice_id' }, { status: 400 });
+        // Unprocessable but NOT retryable: a Stripe Dashboard "send test webhook",
+        // or a session minted outside this app, will never gain an invoice_id.
+        // Returning 400 made Stripe retry it for days, and sustained delivery
+        // failure is what auto-disables an endpoint — which is how this endpoint
+        // came to be disabled (found 2026-07-25: zero events ever settled).
+        // ACK it so it cannot poison the endpoint, but leave a trail.
+        logError({
+          severity: 'warning',
+          error: new Error('Checkout session has no invoice_id metadata'),
+          request: req,
+          metadata: { source: 'stripe_webhook', event: event.type, session_id: session.id },
+        });
+        console.warn('[Stripe Webhook] No invoice_id in session metadata — ignoring', session.id);
+        return NextResponse.json({ received: true, ignored: 'no invoice_id' });
       }
 
       // 1. Update stripe payment record
@@ -706,9 +718,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    // Differentiate signature errors from processing errors
+    // Differentiate signature errors from processing errors.
+    // Use the SDK's error type, NOT a substring match on the message: the old
+    // check fired on any message containing 'signature' or 'Webhook', so a
+    // genuine processing failure could be answered with 401 — and Stripe does
+    // not retry 4xx, so that payment would be lost permanently.
     const message = error instanceof Error ? error.message : String(error);
-    if (message.includes('signature') || message.includes('Webhook')) {
+    if (error instanceof Stripe.errors.StripeSignatureVerificationError) {
       // Phase 14.1 Commit 2 — signature failure is suspicious (probe or
       // misconfigured client) but not a system error. Log as warning, not error.
       logError({
