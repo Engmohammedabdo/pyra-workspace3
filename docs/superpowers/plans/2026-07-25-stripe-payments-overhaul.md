@@ -314,11 +314,14 @@ UPDATE pyra_contracts c
        updated_at = now()
  WHERE c.id = 'ctr_nnOT-sUX5KQtM9p9';
 
--- 5. Mark the orphaned local session record as cancelled (that Stripe session was
---    minted against the now-cancelled INV-0030 and expires 2026-07-26 unpaid).
-UPDATE pyra_stripe_payments
-   SET status = 'cancelled', updated_at = now()
- WHERE stripe_session_id = 'cs_live_a1kLVn5fqoDdAT5wWNTh7zRTCCG0curklbdnV6QcRoAkFVqF39HMWu5PVn';
+-- 5. DELIBERATELY NOT TOUCHED: the orphaned pyra_stripe_payments row for session
+--    cs_live_a1kLVn5fq... (minted against the now-cancelled INV-0030).
+--    That Stripe session expires 2026-07-26 10:43 UTC and will emit
+--    checkout.session.expired. Our handler flips the row to 'cancelled' and
+--    returns 200. Leaving it 'pending' turns it into a FREE, zero-risk canary:
+--    if it flips on its own, the webhook path is proven working end-to-end.
+--    Setting it manually here would destroy that signal.
+--    See Task 0.4 — clean it up there once the canary has reported.
 
 COMMIT;
 ```
@@ -361,6 +364,61 @@ surcharge on, the client will be charged 1,035.
 git add scripts/reconcile-2026-07-25-stripe.sql
 git commit -m "chore(finance): reconcile 2026-07-25 Stripe payment the disabled webhook missed"
 ```
+
+---
+
+## Task 0.4: Prove the webhook path with the expiry canary
+
+The endpoint is **Active** again (confirmed in the Stripe Dashboard 2026-07-25) and its
+signing secret matches `pyra_settings.stripe_webhook_secret` byte-for-byte (verified:
+length 38, `whsec_SzJX8S…pydrGo`). Signature verification will therefore pass. What is
+still unproven is that a delivery actually reaches the route and completes.
+
+> **Do NOT use the Dashboard's "Send test webhook" button yet.** A test
+> `checkout.session.completed` carries no `invoice_id` metadata, so the handler returns
+> **400** (`route.ts:78-81`). Repeated 4xx is exactly the failure class that gets an
+> endpoint auto-disabled — which is plausibly how it got disabled in the first place.
+> Either land **Task 1.6** first (it converts that case to a logged 200), or use the
+> canary below, which costs nothing.
+
+- [ ] **Step 1: Confirm the canary is still armed**
+
+```bash
+pnpm db:query "SELECT stripe_session_id, status, created_at, updated_at FROM pyra_stripe_payments WHERE stripe_session_id = 'cs_live_a1kLVn5fqoDdAT5wWNTh7zRTCCG0curklbdnV6QcRoAkFVqF39HMWu5PVn'"
+```
+
+Expected: `status = 'pending'` and `updated_at = created_at` (untouched).
+
+- [ ] **Step 2: Wait for the session to expire**
+
+The session expires **2026-07-26 10:43 UTC** (14:43 Dubai). Stripe then emits
+`checkout.session.expired`, which the handler processes at `route.ts:324-336`.
+
+- [ ] **Step 3: Read the verdict**
+
+```bash
+pnpm db:query "SELECT status, created_at, updated_at, (updated_at > created_at + interval '2 seconds') AS webhook_touched_it FROM pyra_stripe_payments WHERE stripe_session_id = 'cs_live_a1kLVn5fqoDdAT5wWNTh7zRTCCG0curklbdnV6QcRoAkFVqF39HMWu5PVn'"
+```
+
+- **`status='cancelled'` and `webhook_touched_it=true`** → the webhook path works
+  end-to-end. This is the first successful Stripe delivery in the system's history.
+- **still `pending`** → deliveries are still not landing. Open the endpoint's
+  **Event deliveries** tab in the Dashboard and read the actual response code/body; that
+  tells you whether it is a network/TLS problem, a 401, or a 500.
+
+- [ ] **Step 4: Trim the subscribed events**
+
+The endpoint currently listens to **231** event types while the handler processes 6.
+Every unhandled type still costs a request and an uncached `pyra_settings` read for the
+signing secret. Reduce it to the list in Task 0.1 Step 4.
+
+- [ ] **Step 5: Clean up the canary row**
+
+```bash
+pnpm db:query "UPDATE pyra_stripe_payments SET status='cancelled', updated_at=now() WHERE stripe_session_id='cs_live_a1kLVn5fqoDdAT5wWNTh7zRTCCG0curklbdnV6QcRoAkFVqF39HMWu5PVn' AND status='pending'"
+```
+
+Only needed if the canary did **not** fire (otherwise the webhook already did it).
 
 ---
 
