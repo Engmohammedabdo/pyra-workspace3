@@ -72,7 +72,14 @@ interface ColdLeadRow {
 //                 OR overdue) — ANY open follow-up, not just the (capped,
 //                 ≤1-day-window) ones shown in follow_ups above. A lead with
 //                 a follow-up due next week still has a plan and must not
-//                 be reported as "going cold, no plan".
+//                 be reported as "going cold, no plan". The exclusion is
+//                 applied in JS against the fetched candidate pool, NOT as a
+//                 DB-side `.not('id','in',(...))` filter — an unbounded
+//                 exclusion-by-id list has no safe chunk size and 500s the
+//                 whole request once it's large enough (see the fix comment
+//                 at the going_cold query below; this is the same URI-too-
+//                 long failure class that killed the lead-idle-check cron
+//                 for 11 days, UF-T3).
 //
 // `counts` carries the TRUE total for each list (independent of the 20-row
 // cap) so the app can render "20 من 34" without a second round trip.
@@ -144,7 +151,23 @@ export async function GET(request: NextRequest) {
       new Set(followUps.map((f) => f.lead_id).filter((x): x is string => !!x)),
     );
 
-    let coldQuery = supabase
+    // The open-follow-up exclusion is applied in JS below (against
+    // excludeLeadIds), NOT as a DB-side `.not('id','in',(...))` filter.
+    // An exclusion-by-id filter has no safe chunk size: PostgREST
+    // interpolates every excluded id into the request URL, so an agent
+    // whose open-follow-up count grows large enough (measured: youssef had
+    // 127 on 2026-07-25, ~3KB of ids — and nothing in the app COMPLETES a
+    // follow-up from here, while 'call_again' outcomes only ADD to the set,
+    // so it monotonically grows) eventually breaches the URL-length limit
+    // and the whole my-day request 500s for that agent. That is the exact
+    // failure class that killed the lead-idle-check cron for 11 days
+    // (UF-T3, `.in()` over an unbounded id list). Fetching the full
+    // cold-candidate pool unfiltered and excluding by id in JS sidesteps
+    // the URL entirely — chunking doesn't apply here because this is an
+    // EXCLUSION, not an inclusion: there's no way to fetch "everything
+    // except these ids" in bounded chunks without re-introducing the same
+    // giant filter.
+    const { data: coldRows, count: coldTotal, error: coldErr } = await supabase
       .from('pyra_sales_leads')
       .select('id, name, phone, company, last_contact_at, created_at', { count: 'exact' })
       .eq('assigned_to', agentUsername)
@@ -174,15 +197,6 @@ export async function GET(request: NextRequest) {
       // happened, so last_contact_at predates created_at).
       .order('last_contact_at', { ascending: true, nullsFirst: true })
       .limit(GOING_COLD_FETCH_CAP);
-
-    if (excludeLeadIds.length > 0) {
-      // Server-generated ids (generateId/nanoid alphabet — no delimiter
-      // chars), not user input; quoted anyway for defensiveness.
-      const idList = excludeLeadIds.map((id) => `"${id}"`).join(',');
-      coldQuery = coldQuery.not('id', 'in', `(${idList})`);
-    }
-
-    const { data: coldRows, count: coldTotal, error: coldErr } = await coldQuery;
     if (coldErr) {
       logError({
         error: coldErr,
@@ -193,8 +207,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Breach alarm: if the TRUE count (unaffected by `.limit()`) ever
-    // exceeds the fetch cap, the "coldest 20" selection below is computed
-    // over an INCOMPLETE candidate pool — never let that happen silently.
+    // exceeds the fetch cap, `coldRows` is an INCOMPLETE candidate pool —
+    // never let that happen silently. `coldTotal` is now the PRE-exclusion
+    // count (the exclusion filter moved to JS below), which only widens
+    // this check's trigger condition relative to the old DB-side-excluded
+    // count — never narrows it, so the alarm stays at least as sensitive.
     if (typeof coldTotal === 'number' && coldTotal > GOING_COLD_FETCH_CAP) {
       const breachMessage =
         `going_cold candidate pool (${coldTotal}) exceeded GOING_COLD_FETCH_CAP ` +
@@ -214,15 +231,22 @@ export async function GET(request: NextRequest) {
       console.warn('[mobile/my-day]', breachMessage);
     }
 
-    // Precise "oldest effective contact first" sort in JS (see
-    // GOING_COLD_FETCH_CAP comment above for why this can't be a DB .order()),
-    // then slice to the response cap.
-    const coldCandidates = ((coldRows ?? []) as ColdLeadRow[]).map((lead) => {
-      const createdMs = new Date(lead.created_at).getTime();
-      const lastContactMs = lead.last_contact_at ? new Date(lead.last_contact_at).getTime() : null;
-      const effectiveMs = lastContactMs !== null ? Math.max(lastContactMs, createdMs) : createdMs;
-      return { lead, effectiveMs };
-    });
+    // Exclude any lead the agent has an open follow-up for (see
+    // `excludeLeadIds` above), THEN sort "oldest effective contact first" in
+    // JS (see GOING_COLD_FETCH_CAP comment above for why the sort can't be
+    // a DB .order()), then slice to the response cap. Filtering here instead
+    // of in the DB query is exact — not approximate — as long as `coldRows`
+    // captured the FULL cold-candidate pool, which the breach alarm above
+    // already guarantees is never silently violated.
+    const excludeLeadIdSet = new Set(excludeLeadIds);
+    const coldCandidates = ((coldRows ?? []) as ColdLeadRow[])
+      .filter((lead) => !excludeLeadIdSet.has(lead.id))
+      .map((lead) => {
+        const createdMs = new Date(lead.created_at).getTime();
+        const lastContactMs = lead.last_contact_at ? new Date(lead.last_contact_at).getTime() : null;
+        const effectiveMs = lastContactMs !== null ? Math.max(lastContactMs, createdMs) : createdMs;
+        return { lead, effectiveMs };
+      });
     coldCandidates.sort((a, b) => a.effectiveMs - b.effectiveMs);
     const goingCold = coldCandidates.slice(0, GOING_COLD_LIMIT).map(({ lead, effectiveMs }) => ({
       lead_id: lead.id,
@@ -272,7 +296,13 @@ export async function GET(request: NextRequest) {
       going_cold: goingCold,
       counts: {
         follow_ups: followUpTotal ?? followUpItems.length,
-        going_cold: coldTotal ?? goingCold.length,
+        // `coldTotal` (the DB `count: 'exact'`) can no longer be used here —
+        // it's now PRE-exclusion (see the fetch above), so it would count
+        // leads that already have an open follow-up. `coldCandidates.length`
+        // is the POST-exclusion count and is exact — not approximate — as
+        // long as `coldRows` captured the full candidate pool (guaranteed by
+        // the breach alarm above, which fires loudly the one day it isn't).
+        going_cold: coldCandidates.length,
       },
     });
   } catch (err) {

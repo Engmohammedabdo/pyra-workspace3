@@ -157,6 +157,15 @@ DB verification: the matched call wrote a `pyra_lead_activities` row
 `pyra_sales_leads.last_contact_at` to the call's `called_at`. The unmatched
 call has `lead_id=null`, `activity_id=null`.
 
+**`owned` field (added in the whole-wave review fix bundle, see that section
+near the end of this doc):** every `'matched'` result also carries
+`owned: boolean` — `lead.assigned_to === agentUsername`. The lead index
+above is system-wide (no `assigned_to` filter, first-match wins), so a call
+can match a colleague's lead; `owned` lets the app skip offering the
+outcome-logging action for a lead it doesn't own (that POST 403s). Additive
+— omitted from the example above only because it predates the field; a
+pre-v1.4 phone's `ignoreUnknownKeys` decoder never sees it either way.
+
 **Verified live — missed call, later ignored** (see endpoint 4 below for the
 same call's ignore response):
 
@@ -474,16 +483,28 @@ Response: `{ follow_ups: FollowUpItem[], going_cold: ColdLeadItem[], counts:
   `greatest(last_contact_at, created_at) < now() - interval '7 days'`,
   ordered oldest-effective-contact first, capped at **20** rows. Excludes
   any lead the agent has an **open follow-up** for — `status IN ('pending',
-  'overdue')` — via a **separate, unlimited** query, NOT derived from the
-  capped `follow_ups` list above. Rule: "going cold" means "a lead with NO
-  plan"; a lead with a follow-up due next week already has a plan and must
-  not be reported as going cold, even though it isn't inside the 1-day
-  window `follow_ups` shows. Deriving the exclusion set from the capped
-  (`.limit(20)`) `follow_ups` array would silently cap the exclusion set at
-  20 lead ids too, even when the agent has hundreds of open follow-ups.
-  Because `pyra_sales_leads` already carries `name`/`phone`/`company`
-  directly, this list needs no join/second query for its own display data —
-  the primary query IS the enrichment.
+  'overdue')` — computed via a **separate, unlimited** query, NOT derived
+  from the capped `follow_ups` list above. Rule: "going cold" means "a lead
+  with NO plan"; a lead with a follow-up due next week already has a plan
+  and must not be reported as going cold, even though it isn't inside the
+  1-day window `follow_ups` shows. Deriving the exclusion set from the
+  capped (`.limit(20)`) `follow_ups` array would silently cap the exclusion
+  set at 20 lead ids too, even when the agent has hundreds of open
+  follow-ups. Because `pyra_sales_leads` already carries
+  `name`/`phone`/`company` directly, this list needs no join/second query
+  for its own display data — the primary query IS the enrichment.
+  - **The exclusion is applied in JS against the fetched candidate pool
+    (whole-wave review fix bundle, see that section near the end of this
+    doc) — NOT as a DB-side `.not('id','in',(...))` filter.** The original
+    shape interpolated every excluded lead id into the request URL, which
+    has no safe chunk size for an EXCLUSION (unlike an inclusion filter,
+    which can be paged): an agent with a large-enough open-follow-up count
+    (measured 152 for `youssef` at fix time, monotonically growing — nothing
+    in the app completes a follow-up, and `call_again` outcomes only add to
+    it) eventually breaches the URL-length limit and 500s the whole request.
+    Same failure class that killed the `lead-idle-check` cron for 11 days
+    (UF-T3). `counts.going_cold` is computed from the JS-filtered array's
+    length, not the DB `count: 'exact'` (which is now pre-exclusion).
   - The `greatest()` filter is expressed via two column-level conditions
     ANDed together (`created_at < cutoff` AND
     (`last_contact_at IS NULL` OR `last_contact_at < cutoff`)) — mathematically
@@ -499,11 +520,11 @@ Response: `{ follow_ups: FollowUpItem[], going_cold: ColdLeadItem[], counts:
     `.order()` on the fetch is `last_contact_at ASC NULLS FIRST` (not
     `created_at ASC`) so never-contacted leads enter the candidate window
     first as defense-in-depth, even though the cap being above the system
-    total already makes truncation impossible today. If the exact count
-    (`count: 'exact'`, unaffected by `.limit()`) ever exceeds the cap, the
-    route logs a `warning`-severity `logError()` + `console.warn` — it is
-    read by the daily error-digest cron, so a future breach is never
-    silent.
+    total already makes truncation impossible today. If the exact
+    PRE-exclusion count (`count: 'exact'`, unaffected by `.limit()`) ever
+    exceeds the cap, the route logs a `warning`-severity `logError()` +
+    `console.warn` — it is read by the daily error-digest cron, so a future
+    breach is never silent.
 
 `counts.follow_ups` / `counts.going_cold` are the TRUE totals (independent
 of the 20-row response cap) — the app can render "20 من 34" without a
@@ -738,6 +759,13 @@ anything). It now also fires `Notifier.showMatched(...)`:
   category `showFeedback` already serves). Notification id and PendingIntent
   request code are both `leadId.hashCode()`, so a second call to the same
   lead REPLACES the notification instead of stacking a duplicate.
+- **Gated on connected + owned (whole-wave review fix bundle, see that
+  section near the end of this doc).** The initial ship fired on every
+  `'matched'` result regardless of whether the call connected or whether the
+  lead belonged to the calling agent — both fixed before the v1.4 release
+  APK was built. `SyncWorker` now only calls `showMatched` when the local
+  `CallEntry` mirrors `isConnectedCall()` AND the sync result's `owned`
+  field is not explicitly `false`.
 
 ### 2. «شغل النهاردة» — the my-day screen (W2-4)
 
@@ -1186,6 +1214,71 @@ each.
 `pyra_activity_log`; deactivated 1 device key; re-locked the user. Zero
 `pyra_notifications` and zero `pyra_error_logs` rows were produced by the
 run. App uninstalled from the emulator and its call log cleared.
+
+## Whole-wave review fix bundle (2026-07-25, pre-v1.4-release)
+
+Three findings from the final whole-wave review, fixed before the v1.4
+release APK was built. All three verified against production via read-only
+`pnpm db:query` at fix time (figures below, not repeated from the review —
+they drift daily since the underlying activity keeps happening).
+
+**1. CRITICAL — matched-call notification fired for calls nobody answered.**
+`SyncWorker`'s `status == "matched"` gate didn't check whether the call
+actually connected — the server (`app/api/mobile/calls/sync/route.ts`)
+echoes `'matched'` for ANY phone match regardless of `isConnectedCall()`
+(`lib/calls/match.ts`). Measured (30 days trailing, `pyra_agent_calls`):
+**846 matched calls, 533 connected, 313 not connected (294 of those
+0-second, non-missed dials)** — i.e. ~37% of matched-call notifications were
+firing on calls nobody answered. Worse than noise: the notification's
+primary action opens `CallOutcomeActivity`, and logging an outcome bumps
+`last_contact_at` — reopening by hand the exact fake-contact channel
+UF-T1/UF-T2 spent days purging (257 backfilled activities). Fixed in
+`SyncWorker.kt`: the notification now only fires when the locally-tracked
+`CallEntry` (already available via `byKey`) mirrors `isConnectedCall`
+(`direction != "missed" && duration_seconds > 0`). The `unmatched` branch is
+untouched.
+
+**2. IMPORTANT — a matched call on a colleague's lead produced a
+notification whose action always 403s.** The sync route's lead index is
+system-wide (no `assigned_to` filter, first-match wins), so a call to
+another agent's lead still returns `'matched'` + that lead's name. Measured
+(same 30-day window, joined against `pyra_sales_leads.assigned_to`): **11 of
+846 matched calls were on a lead NOT assigned to the calling agent.**
+Tapping that notification's primary action always 403s (the ownership gate
+on `/api/mobile/call-outcome`), and the app enqueues a `call_outcome_failed`
+warning that ships into `pyra_error_logs`, inflating the daily error digest.
+Fixed on both sides:
+- Server: the leads SELECT now includes `assigned_to`; every `'matched'`
+  result carries `owned: lead.assigned_to === agentUsername`. Additive field
+  — a pre-v1.4 phone's `ignoreUnknownKeys` decoder silently drops it.
+- App: `SyncResult.owned: Boolean? = null` added to `Payloads.kt`;
+  `SyncWorker` only calls `showMatched` when `r.owned != false` — `null`
+  (old server) is treated as owned so an older server can never silently
+  suppress a legitimate notification.
+
+**3. IMPORTANT — `my-day`'s exclusion filter was unbounded (the same
+URI-too-long class that killed the lead-idle-check cron for 11 days,
+UF-T3).** `GET /api/mobile/my-day` interpolated every open-follow-up lead id
+into a `.not('id','in',(...))` filter for the going-cold query. Measured:
+`youssef` has **152 open follow-ups today** (up from 127 measured earlier
+the same day — the set only grows: nothing in the app completes a
+follow-up, and `call_again` outcomes keep adding to it). Chunking doesn't
+apply to an exclusion filter — there's no bounded-chunk way to express
+"everything except these N ids". Fixed by dropping the DB-side `.not(...
+in ...)` filter entirely and instead filtering the fetched candidate pool
+(`coldRows`, capped at `GOING_COLD_FETCH_CAP = 2000`) against the
+already-built `excludeLeadIds` Set in JS, then computing
+`counts.going_cold` from the filtered array's length instead of the (now
+pre-exclusion) DB `count: 'exact'`. This stays exact as long as the
+candidate pool is under the fetch cap — the pre-existing breach alarm
+already covers the day it isn't, and now triggers at least as often as
+before (it checks a strictly larger pre-exclusion population).
+
+Verify: `pnpm run check` (0 errors), `pnpm build` (success), `pnpm test`
+(no new failures beyond the pre-existing `__tests__/atomic-task-write-
+routes.test.ts`), `.\gradlew.bat test` + `.\gradlew.bat assembleDebug` from
+`pyra-calls-app\` in PowerShell (both green). No release APK was built or
+published as part of this fix.
 
 ## v1.1 backlog
 

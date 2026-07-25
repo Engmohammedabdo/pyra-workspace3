@@ -1,16 +1,21 @@
 import { phoneMatchKey } from '@/lib/utils/phone';
 
-export interface LeadPhoneRef { id: string; name: string }
+// `assigned_to` is optional on the INPUT row (existing callers like
+// /api/mobile/leads never selected it and don't need ownership) but always
+// present on the OUTPUT ref, defaulting to null — so a caller that DOES care
+// about ownership (the calls/sync route, Gap-2 fix) never has to guess
+// between "not selected" and "genuinely unassigned".
+export interface LeadPhoneRef { id: string; name: string; assigned_to: string | null }
 
 /** Build key→lead index. First lead wins on duplicate keys (stable). */
 export function buildLeadPhoneIndex(
-  leads: Array<{ id: string; name: string; phone: string | null }>,
+  leads: Array<{ id: string; name: string; phone: string | null; assigned_to?: string | null }>,
 ): Map<string, LeadPhoneRef> {
   const index = new Map<string, LeadPhoneRef>();
   for (const lead of leads) {
     const key = phoneMatchKey(lead.phone);
     if (!key || index.has(key)) continue;
-    index.set(key, { id: lead.id, name: lead.name });
+    index.set(key, { id: lead.id, name: lead.name, assigned_to: lead.assigned_to ?? null });
   }
   return index;
 }

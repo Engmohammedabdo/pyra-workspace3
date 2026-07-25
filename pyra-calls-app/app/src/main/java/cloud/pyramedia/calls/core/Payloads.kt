@@ -15,6 +15,14 @@ val PyraJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
 @Serializable data class SyncResult(
     val device_call_key: String, val status: String,
     val lead_id: String? = null, val lead_name: String? = null,
+    // Additive (v1.4+ server, whole-wave review Gap 2) — only meaningful
+    // when status="matched". The server's lead index is system-wide, so a
+    // call can match a COLLEAGUE's lead; owned=false means the calling
+    // agent is NOT that lead's assigned_to and must not be offered the
+    // outcome-logging action (that POST 403s — see SyncWorker's `r.owned !=
+    // false` gate). Defaults null so an OLD server response (field absent)
+    // never gets misread as "not owned".
+    val owned: Boolean? = null,
 )
 @Serializable data class SyncData(val results: List<SyncResult>)
 @Serializable data class QuickAddRequest(

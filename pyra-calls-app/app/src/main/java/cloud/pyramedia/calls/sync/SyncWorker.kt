@@ -48,7 +48,31 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                             }
                         }
                         if (r.status == "matched" && r.lead_id != null && r.lead_name != null) {
-                            Notifier.showMatched(applicationContext, r.lead_name, r.lead_id)
+                            // Whole-wave review Gap 1: the server echoes 'matched' for
+                            // ANY phone match, connected or not (measured in prod: 312
+                            // of 843 matched calls over 30 days were not connected, 293
+                            // of those 0-second outgoing dials). Notifying on those is
+                            // worse than noise — the notification's primary action opens
+                            // CallOutcomeActivity to log an outcome, and logging an
+                            // outcome bumps last_contact_at for a call that never
+                            // happened. That re-opens by hand the exact fake-contact
+                            // channel the urgent-fix wave spent days purging (257
+                            // backfilled activities, UF-T1/UF-T2). Mirror the server's
+                            // isConnectedCall rule (lib/calls/match.ts) locally using the
+                            // CallLogReader-derived entry already keyed in `byKey`.
+                            val entry = byKey[r.device_call_key]?.entry
+                            val connected = entry != null && entry.direction != "missed" &&
+                                entry.duration_seconds > 0
+                            // Gap 2: the server's lead index is system-wide, so a call
+                            // can match a COLLEAGUE's lead. r.owned is additive (v1.4+
+                            // server only) — treat null as owned so an OLDER server
+                            // (field absent) can never silently silence a legitimate
+                            // notification. owned=false means the outcome-logging action
+                            // would guaranteed-403 (ownership gate), so skip it entirely.
+                            val owned = r.owned != false
+                            if (connected && owned) {
+                                Notifier.showMatched(applicationContext, r.lead_name, r.lead_id)
+                            }
                         }
                     }
                     val next = SyncPlanner.nextCursor(

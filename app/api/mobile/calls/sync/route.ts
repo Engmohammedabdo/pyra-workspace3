@@ -65,6 +65,13 @@ function parseCalls(raw: unknown): IncomingCall[] | null {
  *     violation reason (DB hiccup). Nothing was persisted for this call;
  *     the phone keeps it queued locally and retries on the next sync.
  *
+ * A 'matched' result also carries `owned: boolean` (whole-wave review Gap 2,
+ * 2026-07-25). The lead index above is system-wide (no assigned_to filter,
+ * first-match wins), so a call to a COLLEAGUE's lead still returns
+ * 'matched' + that lead's name — `owned` tells the caller whether the
+ * calling agent is actually `assigned_to` that lead. Additive field: a
+ * pre-v1.4 phone decodes with ignoreUnknownKeys and never sees it.
+ *
  * Persistence ordering: the pyra_agent_calls row is inserted FIRST (with
  * activity_id null); the call_logged activity + last_contact_at bump run
  * only AFTER the row is durable, then the row's activity_id is
@@ -93,9 +100,14 @@ export async function POST(request: NextRequest) {
     const existingKeys = new Set((existing ?? []).map((r) => r.device_call_key));
 
     // 2. lead index + ignore list
+    // `assigned_to` is selected so each matched result can carry an `owned`
+    // flag — this index is system-wide (no assigned_to filter, first-match
+    // wins), so a call to a COLLEAGUE's lead still matches; the app needs
+    // ownership to decide whether it's safe to offer the outcome-logging
+    // action (see the `owned` field docs below).
     const { data: leads, error: leadsErr } = await supabase
       .from('pyra_sales_leads')
-      .select('id, name, phone')
+      .select('id, name, phone, assigned_to')
       .not('phone', 'is', null);
     if (leadsErr) throw leadsErr;
     const index = buildLeadPhoneIndex(leads ?? []);
@@ -211,7 +223,15 @@ export async function POST(request: NextRequest) {
       results.push({
         device_call_key: call.device_call_key,
         status: matchStatus,
-        ...(lead ? { lead_id: lead.id, lead_name: lead.name } : {}),
+        // `owned` is additive (v1.4+) — a pre-v1.4 phone (its JSON decoder
+        // uses ignoreUnknownKeys) simply never sees the field. Only
+        // meaningful when a lead matched: true = the calling agent is this
+        // lead's assigned_to, false = the call matched a COLLEAGUE's lead
+        // (the system-wide index has no assigned_to filter, first-match
+        // wins). The app uses this to skip the outcome-logging notification
+        // action for a lead it doesn't own — that POST would 403 every time
+        // (the ownership gate on /api/mobile/call-outcome).
+        ...(lead ? { lead_id: lead.id, lead_name: lead.name, owned: lead.assigned_to === agentUsername } : {}),
       });
     }
 
