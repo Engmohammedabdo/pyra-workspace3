@@ -774,13 +774,37 @@ Both branches insert a negative `pyra_payments` row and ignore the error, then n
 
 - [ ] **Step 3: Recompute the contract's `amount_collected` after refunds too**
 
-The contract re-sum currently runs only in the completed branch, so `amount_collected` only ever rises. Extract it into a helper and call it from all three money branches:
+The contract re-sum currently runs only in the completed branch, so `amount_collected` only ever rises.
+
+The same sum-all logic is **triplicated** across the codebase today:
+- `app/api/stripe/webhook/route.ts:189-248`
+- `app/api/invoices/[id]/payments/route.ts:169-219` (manual cash / bank-transfer path)
+- `app/api/dashboard/credit-notes/[id]/apply/route.ts:157-192`
+
+Extract it once into `lib/finance/contract-billing.ts` (which already owns the sibling
+`recalcContractBilled`) and call it from all four sites — the three above plus the refund
+and dispute branches:
 
 ```ts
-async function recalcContractCollected(supabase: SupabaseClient, invoiceId: string): Promise<void> {
-  // ...the existing lines 190-250 logic, called after every money mutation...
+/**
+ * Derive a contract's collected total from actual payments. Never incremented —
+ * same doctrine as recalcContractBilled (Finance Remediation lock).
+ * Resolves the contract via the invoice's direct contract_id OR its milestone link.
+ */
+export async function recalcContractCollected(
+  supabase: SupabaseClient,
+  invoiceId: string,
+): Promise<void> {
+  // 1. resolve contract id: invoice.contract_id, else the milestone link
+  // 2. gather every invoice id for that contract (direct + milestone-linked)
+  // 3. SUM(pyra_payments.amount) over those invoice ids, excluding cancelled invoices
+  // 4. write it to pyra_contracts.amount_collected
 }
 ```
+
+Port the body verbatim from `app/api/invoices/[id]/payments/route.ts:169-219` — that copy
+is the most complete (it handles both the milestone link and the direct retainer link) —
+then delete the three inline copies.
 
 - [ ] **Step 4: Typecheck and commit**
 
