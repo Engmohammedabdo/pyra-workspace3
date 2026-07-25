@@ -55,3 +55,22 @@ val PyraJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
 @Serializable data class AppDownloadData(
     val url: String, val version_code: Int, val sha256: String, val size_bytes: Long,
 )
+
+// GET /api/mobile/my-day — field names mirror app/api/mobile/my-day/route.ts's
+// followUpItems/goingCold/counts mapping EXACTLY (cross-checked against the
+// route, not the original task plan — PyraJson's ignoreUnknownKeys silently
+// nulls a renamed field instead of failing loudly).
+@Serializable data class MyDayFollowUp(
+    val id: String, val lead_id: String? = null, val lead_name: String? = null,
+    val phone: String? = null, val title: String, val due_at: String,
+    val status: String, // "overdue" | "pending"
+)
+@Serializable data class MyDayColdLead(
+    val lead_id: String, val lead_name: String, val phone: String? = null,
+    val company: String? = null, val days_since_contact: Int,
+)
+@Serializable data class MyDayCounts(val follow_ups: Int, val going_cold: Int)
+@Serializable data class MyDayData(
+    val follow_ups: List<MyDayFollowUp>, val going_cold: List<MyDayColdLead>,
+    val counts: MyDayCounts,
+)

@@ -35,7 +35,7 @@ private fun countSince(context: Context, sinceMillis: Long): Int {
 }
 
 @Composable
-fun HomeScreen(prefs: AppPrefs, onLogout: () -> Unit) {
+fun HomeScreen(prefs: AppPrefs, onOpenMyDay: () -> Unit, onLogout: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var refreshTick by remember { mutableStateOf(0) }
@@ -108,6 +108,10 @@ fun HomeScreen(prefs: AppPrefs, onLogout: () -> Unit) {
             else stringResource(R.string.home_last_sync_never),
             style = MaterialTheme.typography.bodySmall,
         )
+        Spacer(Modifier.height(16.dp))
+        Button(modifier = Modifier.fillMaxWidth(), onClick = onOpenMyDay) {
+            Text(stringResource(R.string.my_day_open_button))
+        }
         Spacer(Modifier.weight(1f))
         Button(modifier = Modifier.fillMaxWidth(), onClick = {
             SyncScheduler.syncNow(context); refreshTick++

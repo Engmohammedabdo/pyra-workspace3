@@ -73,4 +73,19 @@
     <string name="update_failed_network">تعذر تحميل التحديث — تأكد من الإنترنت وأعد المحاولة</string>
     <string name="update_failed_checksum">فشل التحقق من سلامة ملف التحديث</string>
     <string name="update_failed_stale">النسخة المحمّلة ليست أحدث</string>
+
+    <string name="my_day_open_button">شغل النهاردة</string>
+    <string name="my_day_title">شغل النهاردة</string>
+    <string name="my_day_back">رجوع</string>
+    <string name="my_day_retry">إعادة المحاولة</string>
+    <string name="my_day_section_follow_ups">متابعات مستحقة</string>
+    <string name="my_day_section_going_cold">عملاء برد</string>
+    <string name="my_day_count">%1$d من %2$d</string>
+    <string name="my_day_unknown_lead">عميل بدون اسم</string>
+    <string name="my_day_overdue_at">متأخرة عن %1$s</string>
+    <string name="my_day_due_at">مستحقة: %1$s</string>
+    <string name="my_day_call">اتصال</string>
+    <string name="my_day_cold_days">بدون تواصل منذ %1$d يوم</string>
+    <string name="my_day_empty_follow_ups">لا توجد متابعات متأخرة أو مستحقة النهاردة — شوف قائمة العملاء البرد تحت وابدأ اتصال</string>
+    <string name="my_day_empty_going_cold">كل عملاءك متابَعين بانتظام — مفيش عميل برد دلوقتي</string>
 </resources>

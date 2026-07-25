@@ -63,6 +63,10 @@ class ApiClient(
     fun appDownload(): ApiResult<AppDownloadData> =
         get("/api/mobile/app-download?app=" + BuildConfig.APP_CHANNEL, AppDownloadData.serializer())
 
+    // "شغل النهاردة" feed — today's due/overdue follow-ups + going-cold leads.
+    fun myDay(): ApiResult<MyDayData> =
+        get("/api/mobile/my-day", MyDayData.serializer())
+
     // Heartbeat — the only GET in this client. Called on empty sync passes so
     // the server's pyra_api_keys.last_used_at still reflects device liveness
     // (see SyncWorker: normal syncs only touch the network when there ARE

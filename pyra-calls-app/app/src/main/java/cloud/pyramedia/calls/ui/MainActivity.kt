@@ -83,13 +83,25 @@ class MainActivity : ComponentActivity() {
                                 SyncScheduler.syncNow(this@MainActivity)
                                 loggedIn = true
                             }
-                            else -> HomeScreen(prefs) {
-                                // Explicit logout — flip the tripwire off FIRST so a
-                                // clean logout is never mistaken for abnormal session
-                                // loss on the next launch.
-                                prefs.wasLoggedIn = false
-                                prefs.clearSession()
-                                loggedIn = false
+                            else -> {
+                                // "شغل النهاردة" is a sub-screen of Home, not a new
+                                // top-level `when` branch — same pattern as the
+                                // granted/loggedIn flags above, just nested one level
+                                // in so Home's own state (refreshTick etc.) survives
+                                // the round trip.
+                                var showMyDay by remember { mutableStateOf(false) }
+                                if (showMyDay) {
+                                    MyDayScreen(api = api, onBack = { showMyDay = false })
+                                } else {
+                                    HomeScreen(prefs, onOpenMyDay = { showMyDay = true }) {
+                                        // Explicit logout — flip the tripwire off FIRST so a
+                                        // clean logout is never mistaken for abnormal session
+                                        // loss on the next launch.
+                                        prefs.wasLoggedIn = false
+                                        prefs.clearSession()
+                                        loggedIn = false
+                                    }
+                                }
                             }
                         }
                     }
