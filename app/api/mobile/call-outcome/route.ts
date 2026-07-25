@@ -53,10 +53,32 @@ function isOutcome(value: unknown): value is Outcome {
  *
  * Rollback: if the last_contact_at bump fails after the note activity was
  * inserted, the activity row is deleted so a half-write never reports
- * success. A failure in the OPTIONAL follow-up insert (after the note +
- * bump already succeeded) is NOT rolled back — the call outcome itself is
- * a real, already-true fact regardless of whether scheduling a reminder for
- * it later also succeeded. See docs/CALL-TRACKING.md for the full contract.
+ * success.
+ *
+ * **Flip-and-warn on follow-up failure** (Quote System pattern, CLAUDE.md
+ * "Quote System" §3): a failure in the OPTIONAL follow-up insert (after the
+ * note + bump already succeeded) is NOT rolled back and does NOT fail the
+ * request — the call outcome itself is a real, already-true fact regardless
+ * of whether scheduling a reminder for it later also succeeded. The response
+ * is still `200` with `follow_up_error: true` so the caller can warn the
+ * agent without treating the whole request as failed (and without retrying
+ * it, which would duplicate the note).
+ *
+ * **60-second retry dedup**: before inserting the note activity, the route
+ * looks for an identical one (same lead/outcome/agent) created in the last
+ * 60 seconds. A match means this is a bare retry (lost response, double-tap,
+ * client retry-on-5xx) — the note + last_contact_at bump are skipped
+ * (already current) and the existing activity_id is returned with
+ * `deduplicated: true`. A duplicate follow-up row is more visible/annoying
+ * than a duplicate note, so a request that carries `next_follow_up_at` AND
+ * hits the dedup path also skips the follow-up insert and reports whatever
+ * follow-up already exists for that exact `(lead, agent, due_at)` in the
+ * same window — `follow_up_error: true` if none is found (the original
+ * attempt's follow-up insert never landed). The dedup lookup itself fails
+ * OPEN: a lookup error is logged and treated as "no duplicate" so a
+ * transient DB blip never swallows a real outcome the agent just recorded.
+ *
+ * See docs/CALL-TRACKING.md for the full contract and response shapes.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -108,96 +130,164 @@ export async function POST(request: NextRequest) {
     const nowIso = new Date().toISOString();
     const description = noteRaw || `نتيجة المكالمة: ${OUTCOME_LABELS[outcome]}`; // i18n-exempt: persisted lead-activity content (Phase 8)
 
-    // ── 1. Note activity on the lead timeline ───────────────────────────
-    const activityId = generateId('la');
-    const { error: actErr } = await supabase.from('pyra_lead_activities').insert({
-      id: activityId,
-      lead_id: leadId,
-      activity_type: 'note',
-      description,
-      metadata: { source: 'mobile_call_outcome', outcome, auto: false },
-      created_by: agentUsername,
-    });
-    if (actErr) {
-      logError({ error: actErr, request, metadata: { action: 'mobile_call_outcome_activity_insert', agentUsername, leadId } });
-      return apiServerError();
+    // ── 0. 60-second retry dedup ─────────────────────────────────────────
+    // A bare retry (lost response, double-tap, client retry-on-5xx) must
+    // not duplicate the note. Look for an identical outcome logged by the
+    // same agent on the same lead in the last 60s. Fail OPEN on a lookup
+    // error — a dedup-lookup blip must never swallow a real outcome the
+    // agent just recorded, so we fall through to the normal insert path.
+    const dedupWindowIso = new Date(Date.now() - 60_000).toISOString();
+    const { data: dupRows, error: dupErr } = await supabase
+      .from('pyra_lead_activities')
+      .select('id')
+      .eq('lead_id', leadId)
+      .eq('activity_type', 'note')
+      .eq('metadata->>source', 'mobile_call_outcome')
+      .eq('metadata->>outcome', outcome)
+      .eq('created_by', agentUsername)
+      .gte('created_at', dedupWindowIso)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    if (dupErr) {
+      console.error('[mobile/call-outcome] dedup lookup failed, proceeding with insert (fail open):', dupErr.message);
     }
 
-    // ── 2. Bump last_contact_at — roll back the activity if this fails ──
-    const { error: bumpErr } = await supabase
-      .from('pyra_sales_leads')
-      .update({ last_contact_at: nowIso })
-      .eq('id', leadId);
-    if (bumpErr) {
-      const { error: rollbackErr } = await supabase.from('pyra_lead_activities').delete().eq('id', activityId);
-      if (rollbackErr) {
-        console.error('[mobile/call-outcome] rollback delete failed:', rollbackErr.message);
-      }
-      logError({ error: bumpErr, request, metadata: { action: 'mobile_call_outcome_last_contact_bump', agentUsername, leadId, activityId } });
-      return apiServerError('فشل تسجيل نتيجة المكالمة');
-    }
-
-    // ── 3. Optional follow-up — mirrors POST /api/crm/follow-ups ───────
+    let activityId: string;
     let followUpId: string | null = null;
-    if (nextFollowUpAtIso) {
-      followUpId = generateId('fu');
-      const reminderAt = new Date(new Date(nextFollowUpAtIso).getTime() - 30 * 60 * 1000).toISOString();
-      const followUpTitle = `متابعة مكالمة (${OUTCOME_LABELS[outcome]})`; // i18n-exempt: persisted follow-up content (Phase 8)
+    let followUpError = false;
+    const deduplicated = !dupErr && !!dupRows && dupRows.length > 0;
 
-      const { error: fuErr } = await supabase.from('pyra_sales_follow_ups').insert({
-        id: followUpId,
+    if (deduplicated) {
+      // ── Duplicate of a request already handled within the last 60s ────
+      // Reuse the existing note activity; do NOT re-bump last_contact_at
+      // (it is already current from the original request).
+      activityId = dupRows[0].id;
+
+      if (nextFollowUpAtIso) {
+        // Asymmetric handling vs. the note: a duplicate follow-up row is far
+        // more visible/annoying to the agent than a duplicate note, so we
+        // never insert a second one on the dedup path. Instead, report
+        // whatever follow-up already exists for this exact
+        // (lead, agent, due_at) within the same window.
+        const { data: dupFollowUps, error: dupFuErr } = await supabase
+          .from('pyra_sales_follow_ups')
+          .select('id')
+          .eq('lead_id', leadId)
+          .eq('assigned_to', agentUsername)
+          .eq('due_at', nextFollowUpAtIso)
+          .gte('created_at', dedupWindowIso)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (dupFuErr) {
+          console.error('[mobile/call-outcome] dedup follow-up lookup failed:', dupFuErr.message);
+          followUpError = true;
+        } else if (dupFollowUps && dupFollowUps.length > 0) {
+          followUpId = dupFollowUps[0].id;
+        } else {
+          // The original request's follow-up insert never landed — honest
+          // reporting, not a silent success.
+          followUpError = true;
+        }
+      }
+    } else {
+      // ── 1. Note activity on the lead timeline ─────────────────────────
+      activityId = generateId('la');
+      const { error: actErr } = await supabase.from('pyra_lead_activities').insert({
+        id: activityId,
         lead_id: leadId,
-        assigned_to: agentUsername,
-        due_at: nextFollowUpAtIso,
-        reminder_at: reminderAt,
-        send_whatsapp_reminder: true,
-        title: followUpTitle,
-        notes: noteRaw || null,
-        status: 'pending',
+        activity_type: 'note',
+        description,
+        metadata: { source: 'mobile_call_outcome', outcome, auto: false },
         created_by: agentUsername,
       });
-      if (fuErr) {
-        // Deliberately NOT rolled back: the note activity + last_contact_at
-        // bump above already committed a real, true fact (the call
-        // happened, the agent logged an outcome). Failing to schedule the
-        // optional follow-up on top of that does not un-happen the call.
-        logError({ error: fuErr, request, metadata: { action: 'mobile_call_outcome_follow_up_insert', agentUsername, leadId, activityId } });
-        console.error('[mobile/call-outcome] follow-up insert failed:', fuErr.message);
-        return apiServerError('تم تسجيل نتيجة المكالمة لكن فشل جدولة المتابعة');
+      if (actErr) {
+        logError({ error: actErr, request, metadata: { action: 'mobile_call_outcome_activity_insert', agentUsername, leadId } });
+        return apiServerError();
       }
 
-      // Timeline entry — fire-and-forget, mirrors the CRM follow-ups route.
-      void supabase
-        .from('pyra_lead_activities')
-        .insert({
-          id: generateId('la'),
-          lead_id: leadId,
-          activity_type: 'follow_up_created',
-          description: followUpTitle,
-          metadata: { follow_up_id: followUpId, due_at: nextFollowUpAtIso, assigned_to: agentUsername },
-          created_by: agentUsername,
-        })
-        .then(({ error: e }) => {
-          if (e) console.error('[follow_up_created activity] insert failed:', e.message);
-        });
+      // ── 2. Bump last_contact_at — roll back the activity if this fails ─
+      const { error: bumpErr } = await supabase
+        .from('pyra_sales_leads')
+        .update({ last_contact_at: nowIso })
+        .eq('id', leadId);
+      if (bumpErr) {
+        const { error: rollbackErr } = await supabase.from('pyra_lead_activities').delete().eq('id', activityId);
+        if (rollbackErr) {
+          console.error('[mobile/call-outcome] rollback delete failed:', rollbackErr.message);
+        }
+        logError({ error: bumpErr, request, metadata: { action: 'mobile_call_outcome_last_contact_bump', agentUsername, leadId, activityId } });
+        return apiServerError('فشل تسجيل نتيجة المكالمة');
+      }
 
-      // Sync leads.next_follow_up to the earliest pending/overdue due_at —
-      // fire-and-forget, mirrors the CRM follow-ups route.
-      const { data: pending } = await supabase
-        .from('pyra_sales_follow_ups')
-        .select('due_at')
-        .eq('lead_id', leadId)
-        .in('status', ['pending', 'overdue'])
-        .order('due_at', { ascending: true })
-        .limit(1);
-      if (pending && pending.length > 0) {
-        void supabase
-          .from('pyra_sales_leads')
-          .update({ next_follow_up: pending[0].due_at })
-          .eq('id', leadId)
-          .then(({ error: e }) => {
-            if (e) console.error('[lead next_follow_up update] failed:', e.message);
-          });
+      // ── 3. Optional follow-up — mirrors POST /api/crm/follow-ups ──────
+      if (nextFollowUpAtIso) {
+        followUpId = generateId('fu');
+        const reminderAt = new Date(new Date(nextFollowUpAtIso).getTime() - 30 * 60 * 1000).toISOString();
+        const followUpTitle = `متابعة مكالمة (${OUTCOME_LABELS[outcome]})`; // i18n-exempt: persisted follow-up content (Phase 8)
+
+        const { error: fuErr } = await supabase.from('pyra_sales_follow_ups').insert({
+          id: followUpId,
+          lead_id: leadId,
+          assigned_to: agentUsername,
+          due_at: nextFollowUpAtIso,
+          reminder_at: reminderAt,
+          send_whatsapp_reminder: true,
+          title: followUpTitle,
+          notes: noteRaw || null,
+          status: 'pending',
+          created_by: agentUsername,
+        });
+        if (fuErr) {
+          // Flip-and-warn (Quote System pattern): the note activity +
+          // last_contact_at bump above already committed a real, true fact
+          // (the call happened, the agent logged an outcome). Failing to
+          // schedule the optional follow-up on top of that does not
+          // un-happen the call, so this is surfaced as a FIELD in an
+          // otherwise-200 response, never as a 5xx — a 5xx here would make
+          // a mobile client (reasonably) assume nothing happened and resend
+          // the identical request, duplicating the note.
+          logError({ error: fuErr, request, metadata: { action: 'mobile_call_outcome_follow_up_insert', agentUsername, leadId, activityId } });
+          console.error('[mobile/call-outcome] follow-up insert failed:', fuErr.message);
+          followUpId = null;
+          followUpError = true;
+        } else {
+          // Timeline entry — fire-and-forget, mirrors the CRM follow-ups route.
+          void supabase
+            .from('pyra_lead_activities')
+            .insert({
+              id: generateId('la'),
+              lead_id: leadId,
+              activity_type: 'follow_up_created',
+              description: followUpTitle,
+              metadata: { follow_up_id: followUpId, due_at: nextFollowUpAtIso, assigned_to: agentUsername },
+              created_by: agentUsername,
+            })
+            .then(({ error: e }) => {
+              if (e) console.error('[follow_up_created activity] insert failed:', e.message);
+            });
+
+          // Sync leads.next_follow_up to the earliest pending/overdue due_at —
+          // fire-and-forget, mirrors the CRM follow-ups route.
+          const { data: pending, error: pendingErr } = await supabase
+            .from('pyra_sales_follow_ups')
+            .select('due_at')
+            .eq('lead_id', leadId)
+            .in('status', ['pending', 'overdue'])
+            .order('due_at', { ascending: true })
+            .limit(1);
+          if (pendingErr) {
+            // Fire-and-forget sync — log, don't escalate to a 500.
+            console.error('[mobile/call-outcome] pending follow-ups lookup failed:', pendingErr.message);
+          } else if (pending && pending.length > 0) {
+            void supabase
+              .from('pyra_sales_leads')
+              .update({ next_follow_up: pending[0].due_at })
+              .eq('id', leadId)
+              .then(({ error: e }) => {
+                if (e) console.error('[lead next_follow_up update] failed:', e.message);
+              });
+          }
+        }
       }
     }
 
@@ -206,11 +296,11 @@ export async function POST(request: NextRequest) {
       auth.displayName,
       `${ENTITY_TYPES.LEAD}_${ACTIVITY_ACTIONS.UPDATE}`,
       `/dashboard/crm/leads/${leadId}`,
-      { lead_id: leadId, outcome, follow_up_id: followUpId, source: 'mobile_call_outcome' },
+      { lead_id: leadId, outcome, follow_up_id: followUpId, follow_up_error: followUpError, deduplicated, source: 'mobile_call_outcome' },
       request.headers.get('x-forwarded-for') || undefined,
     );
 
-    return apiSuccess({ activity_id: activityId, follow_up_id: followUpId });
+    return apiSuccess({ activity_id: activityId, follow_up_id: followUpId, follow_up_error: followUpError, deduplicated });
   } catch (err) {
     logError({ error: err, request, metadata: { action: 'mobile_call_outcome' } });
     return apiServerError();

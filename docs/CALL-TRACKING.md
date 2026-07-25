@@ -588,32 +588,48 @@ equivalent is applied for free on this auth path. The route loads the lead
 both resolve to the same generic 403 message — never leaks whether a given
 `lead_id` exists to a caller who doesn't own it.
 
-Response: `{ activity_id, follow_up_id }` — `follow_up_id` is `null` when no
-follow-up was requested.
+Response: `{ activity_id, follow_up_id, follow_up_error, deduplicated }`.
+`follow_up_id` is `null` when no follow-up was requested OR when the
+follow-up insert failed OR (on a deduplicated retry) when no matching
+follow-up could be found. `follow_up_error` is `true` whenever a
+follow-up was requested but the response cannot confirm one exists.
+`deduplicated` is `true` when this request matched a note already logged
+in the last 60 seconds (see "Retry dedup" below). Three concrete shapes:
+
+- Normal success, no follow-up requested:
+  `{ activity_id: 'la_x', follow_up_id: null, follow_up_error: false, deduplicated: false }`
+- Normal success, follow-up requested and scheduled:
+  `{ activity_id: 'la_x', follow_up_id: 'fu_y', follow_up_error: false, deduplicated: false }`
+- Follow-up insert failed (flip-and-warn — still `200`):
+  `{ activity_id: 'la_x', follow_up_id: null, follow_up_error: true, deduplicated: false }`
+- Deduplicated retry (note already existed within 60s):
+  `{ activity_id: 'la_x' /* the ORIGINAL row */, follow_up_id: 'fu_y' | null, follow_up_error: false | true, deduplicated: true }`
 
 **Side effects:**
 
-1. Always writes ONE `pyra_lead_activities` row: `activity_type='note'` (an
-   existing timeline value — no new type invented), `description` = the
-   note text, or a default derived from the outcome (e.g.
-   `"نتيجة المكالمة: مهتم"`) when no note was given, `metadata = { source:
-   'mobile_call_outcome', outcome, auto: false }`.
-2. Always bumps `pyra_sales_leads.last_contact_at` to now — a genuine human
-   touch (unlike the 0-second-dial sync bug above, this always represents a
-   real, agent-confirmed contact).
-3. If `next_follow_up_at` is present: inserts a `pyra_sales_follow_ups` row
-   + a `follow_up_created` timeline activity + syncs
-   `leads.next_follow_up` to the earliest pending/overdue `due_at` —
-   mirroring `POST /api/crm/follow-ups` field-for-field (`id`, `lead_id`,
-   `assigned_to`, `due_at`, `reminder_at` [default `due_at - 30min`],
-   `send_whatsapp_reminder` [default `true`], `title`, `notes`, `status:
-   'pending'`, `created_by`). `assigned_to` is always the calling agent
-   (the mobile app only ever schedules follow-ups for itself) — the CRM
-   route's `leads.assign`-gated "assign to someone else" branch has no
-   mobile equivalent by design, so it was deliberately NOT mirrored.
+1. On a non-deduplicated request, writes ONE `pyra_lead_activities` row:
+   `activity_type='note'` (an existing timeline value — no new type
+   invented), `description` = the note text, or a default derived from the
+   outcome (e.g. `"نتيجة المكالمة: مهتم"`) when no note was given,
+   `metadata = { source: 'mobile_call_outcome', outcome, auto: false }`.
+2. On a non-deduplicated request, bumps `pyra_sales_leads.last_contact_at`
+   to now — a genuine human touch (unlike the 0-second-dial sync bug above,
+   this always represents a real, agent-confirmed contact). Skipped on a
+   deduplicated retry — it is already current from the original request.
+3. If `next_follow_up_at` is present AND this is not a deduplicated retry:
+   inserts a `pyra_sales_follow_ups` row + a `follow_up_created` timeline
+   activity + syncs `leads.next_follow_up` to the earliest pending/overdue
+   `due_at` — mirroring `POST /api/crm/follow-ups` field-for-field (`id`,
+   `lead_id`, `assigned_to`, `due_at`, `reminder_at` [default
+   `due_at - 30min`], `send_whatsapp_reminder` [default `true`], `title`,
+   `notes`, `status: 'pending'`, `created_by`). `assigned_to` is always the
+   calling agent (the mobile app only ever schedules follow-ups for itself)
+   — the CRM route's `leads.assign`-gated "assign to someone else" branch
+   has no mobile equivalent by design, so it was deliberately NOT mirrored.
 4. Writes an audit row via `logActivity()` —
    `` `${ENTITY_TYPES.LEAD}_${ACTIVITY_ACTIONS.UPDATE}` `` +
-   `metadata.source = 'mobile_call_outcome'` (locked project convention).
+   `metadata.source = 'mobile_call_outcome'` (locked project convention),
+   including `follow_up_error` and `deduplicated`.
 
 **No `notify()` call.** The CRM follow-ups route only notifies when
 `assignedTo !== caller` — here `assigned_to` is always the calling agent, so
@@ -622,17 +638,38 @@ always-false no-op.
 
 **Rollback:** if the `last_contact_at` update fails after the note activity
 was inserted, the activity row is deleted so a half-write never reports
-success. A failure in the OPTIONAL follow-up insert (which only runs AFTER
-the note + bump already succeeded) is intentionally **not** rolled back —
-the call outcome itself (a note was logged, contact was bumped) is already
-a true, committed fact regardless of whether scheduling a future reminder
-on top of it also succeeded; the response is a `500` in that case
-(`"تم تسجيل نتيجة المكالمة لكن فشل جدولة المتابعة"`) so the caller knows the
-follow-up specifically didn't land, while the underlying call log is not
-undone. Known tradeoff: a client retry after this specific failure mode
-would duplicate the note activity (no idempotency key on this endpoint,
-same as the CRM follow-ups route) — acceptable for v1, same as elsewhere in
-this codebase where no transactions exist (backup-rollback pattern).
+success (this remains a real `500` — the PRIMARY action itself failed).
+
+**Flip-and-warn on follow-up failure** (Quote System pattern — CLAUDE.md
+"Quote System" §3): a failure in the OPTIONAL follow-up insert (which only
+runs AFTER the note + bump already succeeded) is intentionally **not**
+rolled back and does **not** fail the request. The call outcome itself (a
+note was logged, contact was bumped) is already a true, committed fact
+regardless of whether scheduling a future reminder on top of it also
+succeeded. The response is a `200` with `follow_up_error: true` — this was
+changed from an earlier `500` (`"تم تسجيل نتيجة المكالمة لكن فشل جدولة
+المتابعة"`) specifically because a mobile client on cellular right after a
+call reasonably treats a `5xx` as "nothing happened" and resends the
+identical request, which would duplicate the note (see "Retry dedup" next).
+
+**Retry dedup (60s window):** before inserting the note activity, the route
+checks for an existing `pyra_lead_activities` row with the same `lead_id`,
+`activity_type='note'`, `metadata->>'source'='mobile_call_outcome'`,
+`metadata->>'outcome'` equal to the request's outcome, `created_by =
+agentUsername`, created within the last 60 seconds. A match short-circuits
+the insert + bump and returns the existing `activity_id` with
+`deduplicated: true`. If the same (deduplicated) request also carries
+`next_follow_up_at`, the follow-up insert is skipped too (a duplicate
+follow-up is far more visible/annoying to the agent than a duplicate note)
+— instead the route looks up whatever follow-up already exists for the
+exact `(lead_id, assigned_to, due_at)` within the same 60s window and
+reports it (`follow_up_id` + `follow_up_error: false`), or reports
+`follow_up_error: true` with `follow_up_id: null` if none is found (the
+original attempt's follow-up insert never landed). The dedup lookup itself
+**fails OPEN**: a `{ error }` on the lookup is logged to console and
+treated as "no duplicate found," falling through to the normal insert path
+— a transient DB blip on the dedup check must never swallow a real outcome
+the agent just recorded.
 
 **Verified 2026-07-25 — by code inspection + schema check, not a live device
 call**, for the same reason as `GET /api/mobile/my-day` above (a real device
