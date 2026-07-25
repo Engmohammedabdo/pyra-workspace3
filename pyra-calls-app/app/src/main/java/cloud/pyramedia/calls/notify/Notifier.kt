@@ -81,6 +81,26 @@ object Notifier {
                 .build())
     }
 
+    // A matched call is "here is something about a lead" — same shape as
+    // showFeedback, so it reuses CHANNEL_FEEDBACK instead of a fourth channel.
+    // Notification id is leadId.hashCode(): repeated calls to the same lead
+    // replace the existing notification rather than stacking duplicates.
+    fun showMatched(context: Context, leadName: String, leadId: String) {
+        val open = PendingIntent.getActivity(
+            context, leadId.hashCode(),
+            Intent(Intent.ACTION_VIEW, Uri.parse(BuildConfig.BASE_URL + "/dashboard/crm/leads/" + leadId)),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        notifySafe(context, leadId.hashCode(),
+            NotificationCompat.Builder(context, CHANNEL_FEEDBACK)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle(context.getString(R.string.notif_matched_title, leadName))
+                .setContentText(context.getString(R.string.notif_matched_body))
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .build())
+    }
+
     fun showUpdate(context: Context, versionName: String) {
         val open = PendingIntent.getActivity(
             context, UPDATE_NOTIFICATION_ID,

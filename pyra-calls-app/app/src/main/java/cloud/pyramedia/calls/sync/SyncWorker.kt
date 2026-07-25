@@ -47,6 +47,9 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                                 Notifier.showUnmatched(applicationContext, it.entry.phone, r.device_call_key)
                             }
                         }
+                        if (r.status == "matched" && r.lead_id != null && r.lead_name != null) {
+                            Notifier.showMatched(applicationContext, r.lead_name, r.lead_id)
+                        }
                     }
                     val next = SyncPlanner.nextCursor(
                         prefs.lastSyncedCallLogId, batch.lastScannedId, res.data.results,

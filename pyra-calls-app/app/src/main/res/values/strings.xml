@@ -21,6 +21,8 @@
     <string name="notif_ignore_action">تجاهل — رقم شخصي</string>
     <string name="notif_feedback_title">مطلوب: إضافة فيدباك</string>
     <string name="notif_feedback_body">تم إنشاء %1$s — ادخل وسجّل نتيجة المكالمة</string>
+    <string name="notif_matched_title">مكالمة مع %1$s</string>
+    <string name="notif_matched_body">اضغط لفتح كارت العميل</string>
     <string name="qa_title">إضافة عميل جديد</string>
     <string name="qa_phone_label">الرقم</string>
     <string name="qa_type_b2b">شركة</string>
