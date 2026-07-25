@@ -473,10 +473,17 @@ Response: `{ follow_ups: FollowUpItem[], going_cold: ColdLeadItem[], counts:
   drop legacy NULL rows) AND
   `greatest(last_contact_at, created_at) < now() - interval '7 days'`,
   ordered oldest-effective-contact first, capped at **20** rows. Excludes
-  any lead already surfaced in `follow_ups` (already actionable there via
-  the other list). Because `pyra_sales_leads` already carries
-  `name`/`phone`/`company` directly, this list needs no join/second query at
-  all — the primary query IS the enrichment.
+  any lead the agent has an **open follow-up** for — `status IN ('pending',
+  'overdue')` — via a **separate, unlimited** query, NOT derived from the
+  capped `follow_ups` list above. Rule: "going cold" means "a lead with NO
+  plan"; a lead with a follow-up due next week already has a plan and must
+  not be reported as going cold, even though it isn't inside the 1-day
+  window `follow_ups` shows. Deriving the exclusion set from the capped
+  (`.limit(20)`) `follow_ups` array would silently cap the exclusion set at
+  20 lead ids too, even when the agent has hundreds of open follow-ups.
+  Because `pyra_sales_leads` already carries `name`/`phone`/`company`
+  directly, this list needs no join/second query for its own display data —
+  the primary query IS the enrichment.
   - The `greatest()` filter is expressed via two column-level conditions
     ANDed together (`created_at < cutoff` AND
     (`last_contact_at IS NULL` OR `last_contact_at < cutoff`)) — mathematically
@@ -485,11 +492,18 @@ Response: `{ follow_ups: FollowUpItem[], going_cold: ColdLeadItem[], counts:
     can't express a computed-expression filter directly, so this is the
     exact equivalent built from two real-column filters.
   - Because Supabase-js also can't `.order()` by that same computed
-    expression, the route fetches every matching row (capped generously —
-    `GOING_COLD_FETCH_CAP = 500` — far above any single agent's realistic
-    going-cold portfolio) and does the precise oldest-first sort in JS.
-    `count: 'exact'` still reports the TRUE total regardless of that fetch
-    cap (same PostgREST behavior documented for `GET /api/crm/follow-ups`).
+    expression, the route fetches every matching row (capped at
+    `GOING_COLD_FETCH_CAP = 2000` — set ABOVE the entire system's lead count,
+    921 rows measured 2026-07-25, so a single agent's pool can never be
+    truncated) and does the precise oldest-first sort in JS. The DB-level
+    `.order()` on the fetch is `last_contact_at ASC NULLS FIRST` (not
+    `created_at ASC`) so never-contacted leads enter the candidate window
+    first as defense-in-depth, even though the cap being above the system
+    total already makes truncation impossible today. If the exact count
+    (`count: 'exact'`, unaffected by `.limit()`) ever exceeds the cap, the
+    route logs a `warning`-severity `logError()` + `console.warn` — it is
+    read by the daily error-digest cron, so a future breach is never
+    silent.
 
 `counts.follow_ups` / `counts.going_cold` are the TRUE totals (independent
 of the 20-row response cap) — the app can render "20 من 34" without a
@@ -508,13 +522,36 @@ sales agents:
 -- follow_ups (mirrors the route's WHERE, true count):
 youssef: 128   cosette: (absent → 0)
 
--- going_cold (mirrors the route's WHERE + exclusion, true count):
-youssef: 139   cosette: 278
+-- going_cold BEFORE exclusion (mirrors the route's leads WHERE only):
+youssef: 222   cosette: 278
 
--- proof the follow_ups exclusion is load-bearing (count WITHOUT it):
-youssef: 220 (81 leads excluded — already in his follow_ups)
-cosette: 278 (0 excluded — she has zero follow-ups, nothing to exclude)
+-- open-follow-up lead set used for exclusion (status IN pending/overdue,
+-- DISTINCT lead_id, UNLIMITED — this is the fix; it is NOT the capped
+-- follow_ups list above):
+youssef: 127   cosette: 0
+
+-- going_cold AFTER exclusion (mirrors the shipped route exactly):
+youssef: 127   cosette: 278
 ```
+
+youssef's before/after numbers do NOT subtract cleanly (222 − 127 ≠ 127) —
+the overlap between his 222-lead going-cold pool and his 127-lead
+open-follow-up set is 95, not the full 127; the remaining 32 open-follow-up
+leads were already contacted recently enough to be outside the going-cold
+pool in the first place, so excluding them is a no-op. `222 − 95 = 127` is
+the actual arithmetic; `127` matching the open-follow-up-set size (also 127)
+is coincidental, not a bug.
+
+**Earlier claim was wrong and has been corrected.** A previous pass of this
+doc claimed "220 → 139, 81 leads excluded" for youssef, offered as proof the
+exclusion was load-bearing. That number is impossible against the shipped
+route: the exclusion set was `followUpLeadIds`, derived from the
+**`.limit(20)`**-capped `follow_ups` array, so at most 20 distinct lead ids
+could ever be excluded — never 81. The 81-exclusion figure was actually
+measured against an unlimited follow-up-lead set, i.e. a different rule than
+what had shipped. This is now fixed at the code level (the exclusion query
+is unlimited by design, per Finding 2) and the numbers above were
+re-measured against the code as it now stands.
 
 Cosette having an **empty** follow-up list is expected (confirmed
 separately: she has zero follow-ups of any status, ever) — and is exactly

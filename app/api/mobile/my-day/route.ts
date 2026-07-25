@@ -12,12 +12,27 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // distinct from GOING_COLD_LIMIT (the response cap). Supabase's query
 // builder can only `.order()` by a real column, but this feed's spec sorts
 // by `greatest(last_contact_at, created_at)` — a computed expression — so
-// we fetch every matching row (bounded here, far above any single agent's
-// realistic going-cold portfolio) and do the precise sort in JS below.
+// we fetch every matching row (bounded here) and do the precise sort in JS
+// below.
+//
+// Set ABOVE the entire system's lead count on purpose — 921 rows measured
+// 2026-07-25 via `SELECT COUNT(*) FROM pyra_sales_leads` — with headroom for
+// growth, so a single agent's going-cold candidate pool can NEVER be
+// truncated: there are not enough leads in the whole system to fill 2000,
+// let alone one agent's slice of it. The previous cap (500) was already
+// below a plausible single-agent pool size and relied on `created_at ASC`
+// ordering, which could silently rank a block of old-`created_at`/
+// recent-`last_contact_at` rows ahead of genuinely never-contacted leads —
+// see the `.order()` comment below for the second layer of defense. If this
+// cap is ever hit again, it is NOT silent — see the breach check right
+// after the query executes. This codebase has been burned before by silent
+// PostgREST row caps (CLAUDE.md: "CRM counts: DB not JS" — fixed 14
+// instances of exactly this class of bug).
+//
 // `count: 'exact'` still reports the TRUE total regardless of this cap —
 // same pattern (and same reasoning) as `GET /api/crm/follow-ups`, which
 // documents that `.limit()`/`.range()` never affects the reported count.
-const GOING_COLD_FETCH_CAP = 500;
+const GOING_COLD_FETCH_CAP = 2000;
 
 interface FollowUpRow {
   id: string;
@@ -53,8 +68,11 @@ interface ColdLeadRow {
 //                 is_converted IS NOT TRUE (NULL-safe) AND
 //                 greatest(last_contact_at, created_at) < now()-7d, ordered
 //                 oldest-effective-contact first, capped 20, EXCLUDING any
-//                 lead already surfaced in follow_ups (already actionable
-//                 there).
+//                 lead the agent has an OPEN follow-up for (status pending
+//                 OR overdue) — ANY open follow-up, not just the (capped,
+//                 ≤1-day-window) ones shown in follow_ups above. A lead with
+//                 a follow-up due next week still has a plan and must not
+//                 be reported as "going cold, no plan".
 //
 // `counts` carries the TRUE total for each list (independent of the 20-row
 // cap) so the app can render "20 من 34" without a second round trip.
@@ -94,8 +112,34 @@ export async function GET(request: NextRequest) {
     const followUps = (followUpRows ?? []) as FollowUpRow[];
 
     // ── Going cold: mine, active (not archived/converted), 7+ days quiet ──
-    // Excludes leads already surfaced above — they're already actionable
-    // via follow_ups, no need to double-list them here.
+    // Rule: "going cold" means "a lead with NO plan". A lead the agent has
+    // ANY open follow-up for already has a plan and must be excluded, even
+    // when that follow-up is due later than the 1-day window `follow_ups`
+    // shows above. So the exclusion set is its OWN unlimited query, NOT
+    // derived from the capped `followUps` array (`.limit(20)`) — deriving it
+    // from the capped list would silently cap the exclusion set at 20 lead
+    // ids too, even when the agent has hundreds of open follow-ups, which
+    // would leak leads-with-a-later-plan into "going cold, no plan".
+    const { data: openFollowUpRows, error: openFollowUpErr } = await supabase
+      .from('pyra_sales_follow_ups')
+      .select('lead_id')
+      .eq('assigned_to', agentUsername)
+      .in('status', ['pending', 'overdue']);
+    if (openFollowUpErr) {
+      logError({
+        error: openFollowUpErr,
+        request,
+        metadata: { action: 'mobile_my_day_open_follow_up_ids', agentUsername },
+      });
+      return apiServerError();
+    }
+    const excludeLeadIds = Array.from(
+      new Set((openFollowUpRows ?? []).map((f) => f.lead_id).filter((x): x is string => !!x)),
+    );
+
+    // Lead ids from the CAPPED follow_ups list — used only below to batch-
+    // enrich the follow_ups response with lead name/phone. NOT used for the
+    // going-cold exclusion (see `excludeLeadIds` above).
     const followUpLeadIds = Array.from(
       new Set(followUps.map((f) => f.lead_id).filter((x): x is string => !!x)),
     );
@@ -115,13 +159,26 @@ export async function GET(request: NextRequest) {
       // the `.is.null` branch of the .or() below.
       .lt('created_at', coldCutoffIso)
       .or(`last_contact_at.is.null,last_contact_at.lt.${coldCutoffIso}`)
-      .order('created_at', { ascending: true })
+      // Order by last_contact_at ASC NULLS FIRST (defensive, DB-level) —
+      // NOT by created_at. Never-contacted leads (last_contact_at IS NULL)
+      // are the coldest possible leads and must enter the fetched candidate
+      // window FIRST. Ordering by created_at ASC let a block of leads with
+      // a very old created_at but a recent-ish last_contact_at occupy the
+      // whole capped window ahead of truly cold (never-contacted) leads,
+      // because effective_contact = greatest(last_contact_at, created_at)
+      // is always >= created_at — a created_at-ASC page is NOT a
+      // effective_contact-ASC page. The JS `effectiveMs` sort below remains
+      // the AUTHORITATIVE final ordering on the fetched page — it still
+      // corrects the rare row where created_at > last_contact_at (e.g. a
+      // call retroactively linked to a lead created after the call
+      // happened, so last_contact_at predates created_at).
+      .order('last_contact_at', { ascending: true, nullsFirst: true })
       .limit(GOING_COLD_FETCH_CAP);
 
-    if (followUpLeadIds.length > 0) {
+    if (excludeLeadIds.length > 0) {
       // Server-generated ids (generateId/nanoid alphabet — no delimiter
       // chars), not user input; quoted anyway for defensiveness.
-      const idList = followUpLeadIds.map((id) => `"${id}"`).join(',');
+      const idList = excludeLeadIds.map((id) => `"${id}"`).join(',');
       coldQuery = coldQuery.not('id', 'in', `(${idList})`);
     }
 
@@ -133,6 +190,28 @@ export async function GET(request: NextRequest) {
         metadata: { action: 'mobile_my_day_going_cold', agentUsername },
       });
       return apiServerError();
+    }
+
+    // Breach alarm: if the TRUE count (unaffected by `.limit()`) ever
+    // exceeds the fetch cap, the "coldest 20" selection below is computed
+    // over an INCOMPLETE candidate pool — never let that happen silently.
+    if (typeof coldTotal === 'number' && coldTotal > GOING_COLD_FETCH_CAP) {
+      const breachMessage =
+        `going_cold candidate pool (${coldTotal}) exceeded GOING_COLD_FETCH_CAP ` +
+        `(${GOING_COLD_FETCH_CAP}) for agent ${agentUsername} — the "coldest" ` +
+        `selection may be computed over a truncated pool`;
+      logError({
+        severity: 'warning',
+        error: breachMessage,
+        request,
+        metadata: {
+          action: 'mobile_my_day_going_cold_cap_exceeded',
+          agentUsername,
+          coldTotal,
+          cap: GOING_COLD_FETCH_CAP,
+        },
+      });
+      console.warn('[mobile/my-day]', breachMessage);
     }
 
     // Precise "oldest effective contact first" sort in JS (see
