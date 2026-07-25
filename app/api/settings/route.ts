@@ -8,6 +8,7 @@ import {
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { logActivity } from '@/lib/api/activity';
+import { maskSecretSettings, isMaskedValue, isSecretSettingKey } from './mask';
 
 // ── Allowed setting keys (whitelist) ─────────────────────────
 // Only these keys can be written via the PATCH endpoint.
@@ -136,7 +137,8 @@ export async function GET(_request: NextRequest) {
 
     logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'settings_updated', '/dashboard/settings', {});
 
-    return apiSuccess(settingsMap);
+    // Secrets never leave the server in the clear — see ./mask.ts
+    return apiSuccess(maskSecretSettings(settingsMap));
   } catch (err) {
     console.error('GET /api/settings error:', err);
     return apiServerError();
@@ -177,6 +179,11 @@ export async function PATCH(request: NextRequest) {
 
     // Upsert each key-value pair
     for (const [key, value] of Object.entries(body)) {
+      // The UI round-trips whatever GET returned, so an untouched secret field
+      // comes back as the mask. Writing it would overwrite the real secret with
+      // bullet characters and silently break Stripe/SMTP.
+      if (isSecretSettingKey(key) && isMaskedValue(value)) continue;
+
       const { error } = await supabase
         .from('pyra_settings')
         .upsert(
@@ -208,7 +215,7 @@ export async function PATCH(request: NextRequest) {
       settingsMap[setting.key] = setting.value;
     }
 
-    return apiSuccess(settingsMap);
+    return apiSuccess(maskSecretSettings(settingsMap));
   } catch (err) {
     console.error('PATCH /api/settings error:', err);
     return apiServerError();

@@ -3,7 +3,7 @@ import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/
 import { apiSuccess, apiError, apiValidationError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
-import { getStripeClient } from '@/lib/stripe';
+import { getStripeClient, isStripeEnabled } from '@/lib/stripe';
 import { logError } from '@/lib/observability/log-error';
 import { isPayableInvoiceStatus } from '@/lib/constants/statuses';
 
@@ -51,6 +51,10 @@ export async function POST(req: NextRequest) {
 
     if (!invoice_id) {
       return apiError('invoice_id is required');
+    }
+
+    if (!(await isStripeEnabled())) {
+      return apiError('الدفع الإلكتروني غير مفعّل حالياً', 503);
     }
 
     const supabase = createServiceRoleClient();
@@ -117,7 +121,6 @@ export async function POST(req: NextRequest) {
     const idempotencyKey = `checkout_${invoice.id}_${Date.now()}`;
     const session = await withRetry(() =>
       stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
         line_items: [{
           price_data: {
             currency: invoice.currency.toLowerCase(),
@@ -153,8 +156,10 @@ export async function POST(req: NextRequest) {
       })
     );
 
-    // Insert payment record
-    await supabase.from('pyra_stripe_payments').insert({
+    // Insert the session record. Its error MUST be checked: this row is the
+    // ONLY thing /api/cron/stripe-reconcile scans, so a silently missing row
+    // means a paid session the reconciler can never find.
+    const { error: sessionInsertErr } = await supabase.from('pyra_stripe_payments').insert({
       id: generateId('sp'),
       invoice_id: invoice.id,
       stripe_session_id: session.id,
@@ -164,6 +169,17 @@ export async function POST(req: NextRequest) {
       client_id: invoice.client_id || null,
       metadata: { checkout_url: session.url },
     });
+
+    if (sessionInsertErr) {
+      logError({
+        error: sessionInsertErr,
+        request: req,
+        metadata: { source: 'stripe', action: 'create-checkout', step: 'session_record', session_id: session.id },
+      });
+      // The Stripe session is already live, so still return the URL — but the
+      // reconciler is now blind to it, which a human needs to know about.
+      console.error('[Stripe Create Checkout] session record insert failed:', sessionInsertErr.message);
+    }
 
     return apiSuccess({ checkout_url: session.url, session_id: session.id });
   } catch (error) {

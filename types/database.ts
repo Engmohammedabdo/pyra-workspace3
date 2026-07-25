@@ -1099,7 +1099,12 @@ export interface PyraStripePayment {
   currency: string;
   // Status values: pending, completed, failed, cancelled, refunded, disputed
   // Ensure pyra_stripe_payments.status column accepts all these values
-  status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded' | 'disputed';
+  // 'needs_review' is written by /api/cron/stripe-reconcile when a paid session
+  // cannot be settled safely (its intent is already booked on another invoice,
+  // or its target invoice is cancelled). It parks the row so the nightly sweep
+  // stops re-reading and re-alerting on it. There is no CHECK constraint on the
+  // column — this union is the only place the allowed values are declared.
+  status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded' | 'disputed' | 'needs_review';
   client_id: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string;

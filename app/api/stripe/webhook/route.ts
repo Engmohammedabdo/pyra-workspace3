@@ -66,8 +66,20 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
-    // ── Handle: checkout.session.completed ──────────────────────
-    if (event.type === 'checkout.session.completed') {
+    // ── Handle: checkout.session.completed / async_payment_succeeded ──
+    //
+    // Both events settle a session the same way. They are separate because
+    // ASYNCHRONOUS payment methods (SEPA debit, Bacs, bank redirects, konbini…)
+    // fire `completed` while payment_status is still 'unpaid' — the customer has
+    // committed but the funds have not arrived. Only `async_payment_succeeded`
+    // means the money actually landed.
+    //
+    // Dynamic payment methods are now enabled (the card-only pin was removed),
+    // so async methods are reachable: this guard is load-bearing, not defensive.
+    if (
+      event.type === 'checkout.session.completed' ||
+      event.type === 'checkout.session.async_payment_succeeded'
+    ) {
       const session = event.data.object as Stripe.Checkout.Session;
       const invoiceId = session.metadata?.invoice_id;
       const clientId = session.metadata?.client_id;
@@ -76,6 +88,24 @@ export async function POST(req: NextRequest) {
       // sessions, but fall back to the session id so a null intent can never
       // bypass the duplicate check (PostgREST .eq(null) matches nothing).
       const paymentRef = paymentIntentId || `session_${session.id}`;
+
+      // NEVER book money for a session Stripe has not marked paid.
+      if (session.payment_status !== 'paid') {
+        const { error: pendErr } = await supabase
+          .from('pyra_stripe_payments')
+          .update({ status: 'pending', updated_at: new Date().toISOString() })
+          .eq('stripe_session_id', session.id);
+        if (pendErr) {
+          logError({
+            severity: 'warning', error: pendErr, request: req,
+            metadata: { source: 'stripe_webhook', step: 'await_async', session_id: session.id },
+          });
+        }
+        console.log(
+          `[Stripe Webhook] Session ${session.id} completed but payment_status=${session.payment_status} — awaiting async_payment_succeeded`,
+        );
+        return NextResponse.json({ received: true, awaiting: session.payment_status });
+      }
 
       if (!invoiceId) {
         // Unprocessable but NOT retryable: a Stripe Dashboard "send test webhook",
@@ -276,6 +306,37 @@ export async function POST(req: NextRequest) {
       }
 
       console.log(`[Stripe Webhook] Payment processed: invoice=${invoiceId}, amount=${paymentAmount}, status=${newStatus}`);
+    }
+
+    // ── Handle: checkout.session.async_payment_failed ────────────
+    // The customer committed to an asynchronous method and it later failed
+    // (insufficient funds, mandate revoked…). Nothing was ever booked — the
+    // payment_status guard above refused to settle it — so this only has to
+    // close out the session record and tell a human.
+    if (event.type === 'checkout.session.async_payment_failed') {
+      const session = event.data.object as Stripe.Checkout.Session;
+
+      const { error: failErr } = await supabase
+        .from('pyra_stripe_payments')
+        .update({ status: 'failed', updated_at: new Date().toISOString() })
+        .eq('stripe_session_id', session.id);
+      if (failErr) {
+        logError({
+          severity: 'warning', error: failErr, request: req,
+          metadata: { source: 'stripe_webhook', step: 'async_failed', session_id: session.id },
+        });
+      }
+
+      const invoiceId = session.metadata?.invoice_id;
+      await notifyAdmins(supabase, {
+        type: 'payment_failed',
+        title: 'فشل دفع مؤجل',
+        message: `فشلت عملية دفع بطريقة مؤجلة بقيمة ${(session.amount_total || 0) / 100} ${session.currency?.toUpperCase() || 'AED'} — لم يُسجَّل أي مبلغ`,
+        link: invoiceId ? `/dashboard/invoices/${invoiceId}` : '/dashboard/finance',
+        from: { username: 'system', displayName: 'Stripe' },
+      });
+
+      console.log(`[Stripe Webhook] Async payment failed: ${session.id}`);
     }
 
     // ── Handle: checkout.session.expired ────────────────────────

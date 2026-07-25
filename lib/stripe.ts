@@ -52,6 +52,11 @@ export async function getStripeWebhookSecret(): Promise<string | undefined> {
  */
 export async function isStripeEnabled(): Promise<boolean> {
   const key = await getSettingValue('stripe_secret_key', 'STRIPE_SECRET_KEY');
-  return !!key;
+  if (!key) return false;
+  // The admin-facing `stripe_enabled` switch used to be inert: nothing read it,
+  // so turning Stripe OFF in Settings still let clients pay. An absent flag
+  // means enabled, preserving behaviour for installs that never set it.
+  const flag = await getSettingValue('stripe_enabled', 'STRIPE_ENABLED');
+  return flag !== 'false';
 }
 

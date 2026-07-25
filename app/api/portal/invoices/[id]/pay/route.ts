@@ -10,7 +10,7 @@ import {
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
-import { getStripeClient } from '@/lib/stripe';
+import { getStripeClient, isStripeEnabled } from '@/lib/stripe';
 import { isPayableInvoiceStatus } from '@/lib/constants/statuses';
 
 // Simple in-memory rate limiter — a client double-clicking "ادفع الآن" (or
@@ -58,6 +58,10 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     if (!client) return apiUnauthorized();
 
     const { id } = await context.params;
+
+    if (!(await isStripeEnabled())) {
+      return apiError('الدفع الإلكتروني غير متاح حالياً', 503);
+    }
 
     if (!checkPayRate(client.id)) {
       return apiError('تم تجاوز عدد محاولات الدفع المسموح. حاول بعد دقيقة.', 429);
@@ -112,7 +116,6 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     const idempotencyKey = `checkout_${invoice.id}_${Date.now()}`;
     const session = await withRetry(() =>
       stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
         line_items: [
           {
             price_data: {
