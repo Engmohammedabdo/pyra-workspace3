@@ -53,3 +53,48 @@ describe('computeCallsReport', () => {
     expect(agg.per_agent.sayed.unmatched).toBe(0);
   });
 });
+
+describe('computeCallsReport — answered vs dialled', () => {
+  it('excludes 0-second dials from the average but keeps them in the call count', () => {
+    const rows = [
+      row({ id: 'd1', device_call_key: 'k1', agent_username: 'a', direction: 'outgoing', duration_seconds: 100 }),
+      row({ id: 'd2', device_call_key: 'k2', agent_username: 'a', direction: 'outgoing', duration_seconds: 0 }),
+      row({ id: 'd3', device_call_key: 'k3', agent_username: 'a', direction: 'outgoing', duration_seconds: 0 }),
+    ];
+    const { per_agent } = computeCallsReport(rows, '2026-07-25');
+    expect(per_agent.a.outgoing).toBe(3);          // all three were dialled
+    expect(per_agent.a.answered).toBe(1);          // one was picked up
+    expect(per_agent.a.avg_duration_seconds).toBe(100); // NOT 33
+  });
+
+  it('computes answer rate over non-missed calls only', () => {
+    const rows = [
+      row({ id: 'e1', device_call_key: 'k1', agent_username: 'a', direction: 'outgoing', duration_seconds: 60 }),
+      row({ id: 'e2', device_call_key: 'k2', agent_username: 'a', direction: 'outgoing', duration_seconds: 0 }),
+      row({ id: 'e3', device_call_key: 'k3', agent_username: 'a', direction: 'incoming', duration_seconds: 30 }),
+      row({ id: 'e4', device_call_key: 'k4', agent_username: 'a', direction: 'missed', duration_seconds: 0 }),
+    ];
+    const { per_agent } = computeCallsReport(rows, '2026-07-25');
+    // 2 answered of 3 non-missed = 66.7 (the missed call is not a failed attempt by the agent)
+    expect(per_agent.a.answered).toBe(2);
+    expect(per_agent.a.answer_rate).toBe(66.7);
+  });
+
+  it('reports 0 answer rate and 0 average when nobody ever picked up', () => {
+    const rows = [
+      row({ id: 'f1', device_call_key: 'k1', agent_username: 'a', direction: 'outgoing', duration_seconds: 0 }),
+      row({ id: 'f2', device_call_key: 'k2', agent_username: 'a', direction: 'outgoing', duration_seconds: 0 }),
+    ];
+    const { per_agent } = computeCallsReport(rows, '2026-07-25');
+    expect(per_agent.a.answered).toBe(0);
+    expect(per_agent.a.answer_rate).toBe(0);
+    expect(per_agent.a.avg_duration_seconds).toBe(0);
+  });
+
+  it('reports 0 answer rate for an agent whose only calls are missed inbound', () => {
+    const rows = [row({ id: 'g1', device_call_key: 'k1', agent_username: 'a', direction: 'missed', duration_seconds: 0 })];
+    const { per_agent } = computeCallsReport(rows, '2026-07-25');
+    expect(per_agent.a.missed).toBe(1);
+    expect(per_agent.a.answer_rate).toBe(0); // no division by zero
+  });
+});
