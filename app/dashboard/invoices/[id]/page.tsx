@@ -190,9 +190,19 @@ export default function InvoiceDetailPage() {
         toast.error(json.error || t('toasts.paymentLinkFailed'));
         return;
       }
-      if (json.data?.url) {
-        navigator.clipboard.writeText(json.data.url);
-        toast.success(t('toasts.paymentLinkCopied'));
+      if (json.data?.checkout_url) {
+        try {
+          await navigator.clipboard.writeText(json.data.checkout_url);
+          toast.success(t('toasts.paymentLinkCopied'));
+        } catch {
+          // Clipboard can reject (non-secure context, denied permission). The
+          // Stripe session is already live, so show the link rather than lose it.
+          toast.success(json.data.checkout_url, { duration: 30_000 });
+        }
+      } else {
+        // Never fail silently again: this branch is why every click appeared to
+        // do nothing while minting live Stripe sessions.
+        toast.error(t('toasts.paymentLinkFailed'));
       }
     } catch {
       toast.error(t('toasts.unexpectedError'));
