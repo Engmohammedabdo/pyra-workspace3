@@ -8,6 +8,89 @@
 
 **Tech Stack:** Next.js 15 App Router · Supabase (service-role) · Stripe Node SDK · Vitest · next-intl
 
+---
+
+## STATUS — 2026-07-25 (read this first)
+
+### Shipped to production
+
+| Commit | What |
+|---|---|
+| `c01d187` | Dashboard payment-link button fixed (`json.data.url` → `checkout_url`) |
+| `91eebf4` | Poison-pill 400 → 200; signature errors typed instead of string-matched |
+| `faf7627` | Reconciled the 2026-07-25 payment (INV-0031 `partially_paid`, 1,000 due; INV-0030 cancelled; contract `amount_collected` 0 → 5,000) |
+| `f011eca` | **Phase 1** — settlement core, DB-enforced idempotency (migration 053), checked errors + 500-on-failure, refund/dispute hardening, `isPayableInvoiceStatus`, reconcile cron |
+| `a1dbe8d` | `payment_status` guard + async payment events, reconcile-cron guards, secret masking, dynamic payment methods, `stripe_enabled` wired |
+
+Also done manually: the Stripe webhook endpoint was **re-enabled** (it was `disabled`,
+which is why zero events had ever settled).
+
+### ⛔ Blocked — Phase 2 as originally written is WRONG
+
+**Do not implement Task 2.1 as drafted below.** It reads `stripeInvoice.payment_intent`,
+which **does not exist** in the API version our endpoint delivers.
+
+Probed live against both versions on invoice `in_1Tx5AI3HV9MX1JIkI6aspkjt`:
+
+| field | `2025-02-24.acacia` (our SDK) | `2026-01-28.clover` (our endpoint) |
+|---|---|---|
+| `invoice.payment_intent` | present | **absent** |
+| `invoice.charge` | present | **absent** |
+| `session.*` / `charge.*` fields we read | present | present ✅ |
+
+`Invoice.payment_intent`, `Invoice.charge`, `PaymentIntent.invoice` and `Charge.invoice`
+were all removed in API version `2025-03-31.basil`. Our SDK's types still declare
+`payment_intent`, so the wrong code **type-checks cleanly and reads `undefined` at
+runtime** — it would settle nothing, silently, forever.
+
+`Stripe.Webhook.constructEvent` only verifies the signature and `JSON.parse`s the body —
+it never converts between versions. The endpoint's `api_version` alone decides the payload
+shape, and that field is **immutable** (changing it requires creating a NEW endpoint and
+rotating `pyra_settings.stripe_webhook_secret`).
+
+**Corrected design (use this instead):**
+
+1. Handle **`invoice_payment.paid`**, not `invoice.payment_succeeded`. It is the only
+   event carrying both `invoice` and `payment.payment_intent` inline. Verify it is among
+   the endpoint's subscribed events first. (Fallback if not available:
+   `stripe.invoices.retrieve(id, { expand: ['payments'] })` then take the `payments.data`
+   entry with `status === 'paid'` — `invoice.payments` is expandable and is **never**
+   populated in a webhook payload.)
+2. Match Stripe invoice → Pyra invoice by **explicit `metadata.pyra_invoice_id` only**.
+   Amount matching is disproven by the one real case (Stripe gross 5,175 / base 5,000 vs
+   Pyra total 6,000 — no amount equality would have matched). Two production clients hold
+   invoices with identical totals, so amount is not a valid tie-breaker.
+   On no/ambiguous match: **book nothing, alert an admin, return 200.**
+3. `pyra_clients.email` has a **case-sensitive** unique index, so a case-insensitive
+   lookup can legitimately return 2 rows — treat >1 as ambiguous, never pick one.
+
+### Deferred, with the reasoning
+
+- **Surcharge (Phase 3)** — the maths and settings are designed but not built. Investigation
+  concluded the Stripe Checkout line item is **not sufficient disclosure on its own**: the
+  portal shows «المتبقي 1,000» and the next screen would ask 1,035, and an admin pasting a
+  bare link would not know the gross either. Needs the portal to state the fee **before**
+  redirect. Also: surcharging is restricted by some card-scheme rules — **Abdou must confirm
+  with his acquirer**; that is not a question code can settle.
+- **SDK / API-version alignment** — installed `stripe@17.7.0` types accept only
+  `'2025-02-24.acacia'`, so the pin cannot be changed without bumping the SDK.
+  **`stripe@20.3.1` pins exactly `2026-01-28.clover`** — the version our endpoint already
+  delivers — which would align types to the wire in one move without touching the endpoint
+  or the signing secret. SDK breaking changes between 17.7.0 and 20.3.1 do not touch this
+  codebase (v19 renamed `parseThinEvent`, v20 changed v2-endpoint array serialisation; we
+  use neither). Deferred only because it is a triple major bump that deserves its own
+  verification pass.
+- **Wiring the reconcile cron in n8n** — deliberately NOT done yet. The guards in `a1dbe8d`
+  had to ship first: the live row `sp_P6EabiRZkr9723OO` points at the now-cancelled
+  INV-0030, and an unguarded first run would have mis-booked it.
+- `recalcContractCollected` excludes cancelled invoices while the two other copies of that
+  logic include them. Currently **inert** (the only cancelled invoice has no payments), but
+  they should converge on the shared helper.
+- `payment_intent.payment_failed` updates `pyra_stripe_payments` by
+  `stripe_payment_intent_id`, which the creation routes never populate — still dead code.
+
+---
+
 ## Global Constraints
 
 - **Never pass `payment_method_types`** to any Stripe call (Stripe official skill guidance). Removing it enables dynamic payment methods.
