@@ -509,14 +509,17 @@ Response: `{ follow_ups: FollowUpItem[], going_cold: ColdLeadItem[], counts:
 of the 20-row response cap) — the app can render "20 من 34" without a
 second call.
 
-**Verified 2026-07-25 — by SQL against production, not a live device call.**
-This route is device-authed; the n8n `PyraCRM_Cron` API key does not carry
-`calls:device` and would 403. Obtaining a real device key would require
-either inventing one (not done) or logging in as `youssef`/`cosette` via
-`POST /api/mobile/auth/login`, which **deactivates their live device key**
-and would knock a real phone offline — also not done. Verification instead
-replayed the route's exact filter logic as raw SQL against the two ACTIVE
-sales agents:
+**Verified 2026-07-25 — twice.** (1) Live on the emulator with a real device
+key, against the disposable agent `e2e.upgrade` — both sections rendered and
+`counts` matched a `db:query` replay of the same scope exactly (see "Verified
+this task (2026-07-25 — W2 agent-app E2E)" near the end of this doc).
+(2) By SQL against production for the two REAL agents, below — because a
+production-scale check on youssef/cosette can NOT be done from a device: the
+n8n `PyraCRM_Cron` API key does not carry `calls:device` and would 403, and
+logging in as `youssef`/`cosette` via `POST /api/mobile/auth/login`
+**deactivates their live device key** and would knock a real phone offline.
+So the production-scale verification replays the route's exact filter logic
+as raw SQL against the two ACTIVE sales agents:
 
 ```
 -- follow_ups (mirrors the route's WHERE, true count):
@@ -671,13 +674,19 @@ treated as "no duplicate found," falling through to the normal insert path
 — a transient DB blip on the dedup check must never swallow a real outcome
 the agent just recorded.
 
-**Verified 2026-07-25 — by code inspection + schema check, not a live device
-call**, for the same reason as `GET /api/mobile/my-day` above (a real device
-key would require logging in as youssef/cosette, which deactivates their
-live phone). `pyra_lead_activities.activity_type='note'` and
-`pyra_sales_follow_ups`'s column set were both confirmed against
-`information_schema.columns` before writing the route. The live E2E happens
-in a later task once the app ships this screen.
+**Verified 2026-07-25 — live E2E on the emulator.** All three outcomes were
+submitted against a real device key (disposable agent `e2e.upgrade`, never
+youssef/cosette): each wrote exactly one `note` activity carrying
+`metadata.source='mobile_call_outcome'`, each moved `last_contact_at`, the
+`call_again` submission created exactly one `pyra_sales_follow_ups` row with
+the right `assigned_to`/`due_at`/`reminder_at`, the 60-second dedup returned
+the SAME `activity_id` with `deduplicated: true` on an immediate re-submit
+(one row for two POSTs), and the ownership gate returned `403` with **zero**
+rows written for a lead owned by another agent. Full evidence: "Verified this
+task (2026-07-25 — W2 agent-app E2E)" near the end of this doc.
+`pyra_lead_activities.activity_type='note'` and `pyra_sales_follow_ups`'s
+column set were also confirmed against `information_schema.columns` before
+the route was written.
 
 ## Sync semantics summary
 
@@ -701,6 +710,75 @@ in a later task once the app ships this screen.
 - **`'error'` semantics**: the phone must keep that call queued and retry
   it on a later sync — an `'error'` result means nothing was persisted
   server-side for that call.
+
+## Agent-facing app surfaces (v1.4)
+
+v1.0–v1.3 were a **passive recorder**: the app synced the call log and only
+spoke up when a call was *unmatched* (quick-add prompt). v1.4 turns it into a
+tool the agent actually opens — it names who called, tells them who to call
+today, and captures what happened after the call. All three surfaces are
+Arabic-only (`res/values/strings.xml`, no Kotlin literals) and ship together
+in **one** release (`versionCode 5` / `versionName 1.4.0`) so the fleet is
+touched once.
+
+### 1. Caller identity — "that was <lead>" (W2-3)
+
+`SyncWorker` already received `lead_id` + `lead_name` on every `matched`
+sync result and **threw both away** (only `status == "unmatched"` did
+anything). It now also fires `Notifier.showMatched(...)`:
+
+- Title `notif_matched_title` = «مكالمة مع %1$s» (the lead name).
+- Body `notif_matched_body` = «اضغط لتسجيل نتيجة المكالمة».
+- **Content intent → `CallOutcomeActivity`** with `lead_id` + `lead_name`
+  extras (surface 3 below).
+- Secondary action `notif_matched_browser_action` = «فتح في المتصفح» → the
+  original `ACTION_VIEW` deep link to `BASE_URL/dashboard/crm/leads/<id>`.
+- Reuses the existing `CHANNEL_FEEDBACK` channel (deliberately **no** fourth
+  channel — a matched call is the same "here is something about a lead"
+  category `showFeedback` already serves). Notification id and PendingIntent
+  request code are both `leadId.hashCode()`, so a second call to the same
+  lead REPLACES the notification instead of stacking a duplicate.
+
+### 2. «شغل النهاردة» — the my-day screen (W2-4)
+
+Home gains one button (`my_day_open_button`) that opens a screen backed by
+`GET /api/mobile/my-day` (endpoint 9). Two sections, each with a
+`my_day_count` = «%1$d من %2$d» header showing rendered-vs-true totals:
+
+- **«متابعات مستحقة»** — follow-ups due within a day (incl. already-overdue,
+  labelled «متأخرة عن …» vs «مستحقة: …»).
+- **«عملاء برد»** — leads with no contact for 7+ days AND no open follow-up,
+  labelled «بدون تواصل منذ %1$d يوم».
+
+Each row carries an «اتصال» button that fires **`ACTION_DIAL` only** — it
+opens the system dialer pre-filled and the agent still has to press call.
+This is deliberate: `ACTION_DIAL` needs no runtime permission, so the app
+never requests `CALL_PHONE`, and it can never place a call on its own.
+
+Empty states are per-section and cross-reference each other
+(`my_day_empty_follow_ups` points the agent at the cold list below).
+
+### 3. Post-call outcome capture (W2-5)
+
+`CallOutcomeActivity` (`android:exported="false"` — reachable only from the
+app's own notification) posts to `POST /api/mobile/call-outcome`
+(endpoint 10):
+
+- Three single-select chips whose labels are copied verbatim from the
+  route's own `OUTCOME_LABELS`, so the button text and the server's
+  persisted-note fallback read identically: «مهتم» / «غير مهتم» /
+  «يحتاج إعادة اتصال».
+- Optional multiline note.
+- Optional «اتصل مرة أخرى في…» — three **relative presets**, not a
+  date-picker dialog: «غدًا» (+1) / «بعد 3 أيام» (+3) / «الأسبوع القادم»
+  (+7). `DubaiTime.followUpPresetMillis()` = Dubai day-start + N days +
+  a fixed **10:00 Dubai** hour, so every preset lands inside business hours
+  without the agent also picking a time. Dubai has no DST, so the plain
+  millis arithmetic is safe. Tapping the selected preset again clears it.
+- On `follow_up_error: true` the screen still reports success for the
+  outcome but warns about the follow-up (`co_follow_up_error`) — matching
+  the route's flip-and-warn contract; it never asks the agent to retry,
+  which would duplicate the note.
 
 ## Error tracking pipeline (v1.2)
 
@@ -1032,6 +1110,82 @@ prod `pyra_app_releases` left with exactly the one `pyra-calls` v2 baseline row.
   row, SHA-256 `cbdfcb1ee1537c051dc844c6f63446620f3fa7190eac56e39de486d331d00fad`
   (matches `Get-FileHash`), 7.80 MB. Safe: the fleet is on v1 (no updater), so
   this row is only the baseline all future updates diff against.
+
+### Verified this task (2026-07-25 — W2 agent-app E2E)
+
+Emulator `pyra_a15_test` (Android 16 / API 36), debug build `versionCode 5 /
+1.4.0` → `http://10.0.2.2:3000` (local `pnpm dev`, which talks to the **real**
+Supabase). Debug builds use the `pyra-calls-e2e` release channel, so nothing
+here could reach the fleet.
+
+**Test account discipline.** Never logged in as `youssef` or `cosette` — the
+login route deactivates a live phone's device key. The disposable agent
+`e2e.upgrade` was temporarily reactivated (`status='active'` + GoTrue unban +
+a throwaway password) and **re-locked afterwards**: `status='inactive'`, the
+original `deactivated_at` restored verbatim, GoTrue re-banned to 2126, the
+password rotated to an unrecorded random value, its device key deactivated.
+A post-relock login probe returns `401`. Verified after cleanup that
+youssef + cosette are both still `active` with exactly one active device key
+each.
+
+1. **Matched-call notification (W2-3).** Fixture lead `ZZ E2E W26 Alpha`
+   (`+971509990001`, assigned to `e2e.upgrade`). Simulated an answered
+   inbound call via `adb emu gsm call/accept/cancel` (call log:
+   `type=1, duration=7`) → «مزامنة الآن» → `POST /api/mobile/calls/sync 200`
+   → notification **«مكالمة مع ZZ E2E W26 Alpha»** / «اضغط لتسجيل نتيجة
+   المكالمة» + «فتح في المتصفح» action. Tapping the body opened
+   `CallOutcomeActivity` (confirmed via `dumpsys activity`) pre-populated
+   «العميل: ZZ E2E W26 Alpha». DB side: one `pyra_agent_calls` row
+   `incoming/matched` + one `call_logged` activity
+   (`metadata.source='device_sync'`, `duration_seconds: 7`).
+2. **My-day screen (W2-4).** «شغل النهاردة» → `GET /api/mobile/my-day 200`.
+   «متابعات مستحقة» = «1 من 1» (the fixture follow-up, due today) and
+   «عملاء برد» = «1 من 1» (`ZZ E2E W26 Bravo Cold`, «بدون تواصل منذ 30 يوم»).
+   A `db:query` replaying the route's exact scope for `e2e.upgrade` returned
+   `follow_ups: 1, going_cold: 1` — an exact match. The fresh Alpha lead was
+   correctly absent from going-cold, and Charlie was correctly excluded from
+   going-cold *because* it has an open follow-up. Tapping «اتصال» opened
+   `com.google.android.dialer` pre-filled with **+971 50 999 0002** and the
+   call log was byte-identical before and after — **no call was placed**.
+3. **Outcome round-trip (W2-5 + endpoint 10).** All three outcomes:
+   - `interested` (from the app, with a note) → one `note` activity
+     `metadata.source='mobile_call_outcome'`, `outcome='interested'`,
+     `description` = the typed note. `last_contact_at` moved
+     `11:47:25.551` → `11:51:10.773`.
+   - `not_interested` → **dedup proof**: an identical POST fired seconds
+     before the app's own submit. Both returned `200`; exactly **one** row
+     (`la_Dswmf--YKxw8_d24`) exists and the app treated the deduplicated
+     response as success (screen closed, no error). A second, cleaner dedup
+     run on another lead returned `deduplicated:false` then
+     `deduplicated:true` **with the same `activity_id`**, and the second
+     request's different note text was correctly NOT written.
+   - `call_again` + the «غدًا» preset (from the app) → one `note` activity
+     with the route's Arabic default «نتيجة المكالمة: يحتاج إعادة اتصال»,
+     plus exactly **one** `pyra_sales_follow_ups` row: `assigned_to =
+     e2e.upgrade`, `due_at = 2026-07-26 06:00Z` (= **10:00 Dubai tomorrow**,
+     matching `followUpPresetMillis`), `reminder_at` = due − 30 min,
+     `status='pending'`, title «متابعة مكالمة (يحتاج إعادة اتصال)». The
+     lead's `next_follow_up` synced to the same timestamp. Arabic round-
+     tripped through the DB with no mojibake.
+   - Clean `last_contact_at` transition measured in isolation on a second
+     lead: `NULL` → `2026-07-25 12:02:28.913+00`.
+4. **Ownership gate (security-critical).** Using `e2e.upgrade`'s real device
+   key, three POSTs to `/api/mobile/call-outcome`: (a) a throwaway lead
+   assigned to `youssef`, (b) a **genuine production** youssef lead
+   (`sl_GxLpDRKF0qEUWNOz` / omran), (c) a nonexistent `lead_id`. All three
+   → **`403` «لا تملك صلاحية الوصول لهذا الليد»**, all three indistinguishable
+   (no existence oracle). SQL confirmed **zero** writes: the throwaway lead
+   kept `last_contact_at NULL` / 0 activities / 0 follow-ups; omran kept its
+   exact prior `last_contact_at` and activity count of 2; zero
+   `mobile_call_outcome` activities and zero follow-ups by `e2e.upgrade`
+   outside the one lead it legitimately owns. The 403 path also wrote no
+   `pyra_activity_log` row (it returns before `logActivity`).
+
+**Cleanup (verified zero leftovers).** Deleted 4 fixture leads, 8
+`pyra_lead_activities`, 2 `pyra_sales_follow_ups`, 3 `pyra_agent_calls`, 6
+`pyra_activity_log`; deactivated 1 device key; re-locked the user. Zero
+`pyra_notifications` and zero `pyra_error_logs` rows were produced by the
+run. App uninstalled from the emulator and its call log cleared.
 
 ## v1.1 backlog
 
