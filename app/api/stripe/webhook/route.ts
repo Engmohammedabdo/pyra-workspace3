@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { dubaiDayKey } from '@/lib/utils/format';
 import { getStripeClient, getStripeWebhookSecret } from '@/lib/stripe';
 import { logError } from '@/lib/observability/log-error';
 import { notifyMany, type NotifyInput } from '@/lib/notifications/notify';
+import { settleInvoicePayment, splitGross, recalcContractCollected, deriveInvoiceState } from '@/lib/stripe/settle';
 import Stripe from 'stripe';
 
 /**
@@ -92,8 +94,59 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true, ignored: 'no invoice_id' });
       }
 
-      // 1. Update stripe payment record
-      await supabase
+      // 1. Book the money. settleInvoicePayment owns the insert, the re-sum and
+      //    the invoice update, and checks every Supabase error — the previous
+      //    inline version discarded all of them and still returned 200, so a
+      //    failed insert lost the payment permanently.
+      const gross = (session.amount_total || 0) / 100;
+      const { base, surcharge } = splitGross(gross, session.metadata?.surcharge_amount);
+
+      const settled = await settleInvoicePayment(supabase, {
+        invoiceId,
+        grossAmount: gross,
+        baseAmount: base,
+        reference: paymentRef,
+        note: surcharge > 0
+          ? `Stripe online payment — ${base} + ${surcharge} card fee`
+          : 'Stripe online payment',
+      });
+
+      if (!settled.ok) {
+        logError({
+          error: new Error(settled.error),
+          request: req,
+          metadata: {
+            source: 'stripe_webhook', event: event.type,
+            invoice_id: invoiceId, reference: paymentRef, gross,
+          },
+        });
+        console.error('[Stripe Webhook] Settlement failed:', settled.error);
+
+        // A NON-retryable failure means real money was charged that we can never
+        // book automatically (e.g. the invoice was deleted). Stripe will stop on
+        // a 4xx, so a human must be told — otherwise the charge vanishes with
+        // only an error-log row behind it.
+        if (!settled.retryable) {
+          await notifyAdmins(supabase, {
+            type: 'payment_confirmed',
+            title: '⚠️ دفعة محصلة لم تُسجَّل',
+            message: `تم خصم ${gross} ${session.currency?.toUpperCase() || 'AED'} من العميل لكن تعذّر تسجيلها — ${settled.error}`,
+            link: '/dashboard/finance',
+            from: { username: 'system', displayName: 'Stripe' },
+          });
+        }
+
+        // Non-2xx so Stripe REDELIVERS. Safe: uniq_payments_invoice_reference
+        // (migration 053) makes a duplicate booking impossible.
+        return NextResponse.json(
+          { error: settled.error },
+          { status: settled.retryable ? 500 : 400 },
+        );
+      }
+
+      // 2. Mark the session record settled. Done AFTER the money is booked, so a
+      //    row still 'pending' remains a truthful signal for the reconcile cron.
+      const { error: sessErr } = await supabase
         .from('pyra_stripe_payments')
         .update({
           stripe_payment_intent_id: paymentIntentId,
@@ -101,71 +154,21 @@ export async function POST(req: NextRequest) {
           updated_at: new Date().toISOString(),
         })
         .eq('stripe_session_id', session.id);
-
-      // 2. Fetch current invoice
-      const { data: invoice, error: invoiceError } = await supabase
-        .from('pyra_invoices')
-        .select('id, status, total, amount_paid, amount_due, invoice_number, client_id')
-        .eq('id', invoiceId)
-        .single();
-
-      if (invoiceError || !invoice) {
-        console.error('[Stripe Webhook] Invoice not found:', invoiceId);
-        return NextResponse.json({ error: 'Invoice not found' }, { status: 400 });
+      if (sessErr) {
+        logError({
+          severity: 'warning', error: sessErr, request: req,
+          metadata: { source: 'stripe_webhook', step: 'session_record', session_id: session.id },
+        });
       }
 
-      // 3. Calculate payment amount
-      const paymentAmount = (session.amount_total || 0) / 100;
-
-      // 4. Idempotency check — prevent duplicate payment records on webhook replay
-      const { data: existingPayment } = await supabase
-        .from('pyra_payments')
-        .select('id')
-        .eq('invoice_id', invoiceId)
-        .eq('reference', paymentRef)
-        .maybeSingle();
-
-      if (existingPayment) {
-        console.log(`[Stripe Webhook] Payment already recorded for ref=${paymentRef}, skipping`);
-        return NextResponse.json({ received: true });
+      if (settled.skipped) {
+        console.log(`[Stripe Webhook] Already settled ref=${paymentRef}, skipping`);
+        return NextResponse.json({ received: true, skipped: 'already_recorded' });
       }
 
-      // 5. Insert payment record
-      await supabase.from('pyra_payments').insert({
-        id: generateId('pay'),
-        invoice_id: invoiceId,
-        amount: paymentAmount,
-        payment_date: new Date().toISOString().split('T')[0],
-        method: 'online',
-        reference: paymentRef,
-        notes: 'Stripe online payment',
-        recorded_by: 'system',
-      });
-
-      // 6. Sum ALL payments for this invoice (race-condition safe)
-      const { data: allPayments } = await supabase
-        .from('pyra_payments')
-        .select('amount')
-        .eq('invoice_id', invoiceId);
-      // Race-condition safe: re-sum ALL payments for this invoice.
-      // Both concurrent webhooks compute the full sum independently.
-      // The last write wins with the correct total.
-      const newAmountPaid = Math.round(
-        (allPayments || []).reduce((sum: number, p: { amount: number }) => sum + Number(p.amount), 0) * 100
-      ) / 100;
-      const newAmountDue = Math.round(Math.max(0, Number(invoice.total) - newAmountPaid) * 100) / 100;
-      const newStatus = newAmountDue <= 0 ? 'paid' : 'partially_paid';
-
-      // 6. Update invoice amounts
-      await supabase
-        .from('pyra_invoices')
-        .update({
-          amount_paid: newAmountPaid,
-          amount_due: Math.max(0, newAmountDue),
-          status: newStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', invoiceId);
+      const invoice = { invoice_number: settled.invoiceNumber };
+      const paymentAmount = base;
+      const newStatus = settled.status;
 
       // 7. Create client notification
       if (clientId) {
@@ -198,68 +201,11 @@ export async function POST(req: NextRequest) {
         ip_address: 'stripe_webhook',
       });
 
-      // 9. Update contract amount_collected (retainer or milestone)
-      const contractIdFromMeta = session.metadata?.contract_id;
-      // Resolve contract_id: from metadata, from invoice, or from milestone link
-      let resolvedContractId = contractIdFromMeta || null;
-      if (!resolvedContractId) {
-        // Check direct contract_id on invoice
-        const { data: invContract } = await supabase
-          .from('pyra_invoices')
-          .select('contract_id')
-          .eq('id', invoiceId)
-          .maybeSingle();
-        if (invContract?.contract_id) {
-          resolvedContractId = invContract.contract_id;
-        } else {
-          // Check milestone link
-          const { data: milestone } = await supabase
-            .from('pyra_contract_milestones')
-            .select('contract_id')
-            .eq('invoice_id', invoiceId)
-            .maybeSingle();
-          if (milestone?.contract_id) resolvedContractId = milestone.contract_id;
-        }
-      }
-
-      if (resolvedContractId) {
-        // Sum all payments for all invoices linked to this contract (race-safe)
-        const { data: contractInvoices } = await supabase
-          .from('pyra_invoices')
-          .select('id')
-          .eq('contract_id', resolvedContractId);
-
-        // Also include milestone-linked invoices
-        const { data: milestoneInvoices } = await supabase
-          .from('pyra_contract_milestones')
-          .select('invoice_id')
-          .eq('contract_id', resolvedContractId)
-          .not('invoice_id', 'is', null);
-
-        const allInvoiceIds = new Set<string>();
-        (contractInvoices || []).forEach((i: { id: string }) => allInvoiceIds.add(i.id));
-        (milestoneInvoices || []).forEach((m: { invoice_id: string | null }) => {
-          if (m.invoice_id) allInvoiceIds.add(m.invoice_id);
-        });
-
-        if (allInvoiceIds.size > 0) {
-          const { data: allContractPayments } = await supabase
-            .from('pyra_payments')
-            .select('amount')
-            .in('invoice_id', Array.from(allInvoiceIds));
-
-          const totalCollected = (allContractPayments || []).reduce(
-            (sum: number, p: { amount: number }) => sum + Number(p.amount), 0
-          );
-
-          await supabase
-            .from('pyra_contracts')
-            .update({ amount_collected: totalCollected, updated_at: new Date().toISOString() })
-            .eq('id', resolvedContractId);
-
-          console.log(`[Stripe Webhook] Contract ${resolvedContractId} amount_collected updated to ${totalCollected}`);
-        }
-      }
+      // 9. Recompute the contract's collected total from actual payments.
+      //    Shared helper: the refund and dispute-loss branches call it too, so
+      //    amount_collected can now go DOWN — the old inline version ran only
+      //    here, meaning a refund never reduced it.
+      await recalcContractCollected(supabase, invoiceId);
 
       // ── Auto-calculate commission for commission employees ──
       try {
@@ -361,26 +307,102 @@ export async function POST(req: NextRequest) {
 
       if (paymentIntentId) {
         // Find the stripe payment record via payment_intent
-        const { data: stripePayment } = await supabase
+        const { data: sessionRow, error: sessionLookupErr } = await supabase
           .from('pyra_stripe_payments')
           .select('id, invoice_id, client_id')
           .eq('stripe_payment_intent_id', paymentIntentId)
           .maybeSingle();
 
-        if (stripePayment) {
-          // Update stripe payment status
-          await supabase
-            .from('pyra_stripe_payments')
-            .update({ status: 'refunded', updated_at: new Date().toISOString() })
-            .eq('id', stripePayment.id);
+        // A failed lookup is NOT "no match". Treating it as one would fall into
+        // the unmatched-refund ACK below and drop a real refund permanently.
+        if (sessionLookupErr) {
+          logError({
+            error: sessionLookupErr, request: req,
+            metadata: { source: 'stripe_webhook', event: event.type, step: 'session_lookup', payment_intent: paymentIntentId },
+          });
+          return NextResponse.json({ error: 'session lookup failed' }, { status: 500 });
+        }
+
+        // Fall back to the LEDGER when no session record matches. A payment can
+        // legitimately exist without one — booked by manual reconciliation, by
+        // the reconcile cron, or from a Stripe-native invoice. Without this
+        // fallback the handler returned 200 and the refund was never recorded,
+        // leaving the invoice permanently overstated as paid.
+        let stripePayment = sessionRow;
+        if (!stripePayment) {
+          const { data: ledgerRow, error: ledgerErr } = await supabase
+            .from('pyra_payments')
+            .select('invoice_id')
+            .eq('reference', paymentIntentId)
+            .maybeSingle();
+
+          if (ledgerErr) {
+            logError({
+              error: ledgerErr, request: req,
+              metadata: { source: 'stripe_webhook', event: event.type, step: 'ledger_fallback', payment_intent: paymentIntentId },
+            });
+            return NextResponse.json({ error: 'ledger lookup failed' }, { status: 500 });
+          }
+
+          if (ledgerRow) {
+            // Recover the client from the invoice so the refund notification
+            // still reaches them on a hand-reconciled payment.
+            const { data: inv } = await supabase
+              .from('pyra_invoices')
+              .select('client_id')
+              .eq('id', ledgerRow.invoice_id)
+              .maybeSingle();
+            stripePayment = { id: '', invoice_id: ledgerRow.invoice_id, client_id: inv?.client_id ?? null };
+          }
+        }
+
+        if (!stripePayment) {
+          logError({
+            severity: 'warning',
+            error: new Error(`Refund for unknown payment intent ${paymentIntentId}`),
+            request: req,
+            metadata: { source: 'stripe_webhook', event: event.type, payment_intent: paymentIntentId, cumulativeRefunded },
+          });
+          await notifyAdmins(supabase, {
+            type: 'payment_refunded',
+            title: '⚠️ استرجاع لدفعة غير مسجلة',
+            message: `استرجاع من Stripe بقيمة ${cumulativeRefunded} ${currency} لعملية غير موجودة في النظام — يحتاج مراجعة يدوية`,
+            link: '/dashboard/finance',
+            from: { username: 'system', displayName: 'Stripe' },
+          });
+          return NextResponse.json({ received: true, unmatched: true });
+        }
+
+        {
+          // Update stripe payment status (only when a session record exists)
+          if (stripePayment.id) {
+            await supabase
+              .from('pyra_stripe_payments')
+              .update({ status: 'refunded', updated_at: new Date().toISOString() })
+              .eq('id', stripePayment.id);
+          }
 
           if (stripePayment.invoice_id) {
-            // Sum refunds already recorded for this payment intent
-            const { data: priorRefundRows } = await supabase
+            // Sum refunds already recorded for this payment intent.
+            // The error must be checked: reading a failure as "nothing recorded
+            // yet" would re-book a refund that already exists.
+            const { data: priorRefundRows, error: priorErr } = await supabase
               .from('pyra_payments')
               .select('amount, reference')
               .eq('invoice_id', stripePayment.invoice_id)
               .eq('method', 'refund');
+
+            if (priorErr) {
+              logError({
+                error: priorErr, request: req,
+                metadata: {
+                  source: 'stripe_webhook', event: event.type,
+                  step: 'prior_refunds', payment_intent: paymentIntentId,
+                },
+              });
+              return NextResponse.json({ error: 'prior refunds lookup failed' }, { status: 500 });
+            }
+
             const alreadyRecorded = Math.round(
               (priorRefundRows || [])
                 .filter((p: { reference: string | null }) =>
@@ -389,53 +411,125 @@ export async function POST(req: NextRequest) {
             ) / 100;
             const refundAmount = Math.round((cumulativeRefunded - alreadyRecorded) * 100) / 100;
 
-            if (refundAmount <= 0) {
-              console.log(`[Stripe Webhook] Refund already recorded (cumulative=${cumulativeRefunded}, recorded=${alreadyRecorded}), skipping`);
-              return NextResponse.json({ received: true });
+            // Delta 0 means the refund row already exists. Do NOT return here:
+            // a previous delivery may have inserted it and then failed before
+            // updating the invoice. Fall through to the recompute so the retry
+            // is self-healing — the recompute is idempotent by construction.
+            const alreadyBooked = refundAmount <= 0;
+            if (alreadyBooked) {
+              console.log(`[Stripe Webhook] Refund delta 0 (cumulative=${cumulativeRefunded}, recorded=${alreadyRecorded}) — re-syncing invoice only`);
             }
 
-            // Insert negative payment record (the refund DELTA only).
-            // Reference is keyed on the cumulative level so each refund step
-            // gets a distinct reference and replays compute delta 0 above.
-            await supabase.from('pyra_payments').insert({
-              id: generateId('pay'),
-              invoice_id: stripePayment.invoice_id,
-              amount: -refundAmount,
-              payment_date: new Date().toISOString().split('T')[0],
-              method: 'refund',
-              reference: `refund_${paymentIntentId}_${Math.round(cumulativeRefunded * 100)}`,
-              notes: `استرجاع Stripe — ${refundAmount} ${currency}`,
-              recorded_by: 'system',
-            });
+            // Insert the negative payment (the refund DELTA only), unless this
+            // step is already on the ledger. Reference is keyed on the
+            // cumulative level so each refund step gets a distinct reference.
+            if (!alreadyBooked) {
+              const { error: refundErr } = await supabase.from('pyra_payments').insert({
+                id: generateId('pay'),
+                invoice_id: stripePayment.invoice_id,
+                amount: -refundAmount,
+                // Dubai day, not the UTC day: cash-basis reports key on this date
+                // and the two differ for the last 4 hours of every Dubai day.
+                payment_date: dubaiDayKey(),
+                method: 'refund',
+                reference: `refund_${paymentIntentId}_${Math.round(cumulativeRefunded * 100)}`,
+                notes: `استرجاع Stripe — ${refundAmount} ${currency}`,
+                recorded_by: 'system',
+              });
 
-            // Recalculate invoice amounts
-            const { data: allPayments } = await supabase
+              // 23505 = a concurrent delivery booked this exact step first. That
+              // is success. Fall through to the recompute either way so the
+              // invoice ends in sync regardless of who won the race.
+              if (refundErr && refundErr.code !== '23505') {
+                logError({
+                  error: refundErr, request: req,
+                  metadata: {
+                    source: 'stripe_webhook', event: event.type,
+                    payment_intent: paymentIntentId, invoice_id: stripePayment.invoice_id, refundAmount,
+                  },
+                });
+                // 500 so Stripe redelivers rather than us telling the client
+                // their money came back when nothing was recorded.
+                return NextResponse.json({ error: 'refund insert failed' }, { status: 500 });
+              }
+            }
+
+            // Recalculate invoice amounts.
+            // The error MUST be checked: a failed re-sum yields null, which the
+            // old code read as "this invoice has no payments" and wrote back as
+            // amount_paid=0 / status='sent' — wiping a fully-paid invoice and
+            // returning 200 so Stripe never retried.
+            const { data: allPayments, error: sumErr } = await supabase
               .from('pyra_payments')
               .select('amount')
               .eq('invoice_id', stripePayment.invoice_id);
+
+            if (sumErr) {
+              logError({
+                error: sumErr, request: req,
+                metadata: {
+                  source: 'stripe_webhook', event: event.type,
+                  step: 'refund_resum', invoice_id: stripePayment.invoice_id,
+                },
+              });
+              return NextResponse.json({ error: 'payments re-sum failed' }, { status: 500 });
+            }
+
             const newAmountPaid = (allPayments || []).reduce(
               (sum: number, p: { amount: number }) => sum + Number(p.amount), 0
             );
 
-            const { data: invoice } = await supabase
+            const { data: invoice, error: invReadErr } = await supabase
               .from('pyra_invoices')
-              .select('total, invoice_number')
+              .select('total, invoice_number, status')
               .eq('id', stripePayment.invoice_id)
               .maybeSingle();
 
-            if (invoice) {
-              const newAmountDue = invoice.total - newAmountPaid;
-              const newStatus = newAmountPaid <= 0 ? 'sent' : (newAmountDue <= 0 ? 'paid' : 'partially_paid');
+            if (invReadErr) {
+              logError({
+                error: invReadErr, request: req,
+                metadata: {
+                  source: 'stripe_webhook', event: event.type,
+                  step: 'refund_invoice_read', invoice_id: stripePayment.invoice_id,
+                },
+              });
+              return NextResponse.json({ error: 'invoice read failed' }, { status: 500 });
+            }
 
-              await supabase
+            if (invoice) {
+              // Shared derivation — same rules as the payment branch, instead of
+              // the three subtly different inline versions this file used to have.
+              const derived = deriveInvoiceState(Number(invoice.total), newAmountPaid);
+              const newStatus = derived.status;
+
+              // Same terminal guard settleInvoicePayment applies: never write a
+              // status onto a cancelled invoice. Amounts still track the ledger.
+              const refundUpdate: Record<string, unknown> = {
+                amount_paid: derived.amountPaid,
+                amount_due: derived.amountDue,
+                updated_at: new Date().toISOString(),
+              };
+              if (invoice.status !== 'cancelled') refundUpdate.status = newStatus;
+
+              const { error: invUpdErr } = await supabase
                 .from('pyra_invoices')
-                .update({
-                  amount_paid: Math.max(0, newAmountPaid),
-                  amount_due: Math.max(0, newAmountDue),
-                  status: newStatus,
-                  updated_at: new Date().toISOString(),
-                })
+                .update(refundUpdate)
                 .eq('id', stripePayment.invoice_id);
+
+              if (invUpdErr) {
+                logError({
+                  error: invUpdErr, request: req,
+                  metadata: {
+                    source: 'stripe_webhook', event: event.type,
+                    step: 'refund_invoice_update', invoice_id: stripePayment.invoice_id,
+                  },
+                });
+                return NextResponse.json({ error: 'invoice update failed' }, { status: 500 });
+              }
+
+              // A refund must reduce the contract's collected total too — the
+              // old code only ever raised it from the payment branch.
+              await recalcContractCollected(supabase, stripePayment.invoice_id);
 
               // Notify client
               if (stripePayment.client_id) {
@@ -568,57 +662,105 @@ export async function POST(req: NextRequest) {
           if (outcome === 'lost' && stripePayment.invoice_id) {
             const disputeAmount = (dispute.amount || 0) / 100;
 
-            // Idempotency — Stripe redelivers webhooks; a replay must not
-            // book the dispute loss twice (finance audit 2026-07-02).
-            const { data: existingDispute } = await supabase
-              .from('pyra_payments')
-              .select('id')
-              .eq('invoice_id', stripePayment.invoice_id)
-              .eq('reference', `dispute_${dispute.id}`)
-              .maybeSingle();
-
-            if (existingDispute) {
-              console.log(`[Stripe Webhook] Dispute loss already recorded: ${dispute.id}, skipping insert`);
-            } else {
-            // Insert negative payment (like refund due to lost dispute)
-            await supabase.from('pyra_payments').insert({
+            // Insert the negative payment. No pre-check probe: the unique index
+            // on (invoice_id, reference) is the idempotency authority, and 23505
+            // simply means an earlier delivery won.
+            const { error: dispErr } = await supabase.from('pyra_payments').insert({
               id: generateId('pay'),
               invoice_id: stripePayment.invoice_id,
               amount: -disputeAmount,
-              payment_date: new Date().toISOString().split('T')[0],
+              // Dubai day — cash-basis reports key on payment_date.
+              payment_date: dubaiDayKey(),
               method: 'dispute_lost',
               reference: `dispute_${dispute.id}`,
               notes: `خسارة نزاع Stripe — ${disputeAmount} ${dispute.currency?.toUpperCase() || 'AED'}`,
               recorded_by: 'system',
             });
 
-            // Recalculate invoice
-            const { data: allPayments } = await supabase
+            if (dispErr && dispErr.code !== '23505') {
+              logError({
+                error: dispErr, request: req,
+                metadata: {
+                  source: 'stripe_webhook', event: event.type,
+                  step: 'dispute_loss_insert', dispute_id: dispute.id,
+                  invoice_id: stripePayment.invoice_id,
+                },
+              });
+              // 500 so Stripe redelivers — otherwise we would tell the admin
+              // the dispute closed while the money stayed on the books.
+              return NextResponse.json({ error: 'dispute insert failed' }, { status: 500 });
+            }
+
+            // Recompute on BOTH paths — fresh insert AND already-booked. If an
+            // earlier delivery inserted the row then failed before updating the
+            // invoice, this is the only thing that ever repairs it. The
+            // recompute is idempotent, so running it every time is free.
+            const { data: allPayments, error: dSumErr } = await supabase
               .from('pyra_payments')
               .select('amount')
               .eq('invoice_id', stripePayment.invoice_id);
-            const newAmountPaid = Math.max(0, (allPayments || []).reduce(
-              (sum: number, p: { amount: number }) => sum + Number(p.amount), 0
-            ));
 
-            const { data: invoice } = await supabase
+            if (dSumErr) {
+              logError({
+                error: dSumErr, request: req,
+                metadata: {
+                  source: 'stripe_webhook', event: event.type,
+                  step: 'dispute_resum', invoice_id: stripePayment.invoice_id,
+                },
+              });
+              return NextResponse.json({ error: 'payments re-sum failed' }, { status: 500 });
+            }
+
+            const paymentsSum = (allPayments || []).reduce(
+              (sum: number, p: { amount: number }) => sum + Number(p.amount), 0
+            );
+
+            const { data: invoice, error: dInvErr } = await supabase
               .from('pyra_invoices')
-              .select('total')
+              .select('total, status')
               .eq('id', stripePayment.invoice_id)
               .maybeSingle();
 
-            if (invoice) {
-              const newAmountDue = Math.max(0, invoice.total - newAmountPaid);
-              await supabase
-                .from('pyra_invoices')
-                .update({
-                  amount_paid: newAmountPaid,
-                  amount_due: newAmountDue,
-                  status: newAmountPaid <= 0 ? 'sent' : (newAmountDue <= 0 ? 'paid' : 'partially_paid'),
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('id', stripePayment.invoice_id);
+            if (dInvErr) {
+              logError({
+                error: dInvErr, request: req,
+                metadata: {
+                  source: 'stripe_webhook', event: event.type,
+                  step: 'dispute_invoice_read', invoice_id: stripePayment.invoice_id,
+                },
+              });
+              return NextResponse.json({ error: 'invoice read failed' }, { status: 500 });
             }
+
+            if (invoice) {
+              // Shared derivation — identical rules to the payment and refund
+              // branches, including the terminal-status guard.
+              const derived = deriveInvoiceState(Number(invoice.total), paymentsSum);
+              const dispUpdate: Record<string, unknown> = {
+                amount_paid: derived.amountPaid,
+                amount_due: derived.amountDue,
+                updated_at: new Date().toISOString(),
+              };
+              if (invoice.status !== 'cancelled') dispUpdate.status = derived.status;
+
+              const { error: invUpdErr } = await supabase
+                .from('pyra_invoices')
+                .update(dispUpdate)
+                .eq('id', stripePayment.invoice_id);
+
+              if (invUpdErr) {
+                logError({
+                  error: invUpdErr, request: req,
+                  metadata: {
+                    source: 'stripe_webhook', event: event.type,
+                    step: 'dispute_invoice_update', invoice_id: stripePayment.invoice_id,
+                  },
+                });
+                return NextResponse.json({ error: 'invoice update failed' }, { status: 500 });
+              }
+
+              // A lost dispute reduces what the contract actually collected.
+              await recalcContractCollected(supabase, stripePayment.invoice_id);
             }
           }
 

@@ -28,6 +28,19 @@ export const INVOICE_PAID_STATUSES: InvoiceStatus[] = ['paid', 'partially_paid']
 export const INVOICE_OUTSTANDING_STATUSES: InvoiceStatus[] = ['sent', 'partially_paid', 'overdue'];
 export const INVOICE_EDITABLE_STATUSES: InvoiceStatus[] = ['draft', 'sent', 'overdue'];
 
+/**
+ * Can a payment link be minted for / redeemed against this invoice?
+ *
+ * Single source of truth for both checkout routes. They previously disagreed:
+ * the dashboard route blocked only 'paid', so a live payment link could be
+ * minted for a DRAFT or CANCELLED invoice, and the webhook would then promote
+ * it to 'paid' — a transition the invoice PATCH state machine forbids.
+ * Unknown statuses are treated as NOT payable (fail closed).
+ */
+export function isPayableInvoiceStatus(status: string): boolean {
+  return (INVOICE_OUTSTANDING_STATUSES as string[]).includes(status);
+}
+
 // ── Quote ──
 export const QUOTE_STATUS = {
   DRAFT: 'draft',

@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { getStripeClient } from '@/lib/stripe';
 import { logError } from '@/lib/observability/log-error';
+import { isPayableInvoiceStatus } from '@/lib/constants/statuses';
 
 // Simple retry helper for Stripe API failures
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
@@ -65,8 +66,11 @@ export async function POST(req: NextRequest) {
       return apiError('Invoice not found');
     }
 
-    if (invoice.status === 'paid') {
-      return apiError('Invoice is already paid');
+    // Shared gate with the portal route — see isPayableInvoiceStatus. This used
+    // to block only 'paid', so a live link could be minted for a draft or
+    // cancelled invoice.
+    if (!isPayableInvoiceStatus(invoice.status)) {
+      return apiError('لا يمكن إنشاء رابط دفع لهذه الفاتورة');
     }
 
     // Amount validation with proper rounding

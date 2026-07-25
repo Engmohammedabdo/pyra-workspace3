@@ -89,6 +89,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .single();
 
     if (payError) {
+      // 23505 = the (invoice_id, reference) unique index from migration 053.
+      // A blank reference is stored NULL and is exempt, so this only fires when
+      // the same reference is recorded twice on the same invoice — almost always
+      // a genuine double-entry. Say so instead of a bare 500.
+      if (payError.code === '23505') {
+        return apiValidationError(
+          t('invoices.paymentDuplicateReference', { reference: String(reference ?? '') })
+        );
+      }
       console.error('Payment insert error:', payError);
       return apiServerError();
     }

@@ -11,6 +11,7 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { getStripeClient } from '@/lib/stripe';
+import { isPayableInvoiceStatus } from '@/lib/constants/statuses';
 
 // Simple in-memory rate limiter — a client double-clicking "ادفع الآن" (or
 // two open tabs) must not mint unlimited live Stripe sessions each for the
@@ -78,8 +79,9 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     }
     if (!invoice) return apiNotFound('الفاتورة غير موجودة');
 
-    // 3. Validate status
-    if (['draft', 'cancelled', 'paid', 'expired'].includes(invoice.status)) {
+    // 3. Validate status — shared gate with the dashboard route so the two
+    //    can no longer drift apart.
+    if (!isPayableInvoiceStatus(invoice.status)) {
       return apiError('لا يمكن الدفع لهذه الفاتورة');
     }
 
