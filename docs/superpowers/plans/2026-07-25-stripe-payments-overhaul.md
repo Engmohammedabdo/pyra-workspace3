@@ -37,7 +37,11 @@
 | Actual Stripe fee | **158.63 AED** (151.08 processing + 7.55 VAT) → **net deposited 5,016.37** |
 | Owner's reading | base **5,000** + **175** = 3.5% surcharge collected from client |
 | Pyra client | `cl_WoKoV_qVegfJQgSN` — Majed Alsaleh / ELITE TRACK CARS RENTAL L.L.C.S.P |
-| Duplicate Pyra invoices | `INV-0030` (`inv_dwCVExs8npNiOulk`) and `INV-0031` (`inv_4_dykvTYusGzn5oX`) — both 6,000 AED, both `sent`, both unpaid |
+| Contract | `ctr_nnOT-sUX5KQtM9p9` — "ELITE TRACK CARS Offer 3999 * 3 month" · milestone type · **total_value 11,997 AED** · active · 2026-07-27 → 2026-10-26 · `amount_billed` 6,000 · `amount_collected` **0** |
+| Milestone | `cm_yYBEKlUDJq_uU0aB` "1st payment" · 5,998.50 · status `invoiced` · **`invoice_id = inv_4_dykvTYusGzn5oX`** |
+| `INV-0031` (`inv_4_dykvTYusGzn5oX`) | **THE CORRECT INVOICE** — contract-linked + milestone-linked, auto-generated from the contract. 6,000 AED, `sent`. |
+| `INV-0030` (`inv_dwCVExs8npNiOulk`) | **The redundant one** — manual, `contract_id` NULL, linked only to project `pr_Tygew1xgRDAyfzXZ`. Same 6,000 first payment, created twice. |
+| Payment schedule (Abdou) | Invoice total **stays 6,000**. 5,000 collected 2026-07-25; **1,000 due Monday 2026-07-27** (= the contract `start_date`). Second 6,000 installment ~45 days later. |
 | Orphan session | `cs_live_a1kLVn5fq…` — `open` / `unpaid` / 6,000 AED / expires 2026-07-26T10:43Z |
 | `pyra_payments` columns | `id, invoice_id, amount, payment_date, method, reference, notes, recorded_by, created_at` |
 | `pyra_payments` constraints | PK(id), FK(invoice_id), `CHECK (amount <> 0)` — **no unique on (invoice_id, reference)** |
@@ -45,14 +49,21 @@
 | Existing i18n keys | `finance.invoices.detail.toasts.paymentLinkCopied` + `.paymentLinkFailed` (AR+EN both present) |
 | Next migration number | **053** |
 
-### ⚠️ Open decision blocking Phase 0 Task 3
+### Settled decisions (Abdou, 2026-07-25)
 
-The two Pyra invoices are 6,000 AED; the collected base is 5,000. Two readings:
+- **Invoice total stays 6,000.** The 5,000 collected is a **part payment**; the remaining
+  **1,000 is due Monday 2026-07-27**. So the invoice ends at `partially_paid`, not `paid`.
+- **The 3.5% surcharge stays OUTSIDE the invoice.** It is not a line item and does not
+  change the invoice total. Checkout charges `base + 3.5%`; only the **base** settles the
+  invoice. (This is the "alternative" treatment from the earlier draft — Phase 3 is
+  rewritten accordingly.)
+- **Keep `INV-0031`, cancel `INV-0030`** — see the reasoning in Task 0.3 Step 1.
 
-- **(A) The invoice should be 5,000** — 5,000 × 1.035 = 5,175 exactly, so this is almost certainly right. Action: correct one invoice to 5,000, mark it paid, cancel the duplicate.
-- **(B) The invoice is genuinely 6,000 and 5,000 is a part payment** — leaves 1,000 outstanding.
-
-**Do not run Phase 0 Task 3 until Abdou confirms A or B.** Everything else in this plan is independent of that choice.
+**Reconciliation residual to be aware of:** on a 5,000 base we charge 5,175, Stripe keeps
+158.63, and 5,016.37 is deposited — while `pyra_payments` records 5,000. The 16.37
+difference is surcharge over-recovery. It is real money in the bank that the ledger does
+not attribute to any invoice. Options (Abdou's call, not blocking): ignore it, or book the
+Stripe fee as an expense and the surcharge as other income so the bank ties exactly.
 
 ---
 
@@ -219,18 +230,26 @@ Also adds the missing else-branch so a future contract drift fails loudly."
 
 ## Task 0.3: Reconcile today's 5,175 AED payment
 
-> **BLOCKED** until Abdou confirms reading (A) or (B) above. Steps below assume **(A)**: invoice base is 5,000.
-
 **Files:**
 - Create: `scripts/reconcile-2026-07-25-stripe.sql`
 
-- [ ] **Step 1: Re-verify current state before writing anything**
+**Which invoice survives, and why:** both carry the same 6,000 "1st payment", but only
+`INV-0031` is wired into the finance chain — `pyra_contract_milestones.cm_yYBEKlUDJq_uU0aB`
+points at it via `invoice_id`, and the contract's `amount_billed` already counts it.
+Cancelling `INV-0031` would orphan the milestone and desync contract billing.
+`INV-0030` is a manual, project-only invoice with no contract linkage — that is the one to
+cancel.
+
+- [ ] **Step 1: Re-verify the linkage before writing anything**
 
 ```bash
-pnpm db:query "SELECT id, invoice_number, status, total, amount_paid, amount_due FROM pyra_invoices WHERE id IN ('inv_dwCVExs8npNiOulk','inv_4_dykvTYusGzn5oX')"
+pnpm db:query "SELECT id, invoice_number, status, total, amount_paid, amount_due, contract_id, project_id FROM pyra_invoices WHERE id IN ('inv_dwCVExs8npNiOulk','inv_4_dykvTYusGzn5oX')"
+pnpm db:query "SELECT id, title, amount, status, invoice_id FROM pyra_contract_milestones WHERE contract_id = 'ctr_nnOT-sUX5KQtM9p9'"
 ```
 
-Expected: both `sent`, total 6000.00, amount_paid 0.00.
+Expected: both invoices `sent` / 6000.00 / amount_paid 0.00; `INV-0031` has
+`contract_id = ctr_nnOT-sUX5KQtM9p9`; the milestone's `invoice_id` is `inv_4_dykvTYusGzn5oX`.
+If the milestone points anywhere else, **stop** — the assumption above no longer holds.
 
 - [ ] **Step 2: Take a backup snapshot**
 
@@ -245,49 +264,58 @@ Create `scripts/reconcile-2026-07-25-stripe.sql`. It is UTF-8 (contains Arabic) 
 ```sql
 -- Reconcile the 2026-07-25 Stripe payment that the (disabled) webhook never booked.
 -- Charge ch_3Tx5D13HV9MX1JIk1jYYU5Vv / intent pi_3Tx5D13HV9MX1JIk1UCl6eEC
--- Gross 5,175 AED = 5,000 base + 175 card surcharge (3.5%). Stripe fee 158.63.
+-- Gross charged 5,175 AED = 5,000 base + 175 card surcharge (3.5%).
+-- Stripe fee 158.63 -> 5,016.37 deposited.
+-- Only the 5,000 BASE settles the invoice; the surcharge stays outside it.
+-- The invoice stays at 6,000: the remaining 1,000 is due Monday 2026-07-27.
 BEGIN;
 
--- 1. INV-0030 is the surviving invoice; correct its total to the agreed base.
-UPDATE pyra_invoices
-   SET total = 5000.00,
-       subtotal = 5000.00,
-       amount_due = 5000.00,
-       updated_at = now()
- WHERE id = 'inv_dwCVExs8npNiOulk'
-   AND status = 'sent';
-
--- 2. Book the base amount as the ledger payment. reference = the Stripe intent,
---    which is exactly what the webhook would have written, so a future replay
---    of this event hits the idempotency check and skips.
+-- 1. Book the base amount against INV-0031 (the contract/milestone-linked invoice).
+--    reference = the Stripe intent, exactly what the webhook would have written, so
+--    if this event is ever replayed the unique index / idempotency check skips it.
 INSERT INTO pyra_payments (id, invoice_id, amount, payment_date, method, reference, notes, recorded_by)
 VALUES (
   'pay_' || substr(md5(random()::text), 1, 16),
-  'inv_dwCVExs8npNiOulk',
+  'inv_4_dykvTYusGzn5oX',
   5000.00,
   DATE '2026-07-25',
   'online',
   'pi_3Tx5D13HV9MX1JIk1UCl6eEC',
-  'Stripe — تسوية يدوية لدفعة لم يسجلها الويبهوك (كان معطلاً). الإجمالي المحصل 5175 = 5000 + 175 رسوم بطاقة 3.5%. رسوم Stripe الفعلية 158.63.'
-, 'system');
+  'Stripe — تسوية يدوية لدفعة لم يسجلها الويبهوك (كان معطلاً). المحصل 5175 = 5000 أساسي + 175 رسوم بطاقة 3.5%. رسوم Stripe الفعلية 158.63، الصافي المودع 5016.37. باقي 1000 مستحقة الاثنين 27/07.',
+  'system'
+);
 
--- 3. Settle the invoice.
+-- 2. Part-settle the invoice. It stays at 6,000 with 1,000 outstanding.
 UPDATE pyra_invoices
    SET amount_paid = 5000.00,
-       amount_due = 0.00,
-       status = 'paid',
-       updated_at = now()
- WHERE id = 'inv_dwCVExs8npNiOulk';
-
--- 4. Cancel the duplicate.
-UPDATE pyra_invoices
-   SET status = 'cancelled',
-       updated_at = now()
+       amount_due  = 1000.00,
+       status      = 'partially_paid',
+       updated_at  = now()
  WHERE id = 'inv_4_dykvTYusGzn5oX'
    AND status = 'sent';
 
--- 5. Mark the orphaned local session record as cancelled (its Stripe session
---    expires 2026-07-26 unpaid).
+-- 3. Cancel the redundant manual invoice (no contract, no milestone).
+UPDATE pyra_invoices
+   SET status = 'cancelled',
+       updated_at = now()
+ WHERE id = 'inv_dwCVExs8npNiOulk'
+   AND status = 'sent';
+
+-- 4. Bring the contract's collected total in line (it was 0.00).
+--    Derived, never incremented — per the Finance Remediation lock.
+UPDATE pyra_contracts c
+   SET amount_collected = COALESCE((
+         SELECT SUM(p.amount)
+           FROM pyra_payments p
+           JOIN pyra_invoices i ON i.id = p.invoice_id
+          WHERE i.contract_id = c.id
+            AND i.status <> 'cancelled'
+       ), 0),
+       updated_at = now()
+ WHERE c.id = 'ctr_nnOT-sUX5KQtM9p9';
+
+-- 5. Mark the orphaned local session record as cancelled (that Stripe session was
+--    minted against the now-cancelled INV-0030 and expires 2026-07-26 unpaid).
 UPDATE pyra_stripe_payments
    SET status = 'cancelled', updated_at = now()
  WHERE stripe_session_id = 'cs_live_a1kLVn5fqoDdAT5wWNTh7zRTCCG0curklbdnV6QcRoAkFVqF39HMWu5PVn';
@@ -306,9 +334,22 @@ pnpm db:query scripts/reconcile-2026-07-25-stripe.sql
 ```bash
 pnpm db:query "SELECT invoice_number, status, total, amount_paid, amount_due FROM pyra_invoices WHERE id IN ('inv_dwCVExs8npNiOulk','inv_4_dykvTYusGzn5oX')"
 pnpm db:query "SELECT amount, method, reference, notes FROM pyra_payments WHERE reference = 'pi_3Tx5D13HV9MX1JIk1UCl6eEC'"
+pnpm db:query "SELECT amount_billed, amount_collected FROM pyra_contracts WHERE id = 'ctr_nnOT-sUX5KQtM9p9'"
 ```
 
-Expected: INV-0030 `paid` 5000/5000/0 · INV-0031 `cancelled` · one payment row whose `notes` renders readable Arabic (if you see `?????` or `Ø`, the write was corrupted — restore the backup and re-run via the file, never inline).
+Expected:
+- `INV-0031` → `partially_paid` · total 6000.00 · paid 5000.00 · **due 1000.00**
+- `INV-0030` → `cancelled`
+- one payment row, 5000.00, `method='online'`, whose `notes` renders **readable Arabic**
+  (if you see `?????` or `Ø` mojibake the write was corrupted — restore the backup and
+  re-run through the `.sql` file, never inline)
+- contract → `amount_billed` 6000.00 · `amount_collected` **5000.00**
+
+- [ ] **Step 5b: Confirm the Monday balance is visible to the client**
+
+Open `/portal/invoices/inv_4_dykvTYusGzn5oX` as the client and confirm it shows 1,000 AED
+outstanding. That is the amount the payment link for Monday must charge — and with the
+surcharge on, the client will be charged 1,035.
 
 - [ ] **Step 6: Record the Stripe fee as an expense** *(optional, ask Abdou)*
 
@@ -1032,20 +1073,20 @@ admin otherwise rather than guessing."
 
 # PHASE 3 — 3.5% card surcharge
 
-> **Accounting decision for Abdou to confirm before implementing.**
+> **DECIDED (Abdou, 2026-07-25): the surcharge lives OUTSIDE the invoice.**
 >
-> Measured today: gross 5,175 → Stripe fee 158.63 → net 5,016.37 against a 5,000 base.
-> The 3.5% surcharge over-recovers by ~16 AED, so you are never out of pocket.
+> The invoice total never changes. Checkout charges `amount_due + 3.5%`; only
+> `amount_due` settles the invoice; the surcharge is recorded as metadata on the
+> payment, never as a line item and never as an extra `pyra_payments` row (a second
+> row would inflate `amount_paid` above the invoice total).
 >
-> **Recommended (option C):** the surcharge becomes a real invoice line item at
-> payment time. Invoice total becomes 5,175, the webhook books 5,175, and the
-> books tie exactly: revenue 5,175 − fee expense 158.63 = 5,016.37 deposited.
-> This matches the Finance Remediation lock ("build it as a separate invoice line
-> item — NEVER mutate invoice total") and the client sees the charge itemised.
+> Measured today: base 5,000 → charged 5,175 → Stripe kept 158.63 → 5,016.37 deposited.
+> The surcharge over-recovers by 16.37, so the fee is always covered.
 >
-> **Alternative:** keep the invoice at 5,000 and treat the 175 as fee recovery
-> outside the invoice. Simpler, but the bank deposit will not reconcile against
-> `pyra_payments` without a second adjusting entry.
+> **Known consequence, accepted:** the bank deposit will exceed the sum of
+> `pyra_payments` for that invoice by (surcharge − Stripe fee). Booking the Stripe fee
+> as an expense and the surcharge as other income would close the gap — deferred to
+> v1.1, listed at the end of this plan.
 
 ## Task 3.1: Surcharge settings + pure math
 
@@ -1176,6 +1217,10 @@ Replace the `unitAmount` calculation in each:
 ```
 
 - [ ] **Step 2: Show the surcharge as its own Checkout line**
+
+This is a **Checkout-session** line only — it makes the charge transparent to the payer on
+Stripe's page. It is NOT written to `pyra_invoice_items` and does not alter the Pyra
+invoice total (per the Phase 3 decision above).
 
 Replace the single `line_items` entry with:
 
@@ -1616,6 +1661,7 @@ git push
 - Deliver the payment link to the client automatically (email/WhatsApp) — currently the link is copied to clipboard and nothing sends it.
 - Verify the Stripe session server-side on `/pay/success` instead of asserting success unconditionally.
 - Handle `charge.dispute.funds_reinstated` and `refund.failed` (a failed refund after we booked the negative payment leaves the ledger permanently wrong).
-- Book the actual Stripe fee as an expense automatically from the balance transaction.
+- Book the actual Stripe fee as an expense and the collected surcharge as other income, so the bank deposit ties exactly to the ledger (today it differs by surcharge − fee; 16.37 on the 2026-07-25 payment).
+- Auto-generate the contract's 2nd-installment milestone + invoice (~45 days out). The contract `ctr_nnOT-sUX5KQtM9p9` currently has only the "1st payment" milestone, so the second 6,000 has nothing to bill against yet.
 - Admin reconciliation screen at `/dashboard/finance/stripe-reconcile` (the cron alert currently deep-links to a route that does not exist yet).
 - Fix the commission auto-calculate block: it writes four columns that do not exist on `pyra_employee_payments` (`display_name`, `type`, `notes`, `created_by`; the real column is `description`). Currently dormant because `commission_auto_calculate` is unset.
