@@ -105,6 +105,11 @@ export type NotificationType =
   | 'dispute_created'
   | 'dispute_closed'
   | 'payment_failed'
+  // Stripe webhook health. Sustained signature failures mean Stripe is
+  // delivering and we are rejecting — the exact condition that silently
+  // disabled the endpoint for five months (found 2026-07-25), and again on
+  // 2026-07-26 when its signing secret was rotated without updating ours.
+  | 'stripe_webhook_failing'
   // Finance daily cron (admin-facing, internal-only — Batch 3)
   | 'invoice_draft_generated'
   | 'contract_expiring'

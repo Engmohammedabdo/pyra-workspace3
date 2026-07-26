@@ -31,6 +31,80 @@ async function notifyAdmins(
   await notifyMany(supabase, usernames, input);
 }
 
+/** Signature failures within this window that trigger an admin alert. */
+const SIGNATURE_ALERT_THRESHOLD = 3;
+const SIGNATURE_ALERT_WINDOW_MINUTES = 60;
+
+/**
+ * Alert admins when Stripe is delivering and we keep rejecting.
+ *
+ * WHY: a signature mismatch is invisible from inside the app — Stripe retries,
+ * we answer 401, and after enough failures Stripe DISABLES the endpoint. That is
+ * exactly how this integration sat dead from 2026-02 to 2026-07 with zero events
+ * ever settled, and it recurred on 2026-07-26 when the endpoint's signing secret
+ * was rotated without updating pyra_settings. Both times the failure was only
+ * found because a human went looking.
+ *
+ * Single failures are ignored — an internet probe hitting the public URL is
+ * noise. Sustained failure from Stripe's own retries is the real signal.
+ *
+ * Deduped to one alert per Dubai day (notify() does not dedup on entity, so the
+ * check is explicit — same pattern as the CRM idle-warning cron).
+ *
+ * MUST NEVER THROW: this runs inside the handler's catch block, which still has
+ * to return 401 to Stripe.
+ */
+async function alertOnSustainedSignatureFailure(req: NextRequest): Promise<void> {
+  try {
+    // Only care about requests that actually came from Stripe. A random scanner
+    // hitting the URL should never page anyone.
+    const ua = req.headers.get('user-agent') || '';
+    if (!ua.startsWith('Stripe/')) return;
+
+    const supabase = createServiceRoleClient();
+    const since = new Date(Date.now() - SIGNATURE_ALERT_WINDOW_MINUTES * 60 * 1000).toISOString();
+
+    const { count, error: countErr } = await supabase
+      .from('pyra_error_logs')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', since)
+      .eq('metadata->>reason', 'signature_verification');
+
+    if (countErr) return;
+
+    // The logError for THIS request is fire-and-forget and may not have landed
+    // yet, so count it explicitly rather than racing the insert.
+    const total = (count ?? 0) + 1;
+    if (total < SIGNATURE_ALERT_THRESHOLD) return;
+
+    const dedupKey = `stripe_sig_${dubaiDayKey()}`;
+    const { data: already, error: dedupErr } = await supabase
+      .from('pyra_notifications')
+      .select('id')
+      .eq('entity_type', 'stripe_webhook')
+      .eq('entity_id', dedupKey)
+      .limit(1);
+
+    // Fail CLOSED on a dedup read error: better one duplicate alert than a
+    // silent outage.
+    if (!dedupErr && already && already.length > 0) return;
+
+    await notifyAdmins(supabase, {
+      type: 'stripe_webhook_failing',
+      title: '🚨 Stripe يرفض الاتصال بالنظام',
+      message:
+        `فشل التحقق من توقيع Stripe ${total} مرات خلال آخر ساعة. ` +
+        'الأرجح أن السر (signing secret) في الإعدادات لم يعد مطابقاً للـ endpoint. ' +
+        'الدفعات الإلكترونية لن تُسجَّل حتى يتم تحديثه — وStripe قد يعطّل الاتصال تلقائياً.',
+      link: '/dashboard/settings',
+      entity: { type: 'stripe_webhook', id: dedupKey },
+      from: { username: 'system', displayName: 'Stripe' },
+    });
+  } catch {
+    // Never let alerting break the response path.
+  }
+}
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -937,6 +1011,10 @@ export async function POST(req: NextRequest) {
         metadata: { source: 'webhook', provider: 'stripe', reason: 'signature_verification' },
       });
       console.error('[Stripe Webhook] Signature verification failed:', message);
+      // Page a human once the failures are sustained — otherwise Stripe keeps
+      // retrying, we keep answering 401, and it eventually disables the endpoint
+      // with nobody the wiser.
+      await alertOnSustainedSignatureFailure(req);
       return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 });
     }
     // Phase 14.1 Commit 2 — processing failure is financial-critical. Stripe
