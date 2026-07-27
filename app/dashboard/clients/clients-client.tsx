@@ -28,12 +28,15 @@ import {
   LayoutGrid, Table2, ArrowUpDown, Receipt, Briefcase, MapPin,
 } from 'lucide-react';
 import { SearchInput } from '@/components/ui/search-input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
+import { mutateAPI } from '@/hooks/api-helpers';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
 import { EmptyState } from '@/components/ui/empty-state';
 import { usePermission } from '@/hooks/usePermission';
 import { ClientExportButton } from '@/components/clients/ClientExportButton';
+import { ClientsBulkBar } from '@/components/clients/ClientsBulkBar';
 import { TagFilterSelect } from '@/components/clients/TagFilterSelect';
 import { motion } from 'framer-motion';
 import { useClients, useCreateClient, useUpdateClient } from '@/hooks/useClients';
@@ -116,6 +119,11 @@ export default function ClientsClient() {
   const [selected, setSelected] = useState<Client | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+
+  // ── Bulk selection ─────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showBulkDelete, setShowBulkDelete] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   // Debounce search input (350ms)
   useEffect(() => {
@@ -219,6 +227,72 @@ export default function ClientsClient() {
     }
   };
 
+  // ── Bulk selection helpers ─────────────────────────
+  // Selection is pruned to what is currently visible. Changing the search, tag
+  // filter or sort must never leave an off-screen client silently queued for
+  // deletion — you can only delete what you can see.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (prev.length === 0) return prev;
+      const visible = new Set(clients.map((c) => c.id));
+      const next = prev.filter((id) => visible.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [clients]);
+
+  const toggleOne = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const allVisibleSelected = clients.length > 0 && selectedIds.length === clients.length;
+
+  const toggleAll = () => {
+    setSelectedIds(allVisibleSelected ? [] : clients.map((c) => c.id));
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    setBulkBusy(true);
+    try {
+      // Server caps each request at 50 — chunk so a large selection still works.
+      const chunks: string[][] = [];
+      for (let i = 0; i < selectedIds.length; i += 50) {
+        chunks.push(selectedIds.slice(i, i + 50));
+      }
+
+      let deleted = 0;
+      const blocked: { name: string; reason: string }[] = [];
+
+      for (const chunk of chunks) {
+        const res = await mutateAPI<{
+          deleted: { id: string; name: string }[];
+          blocked: { id: string; name: string; reason: string }[];
+        }>('/api/clients/bulk-delete', 'POST', { client_ids: chunk });
+        deleted += res.deleted.length;
+        blocked.push(...res.blocked);
+      }
+
+      setShowBulkDelete(false);
+      setSelectedIds([]);
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+
+      if (deleted > 0) toast.success(`تم حذف ${deleted} عميل`);
+      if (blocked.length > 0) {
+        // Name the first few so the reason is actionable, not just a count.
+        const sample = blocked.slice(0, 3).map((b) => `${b.name} (${b.reason})`).join('، ');
+        const more = blocked.length > 3 ? ` و${blocked.length - 3} غيرهم` : '';
+        toast.error(`تعذّر حذف ${blocked.length}: ${sample}${more}`, { duration: 8000 });
+      }
+      if (deleted === 0 && blocked.length === 0) toast.error('لم يتم حذف أي عميل');
+    } catch (err: any) {
+      toast.error(err?.message || 'حدث خطأ أثناء الحذف');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   const openEdit = (c: Client) => {
     setSelected(c);
     setForm({
@@ -314,7 +388,7 @@ export default function ClientsClient() {
             variant="ghost"
             size="sm"
             className={cn('rounded-none h-9 px-3', viewMode === 'cards' && 'bg-muted')}
-            onClick={() => setViewMode('cards')}
+            onClick={() => { setViewMode('cards'); setSelectedIds([]); }}
           >
             <LayoutGrid className="h-4 w-4" />
           </Button>
@@ -329,6 +403,16 @@ export default function ClientsClient() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50">
+                    {canDelete && (
+                      <th className="p-3 w-[44px]">
+                        <Checkbox
+                          checked={allVisibleSelected}
+                          onCheckedChange={toggleAll}
+                          disabled={clients.length === 0}
+                          aria-label="تحديد كل العملاء الظاهرين"
+                        />
+                      </th>
+                    )}
                     <th className="text-start p-3 font-medium">العميل</th>
                     <th className="text-start p-3 font-medium">الشركة</th>
                     <th className="text-start p-3 font-medium">التصنيفات</th>
@@ -342,14 +426,14 @@ export default function ClientsClient() {
                   {loading ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <tr key={i} className="border-b">
-                        {Array.from({ length: 7 }).map((_, j) => (
+                        {Array.from({ length: canDelete ? 8 : 7 }).map((_, j) => (
                           <td key={j} className="p-3"><Skeleton className="h-5 w-24" /></td>
                         ))}
                       </tr>
                     ))
                   ) : clients.length === 0 ? (
                     <tr>
-                      <td colSpan={7}>
+                      <td colSpan={canDelete ? 8 : 7}>
                         <EmptyState
                           icon={Building2}
                           title="لا يوجد عملاء"
@@ -359,7 +443,22 @@ export default function ClientsClient() {
                     </tr>
                   ) : (
                     clients.map((c) => (
-                      <tr key={c.id} className="border-b hover:bg-muted/30 transition-colors group">
+                      <tr
+                        key={c.id}
+                        className={cn(
+                          'border-b hover:bg-muted/30 transition-colors group',
+                          selectedIds.includes(c.id) && 'bg-orange-50/60 dark:bg-orange-950/20',
+                        )}
+                      >
+                        {canDelete && (
+                          <td className="p-3">
+                            <Checkbox
+                              checked={selectedIds.includes(c.id)}
+                              onCheckedChange={() => toggleOne(c.id)}
+                              aria-label={`تحديد ${c.name}`}
+                            />
+                          </td>
+                        )}
                         <td className="p-3">
                           <Link href={`/dashboard/clients/${c.id}`} className="flex items-center gap-2.5 hover:text-orange-600 transition-colors">
                             <div className="relative">
@@ -569,6 +668,15 @@ export default function ClientsClient() {
         </div>
       )}
 
+      {/* ── Bulk action bar (sticky, only while selecting) ── */}
+      <ClientsBulkBar
+        count={selectedIds.length}
+        busy={bulkBusy}
+        canDelete={canDelete}
+        onDelete={() => setShowBulkDelete(true)}
+        onClear={() => setSelectedIds([])}
+      />
+
       {/* ── Create Dialog ──────────────────────────────── */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
@@ -716,6 +824,31 @@ export default function ClientsClient() {
             <Button variant="outline" onClick={() => setShowEdit(false)}>إلغاء</Button>
             <Button onClick={handleEdit} disabled={saving}>
               {saving ? 'جارٍ الحفظ...' : 'حفظ التغييرات'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Bulk Delete Dialog ─────────────────────────── */}
+      <Dialog open={showBulkDelete} onOpenChange={setShowBulkDelete}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>حذف {selectedIds.length} عميل</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-3 text-sm">
+            <p className="text-muted-foreground">
+              سيتم حذف العملاء المحددين نهائياً. لا يمكن التراجع عن هذا الإجراء.
+            </p>
+            <p className="text-muted-foreground">
+              أي عميل مرتبط بمشروع أو عرض سعر أو فاتورة لن يُحذف، وسيظهر لك سبب استثنائه.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkDelete(false)} disabled={bulkBusy}>
+              إلغاء
+            </Button>
+            <Button variant="destructive" onClick={handleBulkDelete} disabled={bulkBusy}>
+              {bulkBusy ? 'جارٍ الحذف...' : `حذف ${selectedIds.length}`}
             </Button>
           </DialogFooter>
         </DialogContent>
