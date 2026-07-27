@@ -14,6 +14,7 @@ import { notifyQuoteSigned } from '@/lib/email/notify';
 import { notify } from '@/lib/notifications/notify';
 import { dubaiDayKey } from '@/lib/utils/format';
 import { signQuote, MAX_SIGNATURE_LENGTH } from '@/lib/quotes/sign-quote';
+import { logError } from '@/lib/observability/log-error';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -85,7 +86,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
           return apiValidationError('بيانات التوقيع غير صالحة أو كبيرة جداً');
         case 'db_error':
         default:
-          console.error('Quote sign error:', result.reason);
+          // Log the real Supabase error (e.g. the append-only signature
+          // trigger from migrations 054/055 raising) — `result.reason` is
+          // just the literal string 'db_error' and tells an operator nothing.
+          logError({
+            error: result.error,
+            request,
+            metadata: { route: 'portal-quotes-sign', quoteId: id },
+          });
           return apiServerError();
       }
     }

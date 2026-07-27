@@ -35,7 +35,10 @@ export interface SignQuoteInput {
 export async function signQuote(
   supabase: SupabaseClient,
   input: SignQuoteInput,
-): Promise<{ ok: true; quote: Record<string, unknown> } | { ok: false; reason: SignFailure }> {
+): Promise<
+  | { ok: true; quote: Record<string, unknown> }
+  | { ok: false; reason: SignFailure; error?: unknown }
+> {
   if (input.signatureData.length > MAX_SIGNATURE_LENGTH) {
     return { ok: false, reason: 'signature_too_large' };
   }
@@ -46,7 +49,7 @@ export async function signQuote(
     .eq('id', input.quoteId)
     .maybeSingle();
 
-  if (loadErr) return { ok: false, reason: 'db_error' };
+  if (loadErr) return { ok: false, reason: 'db_error', error: loadErr };
   if (!quote) return { ok: false, reason: 'wrong_status' };
 
   const verdict = canSignQuote(
@@ -83,7 +86,7 @@ export async function signQuote(
     .select('*')
     .maybeSingle();
 
-  if (updErr) return { ok: false, reason: 'db_error' };
+  if (updErr) return { ok: false, reason: 'db_error', error: updErr };
   if (!updated) return { ok: false, reason: 'race' };
   return { ok: true, quote: updated };
 }
