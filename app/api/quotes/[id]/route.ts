@@ -154,11 +154,26 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // content that no longer exists — which makes the signature worthless and
     // hands the customer a repudiation defence.
     // Status-only transitions (e.g. signed -> invoiced) stay allowed.
+    //
+    // This list is derived directly from every key this handler's body
+    // destructure (below) can turn into a write to pyra_quotes/pyra_quote_items
+    // — not from the original implementation plan, which is what let two keys
+    // slip through: `vat_rate` (the recompute branch reads `bodyVatRate ??
+    // bodyTaxRate`, but only 'tax_rate' was listed) and `client_id` (the client
+    // lookup branch overwrites client_name/email/phone/company, but nothing
+    // gated the id that drives the lookup). Also added here: `project_name`
+    // and `estimate_date` — both are rendered on the portal quote view and the
+    // PDF the client signs (components/portal/quotes/QuoteDetailView.tsx,
+    // lib/pdf/quote-pdf.ts), so silently changing them post-signature is the
+    // same repudiation risk as changing the price. `status` is deliberately
+    // NOT here — signed -> invoiced must keep working. `updated_at` is
+    // internal/audit-only and carries no commercial meaning, so it's excluded
+    // too.
     const CONTENT_KEYS = [
-      'items', 'subtotal', 'total', 'tax_rate', 'tax_amount', 'currency',
+      'items', 'subtotal', 'total', 'tax_rate', 'tax_amount', 'vat_rate', 'currency',
       'discount_type', 'discount_value', 'discount_amount',
-      'expiry_date', 'terms_conditions', 'notes',
-      'client_name', 'client_company', 'client_email', 'client_phone', 'client_address',
+      'project_name', 'estimate_date', 'expiry_date', 'terms_conditions', 'notes',
+      'client_id', 'client_name', 'client_company', 'client_email', 'client_phone', 'client_address',
     ] as const;
     const LOCKED_STATUSES: readonly string[] = [QUOTE_STATUS.SIGNED, QUOTE_STATUS.INVOICED];
     if (LOCKED_STATUSES.includes(existing.status)) {
