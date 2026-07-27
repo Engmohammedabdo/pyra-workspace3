@@ -12,12 +12,8 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { notifyQuoteSigned } from '@/lib/email/notify';
 import { notify } from '@/lib/notifications/notify';
-import { QUOTE_STATUS } from '@/lib/constants/statuses';
 import { dubaiDayKey } from '@/lib/utils/format';
-
-// Signature payloads are data-URIs — cap size so a client cannot persist
-// megabytes of arbitrary text per quote (finance audit 2026-07-02, F-12).
-const MAX_SIGNATURE_LENGTH = 500_000; // ~500 KB
+import { signQuote, MAX_SIGNATURE_LENGTH } from '@/lib/quotes/sign-quote';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -54,48 +50,54 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return apiForbidden('ليس لديك صلاحية لتوقيع هذا العرض');
     }
 
-    // Block signing expired quotes (Dubai calendar day, not UTC)
-    if (quote.expiry_date && quote.expiry_date < dubaiDayKey()) {
-      return apiValidationError('عرض السعر منتهي الصلاحية ولا يمكن توقيعه');
-    }
-
-    // Only sent or viewed quotes can be signed
-    if (!['sent', 'viewed'].includes(quote.status)) {
-      return apiValidationError(
-        quote.status === 'signed'
-          ? 'عرض السعر موقع بالفعل'
-          : `لا يمكن توقيع عرض سعر في حالة "${quote.status}"`
-      );
-    }
-
-    const now = new Date().toISOString();
+    const signedByTrimmed = signed_by.trim();
     const ip = request.headers.get('x-forwarded-for') || 'unknown';
 
-    // Conditional update — two concurrent sign requests both pass the status
-    // guard above; the .in('status') filter lets exactly one win instead of
-    // the second silently overwriting the first signature.
-    const { data: updated, error } = await supabase
-      .from('pyra_quotes')
-      .update({
-        status: QUOTE_STATUS.SIGNED,
-        signature_data,
-        signed_by: signed_by.trim(),
-        signed_at: now,
-        signed_ip: ip,
-        updated_at: now,
-      })
-      .eq('id', id)
-      .in('status', [QUOTE_STATUS.SENT, QUOTE_STATUS.VIEWED])
-      .select('id, quote_number, status, signed_by, signed_at')
-      .maybeSingle();
+    // The one shared core (lib/quotes/sign-quote.ts) owns the expiry guard,
+    // the status guard and the race-safe conditional update — the public
+    // sign endpoint (Task 6) reuses the exact same guards via this call.
+    const result = await signQuote(supabase, {
+      quoteId: id,
+      signatureData: signature_data,
+      signedBy: signedByTrimmed,
+      signedIp: ip,
+      userAgent: request.headers.get('user-agent'),
+      source: 'portal',
+      linkId: null,
+      todayKey: dubaiDayKey(),
+    });
 
-    if (error) {
-      console.error('Quote sign error:', error);
-      return apiServerError();
+    if (!result.ok) {
+      switch (result.reason) {
+        case 'quote_expired':
+          // Block signing expired quotes (Dubai calendar day, not UTC)
+          return apiValidationError('عرض السعر منتهي الصلاحية ولا يمكن توقيعه');
+        case 'already_signed':
+        case 'race':
+          // 'race' = a concurrent request won the conditional update first —
+          // same friendly message as an already-signed quote, not an error.
+          return apiValidationError('عرض السعر موقع بالفعل');
+        case 'wrong_status':
+          return apiValidationError(`لا يمكن توقيع عرض سعر في حالة "${quote.status}"`);
+        case 'signature_too_large':
+          // Unreachable in practice — the length check above already rejects
+          // this before signQuote() is ever called. Kept for defense in depth.
+          return apiValidationError('بيانات التوقيع غير صالحة أو كبيرة جداً');
+        case 'db_error':
+        default:
+          console.error('Quote sign error:', result.reason);
+          return apiServerError();
+      }
     }
-    if (!updated) {
-      return apiValidationError('عرض السعر موقع بالفعل');
-    }
+
+    const signed = result.quote;
+    const responsePayload = {
+      id: signed.id,
+      quote_number: signed.quote_number,
+      status: signed.status,
+      signed_by: signed.signed_by,
+      signed_at: signed.signed_at,
+    };
 
     // Notify via activity log
     await supabase.from('pyra_activity_log').insert({
@@ -104,7 +106,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       username: session.name,
       display_name: session.name,
       target_path: `/quotes/${id}`,
-      details: { quote_number: quote.quote_number, signed_by: signed_by.trim() },
+      details: { quote_number: quote.quote_number, signed_by: signedByTrimmed },
       ip_address: ip,
     });
 
@@ -114,7 +116,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         createdBy: quote.created_by,
         quoteNumber: quote.quote_number,
         quoteId: id,
-        signedBy: signed_by.trim(),
+        signedBy: signedByTrimmed,
         total: quote.total || 0,
         currency: quote.currency || 'AED',
       });
@@ -129,13 +131,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
         to: quote.created_by,
         type: 'quote_signed',
         title: 'تم توقيع عرض السعر',
-        message: `تم توقيع عرض السعر ${quote.quote_number} بواسطة ${signed_by.trim()}`,
+        message: `تم توقيع عرض السعر ${quote.quote_number} بواسطة ${signedByTrimmed}`,
         link: `/dashboard/quotes/${id}`,
         entity: { type: 'quote', id },
       });
     }
 
-    return apiSuccess(updated);
+    return apiSuccess(responsePayload);
   } catch (err) {
     console.error('POST /api/portal/quotes/[id]/sign error:', err);
     return apiServerError();
