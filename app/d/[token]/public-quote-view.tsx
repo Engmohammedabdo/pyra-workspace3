@@ -26,6 +26,7 @@ interface PublicDocCopy {
   unavailableTitle: string;
   unavailableBody: string;
   signError: string;
+  downloadError: string;
   rateLimited: string;
 }
 
@@ -178,7 +179,7 @@ export function PublicQuoteView({ token, quote, canSign, blockReason, copy }: Pu
         items: localQuote.items,
       });
     } catch {
-      toast.error(copy.signError);
+      toast.error(copy.downloadError);
     } finally {
       setDownloading(false);
     }

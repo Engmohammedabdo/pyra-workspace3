@@ -11,6 +11,7 @@
     "unavailableTitle": "Not Available",
     "unavailableBody": "This quote is not available for viewing right now.",
     "signError": "Something went wrong saving the signature. Please try again.",
+    "downloadError": "Something went wrong downloading the PDF. Please try again.",
     "rateLimited": "Too many attempts. Please wait a moment and try again."
   }
 }

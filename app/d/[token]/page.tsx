@@ -7,9 +7,10 @@ import { toPublicQuotePayload } from '@/lib/quotes/public-payload';
 import { quoteContentHash } from '@/lib/quotes/content-hash';
 import { canSignQuote } from '@/lib/quotes/signability';
 import { QUOTE_STATUS } from '@/lib/constants/statuses';
-import { dubaiDayKey } from '@/lib/utils/format';
+import { dubaiDayKey, formatDate } from '@/lib/utils/format';
 import { loadMessages } from '@/lib/i18n/messages';
-import type { Locale } from '@/lib/i18n/config';
+import { dirFor, type Locale } from '@/lib/i18n/config';
+import { logError } from '@/lib/observability/log-error';
 import { PublicQuoteView } from './public-quote-view';
 
 // Never cached: link state and quote status both change server-side.
@@ -63,11 +64,15 @@ export default async function PublicDocumentPage({
   ];
   if (!VISIBLE.includes(quote.status)) notFound();
 
-  const { data: items } = await supabase
+  const { data: items, error: itemsErr } = await supabase
     .from('pyra_quote_items')
     .select('description, quantity, rate, amount')
     .eq('quote_id', quote.id)
     .order('sort_order', { ascending: true });
+
+  // Same reasoning as the quote lookup above: a DB blip here must not render
+  // as a signable quote with zero line items and a non-zero total.
+  if (itemsErr) throw new Error(`quote items lookup failed: ${itemsErr.message}`);
 
   const payload = toPublicQuotePayload(quote, items ?? []);
   const contentChanged =
@@ -87,15 +92,36 @@ export default async function PublicDocumentPage({
   }
   const t = await getTranslations({ locale, namespace: 'publicdoc' });
 
-  await supabase.rpc('pyra_increment_document_link_view', { link_id: link.id });
+  // Both writes below are best-effort side effects of a read — a customer
+  // must still see their quote if either fails. But a silent failure here
+  // means nobody ever finds out the view counter or status transition broke
+  // (e.g. the RPC grant regresses, or the append-only trigger rejects the
+  // update), so log instead of discarding the result.
+  const { error: viewErr } = await supabase.rpc('pyra_increment_document_link_view', {
+    link_id: link.id,
+  });
+  if (viewErr) {
+    logError({
+      severity: 'warning',
+      error: viewErr,
+      metadata: { scope: 'pyra_increment_document_link_view', link_id: link.id },
+    });
+  }
 
   // sent -> viewed on first open, mirroring the portal.
   if (quote.status === QUOTE_STATUS.SENT) {
-    await supabase
+    const { error: viewedTransitionErr } = await supabase
       .from('pyra_quotes')
       .update({ status: QUOTE_STATUS.VIEWED, viewed_at: new Date().toISOString() })
       .eq('id', quote.id)
       .eq('status', QUOTE_STATUS.SENT);
+    if (viewedTransitionErr) {
+      logError({
+        severity: 'warning',
+        error: viewedTransitionErr,
+        metadata: { scope: 'quote_sent_to_viewed', quote_id: quote.id },
+      });
+    }
   }
 
   const todayKey = dubaiDayKey();
@@ -112,26 +138,37 @@ export default async function PublicDocumentPage({
   // reach the quote content itself, not just the copy strings below.
   const messages = await loadMessages(locale);
 
+  // The root layout's <html lang dir> is cookie-derived and an anonymous
+  // visitor never has a pyra_locale cookie, so it always renders ar/rtl —
+  // wrong for an English-preferring client's whole subtree. Rather than
+  // touching the shared root layout, this page sets its own dir/lang on the
+  // outermost element of its own subtree, matching the recipient locale
+  // resolved above.
   return (
-    <NextIntlClientProvider locale={locale} messages={messages}>
-      <PublicQuoteView
-        token={token}
-        quote={payload}
-        canSign={signable.ok && !contentChanged}
-        blockReason={contentChanged ? 'content_changed' : signable.ok ? null : signable.reason}
-        copy={{
-          alreadySignedTitle: t('alreadySignedTitle'),
-          alreadySignedBody: t('alreadySignedBody', { date: String(quote.signed_at ?? '') }),
-          quoteExpiredTitle: t('quoteExpiredTitle'),
-          quoteExpiredBody: t('quoteExpiredBody'),
-          changedTitle: t('changedTitle'),
-          changedBody: t('changedBody'),
-          unavailableTitle: t('unavailableTitle'),
-          unavailableBody: t('unavailableBody'),
-          signError: t('signError'),
-          rateLimited: t('rateLimited'),
-        }}
-      />
-    </NextIntlClientProvider>
+    <div dir={dirFor(locale)} lang={locale}>
+      <NextIntlClientProvider locale={locale} messages={messages}>
+        <PublicQuoteView
+          token={token}
+          quote={payload}
+          canSign={signable.ok && !contentChanged}
+          blockReason={contentChanged ? 'content_changed' : signable.ok ? null : signable.reason}
+          copy={{
+            alreadySignedTitle: t('alreadySignedTitle'),
+            alreadySignedBody: t('alreadySignedBody', {
+              date: quote.signed_at ? formatDate(quote.signed_at as string, undefined, locale) : '',
+            }),
+            quoteExpiredTitle: t('quoteExpiredTitle'),
+            quoteExpiredBody: t('quoteExpiredBody'),
+            changedTitle: t('changedTitle'),
+            changedBody: t('changedBody'),
+            unavailableTitle: t('unavailableTitle'),
+            unavailableBody: t('unavailableBody'),
+            signError: t('signError'),
+            downloadError: t('downloadError'),
+            rateLimited: t('rateLimited'),
+          }}
+        />
+      </NextIntlClientProvider>
+    </div>
   );
 }
