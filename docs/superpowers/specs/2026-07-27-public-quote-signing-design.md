@@ -297,17 +297,17 @@ same-origin browser fetch, so the Origin/Referer check protects it for free.
 
 ---
 
-## Owner decisions still required
+## Owner decisions — ANSWERED 2026-07-27, treat as locked
 
-Everything else has a recommendation recorded in the plan. These four need Abou.
+Abou approved all four recommendations below as written. They are no longer open.
 
-**D-1 — Bank details on the public quote PDF.**
+**D-1 — Bank details on the public quote PDF. → OMIT.**
 The portal passes the quote verbatim into `generateQuotePDF`, which renders
 `bank_details.{bank,account_name,account_no,iban}`. On an unauthenticated, forwardable
 URL that publishes the company IBAN — a ready-made invoice-fraud kit. *Recommendation:*
 omit bank details from the public PDF and print "bank details will be on the invoice".
 
-**D-2 — Any logged-in employee can forge a signature today.**
+**D-2 — Any logged-in employee can forge a signature today. → PARTIAL MITIGATION NOW.**
 `pyra_quotes` has RLS off and grants `authenticated` UPDATE. A direct PostgREST PATCH can
 set `status='signed'` with chosen `signature_data`/`signed_by`/`signed_at`/`signed_ip`,
 bypassing every application guard and producing no activity row. This is pre-existing
@@ -315,12 +315,12 @@ bypassing every application guard and producing no activity row. This is pre-exi
 migration 054 as a partial mitigation; a full revoke needs its own read-path audit and
 must never precede the code that stops reading as `authenticated`.
 
-**D-3 — Does the customer get a copy when they sign?**
+**D-3 — Does the customer get a copy when they sign? → YES.**
 Today the signer receives nothing — no email, no notification, no timeline row.
 *Recommendation:* email them the signed PDF and write a lead-timeline row. Small, and it
 is what makes the feature feel finished.
 
-**D-4 — Move `QuoteDetailView` out of `components/portal/`?**
+**D-4 — Move `QuoteDetailView` out of `components/portal/`? → YES, MOVE AND TRANSLATE.**
 It is Arabic-only (~19 hardcoded strings). Moving it to `components/quotes/` is
 semantically correct and puts it under `pnpm i18n:check`, but adds a translation pass.
 *Recommendation:* move it — a customer-facing legal document that is Arabic-only for an
