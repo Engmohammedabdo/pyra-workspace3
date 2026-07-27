@@ -1,0 +1,16 @@
+{
+  "publicdoc": {
+    "invalidTitle": "Invalid Link",
+    "invalidBody": "This link has expired or was revoked. Ask your sales rep for a new link.",
+    "quoteExpiredTitle": "Quote Expired",
+    "quoteExpiredBody": "This quote is past its validity period. Ask for an updated quote.",
+    "alreadySignedTitle": "Signed",
+    "alreadySignedBody": "This quote was already signed on {date}.",
+    "changedTitle": "Quote Changed",
+    "changedBody": "The quote details changed after this link was sent. Ask for a new link.",
+    "unavailableTitle": "Not Available",
+    "unavailableBody": "This quote is not available for viewing right now.",
+    "signError": "Something went wrong saving the signature. Please try again.",
+    "rateLimited": "Too many attempts. Please wait a moment and try again."
+  }
+}

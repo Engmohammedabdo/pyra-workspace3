@@ -13,7 +13,10 @@ import type { Locale } from './config';
  * 'teams' (empty scaffolds at foundation time — filled by the UI-migration
  * tasks in the same wave; `components/files/*` is shared dashboard+portal,
  * so `files.*` must stay reachable from both shells). Task 7 (CRM calls
- * report) adds a standalone 'calls' namespace.
+ * report) adds a standalone 'calls' namespace. Public quote signing Task 5
+ * adds 'publicdoc' — the unauthenticated /d/<token> page's own copy
+ * (invalid/expired/already-signed/etc. states), rendered per-recipient-
+ * locale rather than per-session-cookie, hence a namespace of its own.
  */
 export const NAMESPACE_FILES = [
   'common', 'nav', 'auth', 'statuses',
@@ -23,6 +26,7 @@ export const NAMESPACE_FILES = [
   'guide',
   'clients', 'projects', 'files', 'teams',
   'calls',
+  'publicdoc',
 ] as const;
 
 type Messages = Record<string, unknown>;

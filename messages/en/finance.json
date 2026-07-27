@@ -460,6 +460,42 @@
       },
       "signaturePad": {
         "clear": "Clear Signature"
+      },
+      "detail": {
+        "back": "Back to List",
+        "downloadPdf": "Download PDF",
+        "companyFallback": "PYRAMEDIA X",
+        "companyTagline": "FOR AI SOLUTIONS",
+        "fields": {
+          "quoteNumber": "Quote Number",
+          "date": "Date",
+          "validUntil": "Valid Until",
+          "project": "Project"
+        },
+        "table": {
+          "description": "Description",
+          "quantity": "Quantity",
+          "rate": "Rate",
+          "total": "Total"
+        },
+        "totals": {
+          "subtotal": "Subtotal",
+          "tax": "VAT ({rate}%)",
+          "total": "Total"
+        },
+        "notes": "Notes",
+        "signedBadge": "Signed",
+        "signedBy": "By: {signedBy} — {signedAt}",
+        "signButton": "Sign Quote",
+        "signDialog": {
+          "title": "Electronic Signature",
+          "nameLabel": "Signer Name",
+          "namePlaceholder": "Full name",
+          "signatureLabel": "Signature",
+          "cancel": "Cancel",
+          "confirm": "Confirm Signature",
+          "signing": "Signing..."
+        }
       }
     },
     "contracts": {

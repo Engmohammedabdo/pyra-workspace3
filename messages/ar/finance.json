@@ -460,6 +460,42 @@
       },
       "signaturePad": {
         "clear": "مسح التوقيع"
+      },
+      "detail": {
+        "back": "العودة للقائمة",
+        "downloadPdf": "تحميل PDF",
+        "companyFallback": "PYRAMEDIA X",
+        "companyTagline": "FOR AI SOLUTIONS",
+        "fields": {
+          "quoteNumber": "رقم العرض",
+          "date": "التاريخ",
+          "validUntil": "صالح حتى",
+          "project": "المشروع"
+        },
+        "table": {
+          "description": "الوصف",
+          "quantity": "الكمية",
+          "rate": "السعر",
+          "total": "المجموع"
+        },
+        "totals": {
+          "subtotal": "المجموع الفرعي",
+          "tax": "ضريبة ({rate}%)",
+          "total": "الإجمالي"
+        },
+        "notes": "ملاحظات",
+        "signedBadge": "تم التوقيع",
+        "signedBy": "بواسطة: {signedBy} — {signedAt}",
+        "signButton": "توقيع العرض",
+        "signDialog": {
+          "title": "التوقيع الإلكتروني",
+          "nameLabel": "اسم الموقع",
+          "namePlaceholder": "الاسم الكامل",
+          "signatureLabel": "التوقيع",
+          "cancel": "إلغاء",
+          "confirm": "تأكيد التوقيع",
+          "signing": "جارٍ التوقيع..."
+        }
       }
     },
     "contracts": {

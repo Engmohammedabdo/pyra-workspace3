@@ -163,7 +163,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // lookup branch overwrites client_name/email/phone/company, but nothing
     // gated the id that drives the lookup). Also added here: `project_name`
     // and `estimate_date` — both are rendered on the portal quote view and the
-    // PDF the client signs (components/portal/quotes/QuoteDetailView.tsx,
+    // PDF the client signs (components/quotes/QuoteDetailView.tsx,
     // lib/pdf/quote-pdf.ts), so silently changing them post-signature is the
     // same repudiation risk as changing the price. `status` is deliberately
     // NOT here — signed -> invoiced must keep working. `updated_at` is

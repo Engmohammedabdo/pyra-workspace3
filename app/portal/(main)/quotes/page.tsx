@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { EmptyState } from '@/components/ui/empty-state';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
-import { QuoteDetailView } from '@/components/portal/quotes/QuoteDetailView';
+import { QuoteDetailView } from '@/components/quotes/QuoteDetailView';
 import { QUOTE_STATUS_LABELS } from '@/lib/constants/statuses';
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {

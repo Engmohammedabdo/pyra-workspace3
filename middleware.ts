@@ -149,12 +149,16 @@ export async function middleware(request: NextRequest) {
   // bypass, portal-client error boundaries would 401 before their route
   // handler could consult getPortalSession(). The route's own auth
   // gate is the canonical check.
+  //
+  // /api/public/*  — authenticated by opaque document-link token, not by
+  //   session. The route's own token + rate-limit gate is the canonical check.
   if (
     pathname.startsWith('/api') &&
     !pathname.startsWith('/api/health') &&
     !pathname.startsWith('/api/auth') &&
     !pathname.startsWith('/api/portal') &&
     !pathname.startsWith('/api/shares/download') &&
+    !pathname.startsWith('/api/public') &&
     !pathname.startsWith('/api/stripe/webhook') &&
     !pathname.startsWith('/api/external') &&
     !pathname.startsWith('/api/cron') &&

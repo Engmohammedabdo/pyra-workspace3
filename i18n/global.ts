@@ -19,6 +19,7 @@ import type projects from '../messages/ar/projects.json';
 import type files from '../messages/ar/files.json';
 import type teams from '../messages/ar/teams.json';
 import type calls from '../messages/ar/calls.json';
+import type publicdoc from '../messages/ar/publicdoc.json';
 
 type Messages = typeof common & typeof nav & typeof auth & typeof statuses
   & typeof mywork & typeof boards & typeof calendar & typeof api
@@ -26,7 +27,8 @@ type Messages = typeof common & typeof nav & typeof auth & typeof statuses
   & typeof settings & typeof admin & typeof users & typeof rbac
   & typeof guide
   & typeof clients & typeof projects & typeof files & typeof teams
-  & typeof calls;
+  & typeof calls
+  & typeof publicdoc;
 
 declare module 'next-intl' {
   interface AppConfig {

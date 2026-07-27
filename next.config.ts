@@ -98,6 +98,29 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // Public quote-signing link (/d/<token>) — the token is a bearer
+      // credential living in the URL path, so it must never leak via the
+      // Referer header when a customer clicks through to a third-party site
+      // from this page (the site-wide default is the weaker
+      // strict-origin-when-cross-origin). Also excluded from search
+      // indexing — a leaked/crawled token would let anyone view (though not
+      // sign) the quote. Last entry wins per key for a path matched by
+      // multiple blocks (Next.js headers() semantics), so this overrides the
+      // catch-all's Referrer-Policy for this one route.
+      {
+        source: '/d/:token',
+        headers: [
+          ...commonHeaders,
+          {
+            key: 'Referrer-Policy',
+            value: 'no-referrer',
+          },
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+        ],
+      },
     ];
   },
 
