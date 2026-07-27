@@ -9,6 +9,10 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { logActivity } from '@/lib/api/activity';
+import {
+  findClientDeleteBlockers,
+  purgeClientDependents,
+} from '@/lib/clients/delete-dependents';
 
 // Fields to select — include auth_user_id for portal status detection
 const CLIENT_FIELDS = 'id, name, email, phone, company, address, source, last_login_at, is_active, created_at, auth_user_id';
@@ -293,36 +297,31 @@ export async function DELETE(
       return apiNotFound('العميل غير موجود');
     }
 
-    // ── Check for linked projects ────────────────────
-    const { count: projectsCount } = await supabase
-      .from('pyra_projects')
-      .select('id', { count: 'exact', head: true })
-      .eq('client_company', existing.company);
+    // ── Blockers ─────────────────────────────────────
+    // Shared with the bulk route so the two can never disagree about what is
+    // safe to destroy. Covers quotes/invoices/projects AND the three that used
+    // to reach the database as a raw 23503: credit notes, file approvals and
+    // WhatsApp messages.
+    const { blocked, error: guardError } = await findClientDeleteBlockers(supabase, [existing]);
 
-    // ── Check for linked quotes ──────────────────────
-    const { count: quotesCount } = await supabase
-      .from('pyra_quotes')
-      .select('id', { count: 'exact', head: true })
-      .eq('client_id', id);
+    if (guardError) {
+      console.error('Client delete — guard query failed:', guardError);
+      // Fail CLOSED: an unreadable guard must never be read as "nothing linked".
+      return apiServerError();
+    }
 
-    // ── Check for linked invoices ─────────────────────
-    const { count: invoicesCount } = await supabase
-      .from('pyra_invoices')
-      .select('id', { count: 'exact', head: true })
-      .eq('client_id', id);
-
-    const linkedProjects = projectsCount ?? 0;
-    const linkedQuotes = quotesCount ?? 0;
-    const linkedInvoices = invoicesCount ?? 0;
-
-    if (linkedProjects > 0 || linkedQuotes > 0 || linkedInvoices > 0) {
-      const parts = [];
-      if (linkedProjects > 0) parts.push(`${linkedProjects} مشروع`);
-      if (linkedQuotes > 0) parts.push(`${linkedQuotes} عرض سعر`);
-      if (linkedInvoices > 0) parts.push(`${linkedInvoices} فاتورة`);
+    if (blocked.length > 0) {
       return apiValidationError(
-        `لا يمكن حذف العميل. يوجد ${parts.join(' و ')} مرتبط بهذا العميل. قم بحذفها أو نقلها أولاً.`
+        `لا يمكن حذف العميل. ${blocked[0].reason}. قم بحذفها أو نقلها أولاً.`,
       );
+    }
+
+    // ── Detach leads + clear rows that only serve a live client ──
+    const purge = await purgeClientDependents(supabase, [id]);
+    if (purge.error) {
+      console.error(`Client delete — purge failed at ${purge.stage}:`, purge.error);
+      // Client row is still intact — the delete would have failed on the FK anyway.
+      return apiServerError();
     }
 
     // ── Delete from pyra_clients ─────────────────────

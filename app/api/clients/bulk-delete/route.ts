@@ -4,6 +4,10 @@ import { apiSuccess, apiValidationError, apiServerError } from '@/lib/api/respon
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { logActivity } from '@/lib/api/activity';
 import { logError } from '@/lib/observability/log-error';
+import {
+  findClientDeleteBlockers,
+  purgeClientDependents,
+} from '@/lib/clients/delete-dependents';
 
 /** Per-request cap. Keeps the guard queries and the Auth-deletion loop bounded. */
 const MAX_BULK = 50;
@@ -27,19 +31,13 @@ interface BlockedClient {
  *
  * Delete several clients in one request. Body: { client_ids: string[] }.
  *
- * Applies the SAME guard as DELETE /api/clients/[id] — a client with linked
- * projects, quotes or invoices is refused — but evaluates every id and reports
- * per-client outcomes instead of failing the whole batch on the first block.
- * The caller gets back what was deleted and, for each refusal, why.
+ * Guards and cleanup are shared with DELETE /api/clients/[id] via
+ * `lib/clients/delete-dependents` — see that file for which of the 11 tables
+ * referencing `pyra_clients` block a delete, which are purged, and why.
  *
- * Two behaviours differ from the single-client route, both deliberate:
- *
- *  1. Guards run as three grouped queries rather than three per client, so a
- *     50-client batch costs a fixed number of round trips.
- *  2. `pyra_sales_leads.client_id` is cleared for every deleted client. There is
- *     no FK on that column, so the single-client route leaves the originating
- *     lead pointing at a row that no longer exists. Deleting in bulk makes that
- *     dangling pointer far easier to create, so it is repaired here.
+ * What differs here is only the batching: every id is evaluated and reported
+ * individually instead of failing the whole request on the first block, so the
+ * caller gets back what was deleted and, for each refusal, the reason.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -85,21 +83,14 @@ export async function POST(request: NextRequest) {
     if (found.length === 0) return apiValidationError('لم يتم العثور على أي من العملاء المحددين');
 
     const foundIds = found.map((c) => c.id);
-    // Guard on company STRING, matching the single-client route: pyra_projects
-    // links to a client by `client_company`, not by id.
-    const companies = Array.from(new Set(found.map((c) => c.company).filter(Boolean)));
 
-    // ── Guards: three grouped queries, not three per client ──
-    const [quotesRes, invoicesRes, projectsRes] = await Promise.all([
-      supabase.from('pyra_quotes').select('client_id').in('client_id', foundIds),
-      supabase.from('pyra_invoices').select('client_id').in('client_id', foundIds),
-      companies.length > 0
-        ? supabase.from('pyra_projects').select('client_company').in('client_company', companies)
-        : Promise.resolve({ data: [], error: null }),
-    ]);
+    // ── Guards + purge: shared with DELETE /api/clients/[id] ──
+    const { blocked: scanBlocked, error: guardError } = await findClientDeleteBlockers(
+      supabase,
+      found,
+    );
 
-    if (quotesRes.error || invoicesRes.error || projectsRes.error) {
-      const guardError = quotesRes.error ?? invoicesRes.error ?? projectsRes.error;
+    if (guardError) {
       logError({
         error: guardError,
         request,
@@ -111,39 +102,9 @@ export async function POST(request: NextRequest) {
       return apiServerError();
     }
 
-    const tally = (rows: { [k: string]: unknown }[] | null, key: string) => {
-      const counts = new Map<string, number>();
-      for (const row of rows ?? []) {
-        const k = row[key];
-        if (typeof k === 'string') counts.set(k, (counts.get(k) ?? 0) + 1);
-      }
-      return counts;
-    };
-
-    const quoteCounts = tally(quotesRes.data, 'client_id');
-    const invoiceCounts = tally(invoicesRes.data, 'client_id');
-    const projectCounts = tally(projectsRes.data, 'client_company');
-
-    // ── Split into deletable vs blocked ──────────────
-    const deletable: TargetClient[] = [];
-    const blocked: BlockedClient[] = [];
-
-    for (const c of found) {
-      const parts: string[] = [];
-      const projects = projectCounts.get(c.company) ?? 0;
-      const quotes = quoteCounts.get(c.id) ?? 0;
-      const invoices = invoiceCounts.get(c.id) ?? 0;
-
-      if (projects > 0) parts.push(`${projects} مشروع`);
-      if (quotes > 0) parts.push(`${quotes} عرض سعر`);
-      if (invoices > 0) parts.push(`${invoices} فاتورة`);
-
-      if (parts.length > 0) {
-        blocked.push({ id: c.id, name: c.name, reason: `مرتبط بـ ${parts.join(' و ')}` });
-      } else {
-        deletable.push(c);
-      }
-    }
+    const blocked: BlockedClient[] = scanBlocked;
+    const blockedIds = new Set(blocked.map((b) => b.id));
+    const deletable = found.filter((c) => !blockedIds.has(c.id));
 
     // Ids the caller asked for that no longer exist — report, don't fail.
     const missing = ids.filter((id) => !foundIds.includes(id));
@@ -154,22 +115,15 @@ export async function POST(request: NextRequest) {
 
     const deletableIds = deletable.map((c) => c.id);
 
-    // ── Detach originating leads BEFORE the delete ───
-    // `pyra_sales_leads.client_id` has no FK, so a delete would leave the lead
-    // pointing at a missing row. Done first: if this fails we abort with the
-    // clients still intact, which is recoverable. The reverse is not.
-    const { error: detachError } = await supabase
-      .from('pyra_sales_leads')
-      .update({ client_id: null, updated_at: new Date().toISOString() })
-      .in('client_id', deletableIds);
-
-    if (detachError) {
+    const purge = await purgeClientDependents(supabase, deletableIds);
+    if (purge.error) {
       logError({
-        error: detachError,
+        error: purge.error,
         request,
         user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
-        metadata: { action: 'clients-bulk-delete', stage: 'detach_leads', ids: deletableIds },
+        metadata: { action: 'clients-bulk-delete', stage: purge.stage, ids: deletableIds },
       });
+      // Clients are still intact — the delete would have failed on the FK anyway.
       return apiServerError();
     }
 
