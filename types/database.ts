@@ -586,6 +586,20 @@ export interface PyraQuote {
   signed_by: string | null;
   signed_at: string | null;
   signed_ip: string | null;
+  // Migration 054 — how the signature was obtained + whether the email really left.
+  // Optional because most `.select()` calls project a subset of the row.
+  delivery_status?: 'delivered' | 'no_email' | 'not_delivered' | null;
+  delivery_detail?: string | null;
+  delivery_checked_at?: string | null;
+  signature_source?: 'portal' | 'public_link' | 'offline' | null;
+  signed_link_id?: string | null;
+  signed_user_agent?: string | null;
+  signed_offline_by?: string | null;
+  signed_offline_at?: string | null;
+  signed_evidence_path?: string | null;
+  signed_evidence_mime?: string | null;
+  signed_evidence_size?: number | null;
+  signed_snapshot?: Record<string, unknown> | null;
   parent_quote_id: string | null;
   version: number;
   sent_at: string | null;
@@ -632,6 +646,29 @@ export interface PyraQuoteItem {
   quantity: number;
   rate: number;
   amount: number;
+  created_at: string;
+}
+
+// ==========================================
+// Public Document Links (1)
+// ==========================================
+
+/**
+ * Opaque public links for customer-facing documents (migration 054).
+ * Service-role only — `token` must never be selected into a list response.
+ */
+export interface PyraDocumentLink {
+  id: string;
+  entity_type: 'quote' | 'invoice' | 'contract';
+  entity_id: string;
+  token: string;
+  content_hash: string | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+  revoked_by: string | null;
+  view_count: number;
+  last_viewed_at: string | null;
+  created_by: string;
   created_at: string;
 }
 
