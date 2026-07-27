@@ -271,7 +271,8 @@
       "reviseWrongOwner": "لا يمكنك مراجعة عرض سعر لعميل غير مسند إليك",
       "reviseWrongStatus": "لا يمكن إنشاء مراجعة من عرض بحالة \"{status}\"",
       "templateNotFound": "القالب غير موجود",
-      "templateNameRequired": "اسم القالب مطلوب"
+      "templateNameRequired": "اسم القالب مطلوب",
+      "signedContentLocked": "لا يمكن تعديل عرض سعر موقّع. الحقول المرفوضة: {fields}"
     },
     "hr": {
       "documentNotFound": "الوثيقة غير موجودة",

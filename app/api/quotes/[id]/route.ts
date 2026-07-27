@@ -16,7 +16,7 @@ import { escapePostgrestValue } from '@/lib/utils/path';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { QUOTE_FIELDS } from '@/lib/supabase/fields';
-import { QUOTE_VALID_TRANSITIONS } from '@/lib/constants/statuses';
+import { QUOTE_STATUS, QUOTE_VALID_TRANSITIONS } from '@/lib/constants/statuses';
 import { logActivity } from '@/lib/api/activity';
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -148,6 +148,25 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       .maybeSingle();
 
     if (!existing) return apiNotFound(t('quotes.notFound'));
+
+    // A signed quote is a commercial commitment. Changing its price or lines
+    // after the customer signed leaves signature_data and signed_at pointing at
+    // content that no longer exists — which makes the signature worthless and
+    // hands the customer a repudiation defence.
+    // Status-only transitions (e.g. signed -> invoiced) stay allowed.
+    const CONTENT_KEYS = [
+      'items', 'subtotal', 'total', 'tax_rate', 'tax_amount', 'currency',
+      'discount_type', 'discount_value', 'discount_amount',
+      'expiry_date', 'terms_conditions', 'notes',
+      'client_name', 'client_company', 'client_email', 'client_phone', 'client_address',
+    ] as const;
+    const LOCKED_STATUSES: readonly string[] = [QUOTE_STATUS.SIGNED, QUOTE_STATUS.INVOICED];
+    if (LOCKED_STATUSES.includes(existing.status)) {
+      const attempted = CONTENT_KEYS.filter((k) => k in body);
+      if (attempted.length > 0) {
+        return apiValidationError(t('quotes.signedContentLocked', { fields: attempted.join(', ') }));
+      }
+    }
 
     // Scope check: non-admins can only edit quotes for their own clients
     if (!scope.isAdmin && !scope.clientIds.includes(existing.client_id)) {

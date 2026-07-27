@@ -271,7 +271,8 @@
       "reviseWrongOwner": "You cannot revise a quote for a client not assigned to you",
       "reviseWrongStatus": "Cannot create a revision from a quote in \"{status}\" status",
       "templateNotFound": "Template not found",
-      "templateNameRequired": "Template name is required"
+      "templateNameRequired": "Template name is required",
+      "signedContentLocked": "A signed quote cannot be edited. Rejected fields: {fields}"
     },
     "hr": {
       "documentNotFound": "Document not found",
