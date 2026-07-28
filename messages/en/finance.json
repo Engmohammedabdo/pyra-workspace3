@@ -316,6 +316,16 @@
           "cancel": "Cancel",
           "confirmButton": "Delete",
           "deleting": "Deleting..."
+        },
+        "deliveryBadge": {
+          "noEmail": {
+            "label": "No email",
+            "tooltip": "No email was sent — the client has no email address on file. Try sending via WhatsApp instead."
+          },
+          "notDelivered": {
+            "label": "Not delivered",
+            "tooltip": "The email could not be delivered to the client. Try sending via WhatsApp instead."
+          }
         }
       },
       "publicLink": {

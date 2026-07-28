@@ -16,6 +16,7 @@ import { loadServerPdfFonts, loadServerDefaultLogo } from '@/lib/pdf/pdf-assets-
 import { QUOTE_FIELDS } from '@/lib/supabase/fields';
 import { QUOTE_STATUS } from '@/lib/constants/statuses';
 import { logError } from '@/lib/observability/log-error';
+import { deriveDelivery } from '@/lib/quotes/delivery';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -139,6 +140,26 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       email = ok
         ? { sent: true, to: quote.client_email }
         : { sent: false, reason: 'not_delivered' };
+    }
+
+    // Persist the honest outcome (Task 9) — the quote is already 'sent' above
+    // regardless of email result; this is what stops the list from claiming
+    // delivery that never happened. delivery_* columns are NOT guarded by the
+    // append-only trigger (migrations 054/055), so this write is unconditionally
+    // allowed and safe to repeat on every send attempt. Non-blocking: a failure
+    // here must never turn an otherwise-successful send into an error response.
+    const delivery = deriveDelivery(email);
+    const { error: deliveryError } = await supabase
+      .from('pyra_quotes')
+      .update({
+        delivery_status: delivery.delivery_status,
+        delivery_detail: delivery.delivery_detail,
+        delivery_checked_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+    if (deliveryError) {
+      logError({ error: deliveryError, request: _request, metadata: { action: 'quote_send_delivery_status', quote_id: id } });
+      console.error('[quote/send] delivery status update failed:', deliveryError.message);
     }
 
     // Log activity (audit)

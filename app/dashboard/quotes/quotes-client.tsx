@@ -14,7 +14,10 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { FileText, Plus, MoreHorizontal, Pencil, Copy, Send, Trash2, Download, Receipt, Link2, FileSignature } from 'lucide-react';
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { FileText, Plus, MoreHorizontal, Pencil, Copy, Send, Trash2, Download, Receipt, Link2, FileSignature, MailWarning } from 'lucide-react';
 import { SearchInput } from '@/components/ui/search-input';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { generateQuotePDF } from '@/lib/pdf/quote-pdf';
@@ -40,6 +43,8 @@ interface Quote {
   expiry_date: string | null;
   created_by: string | null;
   created_at: string;
+  delivery_status: 'delivered' | 'no_email' | 'not_delivered' | null;
+  delivery_detail: string | null;
 }
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
@@ -244,7 +249,31 @@ export default function QuotesClient() {
       render: (q) => {
         const label = statusLabelFor(q.status) || q.status;
         const variant = STATUS_VARIANT[q.status] || 'secondary';
-        return <Badge variant={variant}>{label}</Badge>;
+        // Task 9 — honest delivery status. A quote already flips to 'sent'
+        // regardless of whether the email actually left; this badge is the
+        // only place that tells the truth about it. Shown ONLY for the two
+        // failure outcomes — a delivered quote needs no badge.
+        const showDeliveryBadge = q.delivery_status === 'no_email' || q.delivery_status === 'not_delivered';
+        return (
+          <div className="flex items-center gap-1.5">
+            <Badge variant={variant}>{label}</Badge>
+            {showDeliveryBadge && (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:border-amber-800/40 dark:bg-amber-950/30 dark:text-amber-400">
+                      <MailWarning className="h-3 w-3" aria-hidden="true" />
+                      {q.delivery_status === 'no_email' ? t('deliveryBadge.noEmail.label') : t('deliveryBadge.notDelivered.label')}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-64 text-xs">
+                    {q.delivery_status === 'no_email' ? t('deliveryBadge.noEmail.tooltip') : t('deliveryBadge.notDelivered.tooltip')}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+        );
       },
     },
     {

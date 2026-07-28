@@ -17,6 +17,7 @@ export const QUOTE_FIELDS = `
   signature_data, signed_by, signed_at, signed_ip,
   parent_quote_id, version,
   entity_id, license_no,
+  delivery_status, delivery_detail, delivery_checked_at,
   sent_at, viewed_at, created_by, created_at, updated_at
 `;
 
