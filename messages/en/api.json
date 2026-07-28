@@ -276,7 +276,21 @@
       "linkRequiresSent": "The quote must be sent to the client before a signing link can be created",
       "linkNotFound": "No active link for this quote",
       "linkInsertFailedRestored": "Failed to create the new signing link — your existing link is still working as before",
-      "linkInsertFailedRestoreFailed": "Failed to create a new link, and failed to restore the previous one too — contact support immediately"
+      "linkInsertFailedRestoreFailed": "Failed to create a new link, and failed to restore the previous one too — contact support immediately",
+      "offlineAlreadySigned": "This quote is already signed",
+      "offlineWrongStatus": "Cannot record an offline signature for a quote in \"{status}\" status — it must be sent to the client first",
+      "offlineFileRequired": "The signed evidence file is required",
+      "offlineFileEmpty": "The file is empty",
+      "offlineSignedByRequired": "Signer name is required",
+      "offlineSignedAtInvalid": "Invalid signature date",
+      "offlineSignedAtFuture": "The signature date cannot be in the future",
+      "offlineFileTooLarge": "File size exceeds the maximum ({maxMb} MB)",
+      "offlineFileMimeUnsupported": "File type \"{mime}\" is not supported. Allowed types: PDF, JPG, PNG, WebP",
+      "offlineFileNotPdf": "The file does not match a genuine PDF format — make sure you're uploading a valid PDF",
+      "offlineUploadFailed": "Failed to upload the evidence file: {message}",
+      "offlineUpdateFailed": "Failed to record the signature — the uploaded file was removed",
+      "evidenceNotFound": "No signature evidence is attached to this quote",
+      "evidenceUrlFailed": "Failed to create the evidence download link"
     },
     "hr": {
       "documentNotFound": "Document not found",

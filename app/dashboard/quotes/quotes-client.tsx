@@ -14,7 +14,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { FileText, Plus, MoreHorizontal, Pencil, Copy, Send, Trash2, Download, Receipt, Link2 } from 'lucide-react';
+import { FileText, Plus, MoreHorizontal, Pencil, Copy, Send, Trash2, Download, Receipt, Link2, FileSignature } from 'lucide-react';
 import { SearchInput } from '@/components/ui/search-input';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { generateQuotePDF } from '@/lib/pdf/quote-pdf';
@@ -24,6 +24,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { DataTable, type ColumnDef, type SortConfig } from '@/components/ui/data-table';
 import { useStatusLabels } from '@/lib/i18n/status-labels';
 import { PublicLinkDialog } from '@/components/quotes/PublicLinkDialog';
+import { OfflineSignDialog } from '@/components/quotes/OfflineSignDialog';
 import type { Locale } from '@/lib/i18n/config';
 
 interface Quote {
@@ -77,6 +78,7 @@ export default function QuotesClient() {
   const [deleting, setDeleting] = useState(false);
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const [linkQuoteId, setLinkQuoteId] = useState<string | null>(null);
+  const [offlineSignQuoteId, setOfflineSignQuoteId] = useState<string | null>(null);
 
   // Debounce search input (350ms)
   useEffect(() => {
@@ -296,6 +298,16 @@ export default function QuotesClient() {
                   <Link2 className="h-3.5 w-3.5 me-2" /> {t('rowActions.publicLink')}
                 </DropdownMenuItem>
               )}
+              {/* Offline attestation (Task 8): the customer signed the emailed/
+                  handed-over PDF on paper — staff record that with the
+                  counter-signed file as evidence. Same signable-status gate as
+                  the public link above; hidden once the quote is already
+                  signed/invoiced. */}
+              {canEdit && (q.status === 'sent' || q.status === 'viewed') && (
+                <DropdownMenuItem onClick={() => setOfflineSignQuoteId(q.id)}>
+                  <FileSignature className="h-3.5 w-3.5 me-2" /> {t('rowActions.offlineSign')}
+                </DropdownMenuItem>
+              )}
               {/* Delete: full-delete shows for every row; delete_own only for
                   quotes the current user created (own-scope). Server re-gates. */}
               {(canDelete || (canDeleteOwn && q.created_by === currentUsername)) && (
@@ -406,6 +418,12 @@ export default function QuotesClient() {
       <PublicLinkDialog
         quoteId={linkQuoteId}
         onOpenChange={(open) => { if (!open) setLinkQuoteId(null); }}
+      />
+
+      <OfflineSignDialog
+        quoteId={offlineSignQuoteId}
+        onOpenChange={(open) => { if (!open) setOfflineSignQuoteId(null); }}
+        onSigned={fetchQuotes}
       />
     </div>
   );

@@ -97,6 +97,7 @@ const MIGRATED_PATHS: string[] = [
   'app/api/finance',
   'hooks/useInvoices.ts',
   'hooks/useQuotes.ts',
+  'hooks/useOfflineSignature.ts',
   'hooks/useContracts.ts',
   'hooks/useCreditNotes.ts',
   'hooks/useExpenses.ts',

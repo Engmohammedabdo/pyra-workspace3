@@ -290,6 +290,7 @@
           "convertToInvoice": "Convert to Invoice",
           "send": "Send",
           "publicLink": "Signing Link",
+          "offlineSign": "Record Offline Signature",
           "delete": "Delete"
         },
         "header": {
@@ -345,6 +346,27 @@
         "revokeErrorToast": "Failed to revoke the link",
         "cancelButton": "Cancel",
         "closeButton": "Close"
+      },
+      "offlineSign": {
+        "title": "Record Offline Signature",
+        "description": "Use this when the client signed a PDF copy of the quote that was emailed or handed over. Attach the signed copy as evidence.",
+        "signedByLabel": "Signer Name",
+        "signedByPlaceholder": "Full name as it appears on the signature",
+        "signedAtLabel": "Signature Date",
+        "fileLabel": "Signed File (Evidence)",
+        "fileHint": "PDF or image (JPG, PNG, WebP) — max {max} MB",
+        "cancel": "Cancel",
+        "submit": "Record Signature",
+        "submitting": "Saving...",
+        "toasts": {
+          "signedByRequired": "Signer name is required",
+          "signedAtRequired": "Signature date is required",
+          "fileRequired": "The attached file is required",
+          "fileTooLarge": "File size exceeds the maximum ({max} MB)",
+          "fileTypeUnsupported": "File type not supported. Allowed types: PDF, JPG, PNG, WebP",
+          "success": "Offline signature recorded successfully",
+          "failed": "Failed to record the signature"
+        }
       },
       "edit": {
         "back": "Back",

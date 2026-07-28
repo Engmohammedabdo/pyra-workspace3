@@ -290,6 +290,7 @@
           "convertToInvoice": "تحويل لفاتورة",
           "send": "إرسال",
           "publicLink": "رابط التوقيع",
+          "offlineSign": "توثيق توقيع خارجي",
           "delete": "حذف"
         },
         "header": {
@@ -345,6 +346,27 @@
         "revokeErrorToast": "تعذّر إلغاء الرابط",
         "cancelButton": "إلغاء",
         "closeButton": "إغلاق"
+      },
+      "offlineSign": {
+        "title": "توثيق توقيع خارجي",
+        "description": "استخدم هذا عندما يوقّع العميل نسخة PDF من العرض تم إرسالها أو تسليمها يدوياً. أرفق النسخة الموقعة كإثبات.",
+        "signedByLabel": "اسم الموقّع",
+        "signedByPlaceholder": "الاسم الكامل كما ورد في التوقيع",
+        "signedAtLabel": "تاريخ التوقيع",
+        "fileLabel": "الملف الموقّع (إثبات)",
+        "fileHint": "PDF أو صورة (JPG, PNG, WebP) — بحد أقصى {max} ميجابايت",
+        "cancel": "إلغاء",
+        "submit": "تسجيل التوقيع",
+        "submitting": "جارٍ الحفظ...",
+        "toasts": {
+          "signedByRequired": "اسم الموقّع مطلوب",
+          "signedAtRequired": "تاريخ التوقيع مطلوب",
+          "fileRequired": "الملف المرفق مطلوب",
+          "fileTooLarge": "حجم الملف يتجاوز الحد الأقصى ({max} ميجابايت)",
+          "fileTypeUnsupported": "نوع الملف غير مدعوم. الأنواع المسموح بها: PDF, JPG, PNG, WebP",
+          "success": "تم تسجيل التوقيع الخارجي بنجاح",
+          "failed": "فشل تسجيل التوقيع"
+        }
       },
       "edit": {
         "back": "رجوع",
