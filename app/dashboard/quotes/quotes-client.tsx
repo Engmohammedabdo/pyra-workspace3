@@ -22,7 +22,7 @@ import { SearchInput } from '@/components/ui/search-input';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { generateQuotePDF } from '@/lib/pdf/quote-pdf';
 import { toast } from 'sonner';
-import { usePermission } from '@/hooks/usePermission';
+import { usePermission, useAnyPermission } from '@/hooks/usePermission';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { DataTable, type ColumnDef, type SortConfig } from '@/components/ui/data-table';
 import { useStatusLabels } from '@/lib/i18n/status-labels';
@@ -70,6 +70,11 @@ export default function QuotesClient() {
   const canSend = usePermission('quotes.edit');              // /send endpoint requires quotes.edit (matches QuoteBuilder)
   const canDelete = usePermission('quotes.delete');          // delete ANY quote
   const canDeleteOwn = usePermission('quotes.delete_own');   // delete OWN quotes only
+  // Public link + offline signature: quotes.edit OR the narrower quotes.share_link
+  // (a sales agent can share a signing link / record an offline signature
+  // without unlocking price/content edits or the email-send action, both of
+  // which stay quotes.edit-only above).
+  const canShareLink = useAnyPermission(['quotes.edit', 'quotes.share_link']);
   const { data: currentUser } = useCurrentUser();
   const currentUsername = currentUser?.username;
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -322,7 +327,7 @@ export default function QuotesClient() {
               {/* Public signing link: only meaningful once the customer can actually
                   reach the quote (sent/viewed) — draft/pending_approval must never be
                   publicly reachable, matching app/d/[token]/page.tsx's VISIBLE gate. */}
-              {canEdit && (q.status === 'sent' || q.status === 'viewed') && (
+              {canShareLink && (q.status === 'sent' || q.status === 'viewed') && (
                 <DropdownMenuItem onClick={() => setLinkQuoteId(q.id)}>
                   <Link2 className="h-3.5 w-3.5 me-2" /> {t('rowActions.publicLink')}
                 </DropdownMenuItem>
@@ -332,7 +337,7 @@ export default function QuotesClient() {
                   counter-signed file as evidence. Same signable-status gate as
                   the public link above; hidden once the quote is already
                   signed/invoiced. */}
-              {canEdit && (q.status === 'sent' || q.status === 'viewed') && (
+              {canShareLink && (q.status === 'sent' || q.status === 'viewed') && (
                 <DropdownMenuItem onClick={() => setOfflineSignQuoteId(q.id)}>
                   <FileSignature className="h-3.5 w-3.5 me-2" /> {t('rowActions.offlineSign')}
                 </DropdownMenuItem>
@@ -349,7 +354,7 @@ export default function QuotesClient() {
         </div>
       ),
     },
-  ], [canEdit, canSend, canCreate, canDelete, canDeleteOwn, currentUsername, router, handleDuplicate, handleSend, handleDownloadPDF, handleConvertToInvoice, t, locale, statusLabelFor]);
+  ], [canEdit, canSend, canCreate, canDelete, canDeleteOwn, canShareLink, currentUsername, router, handleDuplicate, handleSend, handleDownloadPDF, handleConvertToInvoice, t, locale, statusLabelFor]);
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-300">

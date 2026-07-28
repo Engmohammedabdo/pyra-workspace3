@@ -38,6 +38,11 @@ export const PERMISSIONS = {
   QUOTES_EDIT: 'quotes.edit',
   QUOTES_DELETE: 'quotes.delete',          // delete ANY quote (admin / manager)
   QUOTES_DELETE_OWN: 'quotes.delete_own',  // delete OWN quotes only (sales agent)
+  // Narrow grant (does NOT include quotes.edit) — mint/revoke a quote's public
+  // signing link and record an offline (paper) signature, WITHOUT unlocking
+  // price/content edits or the email-send action (both still quotes.edit
+  // only). See app/api/quotes/[id]/link, .../offline-signature(/evidence).
+  QUOTES_SHARE_LINK: 'quotes.share_link',
 
   // Invoices
   INVOICES_VIEW: 'invoices.view',
@@ -409,6 +414,7 @@ export const PERMISSION_MODULES: PermissionModule[] = [
       { key: 'quotes.edit', label: 'Edit Quotes' },
       { key: 'quotes.delete', label: 'Delete Quotes' },
       { key: 'quotes.delete_own', label: 'Delete Own Quotes' },
+      { key: 'quotes.share_link', label: 'Share Signing Link' },
     ],
   },
   {
@@ -834,6 +840,7 @@ const ROLE_EXTRAS: Record<string, string[]> = {
     'quotes.view',
     'quotes.create',
     'quotes.delete_own',  // Group 2 — agents can delete quotes THEY created (own scope)
+    'quotes.share_link',  // mint/revoke a public signing link + record an offline signature — NOT quotes.edit (price/content stay locked, no email-send)
     'quote_approvals.view',
     'clients.view',
     // CRM rebuild — own-only access; canAccessLead() enforces row scope.

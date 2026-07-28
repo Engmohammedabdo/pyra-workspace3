@@ -1,15 +1,17 @@
 import { NextRequest } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
+import { getApiAuth, type ApiAuthResult } from '@/lib/api/auth';
 import {
   apiSuccess,
+  apiUnauthorized,
   apiNotFound,
   apiForbidden,
   apiError,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
+import { hasAnyPermission } from '@/lib/auth/rbac';
 import { resolveUserScope, type UserScope } from '@/lib/auth/scope';
 import { canAccessLead } from '@/lib/auth/lead-scope';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -30,8 +32,11 @@ import { dubaiDayKey } from '@/lib/utils/format';
 // PDF quote we emailed or handed over on paper, and an internal user is now
 // attesting to that fact with the counter-signed file as evidence.
 //
-// Gated: quotes.edit (same three-way scope as GET/PATCH/DELETE/link — own
-// quote OR a lead-owned quote OR a quote for a client in scope).
+// Gated: quotes.edit OR quotes.share_link (same three-way scope as
+// GET/PATCH/DELETE/link — own quote OR a lead-owned quote OR a quote for a
+// client in scope). quotes.share_link is the narrow grant that lets a sales
+// agent do this WITHOUT quotes.edit (which would also unlock price/content
+// edits and the email-send action).
 //
 // Storage — Gap #3 Phase 3a pattern, same as app/api/hr/documents/route.ts:
 //   Bucket:  pyra-private (private, NOT pyraai-workspace)
@@ -112,8 +117,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const limited = checkRateLimit(uploadLimiter, request);
     if (limited) return limited;
 
-    const auth = await requireApiPermission('quotes.edit');
-    if (isApiError(auth)) return auth;
+    const auth = await getApiAuth();
+    if (!auth) return apiUnauthorized();
+    if (!hasAnyPermission(auth.pyraUser.rolePermissions, ['quotes.edit', 'quotes.share_link'])) {
+      return apiForbidden();
+    }
     authForLogging = auth;
     const t = await getTranslations('api');
 

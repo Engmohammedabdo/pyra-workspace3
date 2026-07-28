@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
-import { apiSuccess, apiNotFound, apiForbidden, apiServerError } from '@/lib/api/response';
+import { getApiAuth, type ApiAuthResult } from '@/lib/api/auth';
+import { apiSuccess, apiUnauthorized, apiNotFound, apiForbidden, apiServerError } from '@/lib/api/response';
+import { hasAnyPermission } from '@/lib/auth/rbac';
 import { resolveUserScope, type UserScope } from '@/lib/auth/scope';
 import { canAccessLead } from '@/lib/auth/lead-scope';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -17,9 +18,9 @@ import { logError } from '@/lib/observability/log-error';
 // body — only the ephemeral signed URL does (same doctrine as
 // app/api/hr/documents/[id]/signed-url/route.ts).
 //
-// Gated: quotes.edit, same three-way scope as the offline-signature POST
-// route and GET/PATCH/DELETE/link — own quote OR a lead-owned quote OR a
-// quote for a client in scope.
+// Gated: quotes.edit OR quotes.share_link, same three-way scope as the
+// offline-signature POST route and GET/PATCH/DELETE/link — own quote OR a
+// lead-owned quote OR a quote for a client in scope.
 // ────────────────────────────────────────────────────────────────────────────
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -55,8 +56,11 @@ async function canAccessQuoteEvidence(
 export async function GET(request: NextRequest, context: RouteContext) {
   let authForLogging: ApiAuthResult | null = null;
   try {
-    const auth = await requireApiPermission('quotes.edit');
-    if (isApiError(auth)) return auth;
+    const auth = await getApiAuth();
+    if (!auth) return apiUnauthorized();
+    if (!hasAnyPermission(auth.pyraUser.rolePermissions, ['quotes.edit', 'quotes.share_link'])) {
+      return apiForbidden();
+    }
     authForLogging = auth;
     const t = await getTranslations('api');
 

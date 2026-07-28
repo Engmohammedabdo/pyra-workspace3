@@ -1,14 +1,16 @@
 import { NextRequest } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
+import { getApiAuth, type ApiAuthResult } from '@/lib/api/auth';
 import {
   apiSuccess,
+  apiUnauthorized,
   apiNotFound,
   apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
+import { hasAnyPermission } from '@/lib/auth/rbac';
 import { resolveUserScope, type UserScope } from '@/lib/auth/scope';
 import { canAccessLead } from '@/lib/auth/lead-scope';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -61,6 +63,12 @@ function expiresAtFromQuoteExpiry(expiryDate: string | null): string | null {
 
 const LINK_SELECT = 'id, expires_at, created_at, view_count, last_viewed_at';
 
+// Either the broad quote-editing grant OR the narrow share-link grant may
+// mint/read/revoke a quote's public signing link — quotes.share_link exists
+// precisely so a sales agent can do this WITHOUT quotes.edit (which would
+// also unlock price/content edits and the email-send action).
+const LINK_PERMISSIONS = ['quotes.edit', 'quotes.share_link'];
+
 /**
  * GET /api/quotes/[id]/link
  *
@@ -72,8 +80,9 @@ const LINK_SELECT = 'id, expires_at, created_at, view_count, last_viewed_at';
 export async function GET(_request: NextRequest, context: RouteContext) {
   const t = await getTranslations('api');
   try {
-    const auth = await requireApiPermission('quotes.edit');
-    if (isApiError(auth)) return auth;
+    const auth = await getApiAuth();
+    if (!auth) return apiUnauthorized();
+    if (!hasAnyPermission(auth.pyraUser.rolePermissions, LINK_PERMISSIONS)) return apiForbidden();
 
     const scope = await resolveUserScope(auth);
     const { id } = await context.params;
@@ -130,8 +139,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 export async function POST(request: NextRequest, context: RouteContext) {
   const t = await getTranslations('api');
   try {
-    const auth = await requireApiPermission('quotes.edit');
-    if (isApiError(auth)) return auth;
+    const auth = await getApiAuth();
+    if (!auth) return apiUnauthorized();
+    if (!hasAnyPermission(auth.pyraUser.rolePermissions, LINK_PERMISSIONS)) return apiForbidden();
 
     const scope = await resolveUserScope(auth);
     const { id } = await context.params;
@@ -288,8 +298,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
 export async function DELETE(request: NextRequest, context: RouteContext) {
   const t = await getTranslations('api');
   try {
-    const auth = await requireApiPermission('quotes.edit');
-    if (isApiError(auth)) return auth;
+    const auth = await getApiAuth();
+    if (!auth) return apiUnauthorized();
+    if (!hasAnyPermission(auth.pyraUser.rolePermissions, LINK_PERMISSIONS)) return apiForbidden();
 
     const scope = await resolveUserScope(auth);
     const { id } = await context.params;

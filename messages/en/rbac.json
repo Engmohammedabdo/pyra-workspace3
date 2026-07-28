@@ -48,7 +48,7 @@
       "files": { "view": "View Files", "upload": "Upload Files", "edit": "Edit Files", "delete": "Delete Files", "share": "Share Files" },
       "projects": { "view": "View Projects", "create": "Create Projects", "edit": "Edit Projects", "delete": "Delete Projects" },
       "clients": { "view": "View Clients", "create": "Create Clients", "edit": "Edit Clients", "delete": "Delete Clients" },
-      "quotes": { "view": "View Quotes", "create": "Create Quotes", "edit": "Edit Quotes", "delete": "Delete Quotes", "delete_own": "Delete Own Quotes" },
+      "quotes": { "view": "View Quotes", "create": "Create Quotes", "edit": "Edit Quotes", "delete": "Delete Quotes", "delete_own": "Delete Own Quotes", "share_link": "Share Signing Link" },
       "invoices": { "view": "View Invoices", "create": "Create Invoices", "edit": "Edit Invoices", "delete": "Delete Invoices" },
       "finance": { "view": "View Finance", "manage": "Manage Finance" },
       "users": { "view": "View Users", "manage": "Manage Users" },
