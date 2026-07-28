@@ -3196,3 +3196,85 @@ real fleet, which only polls `pyra-calls`.
 doctrine). The publish script reads `SUPABASE_SERVICE_ROLE_KEY` from
 `.env.local` and writes via the REST API; `app-version`/`app-download` read it
 behind `requireDeviceAuth` (`calls:device`).
+
+## New Table + Columns — Public Quote Signing (054/055)
+
+Public, no-login document links + the columns that record HOW and whether a
+quote's signature/delivery evidence is trustworthy. Locked decisions:
+`docs/decisions/finance.md#public-quote-signing-locked-decisions-2026-07-27`.
+
+### pyra_document_links
+
+Opaque public links for customer-facing documents (currently only `entity_type
+= 'quote'`; `invoice`/`contract` are reserved by the CHECK for future reuse).
+**Service-role-only** — RLS is ON and `anon`/`authenticated` are explicitly
+`REVOKE`d (Gap #3 doctrine); every route that touches this table gates on a
+permission first, then reads/writes with the service-role client. The table
+comment itself (`COMMENT ON TABLE`) warns that `token` must never be selected
+into a list/GET response — it is returned exactly once, by the mint (`POST`)
+call, and every other read (`GET`, the public page, the sign route) omits it.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | text | NOT NULL | — (`dl_` prefix via `generateId`) |
+| entity_type | text | NOT NULL | — CHECK ∈ (`quote`, `invoice`, `contract`) |
+| entity_id | text | NOT NULL | — (the quote/invoice/contract id; no FK — polymorphic) |
+| token | varchar(64) | NOT NULL | — (256-bit CSPRNG, base64url — `lib/documents/token.ts`) |
+| content_hash | text | YES | — (sha256 of the frozen public payload, `lib/quotes/content-hash.ts`; binds the link to the content it was minted against, S-8) |
+| expires_at | timestamptz | YES | — (`NULL` = never expires; for a quote, derived from `expiry_date` at Dubai end-of-day) |
+| revoked_at | timestamptz | YES | — |
+| revoked_by | text | YES | — (username, or auto-revoke marker on content edit) |
+| view_count | integer | NOT NULL | `0` — CHECK >= 0; incremented only via the RPC below |
+| last_viewed_at | timestamptz | YES | — |
+| created_by | text | NOT NULL | — (username who minted the link) |
+| created_at | timestamptz | NOT NULL | `now()` |
+
+**PK**: `id`
+
+**Indexes**:
+- `idx_document_links_token` — **UNIQUE** on `(token)` — the lookup path for every public request
+- `idx_document_links_entity` on `(entity_type, entity_id)`
+- `idx_document_links_one_live` — **UNIQUE, partial**, on `(entity_type, entity_id) WHERE revoked_at IS NULL` —
+  enforces at most one *live* link per document. This index does **not** know about `expires_at`, so an
+  expired-but-unrevoked row still counts as "live" and blocks a bare insert with `23505` — the mint route
+  (`POST /api/quotes/[id]/link`) always revokes any existing live link (including an expired one) **before**
+  inserting the replacement, specifically to avoid depending on this index accounting for expiry.
+
+**RPC**: `pyra_increment_document_link_view(link_id text)` — `SECURITY DEFINER`, atomic read-modify-write
+for the view counter (a JS round trip would lose concurrent views); `EXECUTE` granted only to `service_role`.
+
+**RBAC**: RLS enabled; `REVOKE ALL … FROM anon, authenticated` / `GRANT ALL … TO service_role` (Gap #3
+doctrine). Every route gates on `quotes.edit` (mint/read/revoke, `app/api/quotes/[id]/link/`) or is
+intentionally unauthenticated and token-gated (`app/d/[token]/`, `app/api/public/quotes/[token]/sign/`).
+
+### pyra_quotes — 12 new columns (054)
+
+All twelve are guarded by the append-only trigger described below — once non-NULL, a rewrite raises at the
+DB level rather than silently overwriting evidence.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| delivery_status | text | YES | — CHECK ∈ (`delivered`, `no_email`, `not_delivered`) — NOT append-only, recomputed on every send |
+| delivery_detail | text | YES | — (usually the recipient address) — NOT append-only |
+| delivery_checked_at | timestamptz | YES | — NOT append-only |
+| signature_source | text | YES | — CHECK ∈ (`portal`, `public_link`, `offline`) — append-only |
+| signed_link_id | text | YES | — (the `pyra_document_links.id` used, when `signature_source = 'public_link'`) — append-only |
+| signed_user_agent | text | YES | — append-only |
+| signed_offline_by | text | YES | — (internal username who attested an offline signature; **always server-derived from the session, never from the request body**, S-26) — append-only |
+| signed_offline_at | timestamptz | YES | — (server clock at attestation time; distinct from `signed_at`, which is the date the admin says the customer actually signed) — append-only |
+| signed_evidence_path | text | YES | — (`pyra-private` bucket object path; never returned to the client — only an ephemeral signed URL is) — append-only |
+| signed_evidence_mime | text | YES | — append-only |
+| signed_evidence_size | integer | YES | — CHECK >= 0 (added 055) — append-only |
+| signed_snapshot | jsonb | YES | — CHECK `jsonb_typeof(signed_snapshot) = 'object'` (added 055) — the frozen public payload at signing time — append-only |
+
+**Append-only signature trigger**: `trg_pyra_quotes_signature_append_only` (`BEFORE UPDATE`) rejects any
+`UPDATE` that changes a non-NULL signature/evidence column to a different value — a first write (`NULL` →
+value) always passes; a rewrite of an already-set value raises. Extended in 055 to cover nine of the twelve
+columns above (the three `delivery_*` columns are deliberately excluded — see their row notes) plus the four
+legacy signature columns (`signature_data`, `signed_at`, `signed_by`, `signed_ip`), for thirteen guarded
+columns total; 055 also switched it from `SECURITY DEFINER` to `SECURITY INVOKER` (it reads no table and
+writes nothing, so the
+definer's elevated rights bought nothing) and revoked the `PUBLIC`/`authenticated` `EXECUTE` grant it was
+born with via `038`'s default-privilege gap. See
+`docs/decisions/finance.md#public-quote-signing-locked-decisions-2026-07-27` (D-2) for why this trigger is a
+**partial** mitigation, not a substitute for closing Gap #3 on `pyra_quotes` itself.

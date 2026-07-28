@@ -163,6 +163,12 @@ const MIGRATED_PATHS: string[] = [
   'lib/config/module-guide.ts',
   'app/dashboard/guide',
   'components/dashboard/guide',
+  // Public quote signing (Task 10) — written i18n-clean from the start;
+  // both trees use the 'publicdoc' namespace + explicit i18n-exempt
+  // comments on the two Arabic notification-content literals in the
+  // public sign route (Phase 8 exemption, same as every other route).
+  'app/d',
+  'app/api/public',
 ];
 
 const ARABIC = /[؀-ۿ]/; // i18n-exempt: Unicode range literal, not translatable text

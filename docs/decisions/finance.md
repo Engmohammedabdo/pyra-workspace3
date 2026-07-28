@@ -9,6 +9,7 @@ Invoices, payments, contracts, recurring billing, quotes, and the cash-basis acc
 
 - [Finance Remediation — Locked Decisions (2026-07-03)](#finance-remediation-locked-decisions-2026-07-03)
 - [Quote System + Gap #5 — Locked Decisions (2026-06-19)](#quote-system-gap-5-locked-decisions-2026-06-19)
+- [Public Quote Signing — Locked Decisions (2026-07-27)](#public-quote-signing-locked-decisions-2026-07-27)
 
 ---
 
@@ -250,3 +251,147 @@ verify with a DB read.
   sent-status UX — delivery receipts / retry).
 - Read-only quote view for agents (the Deals-tab card covers visibility for now;
   no standalone agent-facing quote detail).
+
+## Public Quote Signing — Locked Decisions (2026-07-27)
+
+A no-login `/d/<token>` page lets a customer view and sign a quote from a link
+sent over WhatsApp or email, without a portal account. Migrations 054/055 add
+`pyra_document_links` (the opaque-link table) and twelve columns on
+`pyra_quotes` that record HOW a signature was obtained and whether the quote
+email actually delivered. Schema: `DATABASE-SCHEMA.md` → "Public Quote Signing
+(054/055)". **Do NOT re-litigate.**
+
+### D-1. The public quote PDF omits bank details
+
+`lib/quotes/public-payload.ts`'s `PUBLIC_QUOTE_FIELDS` allowlist — the only
+fields that may cross onto the unauthenticated link — deliberately excludes
+`bank_details`, and every PDF generated off that link (the customer's
+download, and the signed-copy email in D-3) blanks the field explicitly
+rather than trusting the allowlist alone. **Why:** a public link is, by
+design, forwardable — a customer can screenshot it, forward the email, or
+paste the URL into a group chat. Publishing the company's IBAN on a document
+that can end up anywhere is handing out an invoice-fraud kit: a
+"here's our updated bank details" scam email is far more convincing with a
+real, signed company quote attached. The allowlist is deliberately an
+allowlist, not an omit-list, specifically so a future `select *` on the
+public route adds a column to the *row* but not to the *payload* — a unit
+test pins the key set so a regression fails CI instead of shipping.
+
+### D-2. The append-only signature trigger is a partial Gap #3 mitigation
+
+`pyra_quotes` still has RLS **off** and grants `authenticated` full DML
+(the open Gap #3 exposure — see `docs/decisions/security.md`), which means a
+direct PostgREST `PATCH` from any authenticated session can, in principle,
+rewrite a signature. The `trg_pyra_quotes_signature_append_only` trigger
+(054, extended in 055 to thirteen signature/evidence columns total — nine of
+054's twelve new columns plus the four legacy ones; the three `delivery_*`
+columns are deliberately excluded, since delivery status is recomputed on
+every send — see `DATABASE-SCHEMA.md`) closes the specific hole this feature
+would otherwise
+open: once a signature/evidence column is non-NULL, a further `UPDATE` that
+changes it raises instead of silently overwriting the audit trail. **This is
+not a substitute for revoking `authenticated`'s grant on `pyra_quotes`.** A
+full revoke needs its own read-path audit — every place in the app that
+currently reads `pyra_quotes` as `authenticated` (rather than through a
+gated API route with the service-role client) has to be found and fixed
+first, or the revoke breaks those reads outright. **The revoke must never
+ship before the code that stops reading as `authenticated`** — that ordering
+mistake is exactly how Gap #3 remediation regresses a feature instead of
+closing a hole. Track the full Gap #3 closure separately; this trigger only
+guarantees append-only-ness for one table's signature columns in the
+meantime.
+
+### D-3. The customer gets an emailed copy when they sign
+
+`POST /api/public/quotes/[token]/sign` (`app/api/public/quotes/[token]/sign/route.ts`)
+emails the signed quote PDF to `quote.client_email` after a successful sign,
+via `sendSignedQuoteCopyEmail` (`lib/email/notify.ts`). **Why:** an
+unauthenticated signer has no portal login and no other durable record of
+what they just agreed to — without this email, "what did I actually sign"
+is answerable only by someone at Pyramedia looking it up. The send is
+best-effort (wrapped in try/catch, logged as a `warning` on failure) and
+never blocks or fails the sign response — the quote is already legally
+signed in the DB regardless of whether the courtesy copy goes out. The
+attached PDF follows D-1: bank details are always blanked, never the real
+`quote.bank_details`.
+
+### D-4. QuoteDetailView moved out of components/portal/ and translated
+
+`components/quotes/QuoteDetailView.tsx` (commit `58e4a56`) used to live at
+`components/portal/quotes/QuoteDetailView.tsx`, rendered only inside the
+authenticated client portal. It shipped 100% hardcoded Arabic — and because
+`components/portal/` was outside the i18n gate's `MIGRATED_PATHS` manifest at
+the time, `pnpm i18n:check` had no way to catch it. Reusing it as-is for the
+public link would have shipped an Arabic-only legal document (a quote a
+customer is being asked to sign) to an English-preferring client, silently,
+with no CI signal that anything was wrong. The move to `components/quotes/`
+plus the translation is what let this task also add `app/d` to
+`MIGRATED_PATHS` (see `scripts/i18n-check.ts`) — the component's own
+translatedness is a precondition for that manifest entry passing at all.
+The moved component also gained `canSign`/`showBack` props and switched its
+"already signed" detection from presence of `signature_data` (never present
+in the public payload — see S-15 below) to the quote's `status`.
+
+### S-10. Unknown, revoked and expired links must return ONE response
+
+`classifyLinkState()` (`lib/documents/link-state.ts`) distinguishes `valid`
+/ `expired` / `revoked` for internal/operator use, but every public-facing
+caller — `app/d/[token]/page.tsx` (all three `notFound()` calls),
+`app/api/public/quotes/[token]/sign/route.ts` (`invalidLinkResponse()`) —
+collapses anything that is not `valid`, plus an unknown token entirely, into
+the exact same response: same HTTP status, same body, same copy. **Why:** if
+an invalid token got a different response than a revoked or expired one, a
+holder of a harvested/guessed token could distinguish "never existed" from
+"was real once" — confirming a token was genuine even after it stopped
+working. `app/d/[token]/not-found.tsx` goes further and renders a **fixed
+locale** rather than trying to resolve the visitor's preferred language,
+because at the point any of the three `notFound()` calls fires, the target
+quote's client (and therefore `preferred_language`) may not even have been
+looked up yet — there is no per-token signal left to branch on without
+reopening the same distinguishability hole through response *language*
+instead of response *shape*.
+
+### S-11. A DB error must be a 500, never the invalid-link response
+
+Both `app/d/[token]/page.tsx` and the public sign route check `linkErr` /
+`quoteErr` / `itemsErr` from every Supabase call and **throw** (the page) or
+return `apiServerError()` (the sign route) — never `notFound()` / the
+invalid-link response — when the database itself failed. **Why this is
+explicit, not obvious:** conflating "the database errored" with "the link is
+invalid" is precisely the bug class that left the older `/api/shares/*`
+stack silently dead in production for five months — a transient DB blip (or
+a permissions regression) rendered as "this link doesn't exist" instead of
+an error, so nobody investigated because the failure looked like normal
+traffic hitting bad/expired links rather than a broken system. Keeping the
+two failure modes visibly distinct is what makes a future regression here
+noisy instead of silent.
+
+### The mint path must revoke-then-insert
+
+`POST /api/quotes/[id]/link` (`app/api/quotes/[id]/link/route.ts`) always
+revokes any existing live link for the quote **before** inserting the new
+one — never a bare `insert`. `idx_document_links_one_live` (the partial
+unique index enforcing "at most one live link per document") only looks at
+`revoked_at IS NULL`; it has no idea an `expires_at` in the past means the
+row is functionally dead. An expired-but-unrevoked link therefore still
+blocks a bare insert with `23505` **forever** — "generate a new link" would
+never succeed once the old one expired. Revoking first (including an
+already-expired link) makes every mint succeed and makes a second mint
+supersede the first exactly as the UI implies. The route still handles the
+genuine leftover race (two concurrent mints both revoke as a no-op, then
+both insert — the loser gets `23505` after the winner's row is live) by
+re-fetching and reporting the link as existing **without** fabricating or
+returning the winner's token.
+
+### signed_offline_by is always server-derived
+
+`POST /api/quotes/[id]/offline-signature` (`app/api/quotes/[id]/offline-signature/route.ts`)
+sets `signed_offline_by` to `auth.pyraUser.username` from the authenticated
+session — **the request body is never read for this field**, even if a
+caller includes one. The whole point of this column is recording who, on the
+Pyramedia side, is vouching that a customer really did counter-sign the
+paper/PDF copy being uploaded as evidence. Trusting a client-supplied value
+for that would let anyone attest on someone else's behalf, making the
+record legally worthless. This is the same doctrine as `logActivity()`'s
+actor parameter and every other "who did this" column in the codebase:
+identity comes from the session, never from the payload.

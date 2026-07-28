@@ -344,6 +344,24 @@ lib/stripe/settle.ts         → Stripe settlement core — every money write ch
                                fails loud (a swallowed error used to return HTTP 200 and lose the payment)
 lib/payroll/payment-policy.ts → Deductions can NOT be approved/paid directly — they settle with their payroll run
 lib/payroll/payment-period.ts → effective_month attribution for employee payments
+
+Public quote signing (shipped 2026-07-27 — see the locked decisions below):
+app/d/[token]/                          → Public, no-login quote page — Server Component reads via service role (no API route, no 401/envelope bugs)
+app/api/public/quotes/[token]/sign/     → Unauthenticated public sign endpoint, token-gated (rate-limited)
+app/api/quotes/[id]/link/               → Mint/read/revoke the public link (quotes.edit; mint is revoke-then-insert)
+app/api/quotes/[id]/offline-signature/  → Attest a signature obtained OUTSIDE the system (counter-signed PDF/image evidence)
+app/api/quotes/[id]/offline-signature/evidence/ → Short-TTL signed URL for the stored evidence file
+lib/documents/link-state.ts  → classifyLinkState() — valid/expired/revoked; revocation wins over expiry
+lib/documents/token.ts       → generateDocumentLinkToken() — 256-bit CSPRNG, base64url
+lib/quotes/signability.ts    → canSignQuote() — one signability gate shared by portal, public and offline paths
+lib/quotes/sign-quote.ts     → signQuote() — the one place a quote becomes signed (race-safe conditional update)
+lib/quotes/public-payload.ts → PUBLIC_QUOTE_FIELDS allowlist — bank_details deliberately absent (D-1)
+lib/quotes/content-hash.ts   → quoteContentHash() — binds a link to the content it was minted against (S-8)
+lib/quotes/delivery.ts       → deriveDelivery() — honest sent/no_email/not_delivered from the send route's own result
+lib/quotes/evidence-upload.ts → Offline-signature evidence validation (10 MiB cap, MIME allowlist, PDF magic-byte check)
+hooks/useDocumentLinks.ts · hooks/useOfflineSignature.ts → Mint/revoke link + offline-signature mutations
+components/quotes/PublicLinkDialog.tsx · OfflineSignDialog.tsx → Link-sharing + offline-attestation dialogs
+components/quotes/QuoteDetailView.tsx → Shared quote view (moved from components/portal/ + translated, D-4) — used by portal AND the public page
 ```
 
 ### Page Structure Pattern
@@ -797,6 +815,7 @@ to forget once buried in an archive.
 |---|---|
 | [Finance Remediation](docs/decisions/finance.md#finance-remediation-locked-decisions-2026-07-03) | **Derived counters, never increments**; multi-currency payments; VAT stays 0; the one daily finance cron; money-write field whitelists |
 | [Quote System + Gap #5](docs/decisions/finance.md#quote-system-gap-5-locked-decisions-2026-06-19) | Quote scoping (created_by OR lead-owned OR client), `quotes.delete_own`, the server-side PDF pattern, SMTP config |
+| [Public Quote Signing](docs/decisions/finance.md#public-quote-signing-locked-decisions-2026-07-27) | No bank details on the public PDF; the append-only trigger as a *partial* Gap #3 mitigation; signer gets an emailed copy; `QuoteDetailView` moved + translated; indistinguishable invalid-link response; DB errors must never render as an invalid link; mint is revoke-then-insert; `signed_offline_by` is always server-derived |
 
 ### HR & Payroll — [`docs/decisions/hr.md`](docs/decisions/hr.md)
 | Decision set | Governs |
