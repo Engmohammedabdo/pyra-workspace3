@@ -291,6 +291,7 @@
           "send": "إرسال",
           "publicLink": "رابط التوقيع",
           "offlineSign": "توثيق توقيع خارجي",
+          "signatureDetails": "تفاصيل التوقيع",
           "delete": "حذف"
         },
         "header": {
@@ -377,6 +378,32 @@
           "success": "تم تسجيل التوقيع الخارجي بنجاح",
           "failed": "فشل تسجيل التوقيع"
         }
+      },
+      "signatureDetails": {
+        "title": "تفاصيل التوقيع",
+        "description": "كيف ومتى ومَن وقّع هذا العرض.",
+        "loadError": "تعذّر تحميل تفاصيل التوقيع",
+        "notSignedYet": "لم يتم توقيع هذا العرض بعد",
+        "methodLabel": "طريقة التوقيع",
+        "methods": {
+          "portal": "بوابة العميل",
+          "public_link": "رابط توقيع عام",
+          "offline": "توقيع خارجي (ورقي)",
+          "unknown": "غير معروف — تم التوقيع قبل تفعيل تتبّع طريقة التوقيع"
+        },
+        "signedByLabel": "الموقّع",
+        "signedAtLabel": "تاريخ التوقيع",
+        "signatureImageLabel": "صورة التوقيع",
+        "offlineSection": {
+          "title": "التوثيق الداخلي",
+          "attestedByLabel": "تم التوثيق بواسطة",
+          "attestedAtLabel": "تاريخ التوثيق",
+          "evidenceFileInfo": "{type} — {size}",
+          "viewEvidenceButton": "عرض ملف الإثبات",
+          "evidenceLoadError": "تعذّر فتح ملف الإثبات",
+          "evidenceNotAvailable": "لا يوجد ملف إثبات مرفق لهذا التوقيع"
+        },
+        "closeButton": "إغلاق"
       },
       "edit": {
         "back": "رجوع",

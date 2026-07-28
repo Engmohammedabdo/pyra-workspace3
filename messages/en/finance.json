@@ -291,6 +291,7 @@
           "send": "Send",
           "publicLink": "Signing Link",
           "offlineSign": "Record Offline Signature",
+          "signatureDetails": "Signature Details",
           "delete": "Delete"
         },
         "header": {
@@ -377,6 +378,32 @@
           "success": "Offline signature recorded successfully",
           "failed": "Failed to record the signature"
         }
+      },
+      "signatureDetails": {
+        "title": "Signature Details",
+        "description": "How, when, and who signed this quote.",
+        "loadError": "Failed to load signature details",
+        "notSignedYet": "This quote hasn't been signed yet",
+        "methodLabel": "Signing Method",
+        "methods": {
+          "portal": "Client Portal",
+          "public_link": "Public Signing Link",
+          "offline": "Offline (Paper) Signature",
+          "unknown": "Unknown — signed before signing-method tracking existed"
+        },
+        "signedByLabel": "Signed By",
+        "signedAtLabel": "Signed At",
+        "signatureImageLabel": "Signature Image",
+        "offlineSection": {
+          "title": "Internal Attestation",
+          "attestedByLabel": "Attested By",
+          "attestedAtLabel": "Attested At",
+          "evidenceFileInfo": "{type} — {size}",
+          "viewEvidenceButton": "View Evidence File",
+          "evidenceLoadError": "Failed to open the evidence file",
+          "evidenceNotAvailable": "No evidence file attached to this signature"
+        },
+        "closeButton": "Close"
       },
       "edit": {
         "back": "Back",

@@ -17,7 +17,7 @@ import {
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { FileText, Plus, MoreHorizontal, Pencil, Copy, Send, Trash2, Download, Receipt, Link2, FileSignature, MailWarning } from 'lucide-react';
+import { FileText, Plus, MoreHorizontal, Pencil, Copy, Send, Trash2, Download, Receipt, Link2, FileSignature, MailWarning, ShieldCheck } from 'lucide-react';
 import { SearchInput } from '@/components/ui/search-input';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { generateQuotePDF } from '@/lib/pdf/quote-pdf';
@@ -28,6 +28,7 @@ import { DataTable, type ColumnDef, type SortConfig } from '@/components/ui/data
 import { useStatusLabels } from '@/lib/i18n/status-labels';
 import { PublicLinkDialog } from '@/components/quotes/PublicLinkDialog';
 import { OfflineSignDialog } from '@/components/quotes/OfflineSignDialog';
+import { SignatureDetailsDialog } from '@/components/quotes/SignatureDetailsDialog';
 import type { Locale } from '@/lib/i18n/config';
 
 interface Quote {
@@ -89,6 +90,7 @@ export default function QuotesClient() {
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const [linkQuoteId, setLinkQuoteId] = useState<string | null>(null);
   const [offlineSignQuoteId, setOfflineSignQuoteId] = useState<string | null>(null);
+  const [signatureDetailsQuoteId, setSignatureDetailsQuoteId] = useState<string | null>(null);
 
   // Debounce search input (350ms)
   useEffect(() => {
@@ -342,6 +344,18 @@ export default function QuotesClient() {
                   <FileSignature className="h-3.5 w-3.5 me-2" /> {t('rowActions.offlineSign')}
                 </DropdownMenuItem>
               )}
+              {/* Signature details (evidence-viewer): how/who/when a quote was
+                  signed, plus the offline-attester + evidence file when the
+                  signature came from paper. Same gate as the two actions
+                  above — the evidence API route itself is quotes.edit OR
+                  quotes.share_link, so this must match or the menu item would
+                  lie about what the click can do. Only meaningful once a
+                  signature actually exists. */}
+              {canShareLink && (q.status === 'signed' || q.status === 'invoiced') && (
+                <DropdownMenuItem onClick={() => setSignatureDetailsQuoteId(q.id)}>
+                  <ShieldCheck className="h-3.5 w-3.5 me-2" /> {t('rowActions.signatureDetails')}
+                </DropdownMenuItem>
+              )}
               {/* Delete: full-delete shows for every row; delete_own only for
                   quotes the current user created (own-scope). Server re-gates. */}
               {(canDelete || (canDeleteOwn && q.created_by === currentUsername)) && (
@@ -458,6 +472,11 @@ export default function QuotesClient() {
         quoteId={offlineSignQuoteId}
         onOpenChange={(open) => { if (!open) setOfflineSignQuoteId(null); }}
         onSigned={fetchQuotes}
+      />
+
+      <SignatureDetailsDialog
+        quoteId={signatureDetailsQuoteId}
+        onOpenChange={(open) => { if (!open) setSignatureDetailsQuoteId(null); }}
       />
     </div>
   );

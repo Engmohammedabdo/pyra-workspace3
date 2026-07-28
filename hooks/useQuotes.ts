@@ -34,6 +34,14 @@ export interface Quote {
   entity_id: string | null;
   signature_data: string | null;
   signed_by: string | null;
+  signed_at?: string | null;
+  // Migration 054 — how the signature was obtained. Optional: older rows
+  // (signed before this feature shipped) have no value for any of these.
+  signature_source?: 'portal' | 'public_link' | 'offline' | null;
+  signed_offline_by?: string | null;
+  signed_offline_at?: string | null;
+  signed_evidence_mime?: string | null;
+  signed_evidence_size?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -45,6 +53,22 @@ export interface Quote {
 // useCreateQuote hooks were removed — they pointed at /api/dashboard/quotes
 // which never existed (guaranteed 404) and had zero consumers. The real
 // quotes endpoint is /api/quotes; useLeadQuotes below is the live consumer.
+
+/**
+ * A single quote by id — powers SignatureDetailsDialog (evidence-viewer
+ * report). Deliberately reintroduced: an earlier `useQuote` was removed
+ * because it pointed at a dead `/api/dashboard/quotes` route; this one hits
+ * the real, working `GET /api/quotes/[id]`, and its query key (`['quotes',
+ * id]`) matches what useUpdateQuote already invalidates below.
+ */
+export function useQuote(id: string | undefined) {
+  return useQuery<Quote>({
+    queryKey: ['quotes', id],
+    queryFn: () => fetchAPI(`/api/quotes/${id}`),
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+}
 
 /**
  * Quotes linked to a specific lead — powers the Lead Detail "Deals" tab quotes

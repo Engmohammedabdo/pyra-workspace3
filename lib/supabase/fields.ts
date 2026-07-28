@@ -18,7 +18,9 @@ export const QUOTE_FIELDS = `
   parent_quote_id, version,
   entity_id, license_no,
   delivery_status, delivery_detail, delivery_checked_at,
-  sent_at, viewed_at, created_by, created_at, updated_at
+  sent_at, viewed_at, created_by, created_at, updated_at,
+  signature_source, signed_offline_by, signed_offline_at,
+  signed_evidence_mime, signed_evidence_size
 `;
 
 /** Columns returned for a single invoice (used by list + detail endpoints). */
