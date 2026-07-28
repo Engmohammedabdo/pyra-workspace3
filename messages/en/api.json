@@ -282,6 +282,7 @@
       "offlineFileRequired": "The signed evidence file is required",
       "offlineFileEmpty": "The file is empty",
       "offlineSignedByRequired": "Signer name is required",
+      "offlineSignedByTooLong": "Signer name is too long",
       "offlineSignedAtInvalid": "Invalid signature date",
       "offlineSignedAtFuture": "The signature date cannot be in the future",
       "offlineFileTooLarge": "File size exceeds the maximum ({maxMb} MB)",

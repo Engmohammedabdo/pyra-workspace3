@@ -16,6 +16,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { QUOTE_STATUS } from '@/lib/constants/statuses';
 import { validateEvidenceFile, isPdfMagic, MAX_EVIDENCE_BYTES } from '@/lib/quotes/evidence-upload';
+import { MAX_SIGNED_BY_LENGTH } from '@/lib/quotes/sign-quote';
 import { logActivity } from '@/lib/api/activity';
 import { logError } from '@/lib/observability/log-error';
 import { notify } from '@/lib/notifications/notify';
@@ -200,6 +201,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (file.size <= 0) return apiValidationError(t('quotes.offlineFileEmpty'));
     if (typeof signedByRaw !== 'string' || !signedByRaw.trim()) {
       return apiValidationError(t('quotes.offlineSignedByRequired'));
+    }
+    // signed_by is append-only once written (migration 055) — same cap as
+    // the public link route, reused from the shared core rather than
+    // redefined here (final-review Important 1).
+    if (signedByRaw.trim().length > MAX_SIGNED_BY_LENGTH) {
+      return apiValidationError(t('quotes.offlineSignedByTooLong'));
     }
     if (
       typeof signedAtRaw !== 'string' ||

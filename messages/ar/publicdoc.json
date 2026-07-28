@@ -2,6 +2,11 @@
   "publicdoc": {
     "invalidTitle": "الرابط غير صالح",
     "invalidBody": "الرابط ده منتهي أو اتلغى. اطلب من مندوب المبيعات رابط جديد.",
+    "errorTitle": "حصل خطأ",
+    "errorBody": "حصل خطأ غير متوقع أثناء تحميل المستند. حاول تاني بعد شوية.",
+    "retryButton": "إعادة المحاولة",
+    "rateLimitedViewTitle": "محاولات كتير",
+    "rateLimitedViewBody": "فتحت الرابط ده مرات كتير. استنى شوية وحاول تاني.",
     "quoteExpiredTitle": "انتهت صلاحية عرض السعر",
     "quoteExpiredBody": "عرض السعر ده انتهت مدته. اطلب عرض محدّث.",
     "alreadySignedTitle": "تم التوقيع",

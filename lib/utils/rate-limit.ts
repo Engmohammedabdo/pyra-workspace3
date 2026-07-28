@@ -189,11 +189,16 @@ export const twoFactorLimiter = createRateLimiter('two-factor', {
 // ─── Public document links (Task 6 — public quote signing) ──
 
 /**
- * Public document view (GET /d/<token>): max 60 per IP per minute.
- * Reserved for the view path — app/d/[token]/page.tsx does not call this
- * yet (out of this task's file list), added here alongside
- * documentLinkSignLimiter so both limiters for the document-links feature
- * ship together, each independently exhaustible.
+ * Public document view (GET /d/<token>): max 60 per IP per minute. Wired
+ * into app/d/[token]/page.tsx (final-review Important 3) — checked BEFORE
+ * any DB work, since each hit costs 4-5 queries, a view-count RPC write and
+ * a status UPDATE. A Server Component has no `Request` object, so the page
+ * calls `.check()` on this limiter directly (via getClientIpFromHeaders()
+ * reading `headers()` from `next/headers`) instead of going through
+ * `checkRateLimit()`, which returns a raw `Response` meant for API route
+ * handlers, not something a page can render as JSX. Independently
+ * exhaustible from documentLinkSignLimiter — exhausting the view budget
+ * must not lock out signing and vice versa.
  */
 export const documentLinkViewLimiter = createRateLimiter('document-link-view', {
   maxRequests: 60,
@@ -220,16 +225,29 @@ export const documentLinkSignLimiter = createRateLimiter('document-link-sign', {
 });
 
 /**
- * Extract client IP from request headers.
- * Checks x-forwarded-for first (behind proxy/load balancer), then x-real-ip.
+ * Extract client IP from a headers-like object. Checks x-forwarded-for first
+ * (behind proxy/load balancer), then x-real-ip. Structurally typed to
+ * `{ get(name): string | null }` rather than `Headers` so it accepts BOTH a
+ * real `Request`'s `.headers` (API routes) AND the `ReadonlyHeaders` returned
+ * by `headers()` from `next/headers` (Server Components, which have no
+ * `Request` object of their own to read headers from) — same extraction
+ * logic either way.
  */
-export function getClientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for');
+export function getClientIpFromHeaders(headers: { get(name: string): string | null }): string {
+  const forwarded = headers.get('x-forwarded-for');
   if (forwarded) {
     // x-forwarded-for can contain multiple IPs; take the first (client)
     return forwarded.split(',')[0].trim();
   }
-  return request.headers.get('x-real-ip') || 'unknown';
+  return headers.get('x-real-ip') || 'unknown';
+}
+
+/**
+ * Extract client IP from request headers.
+ * Checks x-forwarded-for first (behind proxy/load balancer), then x-real-ip.
+ */
+export function getClientIp(request: Request): string {
+  return getClientIpFromHeaders(request.headers);
 }
 
 /**

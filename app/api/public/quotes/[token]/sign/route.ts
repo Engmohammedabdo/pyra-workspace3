@@ -6,7 +6,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { classifyLinkState } from '@/lib/documents/link-state';
 import { toPublicQuotePayload } from '@/lib/quotes/public-payload';
 import { quoteContentHash } from '@/lib/quotes/content-hash';
-import { signQuote, MAX_SIGNATURE_LENGTH } from '@/lib/quotes/sign-quote';
+import { signQuote, MAX_SIGNATURE_LENGTH, MAX_SIGNED_BY_LENGTH } from '@/lib/quotes/sign-quote';
 import { dubaiDayKey } from '@/lib/utils/format';
 import { notify } from '@/lib/notifications/notify';
 import { logActivity } from '@/lib/api/activity';
@@ -16,16 +16,6 @@ import { notifyQuoteSigned, sendSignedQuoteCopyEmail } from '@/lib/email/notify'
 import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/config';
 
 type RouteContext = { params: Promise<{ token: string }> };
-
-/**
- * signed_by is unbounded `text` and, per migration 055, append-only once
- * set — an oversized name would be permanently welded to a legally-binding
- * quote with no way to ever correct it (Task 6 review, Finding 1). 200
- * characters comfortably covers any real legal name/company suffix while
- * still capping abuse. Kept in sync with the `maxLength` on the sign-name
- * input in components/quotes/QuoteDetailView.tsx.
- */
-const MAX_SIGNED_BY_LENGTH = 200;
 
 /**
  * POST /api/public/quotes/[token]/sign

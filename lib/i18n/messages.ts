@@ -67,3 +67,51 @@ export async function loadMessages(locale: Locale): Promise<Messages> {
   if (locale === 'ar') return ar;
   return deepMerge(ar, await loadLocaleFiles(locale));
 }
+
+/**
+ * Narrow loader for a single sub-tree of ONE namespace file — deliberately
+ * NOT the full merged catalog `loadMessages()` builds (~508 KB AR / ~930 KB
+ * EN-merged, since it imports all of NAMESPACE_FILES). First caller: the
+ * public /d/<token> quote page (app/d/[token]/page.tsx). That page already
+ * sits inside the root layout's own <NextIntlClientProvider> (which
+ * auto-inherits the full catalog for every route — accepted baseline cost,
+ * not this function's concern), and used to ALSO mount a second nested
+ * provider with the full catalog again just so its one client component
+ * (QuoteDetailView) could resolve `useTranslations('finance.quotes.detail')`
+ * — doubling ~1 MB of JSON on the single page in the product most likely to
+ * be opened on a customer's mobile data. Everything else on that page
+ * already arrives pre-rendered via a `copy` prop, so only that one sub-tree
+ * needs to travel through a client provider at all.
+ *
+ * Only imports `messages/{ar,en}/<namespaceFile>.json` (not all ~20 files)
+ * and returns the `path` sub-tree reshaped back into its original nesting,
+ * so `<NextIntlClientProvider messages={...}>` resolves
+ * `useTranslations(path)` exactly like the full catalog would.
+ */
+export async function loadMessageSlice(
+  locale: Locale,
+  namespaceFile: string,
+  path: string,
+): Promise<Messages> {
+  const ar = (await import(`../../messages/ar/${namespaceFile}.json`)).default as Messages;
+  const merged =
+    locale === 'ar'
+      ? ar
+      : deepMerge(ar, (await import(`../../messages/en/${namespaceFile}.json`)).default as Messages);
+
+  const keys = path.split('.');
+  let node: unknown = merged;
+  for (const key of keys) {
+    node = (node as Messages | undefined)?.[key];
+  }
+
+  const root: Messages = {};
+  let cursor = root;
+  for (let i = 0; i < keys.length - 1; i++) {
+    const branch: Messages = {};
+    cursor[keys[i]] = branch;
+    cursor = branch;
+  }
+  cursor[keys[keys.length - 1]] = node ?? {};
+  return root;
+}

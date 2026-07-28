@@ -2,14 +2,18 @@
 
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { useLocale } from 'next-intl';
 import { toast } from 'sonner';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { mutateAPI, ApiError } from '@/hooks/api-helpers';
 import { QuoteDetailView } from '@/components/quotes/QuoteDetailView';
 import { Card, CardContent } from '@/components/ui/card';
+import { formatDate } from '@/lib/utils/format';
 import type { PublicQuotePayload } from '@/lib/quotes/public-payload';
 import type { SignBlockReason } from '@/lib/quotes/signability';
 import { QUOTE_STATUS } from '@/lib/constants/statuses';
+import type { Locale } from '@/lib/i18n/config';
+import { DATE_TOKEN } from './copy-constants';
 
 /** `content_changed` is a sentinel the page adds on top of the three reasons
  *  canSignQuote() itself can return (Task 1) — the link's content_hash no
@@ -91,11 +95,28 @@ const BANNER_COPY: Record<
 };
 
 export function PublicQuoteView({ token, quote, canSign, blockReason, copy }: PublicQuoteViewProps) {
+  const locale = useLocale() as Locale;
+
   // Local mirror so a successful sign — or a race-detected already-signed
   // response — can flip the view to read-only without a full page reload.
   const [localQuote, setLocalQuote] = useState<PublicQuotePayload>(quote);
   const [readOnlyReason, setReadOnlyReason] = useState<BlockReason | null>(blockReason);
   const [downloading, setDownloading] = useState(false);
+
+  // Final-review Minor 1: `copy.alreadySignedBody` was rendered verbatim,
+  // date and all, computed ONCE at page load when `quote.signed_at` was
+  // still null for the common case (a visitor about to sign) — so the
+  // banner read "...already signed on ." after a successful client-side
+  // sign. `localQuote.signed_at` is always correct at render time (either
+  // from the initial load, for a quote that truly was already signed, or
+  // set to `new Date().toISOString()` the moment this browser's own sign
+  // succeeds below) — substituting it into the DATE_TOKEN the server left
+  // in place keeps the translated sentence structure intact while making
+  // the date live.
+  const alreadySignedBodyResolved = copy.alreadySignedBody.replace(
+    DATE_TOKEN,
+    localQuote.signed_at ? formatDate(localQuote.signed_at as string, undefined, locale) : '',
+  );
 
   const signMutation = useMutation({
     mutationFn: (vars: { signature_data: string; signed_by: string }) =>
@@ -195,7 +216,9 @@ export function PublicQuoteView({ token, quote, canSign, blockReason, copy }: Pu
             <banner.Icon className="mt-0.5 h-5 w-5 shrink-0" />
             <div>
               <p className="font-semibold">{copy[banner.titleKey]}</p>
-              <p className="text-sm opacity-90">{copy[banner.bodyKey]}</p>
+              <p className="text-sm opacity-90">
+                {readOnlyReason === 'already_signed' ? alreadySignedBodyResolved : copy[banner.bodyKey]}
+              </p>
             </div>
           </CardContent>
         </Card>

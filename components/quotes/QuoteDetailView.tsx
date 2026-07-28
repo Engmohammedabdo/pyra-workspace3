@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import dynamic from 'next/dynamic';
 import { QUOTE_STATUS } from '@/lib/constants/statuses';
+import { MAX_SIGNED_BY_LENGTH } from '@/lib/quotes/sign-quote';
 import type { Locale } from '@/lib/i18n/config';
 
 const SignaturePad = dynamic(() => import('@/components/quotes/SignaturePad'), { ssr: false });
@@ -178,12 +179,11 @@ export function QuoteDetailView({
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>{t('signDialog.nameLabel')}</Label>
-              {/* 200 chars matches MAX_SIGNED_BY_LENGTH in
-                  app/api/public/quotes/[token]/sign/route.ts — signed_by is
-                  unbounded `text` and append-only once set (migration 055),
-                  so the UI must agree with the server's cap up front
-                  (Task 6 Finding 1). */}
-              <Input value={signName} onChange={e => setSignName(e.target.value)} placeholder={t('signDialog.namePlaceholder')} maxLength={200} />
+              {/* signed_by is unbounded `text` and append-only once set
+                  (migration 055), so the UI must agree with the server's cap
+                  up front (Task 6 Finding 1) — sourced from the shared
+                  constant so every signing surface stays in sync. */}
+              <Input value={signName} onChange={e => setSignName(e.target.value)} placeholder={t('signDialog.namePlaceholder')} maxLength={MAX_SIGNED_BY_LENGTH} />
             </div>
             <div className="space-y-2">
               <Label>{t('signDialog.signatureLabel')}</Label>
@@ -192,7 +192,21 @@ export function QuoteDetailView({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowSign(false)}>{t('signDialog.cancel')}</Button>
-            <Button onClick={() => onSign(signData, signName).then(() => setShowSign(false))} disabled={signing || !signData || !signName.trim()} className="bg-portal hover:bg-portal-secondary">
+            <Button
+              onClick={() => {
+                // The public wrapper's mutateAsync REJECTS on a failed sign
+                // (the portal's own onSign swallows internally) — without
+                // this .catch, every failed public sign left an unhandled
+                // promise rejection (final-review Minor 2). The error toast
+                // itself is already shown by the caller's mutation onError;
+                // this only needs to stop the dialog closing on failure,
+                // which the bare .then() already achieves by not chaining
+                // setShowSign(false) into the rejection path.
+                onSign(signData, signName).then(() => setShowSign(false)).catch(() => {});
+              }}
+              disabled={signing || !signData || !signName.trim()}
+              className="bg-portal hover:bg-portal-secondary"
+            >
               {signing ? t('signDialog.signing') : t('signDialog.confirm')}
             </Button>
           </DialogFooter>

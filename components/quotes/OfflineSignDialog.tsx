@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAttestOfflineSignature } from '@/hooks/useOfflineSignature';
 import { MAX_EVIDENCE_BYTES, MIME_TO_EXT } from '@/lib/quotes/evidence-upload';
+import { MAX_SIGNED_BY_LENGTH } from '@/lib/quotes/sign-quote';
 import { dubaiDayKey } from '@/lib/utils/format';
 
 interface OfflineSignDialogProps {
@@ -119,6 +120,10 @@ export function OfflineSignDialog({ quoteId, onOpenChange, onSigned }: OfflineSi
               value={signedBy}
               onChange={(e) => setSignedBy(e.target.value)}
               disabled={mutation.isPending}
+              // signed_by is append-only once written (migration 055) — same
+              // cap as the public sign dialog, sourced from the shared
+              // constant so the two never drift (final-review Important 1).
+              maxLength={MAX_SIGNED_BY_LENGTH}
             />
           </div>
 
