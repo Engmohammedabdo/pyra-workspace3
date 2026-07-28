@@ -16,6 +16,7 @@
     "invalidRequest": "الطلب غير صالح.",
     "signatureRequired": "التوقيع مطلوب.",
     "signedByRequired": "اسم الموقّع مطلوب.",
+    "signedByTooLong": "اسم الموقّع طويل جداً.",
     "signatureInvalid": "بيانات التوقيع غير صالحة أو كبيرة جداً.",
     "serverError": "حصل خطأ في الخادم. حاول تاني لاحقاً."
   }

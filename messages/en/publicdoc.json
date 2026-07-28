@@ -16,6 +16,7 @@
     "invalidRequest": "Invalid request.",
     "signatureRequired": "Signature is required.",
     "signedByRequired": "Signer name is required.",
+    "signedByTooLong": "Signer name is too long.",
     "signatureInvalid": "Signature data is invalid or too large.",
     "serverError": "A server error occurred. Please try again later."
   }

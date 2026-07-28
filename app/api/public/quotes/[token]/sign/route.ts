@@ -7,15 +7,25 @@ import { classifyLinkState } from '@/lib/documents/link-state';
 import { toPublicQuotePayload } from '@/lib/quotes/public-payload';
 import { quoteContentHash } from '@/lib/quotes/content-hash';
 import { signQuote, MAX_SIGNATURE_LENGTH } from '@/lib/quotes/sign-quote';
-import { dubaiDayKey, formatDate } from '@/lib/utils/format';
+import { dubaiDayKey } from '@/lib/utils/format';
 import { notify } from '@/lib/notifications/notify';
 import { logActivity } from '@/lib/api/activity';
 import { logError } from '@/lib/observability/log-error';
 import { loadServerPdfFonts, loadServerDefaultLogo } from '@/lib/pdf/pdf-assets-server';
-import { sendSignedQuoteCopyEmail } from '@/lib/email/notify';
+import { notifyQuoteSigned, sendSignedQuoteCopyEmail } from '@/lib/email/notify';
 import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/config';
 
 type RouteContext = { params: Promise<{ token: string }> };
+
+/**
+ * signed_by is unbounded `text` and, per migration 055, append-only once
+ * set — an oversized name would be permanently welded to a legally-binding
+ * quote with no way to ever correct it (Task 6 review, Finding 1). 200
+ * characters comfortably covers any real legal name/company suffix while
+ * still capping abuse. Kept in sync with the `maxLength` on the sign-name
+ * input in components/quotes/QuoteDetailView.tsx.
+ */
+const MAX_SIGNED_BY_LENGTH = 200;
 
 /**
  * POST /api/public/quotes/[token]/sign
@@ -24,10 +34,16 @@ type RouteContext = { params: Promise<{ token: string }> };
  * can sign. Every guard here is the exact same guard the portal sign route
  * (app/api/portal/quotes/[id]/sign) uses, via the shared
  * lib/quotes/sign-quote.ts core, so the two paths cannot silently drift
- * apart. What genuinely differs from the portal route is the race response:
- * a concurrent-submit LOSER gets a 200 "already signed" marker here instead
- * of a 422, because the public client (app/d/[token]/public-quote-view.tsx)
- * renders that as a friendly info toast rather than an error toast.
+ * apart. What genuinely differs from the portal route is the already-signed
+ * response: both a concurrent-submit LOSER ('race') and a quote that turns
+ * out to already be signed when signQuote() re-reads it ('already_signed' —
+ * e.g. the customer signed on their phone and is now opening the same
+ * emailed link on a laptop) get a 200 "already signed" marker here instead
+ * of a 422 (Task 6 Finding 2). The public client
+ * (app/d/[token]/public-quote-view.tsx) renders that marker as a read-only
+ * state, not an error toast — unlike the portal route, this stranger has no
+ * support channel to fall back on if told "signing failed" on a quote that
+ * is, in fact, already signed.
  *
  * Rate limiting (documentLinkSignLimiter, lib/utils/rate-limit.ts) is
  * per-process, in-memory, and resets on every deploy/restart — it is an
@@ -70,10 +86,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
   // A DB error must NOT render as "invalid link" — that is exactly how the
   // /api/shares stack stayed dead in production for five months.
   if (linkErr) {
+    // Do NOT pass `request` here — logError stores its raw `request.url`
+    // pathname verbatim into request_path, and this route's path IS
+    // `/api/public/quotes/<TOKEN>/sign`. That column has no redaction pass
+    // (unlike metadata, where the `token` key is auto-redacted by the
+    // PII_KEY_FRAGMENTS layer), so passing `request` would permanently leak
+    // a live signing token into pyra_error_logs — readable by anyone holding
+    // the standalone `error_logs.view` permission, no quote access required
+    // (Task 6 Finding 3). `request.method` is safe, non-sensitive context.
     logError({
       error: linkErr,
-      request,
-      metadata: { scope: 'public_quote_sign_link_lookup', token },
+      metadata: { scope: 'public_quote_sign_link_lookup', token, request_method: request.method },
     });
     return apiServerError(tInvalid('serverError'));
   }
@@ -87,10 +110,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     .maybeSingle();
 
   if (quoteErr) {
+    // See the linkErr branch above — `request` is never passed to logError
+    // on this route; its request_path column is unredacted and the path
+    // contains the live signing token (Task 6 Finding 3).
     logError({
       error: quoteErr,
-      request,
-      metadata: { scope: 'public_quote_sign_quote_lookup', link_id: link.id },
+      metadata: { scope: 'public_quote_sign_quote_lookup', link_id: link.id, request_method: request.method },
     });
     return apiServerError(tInvalid('serverError'));
   }
@@ -106,10 +131,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     .order('sort_order', { ascending: true });
 
   if (itemsErr) {
+    // See the linkErr branch above — same reason `request` is withheld here.
     logError({
       error: itemsErr,
-      request,
-      metadata: { scope: 'public_quote_sign_items_lookup', quote_id: quote.id },
+      metadata: { scope: 'public_quote_sign_items_lookup', quote_id: quote.id, request_method: request.method },
     });
     return apiServerError(tInvalid('serverError'));
   }
@@ -149,6 +174,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return apiValidationError(t('signedByRequired'));
   }
   const signedBy = signedByRaw.trim();
+  if (signedBy.length > MAX_SIGNED_BY_LENGTH) {
+    return apiValidationError(t('signedByTooLong'));
+  }
 
   // Same expression the rest of the app uses for signed_ip — see
   // app/api/comments/route.ts, app/api/webhooks/[id]/route.ts, etc.
@@ -178,11 +206,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
         // Step 5) — hence 200, not 422.
         return apiSuccess({ signed: true, alreadySigned: true });
       case 'already_signed':
-        return apiValidationError(
-          t('alreadySignedBody', {
-            date: quote.signed_at ? formatDate(quote.signed_at, undefined, locale) : '',
-          }),
-        );
+        // Same 200 marker as 'race' (Task 6 Finding 2) — a customer who
+        // already signed (elsewhere, or via a genuine concurrent submit)
+        // must land on the friendly read-only state, not a red error with
+        // no way to ever clear it. This also sidesteps the stale-null-date
+        // bug the old branch had: `quote` here is the row this request
+        // fetched BEFORE calling signQuote(), so on a real race its
+        // signed_at is still null (Task 6 Minor 4) — the client already
+        // renders the correct signed date from its own initial page load
+        // (app/d/[token]/page.tsx), so no date needs to travel in this
+        // response at all.
+        return apiSuccess({ signed: true, alreadySigned: true });
       case 'quote_expired':
         return apiValidationError(t('quoteExpiredBody'));
       case 'wrong_status':
@@ -196,10 +230,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
       default:
         // Log the REAL Supabase error — result.reason is just the literal
         // string 'db_error' and tells an operator nothing (see ba3c055).
+        // `request` withheld — see the linkErr branch above (Task 6 Finding 3).
         logError({
           error: result.error,
-          request,
-          metadata: { route: 'public-quotes-sign', quote_id: quote.id, link_id: link.id },
+          metadata: {
+            route: 'public-quotes-sign',
+            quote_id: quote.id,
+            link_id: link.id,
+            request_method: request.method,
+          },
         });
         return apiServerError(t('serverError'));
     }
@@ -222,6 +261,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
     { quote_number: quote.quote_number, entity_type: 'quote', link_id: link.id, source: 'public_link' },
     ip,
   );
+
+  // Email the creating agent + admins — same channel a portal signature
+  // uses (app/api/portal/quotes/[id]/sign), so a sales rep learns about a
+  // signature the same way regardless of which link the customer signed
+  // through (Task 6 Minor 5). Fire-and-forget: notifyQuoteSigned wraps its
+  // own work in a detached async IIFE and never throws to this caller.
+  if (quote.created_by) {
+    notifyQuoteSigned({
+      createdBy: quote.created_by,
+      quoteNumber: quote.quote_number,
+      quoteId: quote.id,
+      signedBy,
+      total: Number(quote.total) || 0,
+      currency: quote.currency || 'AED',
+    });
+  }
 
   // In-app bell for the creating agent. Arabic literal content —
   // notification strings inside routes stay Arabic until Phase 8

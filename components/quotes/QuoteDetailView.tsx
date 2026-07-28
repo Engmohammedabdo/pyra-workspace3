@@ -178,7 +178,12 @@ export function QuoteDetailView({
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>{t('signDialog.nameLabel')}</Label>
-              <Input value={signName} onChange={e => setSignName(e.target.value)} placeholder={t('signDialog.namePlaceholder')} />
+              {/* 200 chars matches MAX_SIGNED_BY_LENGTH in
+                  app/api/public/quotes/[token]/sign/route.ts — signed_by is
+                  unbounded `text` and append-only once set (migration 055),
+                  so the UI must agree with the server's cap up front
+                  (Task 6 Finding 1). */}
+              <Input value={signName} onChange={e => setSignName(e.target.value)} placeholder={t('signDialog.namePlaceholder')} maxLength={200} />
             </div>
             <div className="space-y-2">
               <Label>{t('signDialog.signatureLabel')}</Label>
