@@ -67,6 +67,22 @@ type QuoteScopeRow = { client_id: string | null; lead_id: string | null; created
 
 const EVIDENCE_BUCKET = 'pyra-private';
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * True only for a REAL calendar date, not just a `YYYY-MM-DD`-shaped string.
+ * `DATE_ONLY` alone lets `2026-13-40` through — it would otherwise reach
+ * Postgres and surface as the generic `offlineUpdateFailed` message instead
+ * of a clean 422. `Date.UTC` normalizes overflow (month 13 rolls into next
+ * year, day 40 rolls past month-end), so round-tripping and comparing
+ * catches both single-field and compound overflow (e.g. Feb 30, Apr 31,
+ * Feb 29 on a non-leap year).
+ */
+function isRealCalendarDate(dateStr: string): boolean {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
+}
+
 // Only 'sent'/'viewed' quotes were ever actually given to a customer to sign —
 // draft/pending_approval have nothing to counter-sign, and signed/invoiced are
 // refused explicitly below with a friendlier message.
@@ -90,6 +106,7 @@ async function canAttestQuote(
 export async function POST(request: NextRequest, context: RouteContext) {
   let authForLogging: ApiAuthResult | null = null;
   let storagePathForCleanup: string | null = null;
+  let quoteIdForLogging: string | null = null;
   try {
     const limited = checkRateLimit(uploadLimiter, request);
     if (limited) return limited;
@@ -101,6 +118,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const scope = await resolveUserScope(auth);
     const { id } = await context.params;
+    quoteIdForLogging = id;
     const supabase = createServiceRoleClient();
 
     const { data: quote } = await supabase
@@ -128,11 +146,31 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // failure mode verification (c) rules out. A 64 KiB margin covers
     // multipart boundary/field overhead so this never false-positives on a
     // genuinely small evidence file.
-    const contentLength = Number(request.headers.get('content-length') ?? 0);
+    //
+    // Decision on an ABSENT/unparseable Content-Length (e.g. chunked
+    // transfer, which never sets it): let it through to the parse guard
+    // below rather than reject outright. `Number(header ?? 0)` used to make
+    // that fall through by accident (0 is never > the cap, and so is NaN
+    // from a garbage header) — it is now explicit via `contentLength ===
+    // null` / `Number.isNaN`. Rejecting a missing header outright would also
+    // reject every legitimate chunked/streamed request, and this route has
+    // no way to tell those apart from an attacker at the header-check stage
+    // — the actual backstop for that case is the try/catch around
+    // `request.formData()` a few lines down, which turns the parser's own
+    // rejection of an oversized body into the same clean 413. That backstop
+    // still has to buffer the body before it can fail (see verification (c)
+    // in the task-8 report) — this pre-check is a fast-path for the common,
+    // honest case where Content-Length is present, not a substitute for it.
+    const contentLengthHeader = request.headers.get('content-length');
+    const contentLength = contentLengthHeader === null ? null : Number(contentLengthHeader);
     const tooLargeMessage = t('quotes.offlineFileTooLarge', {
       maxMb: (MAX_EVIDENCE_BYTES / 1024 / 1024).toFixed(0),
     });
-    if (contentLength > MAX_EVIDENCE_BYTES + 64 * 1024) {
+    if (
+      contentLength !== null &&
+      !Number.isNaN(contentLength) &&
+      contentLength > MAX_EVIDENCE_BYTES + 64 * 1024
+    ) {
       return apiError(tooLargeMessage, 413);
     }
 
@@ -163,7 +201,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (typeof signedByRaw !== 'string' || !signedByRaw.trim()) {
       return apiValidationError(t('quotes.offlineSignedByRequired'));
     }
-    if (typeof signedAtRaw !== 'string' || !DATE_ONLY.test(signedAtRaw)) {
+    if (
+      typeof signedAtRaw !== 'string' ||
+      !DATE_ONLY.test(signedAtRaw) ||
+      !isRealCalendarDate(signedAtRaw)
+    ) {
       return apiValidationError(t('quotes.offlineSignedAtInvalid'));
     }
     if (signedAtRaw > dubaiDayKey()) {
@@ -240,7 +282,26 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (updateError || !updated) {
       // Storage succeeded but the DB write did not stick — orphan cleanup so
       // a failed/raced attestation never leaves a dangling file behind.
-      void supabase.storage.from(EVIDENCE_BUCKET).remove([storagePath]);
+      // Supabase Storage's .remove() RESOLVES with `{ error }` rather than
+      // throwing, so a fire-and-forget `void` call here means a failed
+      // removal is invisible forever — the try/catch around this whole
+      // handler catches nothing, and the PDF stays stranded in
+      // pyra-private with no DB row pointing at it. Must be awaited and
+      // checked.
+      const { error: removeError } = await supabase.storage.from(EVIDENCE_BUCKET).remove([storagePath]);
+      if (removeError) {
+        logError({
+          error: removeError,
+          request,
+          user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+          metadata: {
+            source: 'quote_offline_signature',
+            stage: 'orphan_cleanup',
+            quote_id: id,
+            storage_path: storagePath,
+          },
+        });
+      }
 
       if (!updateError) {
         // No error, no row — the conditional update matched nothing because
@@ -287,11 +348,46 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return apiSuccess(updated);
   } catch (err) {
     if (storagePathForCleanup) {
+      // Same rationale as the DB-update-failure branch above: .remove()
+      // resolves { error } instead of throwing, so it must be awaited and
+      // checked — otherwise a failed removal here is silent too. The outer
+      // try/catch is kept ONLY for the storage client itself throwing
+      // (e.g. a network error constructing the request), which must never
+      // mask the primary error `err` being handled below.
       try {
         const supabase = createServiceRoleClient();
-        void supabase.storage.from(EVIDENCE_BUCKET).remove([storagePathForCleanup]);
-      } catch {
-        // ignore cleanup errors — primary error takes precedence
+        const { error: removeError } = await supabase.storage
+          .from(EVIDENCE_BUCKET)
+          .remove([storagePathForCleanup]);
+        if (removeError) {
+          logError({
+            error: removeError,
+            request,
+            user: authForLogging
+              ? { id: authForLogging.pyraUser.username, role: authForLogging.pyraUser.role }
+              : undefined,
+            metadata: {
+              source: 'quote_offline_signature',
+              stage: 'orphan_cleanup_catch',
+              quote_id: quoteIdForLogging ?? undefined,
+              storage_path: storagePathForCleanup,
+            },
+          });
+        }
+      } catch (cleanupErr) {
+        logError({
+          error: cleanupErr,
+          request,
+          user: authForLogging
+            ? { id: authForLogging.pyraUser.username, role: authForLogging.pyraUser.role }
+            : undefined,
+          metadata: {
+            source: 'quote_offline_signature',
+            stage: 'orphan_cleanup_catch_threw',
+            quote_id: quoteIdForLogging ?? undefined,
+            storage_path: storagePathForCleanup,
+          },
+        });
       }
     }
     logError({
