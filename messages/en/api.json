@@ -272,7 +272,9 @@
       "reviseWrongStatus": "Cannot create a revision from a quote in \"{status}\" status",
       "templateNotFound": "Template not found",
       "templateNameRequired": "Template name is required",
-      "signedContentLocked": "A signed quote cannot be edited. Rejected fields: {fields}"
+      "signedContentLocked": "A signed quote cannot be edited. Rejected fields: {fields}",
+      "linkRequiresSent": "The quote must be sent to the client before a signing link can be created",
+      "linkNotFound": "No active link for this quote"
     },
     "hr": {
       "documentNotFound": "Document not found",

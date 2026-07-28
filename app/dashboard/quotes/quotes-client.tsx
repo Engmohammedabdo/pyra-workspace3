@@ -14,7 +14,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { FileText, Plus, MoreHorizontal, Pencil, Copy, Send, Trash2, Download, Receipt } from 'lucide-react';
+import { FileText, Plus, MoreHorizontal, Pencil, Copy, Send, Trash2, Download, Receipt, Link2 } from 'lucide-react';
 import { SearchInput } from '@/components/ui/search-input';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { generateQuotePDF } from '@/lib/pdf/quote-pdf';
@@ -23,6 +23,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { DataTable, type ColumnDef, type SortConfig } from '@/components/ui/data-table';
 import { useStatusLabels } from '@/lib/i18n/status-labels';
+import { PublicLinkDialog } from '@/components/quotes/PublicLinkDialog';
 import type { Locale } from '@/lib/i18n/config';
 
 interface Quote {
@@ -75,6 +76,7 @@ export default function QuotesClient() {
   const [bulkDeleteIds, setBulkDeleteIds] = useState<string[]>([]);
   const [deleting, setDeleting] = useState(false);
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
+  const [linkQuoteId, setLinkQuoteId] = useState<string | null>(null);
 
   // Debounce search input (350ms)
   useEffect(() => {
@@ -286,6 +288,14 @@ export default function QuotesClient() {
                   <Send className="h-3.5 w-3.5 me-2" /> {t('rowActions.send')}
                 </DropdownMenuItem>
               )}
+              {/* Public signing link: only meaningful once the customer can actually
+                  reach the quote (sent/viewed) — draft/pending_approval must never be
+                  publicly reachable, matching app/d/[token]/page.tsx's VISIBLE gate. */}
+              {canEdit && (q.status === 'sent' || q.status === 'viewed') && (
+                <DropdownMenuItem onClick={() => setLinkQuoteId(q.id)}>
+                  <Link2 className="h-3.5 w-3.5 me-2" /> {t('rowActions.publicLink')}
+                </DropdownMenuItem>
+              )}
               {/* Delete: full-delete shows for every row; delete_own only for
                   quotes the current user created (own-scope). Server re-gates. */}
               {(canDelete || (canDeleteOwn && q.created_by === currentUsername)) && (
@@ -392,6 +402,11 @@ export default function QuotesClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PublicLinkDialog
+        quoteId={linkQuoteId}
+        onOpenChange={(open) => { if (!open) setLinkQuoteId(null); }}
+      />
     </div>
   );
 }

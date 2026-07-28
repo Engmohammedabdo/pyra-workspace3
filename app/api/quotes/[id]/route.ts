@@ -175,12 +175,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       'project_name', 'estimate_date', 'expiry_date', 'terms_conditions', 'notes',
       'client_id', 'client_name', 'client_company', 'client_email', 'client_phone', 'client_address',
     ] as const;
+    // Computed once — also drives the Task 7 auto-revoke below (any CONTENT_KEYS
+    // field present in the body means the customer-visible content changed).
+    const attemptedContentKeys = CONTENT_KEYS.filter((k) => k in body);
     const LOCKED_STATUSES: readonly string[] = [QUOTE_STATUS.SIGNED, QUOTE_STATUS.INVOICED];
-    if (LOCKED_STATUSES.includes(existing.status)) {
-      const attempted = CONTENT_KEYS.filter((k) => k in body);
-      if (attempted.length > 0) {
-        return apiValidationError(t('quotes.signedContentLocked', { fields: attempted.join(', ') }));
-      }
+    if (LOCKED_STATUSES.includes(existing.status) && attemptedContentKeys.length > 0) {
+      return apiValidationError(t('quotes.signedContentLocked', { fields: attemptedContentKeys.join(', ') }));
     }
 
     // Scope check: non-admins can only edit quotes for their own clients
@@ -395,6 +395,34 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (updateError) {
       console.error('Quote update error:', updateError);
       return apiServerError();
+    }
+
+    // Task 7 — a link minted for one price must not keep working after the
+    // price changes. LOCKED_STATUSES above already stops content edits on
+    // signed/invoiced quotes, so this only ever fires for sent/viewed.
+    // Presence-based (`k in body`), same convention as the LOCKED_STATUSES
+    // check above — not a value diff.
+    if (attemptedContentKeys.length > 0) {
+      const { data: revokedLink, error: revokeErr } = await supabase
+        .from('pyra_document_links')
+        .update({ revoked_at: new Date().toISOString(), revoked_by: auth.pyraUser.username })
+        .eq('entity_type', 'quote')
+        .eq('entity_id', id)
+        .is('revoked_at', null)
+        .select('id')
+        .maybeSingle();
+      if (revokeErr) {
+        console.error('Quote link auto-revoke error:', revokeErr);
+      } else if (revokedLink) {
+        logActivity(
+          auth.pyraUser.username,
+          auth.pyraUser.display_name,
+          'quote_link_revoked',
+          `/dashboard/quotes/${id}`,
+          { link_id: revokedLink.id, trigger: 'content_edit' },
+          request.headers.get('x-forwarded-for') || undefined,
+        );
+      }
     }
 
     // Get updated items

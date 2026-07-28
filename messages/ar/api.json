@@ -272,7 +272,9 @@
       "reviseWrongStatus": "لا يمكن إنشاء مراجعة من عرض بحالة \"{status}\"",
       "templateNotFound": "القالب غير موجود",
       "templateNameRequired": "اسم القالب مطلوب",
-      "signedContentLocked": "لا يمكن تعديل عرض سعر موقّع. الحقول المرفوضة: {fields}"
+      "signedContentLocked": "لا يمكن تعديل عرض سعر موقّع. الحقول المرفوضة: {fields}",
+      "linkRequiresSent": "يجب إرسال عرض السعر للعميل أولاً قبل إنشاء رابط التوقيع",
+      "linkNotFound": "لا يوجد رابط نشط لهذا العرض"
     },
     "hr": {
       "documentNotFound": "الوثيقة غير موجودة",

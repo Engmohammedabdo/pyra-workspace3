@@ -289,6 +289,7 @@
           "downloadPdf": "Download PDF",
           "convertToInvoice": "Convert to Invoice",
           "send": "Send",
+          "publicLink": "Signing Link",
           "delete": "Delete"
         },
         "header": {
@@ -315,6 +316,37 @@
           "confirmButton": "Delete",
           "deleting": "Deleting..."
         }
+      },
+      "publicLink": {
+        "title": "Quote Signing Link",
+        "description": "Share this link with the client so they can view and sign the quote online, no login required.",
+        "loading": "Loading...",
+        "loadError": "Failed to load link data",
+        "noLinkYet": "No active link for this quote yet",
+        "generateButton": "Generate Link",
+        "regenerateButton": "Generate New Link",
+        "regenerateHint": "The current link stops working as soon as a new one is created.",
+        "existingNoToken": "A link was already created for this quote — copy it at creation time, or generate a new one.",
+        "urlLabel": "Signing Link",
+        "copyButton": "Copy",
+        "copiedToast": "Link copied",
+        "createSuccessToast": "Signing link created",
+        "createErrorToast": "Failed to create the signing link",
+        "viewCountLabel": "Views",
+        "lastViewedLabel": "Last Viewed",
+        "neverViewed": "Not opened yet",
+        "expiresAtLabel": "Expires",
+        "neverExpires": "Never expires",
+        "createdAtLabel": "Created",
+        "revokeButton": "Revoke Link",
+        "revokeConfirmTitle": "Revoke Signing Link",
+        "revokeConfirmBody": "The link stops working once revoked, and the client won't be able to open it. Continue?",
+        "revokeConfirmButton": "Confirm Revoke",
+        "revoking": "Revoking...",
+        "revokeSuccessToast": "Link revoked",
+        "revokeErrorToast": "Failed to revoke the link",
+        "cancelButton": "Cancel",
+        "closeButton": "Close"
       },
       "edit": {
         "back": "Back",
