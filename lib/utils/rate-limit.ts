@@ -186,6 +186,39 @@ export const twoFactorLimiter = createRateLimiter('two-factor', {
   windowMs: 15 * 60 * 1000,
 });
 
+// ─── Public document links (Task 6 — public quote signing) ──
+
+/**
+ * Public document view (GET /d/<token>): max 60 per IP per minute.
+ * Reserved for the view path — app/d/[token]/page.tsx does not call this
+ * yet (out of this task's file list), added here alongside
+ * documentLinkSignLimiter so both limiters for the document-links feature
+ * ship together, each independently exhaustible.
+ */
+export const documentLinkViewLimiter = createRateLimiter('document-link-view', {
+  maxRequests: 60,
+  windowMs: 60 * 1000,
+});
+
+/**
+ * Public document sign (POST /api/public/quotes/[token]/sign): max 10 per IP
+ * per 5 minutes. Deliberately its own limiter — separate from
+ * shareDownloadLimiter (different feature, different abuse profile) and from
+ * documentLinkViewLimiter (exhausting one must not lock out the other).
+ * Signing is the higher-stakes action, hence the tighter budget.
+ *
+ * Per-process / in-memory (see file header) — this is an abuse speed bump,
+ * not a security control; it resets on every deploy/restart. The durable
+ * guard against a forged or replayed signature is the append-only signature
+ * columns enforced by a DB trigger (migrations 054/055): once
+ * signature_data is set, a second write raises instead of silently
+ * overwriting it.
+ */
+export const documentLinkSignLimiter = createRateLimiter('document-link-sign', {
+  maxRequests: 10,
+  windowMs: 5 * 60 * 1000,
+});
+
 /**
  * Extract client IP from request headers.
  * Checks x-forwarded-for first (behind proxy/load balancer), then x-real-ip.

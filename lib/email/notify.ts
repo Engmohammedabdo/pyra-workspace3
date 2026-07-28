@@ -391,6 +391,46 @@ export function notifyQuoteSigned(data: {
 }
 
 /**
+ * Email the signer their own signed copy (owner decision D-3, public sign
+ * endpoint — app/api/public/quotes/[token]/sign).
+ *
+ * Awaited by the caller so a delivery failure can be logged — unlike
+ * {@link notifyQuoteSigned} (which pings the internal agent/admins and is
+ * fire-and-forget), the quote is ALREADY signed in the DB regardless of this
+ * email's outcome, so the caller just needs to know whether to log a warning.
+ *
+ * The caller is responsible for blanking `pdf`'s bank details before calling
+ * this (owner decision D-1) — this function does not touch PDF content, it
+ * only attaches whatever buffer it's given.
+ */
+export async function sendSignedQuoteCopyEmail(data: {
+  clientEmail: string;
+  clientName: string;
+  quoteNumber: string;
+  total: number;
+  currency: string;
+  pdf: { filename: string; content: Buffer };
+}): Promise<boolean> {
+  try {
+    if (!data.clientEmail) return false;
+    return await sendEmail({
+      to: data.clientEmail,
+      subject: `✍️ نسخة موقعة من عرض السعر ${data.quoteNumber}`,
+      html: emailTemplates.quoteSignedCopy({
+        clientName: data.clientName || 'العميل',
+        quoteNumber: data.quoteNumber,
+        total: data.total.toLocaleString('en-US'),
+        currency: data.currency || 'AED',
+      }),
+      attachments: [{ filename: data.pdf.filename, content: data.pdf.content, contentType: 'application/pdf' }],
+    });
+  } catch (err) {
+    console.error('[Notify] sendSignedQuoteCopyEmail error:', err);
+    return false;
+  }
+}
+
+/**
  * Notify agent when a lead is assigned/transferred to them.
  */
 export function notifyLeadAssigned(data: {

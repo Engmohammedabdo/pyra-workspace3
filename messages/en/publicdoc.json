@@ -12,6 +12,11 @@
     "unavailableBody": "This quote is not available for viewing right now.",
     "signError": "Something went wrong saving the signature. Please try again.",
     "downloadError": "Something went wrong downloading the PDF. Please try again.",
-    "rateLimited": "Too many attempts. Please wait a moment and try again."
+    "rateLimited": "Too many attempts. Please wait a moment and try again.",
+    "invalidRequest": "Invalid request.",
+    "signatureRequired": "Signature is required.",
+    "signedByRequired": "Signer name is required.",
+    "signatureInvalid": "Signature data is invalid or too large.",
+    "serverError": "A server error occurred. Please try again later."
   }
 }

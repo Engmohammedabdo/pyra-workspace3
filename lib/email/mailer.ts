@@ -312,6 +312,24 @@ export const emailTemplates = {
       <a href="${escapeHtml(data.quoteUrl)}" class="btn">عرض عرض السعر</a>
     `),
 
+  /**
+   * Signed quote copy emailed to the signer (public-link sign endpoint,
+   * owner decision D-3). Arabic-only for now — email/notification content
+   * is exempt from the i18n catalog gate until Phase 8 (recipient-language
+   * notification templates); see CLAUDE.md "i18n — Bilingual AR/EN".
+   */
+  quoteSignedCopy: (data: { clientName: string; quoteNumber: string; total: string; currency: string }) =>
+    baseLayout(`
+      <h2>✍️ تم توقيع عرض السعر بنجاح</h2>
+      <p>عزيزي/عزيزتي ${escapeHtml(data.clientName)}،</p>
+      <p>نشكركم على توقيع عرض السعر. <strong>نسخة موقعة من العرض مرفقة بهذا البريد كملف PDF</strong> لسجلاتكم.</p>
+      <div class="detail">
+        <div class="detail-row"><span class="detail-label">رقم العرض:</span> <strong>${escapeHtml(data.quoteNumber)}</strong></div>
+        <div class="detail-row"><span class="detail-label">المبلغ الإجمالي:</span> <strong>${escapeHtml(data.currency)} ${escapeHtml(data.total)}</strong></div>
+      </div>
+      <p style="font-size: 13px; color: #71717a;">لو عندكم أي استفسار بخصوص العرض ده، تواصلوا مع فريق المبيعات.</p>
+    `),
+
   /** Invoice payment reminder (overdue) */
   invoiceReminder: (
     clientName: string,
