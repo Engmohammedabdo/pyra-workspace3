@@ -274,7 +274,9 @@
       "templateNameRequired": "اسم القالب مطلوب",
       "signedContentLocked": "لا يمكن تعديل عرض سعر موقّع. الحقول المرفوضة: {fields}",
       "linkRequiresSent": "يجب إرسال عرض السعر للعميل أولاً قبل إنشاء رابط التوقيع",
-      "linkNotFound": "لا يوجد رابط نشط لهذا العرض"
+      "linkNotFound": "لا يوجد رابط نشط لهذا العرض",
+      "linkInsertFailedRestored": "تعذّر إنشاء رابط التوقيع الجديد — الرابط الحالي لا يزال يعمل كما هو",
+      "linkInsertFailedRestoreFailed": "تعذّر إنشاء رابط جديد، وتعذّرت أيضاً استعادة الرابط السابق — تواصل مع الدعم الفني فوراً"
     },
     "hr": {
       "documentNotFound": "الوثيقة غير موجودة",

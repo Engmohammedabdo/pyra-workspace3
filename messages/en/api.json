@@ -274,7 +274,9 @@
       "templateNameRequired": "Template name is required",
       "signedContentLocked": "A signed quote cannot be edited. Rejected fields: {fields}",
       "linkRequiresSent": "The quote must be sent to the client before a signing link can be created",
-      "linkNotFound": "No active link for this quote"
+      "linkNotFound": "No active link for this quote",
+      "linkInsertFailedRestored": "Failed to create the new signing link — your existing link is still working as before",
+      "linkInsertFailedRestoreFailed": "Failed to create a new link, and failed to restore the previous one too — contact support immediately"
     },
     "hr": {
       "documentNotFound": "Document not found",

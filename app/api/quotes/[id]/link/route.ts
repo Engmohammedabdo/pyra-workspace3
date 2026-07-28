@@ -169,17 +169,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // Revoke any live link first (see doc comment above) — including an
     // expired-but-unrevoked one, which the partial unique index does not
-    // distinguish from a genuinely live link.
-    const { error: revokeErr } = await supabase
+    // distinguish from a genuinely live link. `.select()` captures which row
+    // (if any) we just touched so a failed insert below can restore it — a
+    // row matched by `.is('revoked_at', null)` was, by definition, live
+    // (revoked_at/revoked_by both NULL) immediately before this update.
+    const { data: revokedRows, error: revokeErr } = await supabase
       .from('pyra_document_links')
       .update({ revoked_at: now, revoked_by: auth.pyraUser.username })
       .eq('entity_type', 'quote')
       .eq('entity_id', id)
-      .is('revoked_at', null);
+      .is('revoked_at', null)
+      .select('id');
     if (revokeErr) {
       logError({ error: revokeErr, metadata: { scope: 'quote_link_post_revoke', quote_id: id } });
       return apiServerError();
     }
+    const revokedLinkId = revokedRows?.[0]?.id ?? null;
 
     const { data: inserted, error: insertErr } = await supabase
       .from('pyra_document_links')
@@ -217,8 +222,41 @@ export async function POST(request: NextRequest, context: RouteContext) {
         // Lost the race — do not return a token for a link we did not mint.
         return apiSuccess({ exists: true, ...existing, token: null, url: null });
       }
+
+      // Any other insert failure (network blip, timeout, transient DB error)
+      // leaves the revoke above stranded: the previous link is dead and no
+      // replacement exists. There are no transactions in this codebase, so
+      // mirror the rollback convention in app/api/quotes/route.ts (items
+      // insert failing rolls back the quote row) — restore the row we
+      // revoked to live rather than leaving a working customer link
+      // permanently killed by a blip on OUR side.
       logError({ error: insertErr, metadata: { scope: 'quote_link_post_insert', quote_id: id } });
-      return apiServerError();
+
+      // Nothing was revoked (this was the quote's first-ever mint) — there
+      // is no prior link to restore and nothing to tell the caller beyond
+      // the generic failure.
+      if (!revokedLinkId) return apiServerError();
+
+      const { error: restoreErr } = await supabase
+        .from('pyra_document_links')
+        .update({ revoked_at: null, revoked_by: null })
+        .eq('id', revokedLinkId);
+      if (restoreErr) {
+        // The previous link is now stuck revoked with no replacement — a
+        // human must fix this by hand. Log loudly at error severity with
+        // enough context to find + restore the row manually.
+        logError({
+          error: restoreErr,
+          metadata: {
+            scope: 'quote_link_post_restore_failed',
+            quote_id: id,
+            link_id: revokedLinkId,
+          },
+        });
+        return apiServerError(t('quotes.linkInsertFailedRestoreFailed'));
+      }
+
+      return apiServerError(t('quotes.linkInsertFailedRestored'));
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://workspace.pyramedia.cloud';

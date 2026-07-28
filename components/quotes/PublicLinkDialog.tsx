@@ -52,6 +52,14 @@ export function PublicLinkDialog({ quoteId, onOpenChange }: PublicLinkDialogProp
     if (!quoteId) return;
     try {
       const result = await createMutation.mutateAsync(quoteId);
+      if (!result.token) {
+        // Lost a concurrent-mint race — the API correctly refused to
+        // fabricate a token for a link this request didn't create (S-5).
+        // There is nothing to copy; tell the truth instead of a fake success.
+        setMintedUrl(null);
+        toast.info(t('raceLostToast'));
+        return;
+      }
       setMintedUrl(result.url);
       toast.success(t('createSuccessToast'));
     } catch (err) {
