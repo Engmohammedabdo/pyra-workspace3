@@ -1,7 +1,39 @@
+import { execSync } from 'node:child_process';
 import type { NextConfig } from 'next';
 import createNextIntlPlugin from 'next-intl/plugin';
 
 const withNextIntl = createNextIntlPlugin();
+
+/**
+ * The commit this bundle was built from, resolved at BUILD time and inlined.
+ *
+ * Exists so a deploy can be verified from outside without logging in. Before
+ * this, `/api/health` returned a hardcoded "3.0.0" that never changed, so the
+ * only way to tell whether a push had actually rolled out was to find some
+ * user-visible string unique to the new build — and twice that guesswork
+ * reported a deploy as live while the old container was still serving.
+ *
+ * Coolify exposes the commit under one of several names depending on how the
+ * app was created, so all the known ones are tried before falling back to git
+ * (which works for a local `pnpm build` but not inside a source-only container).
+ * `unknown` is a legitimate answer — better than a stale or invented value.
+ */
+function resolveBuildCommit(): string {
+  const fromEnv =
+    process.env.SOURCE_COMMIT ||
+    process.env.COOLIFY_GIT_COMMIT_SHA ||
+    process.env.GIT_COMMIT_SHA ||
+    process.env.GIT_SHA;
+  if (fromEnv) return fromEnv.trim().slice(0, 7);
+  try {
+    return execSync('git rev-parse --short HEAD', {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return 'unknown';
+  }
+}
 
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://pyraworkspacedb.pyramedia.cloud';
@@ -11,6 +43,14 @@ const appUrl =
 const nextConfig: NextConfig = {
   // Always use standalone for containerised deployment (Coolify / Nixpacks)
   output: 'standalone',
+
+  // Inlined at build time so /api/health can report which commit is actually
+  // running. NOT NEXT_PUBLIC_* — these are read only by the server-side health
+  // route and must not be bundled into client JS.
+  env: {
+    BUILD_COMMIT: resolveBuildCommit(),
+    BUILD_TIME: new Date().toISOString(),
+  },
 
   // Skip ESLint during production builds — run in CI/dev only, saves ~2min per deploy
   eslint: { ignoreDuringBuilds: true },
