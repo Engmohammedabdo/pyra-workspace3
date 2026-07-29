@@ -75,6 +75,14 @@
     <string name="update_failed_checksum">فشل التحقق من سلامة ملف التحديث</string>
     <string name="update_failed_stale">النسخة المحمّلة ليست أحدث</string>
 
+    <string name="home_update_banner_title">تحديث جديد متاح</string>
+    <string name="home_update_banner_body">الإصدار %1$s متاح للتحميل</string>
+    <string name="home_update_banner_button">تحديث الآن</string>
+
+    <string name="update_required_title">تحديث إلزامي مطلوب</string>
+    <string name="update_required_body">النسخة الحالية من التطبيق لم تعد مدعومة. حدّث إلى الإصدار %1$s للمتابعة.</string>
+    <string name="update_required_button">تحديث الآن</string>
+
     <string name="my_day_open_button">شغل النهاردة</string>
     <string name="my_day_title">شغل النهاردة</string>
     <string name="my_day_back">رجوع</string>

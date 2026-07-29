@@ -119,10 +119,32 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                 val v = api.appVersion()
                 if (v is ApiResult.Ok) {
                     val latest = v.data.latest
+                    // Cache what THIS poll found so Home's banner and
+                    // MainActivity's blocking screen can react without
+                    // re-polling (CA-C2 Step 1) — mirrors
+                    // UpdatePolicy.shouldShowBanner's own "newer" test so the
+                    // cache and the pure decision functions never disagree.
+                    // Also clears back to "none" the moment the server no
+                    // longer reports anything newer: AppPrefs'
+                    // clearPendingUpdateIfInstalled only covers the device
+                    // catching up by installing — without this "else"
+                    // branch, a release pulled/rolled back after being
+                    // published could leave a phone stuck behind a
+                    // mandatory block it can never satisfy.
+                    if (latest != null && UpdatePolicy.shouldShowBanner(latest.version_code, BuildConfig.VERSION_CODE)) {
+                        prefs.pendingUpdateVersionCode = latest.version_code
+                        prefs.pendingUpdateVersionName = latest.version_name
+                        prefs.pendingUpdateMandatory = latest.is_mandatory
+                    } else {
+                        prefs.pendingUpdateVersionCode = 0
+                        prefs.pendingUpdateVersionName = null
+                        prefs.pendingUpdateMandatory = false
+                    }
                     if (latest != null && UpdatePolicy.shouldNotify(
                             latest.version_code, BuildConfig.VERSION_CODE,
-                            prefs.lastUpdateNotifiedCode, prefs.lastUpdateNotifiedAtMillis, now)) {
-                        Notifier.showUpdate(applicationContext, latest.version_name)
+                            prefs.lastUpdateNotifiedCode, prefs.lastUpdateNotifiedAtMillis, now,
+                            latest.is_mandatory)) {
+                        Notifier.showUpdate(applicationContext, latest.version_name, latest.is_mandatory)
                         prefs.lastUpdateNotifiedCode = latest.version_code
                         prefs.lastUpdateNotifiedAtMillis = now
                     }

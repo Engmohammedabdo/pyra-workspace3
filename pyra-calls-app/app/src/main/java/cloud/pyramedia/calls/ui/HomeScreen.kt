@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import cloud.pyramedia.calls.BuildConfig
 import cloud.pyramedia.calls.R
 import cloud.pyramedia.calls.core.DubaiTime
+import cloud.pyramedia.calls.core.UpdatePolicy
 import cloud.pyramedia.calls.data.ApiClient
 import cloud.pyramedia.calls.data.ApiResult
 import cloud.pyramedia.calls.data.AppPrefs
@@ -56,6 +57,38 @@ fun HomeScreen(prefs: AppPrefs, onOpenMyDay: () -> Unit, onLogout: () -> Unit) {
             AssistChip(onClick = {}, label = {
                 Text(stringResource(if (synced) R.string.home_synced else R.string.home_not_synced))
             })
+        }
+
+        // Persistent, non-dismissable — no close button, no "later" — banner
+        // for ANY newer release (mandatory or not; a mandatory one ALSO gets
+        // the full-screen block in MainActivity, this banner still shows
+        // underneath it isn't skipped). Reads AppPrefs' cache written by
+        // SyncWorker's throttled poll rather than re-polling itself. Same
+        // visual pattern as the hibernation card below, per CA-C2's brief.
+        if (UpdatePolicy.shouldShowBanner(prefs.pendingUpdateVersionCode, BuildConfig.VERSION_CODE)) {
+            Spacer(Modifier.height(12.dp))
+            Card(
+                Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3CD)),
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(
+                        stringResource(R.string.home_update_banner_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color(0xFF664D03),
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        stringResource(R.string.home_update_banner_body, prefs.pendingUpdateVersionName ?: ""),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF664D03),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = {
+                        context.startActivity(Intent(context, UpdateActivity::class.java))
+                    }) { Text(stringResource(R.string.home_update_banner_button)) }
+                }
+            }
         }
 
         // Persistent nag, not a one-time card: restriction status can regress

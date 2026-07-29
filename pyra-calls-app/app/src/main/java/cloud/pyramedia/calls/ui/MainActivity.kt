@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.core.content.ContextCompat
 import cloud.pyramedia.calls.BuildConfig
 import cloud.pyramedia.calls.core.DubaiTime
+import cloud.pyramedia.calls.core.UpdatePolicy
 import cloud.pyramedia.calls.data.ApiClient
 import cloud.pyramedia.calls.data.AppPrefs
 import cloud.pyramedia.calls.data.ErrorQueue
@@ -22,6 +23,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val prefs = AppPrefs(this)
         val api = ApiClient(BuildConfig.BASE_URL) { prefs.deviceKey }
+
+        // CA-C2 — the OTHER clearing direction for the pending-update cache:
+        // if this launch is already running the version SyncWorker last
+        // cached as pending (the update installed and the process
+        // restarted), drop the cache so the banner/blocking screen vanish
+        // with no extra poll. Must run before `blocked` is computed below.
+        prefs.clearPendingUpdateIfInstalled(BuildConfig.VERSION_CODE)
 
         // Session-loss tripwire: true iff the device was logged in on a prior
         // run but isn't now, with no explicit logout in between — the exact
@@ -58,6 +66,17 @@ class MainActivity : ComponentActivity() {
                     Surface {
                         var granted by remember { mutableStateOf(allPermissionsGranted()) }
                         var loggedIn by remember { mutableStateOf(prefs.isLoggedIn()) }
+                        // Per-release mandatory block (CA-C2). Deliberately
+                        // placed AFTER the permissions/login branches below
+                        // and BEFORE the normal Home branch: a logged-out
+                        // user who is also behind a mandatory release must
+                        // still see LoginScreen, not a screen with one
+                        // action they have no session to complete anything
+                        // from — trapping them here would be worse than not
+                        // blocking at all.
+                        val blocked = UpdatePolicy.shouldBlock(
+                            prefs.pendingUpdateVersionCode, BuildConfig.VERSION_CODE, prefs.pendingUpdateMandatory,
+                        )
                         when {
                             !granted -> PermissionsScreen(onAllGranted = { granted = true })
                             !loggedIn -> LoginScreen(api, prefs.deviceId) { data ->
@@ -83,6 +102,9 @@ class MainActivity : ComponentActivity() {
                                 SyncScheduler.syncNow(this@MainActivity)
                                 loggedIn = true
                             }
+                            blocked -> UpdateRequiredScreen(
+                                versionName = prefs.pendingUpdateVersionName ?: BuildConfig.VERSION_NAME,
+                            )
                             else -> {
                                 // "شغل النهاردة" is a sub-screen of Home, not a new
                                 // top-level `when` branch — same pattern as the

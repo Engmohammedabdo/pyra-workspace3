@@ -68,4 +68,71 @@ class UpdatePolicyTest {
             lastNotifiedCode = 3, lastNotifiedAtMillis = now - 60_000L, nowMillis = now,
         ))
     }
+
+    // --- shouldNotify: mandatory releases re-nag every 1h, not 24h (CA-C2 Step 4) ---
+
+    @Test fun shouldNotifyMandatoryFalseWhenSameCodeNotifiedThirtyMinutesAgo() {
+        val now = 10 * day
+        assertFalse(UpdatePolicy.shouldNotify(
+            latestCode = 3, currentCode = 2,
+            lastNotifiedCode = 3, lastNotifiedAtMillis = now - 30 * 60 * 1000L, nowMillis = now,
+            isMandatory = true,
+        ))
+    }
+
+    @Test fun shouldNotifyMandatoryTrueWhenSameCodeNotifiedNinetyMinutesAgo() {
+        val now = 10 * day
+        assertTrue(UpdatePolicy.shouldNotify(
+            latestCode = 3, currentCode = 2,
+            lastNotifiedCode = 3, lastNotifiedAtMillis = now - 90 * 60 * 1000L, nowMillis = now,
+            isMandatory = true,
+        ))
+    }
+
+    // Non-mandatory still uses the standing 24h interval even when isMandatory
+    // is explicitly false — guards against the two constants getting swapped.
+    @Test fun shouldNotifyNonMandatoryFalseWhenSameCodeNotifiedNinetyMinutesAgo() {
+        val now = 10 * day
+        assertFalse(UpdatePolicy.shouldNotify(
+            latestCode = 3, currentCode = 2,
+            lastNotifiedCode = 3, lastNotifiedAtMillis = now - 90 * 60 * 1000L, nowMillis = now,
+            isMandatory = false,
+        ))
+    }
+
+    // --- shouldBlock: mandatory AND strictly newer (CA-C2 Step 2) ---
+
+    @Test fun shouldBlockFalseWhenNotMandatoryEvenIfNewer() {
+        assertFalse(UpdatePolicy.shouldBlock(latestCode = 6, currentCode = 5, isMandatory = false))
+    }
+
+    @Test fun shouldBlockTrueWhenMandatoryAndNewer() {
+        assertTrue(UpdatePolicy.shouldBlock(latestCode = 6, currentCode = 5, isMandatory = true))
+    }
+
+    @Test fun shouldBlockFalseWhenMandatoryButSameVersion() {
+        assertFalse(UpdatePolicy.shouldBlock(latestCode = 5, currentCode = 5, isMandatory = true))
+    }
+
+    // Defensive — the server should never report a mandatory release OLDER
+    // than what's installed, but a block decision must never fire on it.
+    @Test fun shouldBlockFalseWhenMandatoryButLatestOlder() {
+        assertFalse(UpdatePolicy.shouldBlock(latestCode = 4, currentCode = 5, isMandatory = true))
+    }
+
+    // --- shouldShowBanner: ANY strictly newer release, mandatory or not ---
+
+    // Banner is independent of mandatory — the brief's "not-mandatory-newer
+    // -> banner true" case.
+    @Test fun shouldShowBannerTrueWhenNewerRegardlessOfMandatory() {
+        assertTrue(UpdatePolicy.shouldShowBanner(latestCode = 6, currentCode = 5))
+    }
+
+    @Test fun shouldShowBannerFalseWhenSameVersion() {
+        assertFalse(UpdatePolicy.shouldShowBanner(latestCode = 5, currentCode = 5))
+    }
+
+    @Test fun shouldShowBannerFalseWhenLatestOlder() {
+        assertFalse(UpdatePolicy.shouldShowBanner(latestCode = 4, currentCode = 5))
+    }
 }

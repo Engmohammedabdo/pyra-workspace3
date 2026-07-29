@@ -181,6 +181,45 @@ class AppPrefs(context: Context) {
         get() = prefs.getLong("last_update_notified_at_millis", 0L)
         set(v) = prefs.edit().putLong("last_update_notified_at_millis", v).apply()
 
+    // --- Pending-update cache (CA-C2) ---
+    //
+    // What the last SyncWorker version poll found, so HomeScreen's banner
+    // and MainActivity's blocking screen can react on the very next
+    // recomposition/launch without re-polling. SyncWorker is the only
+    // writer: it caches here whenever `/api/mobile/app-version` reports
+    // something strictly newer, and clears it back to "none" the moment the
+    // server no longer does (release pulled/rolled back) — see SyncWorker's
+    // update-check block. [clearPendingUpdateIfInstalled] covers the OTHER
+    // direction: the device catching up by actually installing.
+
+    /** 0 = no pending update. */
+    var pendingUpdateVersionCode: Int
+        get() = prefs.getInt("pending_update_version_code", 0)
+        set(v) = prefs.edit().putInt("pending_update_version_code", v).apply()
+
+    var pendingUpdateVersionName: String?
+        get() = prefs.getString("pending_update_version_name", null)
+        set(v) = prefs.edit().putString("pending_update_version_name", v).apply()
+
+    var pendingUpdateMandatory: Boolean
+        get() = prefs.getBoolean("pending_update_mandatory", false)
+        set(v) = prefs.edit().putBoolean("pending_update_mandatory", v).apply()
+
+    /**
+     * Call once per launch (MainActivity.onCreate, before reading the fields
+     * above for the banner/blocking-screen decision) so they clear
+     * themselves the moment the installed app catches up to the cached
+     * version — the banner/block then disappears with no extra poll needed,
+     * exactly as if nothing had ever been pending.
+     */
+    fun clearPendingUpdateIfInstalled(currentVersionCode: Int) {
+        if (pendingUpdateVersionCode in 1..currentVersionCode) {
+            pendingUpdateVersionCode = 0
+            pendingUpdateVersionName = null
+            pendingUpdateMandatory = false
+        }
+    }
+
     fun isLoggedIn(): Boolean = deviceKey != null
 
     /**

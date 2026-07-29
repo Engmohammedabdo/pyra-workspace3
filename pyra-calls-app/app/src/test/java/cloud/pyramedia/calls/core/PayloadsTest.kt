@@ -97,4 +97,26 @@ class PayloadsTest {
         assertTrue(json.contains("\"note\":\"اتصل بعد الظهر\""))
         assertTrue(json.contains("\"next_follow_up_at\":\"2026-07-26T06:00:00Z\""))
     }
+
+    // CA-C2 — field name mirrors app/api/mobile/app-version/route.ts:36's
+    // `.select('version_code, version_name, release_notes, is_mandatory')`
+    // EXACTLY, cross-checked against the route (not the task brief) per the
+    // brief's own warning: PyraJson's ignoreUnknownKeys means a drifted name
+    // silently deserializes to the default instead of failing loudly.
+    @Test fun decodesAppVersionEnvelopeWithMandatoryTrue() {
+        val body = """{"data":{"latest":{"version_code":6,"version_name":"1.5.0","release_notes":null,"is_mandatory":true}},"error":null,"meta":null}"""
+        val env = PyraJson.decodeFromString<Envelope<AppVersionData>>(body)
+        val latest = env.data!!.latest!!
+        assertEquals(6, latest.version_code)
+        assertTrue(latest.is_mandatory)
+    }
+
+    // Pre-CA-C1 server responses (and any channel that never sets the column)
+    // omit the field entirely — ignoreUnknownKeys pairs with this default so
+    // an OLD server can never accidentally trigger a block.
+    @Test fun decodesAppVersionEnvelopeDefaultsMandatoryFalseWhenAbsent() {
+        val body = """{"data":{"latest":{"version_code":6,"version_name":"1.5.0"}},"error":null,"meta":null}"""
+        val env = PyraJson.decodeFromString<Envelope<AppVersionData>>(body)
+        assertTrue(!env.data!!.latest!!.is_mandatory)
+    }
 }

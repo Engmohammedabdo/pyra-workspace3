@@ -56,8 +56,17 @@ val PyraJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
 @Serializable data class LogErrorRequest(val errors: List<ErrorEvent>)
 @Serializable data class LogErrorData(val received: Int)
 
+// `is_mandatory` (CA-C2, migration 056) — field name cross-checked against
+// app/api/mobile/app-version/route.ts:36's
+// `.select('version_code, version_name, release_notes, is_mandatory')`
+// EXACTLY, not against the task brief — PyraJson's ignoreUnknownKeys means a
+// drifted name here would silently decode to the `false` default below
+// instead of failing loudly, which for THIS field means "never blocks"
+// rather than a visible crash. Defaults false so a pre-CA-C1 server response
+// (or one that omits the column) can never accidentally trigger a block.
 @Serializable data class AppVersionInfo(
     val version_code: Int, val version_name: String, val release_notes: String? = null,
+    val is_mandatory: Boolean = false,
 )
 @Serializable data class AppVersionData(val latest: AppVersionInfo? = null)
 @Serializable data class AppDownloadData(

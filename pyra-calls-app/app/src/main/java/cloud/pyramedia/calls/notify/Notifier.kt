@@ -17,7 +17,19 @@ import cloud.pyramedia.calls.ui.UpdateActivity
 object Notifier {
     const val CHANNEL_UNMATCHED = "unmatched"
     const val CHANNEL_FEEDBACK = "feedback"
-    const val CHANNEL_UPDATES = "updates"
+
+    // CA-C2 — a NEW channel id, not an in-place bump of "updates". Channel
+    // *importance* is fixed at creation time on Android: once a channel id
+    // exists on a device, re-creating it with a different importance is a
+    // no-op — createNotificationChannel() silently ignores the new value.
+    // v1.4 phones already have "updates" at IMPORTANCE_DEFAULT (no heads-up
+    // popup), so raising it in place would do nothing for the exact fleet
+    // this task exists for. A fresh id forces Android to actually create a
+    // new HIGH channel; the old one is deleted below so upgrading phones
+    // don't end up with two "Updates" entries in Settings, one live and one
+    // orphaned.
+    const val CHANNEL_UPDATES = "updates_v2"
+    private const val LEGACY_CHANNEL_UPDATES = "updates"
 
     // Fixed id — a second update check before the user acts on the first
     // notification just updates the same notification in place instead of
@@ -34,9 +46,13 @@ object Notifier {
             CHANNEL_FEEDBACK, context.getString(R.string.notif_channel_feedback),
             NotificationManager.IMPORTANCE_HIGH,
         ))
+        // Delete the old quiet channel FIRST — idempotent no-op on a fresh
+        // install that never created it — so CHANNEL_UPDATES below is the
+        // only "app updates" entry an upgrading phone ever shows.
+        nm.deleteNotificationChannel(LEGACY_CHANNEL_UPDATES)
         nm.createNotificationChannel(NotificationChannel(
             CHANNEL_UPDATES, context.getString(R.string.notif_channel_updates),
-            NotificationManager.IMPORTANCE_DEFAULT,
+            NotificationManager.IMPORTANCE_HIGH,
         ))
     }
 
@@ -117,7 +133,7 @@ object Notifier {
                 .build())
     }
 
-    fun showUpdate(context: Context, versionName: String) {
+    fun showUpdate(context: Context, versionName: String, isMandatory: Boolean = false) {
         val open = PendingIntent.getActivity(
             context, UPDATE_NOTIFICATION_ID,
             Intent(context, UpdateActivity::class.java)
@@ -130,7 +146,11 @@ object Notifier {
                 .setContentTitle(context.getString(R.string.notif_update_title))
                 .setContentText(context.getString(R.string.notif_update_body, versionName))
                 .setContentIntent(open)
-                .setAutoCancel(true)
+                // A mandatory update's notification cannot be swiped away —
+                // matches the blocking screen it backs (UpdateRequiredScreen)
+                // having no dismiss affordance either.
+                .setOngoing(isMandatory)
+                .setAutoCancel(!isMandatory)
                 .build())
     }
 
