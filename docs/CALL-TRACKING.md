@@ -856,6 +856,61 @@ app's own notification) posts to `POST /api/mobile/call-outcome`
   the route's flip-and-warn contract; it never asks the agent to retry,
   which would duplicate the note.
 
+## Update enforcement (v1.5)
+
+v1.2 shipped the self-updater but the app **never said anything in its own
+UI** when an update was waiting: the only signals were a quiet
+`IMPORTANCE_DEFAULT` notification and a manual «التحقق من تحديث» button
+nobody presses. v1.5 (`versionCode 6` / `versionName 1.5.0`) closes that, and
+adds a way for the owner to *require* a release. Three pieces:
+
+**1. A high-importance notification channel — `updates_v2`.** Channel
+importance is fixed at creation time on Android: re-creating an existing
+channel id with a higher importance is silently ignored. Every v1.4 phone
+already has `updates` at `IMPORTANCE_DEFAULT`, so raising it in place would
+have done nothing for the exact fleet this exists for. `Notifier.ensureChannels`
+therefore **deletes** `updates` and creates a new `updates_v2` at
+`IMPORTANCE_HIGH` (heads-up popup). A mandatory release's notification is also
+`setOngoing(true)` so it can't be swiped away.
+
+**2. A persistent Home banner** («تحديث جديد متاح» → «تحديث الآن»), shown for
+ANY newer release, mandatory or not. No close button, no "later". The app
+stays **fully usable** behind it — this is a nag, not a gate.
+
+**3. A blocking screen for a mandatory release** (`UpdateRequiredScreen`).
+Full-screen, `BackHandler` consumes the system back button, one action that
+opens `UpdateActivity`. It is a composition-level branch in `MainActivity`'s
+`when {}` placed **after** the permissions/login branches (a logged-out rep
+must still see the login screen, not a dead end) and before Home.
+
+**Call sync never stops while blocked** — the owner's hard requirement.
+`SyncWorker` is a WorkManager `CoroutineWorker` driven by
+`SyncScheduler.ensurePeriodic`/`syncNow` and `PhoneStateReceiver`; none of
+them route through `MainActivity`'s composition, so the blocking screen has no
+effect on ingest. `QuickAddActivity` likewise launches straight from the
+unmatched-call notification's own `PendingIntent`. Verified live — see the
+CA-C3 record below.
+
+**Where the "is there an update" state lives.** `SyncWorker`'s throttled poll
+is the ONLY writer: it caches `pendingUpdateVersionCode/VersionName/Mandatory`
+in `AppPrefs` whenever `/api/mobile/app-version` reports something strictly
+newer, and clears them the moment it no longer does (release pulled, rolled
+back, or un-mandated). Two independent clearing paths keep a phone from ever
+being trapped:
+
+- `AppPrefs.clearPendingUpdateIfInstalled(BuildConfig.VERSION_CODE)` runs at
+  every `MainActivity.onCreate` — the instant the device catches up by
+  installing, the banner and block vanish with no extra poll.
+- `rememberPendingUpdate(prefs)` mirrors the cache into real Compose `State`
+  and refreshes on **ON_RESUME**, plus `UpdateRequiredScreen` polls it every
+  **60 s** while it is on screen. A raw `SharedPreferences` read would be
+  frozen for the life of the composition, which once meant an un-mandated
+  release still trapped whoever was already looking at the blocking screen.
+
+Operational note: the network re-poll behind all of this is 6 h-throttled, so
+un-mandating reaches a blocked phone within ~6 h + ≤60 s. See the
+`--set-mandatory` escape hatch in the publish runbook above.
+
 ## Error tracking pipeline (v1.2)
 
 The app self-reports crashes and operational failures into the workspace's
@@ -1153,13 +1208,36 @@ confirming, since this switch can stop a rep from using the app entirely.
 `--mandatory` is publish-only; it is rejected together with `--activate`
 (rollback reactivates a row's existing flag as-is, it does not set a new one).
 
+**Un-mandating — the escape hatch (`--set-mandatory`).** If a mandatory
+release turns out to be broken, or was marked mandatory by mistake, this is
+the ONE command that un-blocks the fleet without a rollback or a new publish:
+```powershell
+pnpm app:publish --set-mandatory <version_code> false --app pyra-calls
+```
+It PATCHes **only** the `is_mandatory` column on the row matched by
+`(app, version_code)` — it never touches `is_active`, never uploads anything,
+and refuses with a clear message if no such row exists. Re-running it with the
+value the row already has is a successful no-op. It is its own mode: rejected
+together with `--activate`, `--mandatory`, or an APK path.
+
+⚠️ **How fast it reaches a blocked phone.** The app only learns the flag
+changed on its next `/api/mobile/app-version` poll, and that poll is throttled
+to **once per 6 h** (`UpdatePolicy.shouldCheck`). Once the poll lands, the
+blocking screen clears itself within **≤60 s** with no force-close (measured
+15 s in the CA-C3 E2E). So worst case end-to-end is ~6 h, not instant — if a
+rep is blocked and needs the app *now*, un-mandate AND have them force-close
+and reopen the app (a cold start re-polls at once when the 6 h has elapsed);
+otherwise tell them it clears itself within the day.
+
 **Rollback:** re-activate a previous release row (no re-upload):
 ```powershell
 pnpm app:publish --activate <version_code> --app pyra-calls
 ```
 If the reactivated row was itself published with `--mandatory`, the script
 prints a note that the BLOCKING behavior comes back with it — reactivating
-does not change `is_mandatory`, it only flips `is_active`.
+does not change `is_mandatory`, it only flips `is_active`. Use
+`--set-mandatory <code> false` afterwards if you want the older release back
+WITHOUT its block.
 
 **Channels:** debug/emulator builds use `pyra-calls-e2e`; production builds use
 `pyra-calls`. E2E test APKs are published ONLY to `pyra-calls-e2e` so the real
@@ -1282,6 +1360,93 @@ each.
 `pyra_activity_log`; deactivated 1 device key; re-locked the user. Zero
 `pyra_notifications` and zero `pyra_error_logs` rows were produced by the
 run. App uninstalled from the emulator and its call log cleared.
+
+### Verified this task (2026-07-29 — CA-C3 update-enforcement E2E)
+
+Emulator `pyra_a15_test`, debug build `versionCode 6 / 1.5.0` →
+`http://10.0.2.2:3000` (local `pnpm dev` against the **real** Supabase),
+channel `pyra-calls-e2e`. Nothing published here could reach the fleet. Same
+test-account discipline as the 2026-07-25 run (never youssef/cosette;
+`e2e.upgrade` reactivated then re-locked, post-relock login probe `401`).
+
+Two harness notes, so the numbers below are read correctly:
+
+- The 6 h `UpdatePolicy.shouldCheck` throttle was collapsed for the test —
+  first by resetting `last_update_check_at_millis` via `run-as` between
+  phases, and for the un-block measurement by advancing the emulator clock
+  (`cmd alarm set-time`) so `now - lastCheck > 6 h` **without** touching the
+  running process. The polls themselves were real network calls.
+- The v1.5 **debug** APK is **10.56 MB**, over the `pyra-private` bucket's
+  10 MiB `file_size_limit`, so it could not be uploaded. The e2e release row
+  was published with `--code 7 --name 1.5.1-e2e` against a small placeholder
+  object; the "update completed" step installed the **genuine** v7 debug APK
+  via `adb install -r`. The download+SHA-verify leg of `UpdateActivity` is
+  therefore NOT re-exercised in this run (unchanged since v1.2, E2E-verified
+  2026-07-16). ⚠️ **Check the signed release APK is under 10 MiB before
+  publishing v1.5.0 to `pyra-calls`** — v1.2.1's was 7.80 MB, so it should
+  fit, but the debug figure shows the margin is not large.
+
+1. **Banner path.** Published `version_code 7` NON-mandatory to
+   `pyra-calls-e2e` → next poll cached it → **heads-up notification**
+   («تحديث جديد لتطبيق Pyra Calls» / «الإصدار 1.5.1-e2e متاح — اضغط للتحميل
+   والتثبيت») popped over the app AND the Home banner («تحديث جديد متاح» →
+   «تحديث الآن») rendered, in the same frame. `dumpsys notification`
+   confirmed `channel=updates_v2`, `importance=4`, `flags=AUTO_CANCEL`, and
+   that the app's channel list contains `updates_v2` with **no** legacy
+   `updates` entry. The app stayed fully usable — «شغل النهاردة» opened
+   normally with the banner up.
+2. **Blocking path.** `--set-mandatory 7 true` → next poll cached
+   `mandatory=true` → the app flipped to `UpdateRequiredScreen` («تحديث
+   إلزامي مطلوب») **on ON_RESUME alone** (`am start` reported "current task
+   has been brought to the front", i.e. no relaunch). Three consecutive
+   `KEYCODE_BACK` presses did not dismiss it (`topResumedActivity` stayed
+   `MainActivity` showing the same screen). The single action «تحديث الآن»
+   moved `topResumedActivity` to `.ui.UpdateActivity`.
+3. **Sync survives the block.** With the blocking screen up, an answered
+   inbound call was placed (`adb emu gsm call/accept/cancel`, call log
+   `type=1 duration=13`). `PhoneStateReceiver` → `SyncWorker` ran and the row
+   reached prod: `pyra_agent_calls` `ac_2lLini2140GGE0uu`,
+   `phone_raw 971509998877`, `incoming`, `duration_seconds 13`,
+   `called_at 12:05:18Z`, `created_at 12:05:52Z`. `topResumedActivity` was
+   `MainActivity`/blocked before, during and after; the unmatched-number
+   notification also fired while blocked (visible in the status bar).
+4. **Banner self-clears.** Installed the genuine v7 APK → on next launch
+   `clearPendingUpdateIfInstalled` wiped the cache
+   (`pending_update_version_code 7 → 0`) and Home showed «الإصدار 1.5.1-e2e»
+   with **no** banner and **no** blocking screen, no manual action. Session
+   survived the in-place upgrade.
+5. **Attempt vs answered rendering.** One lead carrying both, produced by the
+   real code paths (quick-add retro-link wrote `call_logged` for the 13 s
+   answered call; a 0-second outgoing dial synced live and wrote
+   `call_attempt`). The timeline renders them distinctly — «محاولة اتصال —
+   لم يرد» with a rose missed-call icon vs «مكالمة واردة — المدة 0:13» with a
+   blue incoming-call icon.
+6. **Idle-signal safety.** A SQL replay of `/api/cron/lead-idle-check`'s own
+   selection criteria over every lead with a `call_attempt` in the last 7
+   days. For a lead last genuinely contacted 30 days ago with a fresh
+   `call_attempt` today: `last_touched` (shipped, attempt excluded) =
+   30 days ago → **`idle = true`, still selected**; the same computation with
+   the attempt counted = today → `idle = false`. The three real production
+   leads carrying attempts likewise showed `last_touched` pinned to their last
+   NON-attempt signal. The attempt does not mark a lead as touched.
+7. **Rollback recovery (the fix that mattered most in review).** With a device
+   sitting on the blocking screen: `--set-mandatory 7 false` → the next
+   `SyncWorker` poll cleared `pending_update_mandatory` → the screen
+   un-blocked itself to Home **15 s later**, with NO force-close, NO
+   reinstall and no interaction of any kind (the 60 s in-screen re-check
+   caught it 15 s into its cycle). End-to-end from running the escape hatch
+   to an usable app: **38 s** with the poll throttle collapsed; in production
+   add up to 6 h for the poll itself.
+
+**Cleanup (verified zero leftovers).** Deleted 1 `pyra_app_releases` row +
+its 1 storage object (`app-releases/pyra-calls-e2e/7-6f34dde0.apk`; the whole
+prefix now lists empty), 2 `pyra_agent_calls`, 2 leads, 5
+`pyra_lead_activities`, 1 `pyra_activity_log`, 1 `pyra_notifications`;
+deactivated the device key; re-locked `e2e.upgrade`. Zero `pyra_error_logs`
+rows were produced. App uninstalled from the emulator, emulator clock
+restored to automatic and the AVD shut down. `pyra_app_releases` is back to
+exactly the production rows (`pyra-calls` v5/1.4.0 active), and
+`pyra-calls-e2e` holds **0** rows.
 
 ## Whole-wave review fix bundle (2026-07-25, pre-v1.4-release)
 
