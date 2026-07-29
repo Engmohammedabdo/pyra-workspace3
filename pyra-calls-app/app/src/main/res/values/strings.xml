@@ -82,6 +82,7 @@
     <string name="update_required_title">تحديث إلزامي مطلوب</string>
     <string name="update_required_body">النسخة الحالية من التطبيق لم تعد مدعومة. حدّث إلى الإصدار %1$s للمتابعة.</string>
     <string name="update_required_button">تحديث الآن</string>
+    <string name="update_required_contact_admin">لو التحديث مش راضي يكتمل، تواصل مع الأدمن للمساعدة.</string>
 
     <string name="my_day_open_button">شغل النهاردة</string>
     <string name="my_day_title">شغل النهاردة</string>

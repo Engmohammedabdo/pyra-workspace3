@@ -49,6 +49,13 @@ fun HomeScreen(prefs: AppPrefs, onOpenMyDay: () -> Unit, onLogout: () -> Unit) {
     val lastSync = prefs.lastSyncAtMillis
     val synced = lastSync > 0 && now - lastSync < 30 * 60 * 1000
     val hibernationRestricted by rememberUnusedAppRestrictionsEnabled()
+    // CA-C2 fix round 1: live (ON_RESUME-refreshed) mirror of the pending-
+    // update cache — same reasoning as MainActivity's `blocked`. A raw
+    // `prefs.pendingUpdateVersionCode` read here is not Compose State, so a
+    // release the owner un-mandates or rolls back would leave this banner
+    // showing stale info until some unrelated recomposition happened to
+    // occur. See rememberPendingUpdate's doc in PermissionsScreen.kt.
+    val pendingUpdate = rememberPendingUpdate(prefs)
 
     Column(Modifier.fillMaxSize().padding(24.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -62,10 +69,11 @@ fun HomeScreen(prefs: AppPrefs, onOpenMyDay: () -> Unit, onLogout: () -> Unit) {
         // Persistent, non-dismissable — no close button, no "later" — banner
         // for ANY newer release (mandatory or not; a mandatory one ALSO gets
         // the full-screen block in MainActivity, this banner still shows
-        // underneath it isn't skipped). Reads AppPrefs' cache written by
-        // SyncWorker's throttled poll rather than re-polling itself. Same
-        // visual pattern as the hibernation card below, per CA-C2's brief.
-        if (UpdatePolicy.shouldShowBanner(prefs.pendingUpdateVersionCode, BuildConfig.VERSION_CODE)) {
+        // underneath it isn't skipped). Reads the live `rememberPendingUpdate`
+        // mirror of AppPrefs' cache (written by SyncWorker's throttled poll)
+        // rather than re-polling the network itself. Same visual pattern as
+        // the hibernation card below, per CA-C2's brief.
+        if (UpdatePolicy.shouldShowBanner(pendingUpdate.value.versionCode, BuildConfig.VERSION_CODE)) {
             Spacer(Modifier.height(12.dp))
             Card(
                 Modifier.fillMaxWidth(),
@@ -79,7 +87,7 @@ fun HomeScreen(prefs: AppPrefs, onOpenMyDay: () -> Unit, onLogout: () -> Unit) {
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        stringResource(R.string.home_update_banner_body, prefs.pendingUpdateVersionName ?: ""),
+                        stringResource(R.string.home_update_banner_body, pendingUpdate.value.versionName ?: ""),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF664D03),
                     )

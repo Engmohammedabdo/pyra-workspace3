@@ -13,6 +13,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -20,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import cloud.pyramedia.calls.R
+import kotlinx.coroutines.delay
 
 /**
  * Full-screen, non-dismissable block for a MANDATORY release the installed
@@ -39,12 +41,28 @@ import cloud.pyramedia.calls.R
  *
  * ONE action: open [UpdateActivity]. No skip, no back — [BackHandler]
  * consumes the system back button so it can't dismiss this screen.
+ *
+ * [onRecheck] is the CA-C2 fix-round-1 belt-and-braces escape: MainActivity's
+ * `blocked` already goes live on ON_RESUME (see `rememberPendingUpdate` in
+ * PermissionsScreen.kt), but a rep who leaves the phone sitting on THIS
+ * screen — never backgrounding/foregrounding the app — would never trigger
+ * that. The `LaunchedEffect` below polls [onRecheck] on a slow, cheap timer
+ * (a local prefs read, no network) instead, so a release the owner
+ * un-mandates or rolls back still un-blocks this rep on its own, with no
+ * force-close needed.
  */
 @Composable
-fun UpdateRequiredScreen(versionName: String) {
+fun UpdateRequiredScreen(versionName: String, onRecheck: () -> Unit) {
     val context = LocalContext.current
 
     BackHandler { /* consumed — no escape short of updating */ }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000)
+            onRecheck()
+        }
+    }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
@@ -69,5 +87,11 @@ fun UpdateRequiredScreen(versionName: String) {
         ) {
             Text(stringResource(R.string.update_required_button))
         }
+        Spacer(Modifier.height(16.dp))
+        Text(
+            stringResource(R.string.update_required_contact_admin),
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = TextAlign.Center,
+        )
     }
 }

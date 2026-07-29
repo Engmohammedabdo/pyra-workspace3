@@ -191,6 +191,15 @@ class AppPrefs(context: Context) {
     // server no longer does (release pulled/rolled back) — see SyncWorker's
     // update-check block. [clearPendingUpdateIfInstalled] covers the OTHER
     // direction: the device catching up by actually installing.
+    //
+    // CA-C2 fix round 1: do NOT read these three fields directly from a
+    // Composable. A raw SharedPreferences read is not Compose `State`, so a
+    // value corrected here mid-process (owner un-mandates/rolls back a
+    // release) is invisible to an already-rendered composition — this once
+    // froze MainActivity's mandatory block for the life of the process. Read
+    // via `rememberPendingUpdate(prefs)` in ui/PermissionsScreen.kt instead,
+    // which mirrors these into real Compose State and refreshes on ON_RESUME
+    // (plus a 60s poll of its own from UpdateRequiredScreen).
 
     /** 0 = no pending update. */
     var pendingUpdateVersionCode: Int

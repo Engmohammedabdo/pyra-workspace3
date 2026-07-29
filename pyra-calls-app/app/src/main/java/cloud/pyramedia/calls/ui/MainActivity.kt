@@ -74,8 +74,20 @@ class MainActivity : ComponentActivity() {
                         // action they have no session to complete anything
                         // from — trapping them here would be worse than not
                         // blocking at all.
+                        //
+                        // CA-C2 fix round 1: `blocked` derives from
+                        // rememberPendingUpdate's LIVE state, not a raw
+                        // SharedPreferences read — a raw read is frozen for
+                        // the life of this composition, so a mandatory flag
+                        // SyncWorker later clears/un-mandates (owner fixes or
+                        // rolls back the release) would otherwise never be
+                        // seen again, trapping whoever is already on
+                        // UpdateRequiredScreen until they force-close the
+                        // app. See PermissionsScreen.kt's rememberPendingUpdate
+                        // doc for the full idiom this reuses.
+                        val pendingUpdate = rememberPendingUpdate(prefs)
                         val blocked = UpdatePolicy.shouldBlock(
-                            prefs.pendingUpdateVersionCode, BuildConfig.VERSION_CODE, prefs.pendingUpdateMandatory,
+                            pendingUpdate.value.versionCode, BuildConfig.VERSION_CODE, pendingUpdate.value.mandatory,
                         )
                         when {
                             !granted -> PermissionsScreen(onAllGranted = { granted = true })
@@ -103,7 +115,8 @@ class MainActivity : ComponentActivity() {
                                 loggedIn = true
                             }
                             blocked -> UpdateRequiredScreen(
-                                versionName = prefs.pendingUpdateVersionName ?: BuildConfig.VERSION_NAME,
+                                versionName = pendingUpdate.value.versionName ?: BuildConfig.VERSION_NAME,
+                                onRecheck = pendingUpdate::refresh,
                             )
                             else -> {
                                 // "شغل النهاردة" is a sub-screen of Home, not a new
