@@ -4,6 +4,7 @@
  *                              [--code N --name X] [--by <username>] [--mandatory]
  * pnpm app:publish --activate <version_code> [--app pyra-calls|pyra-calls-e2e]
  *                              [--by <username>]
+ * pnpm app:publish --set-mandatory <version_code> <true|false> [--app pyra-calls|pyra-calls-e2e]
  *
  * Publishes a new Pyra Calls Android APK release into `pyra_app_releases`
  * (migration 039), or reactivates a previous release row (rollback mode).
@@ -34,6 +35,16 @@
  * false (opt-in, never accidental). Publish-mode only — not accepted with
  * --activate, since a rollback reactivates a row's EXISTING is_mandatory
  * value as-is rather than setting a new one.
+ *
+ * --set-mandatory N <true|false> (Task CA-C1 fix round 1, escape hatch): the
+ * ONLY way to clear (or set) is_mandatory on an ALREADY-PUBLISHED row without
+ * a rollback or a brand-new publish. PATCHes ONLY the is_mandatory column on
+ * the row matched by (app, version_code=N) — never touches is_active, never
+ * uploads anything. Refuses with a clear message if no row matches. If the
+ * row is already at the requested value, prints that and exits successfully
+ * (no-op). Its own mode: mutually exclusive with --activate, --mandatory,
+ * and a positional APK path — same `fail(...)` style as the existing
+ * --mandatory + --activate rejection below.
  *
  * Security: SUPABASE_SERVICE_ROLE_KEY (and NEXT_PUBLIC_SUPABASE_URL) are read
  * from .env.local ONLY — never from process.env or CLI args. Same discipline
@@ -66,6 +77,7 @@ function usage(): never {
 Usage:
   pnpm app:publish <apk-path> [--notes "..."] [--app pyra-calls|pyra-calls-e2e] [--code N --name X] [--by <username>] [--mandatory]
   pnpm app:publish --activate <version_code> [--app pyra-calls|pyra-calls-e2e] [--by <username>]
+  pnpm app:publish --set-mandatory <version_code> <true|false> [--app pyra-calls|pyra-calls-e2e]
 `);
   process.exit(1);
 }
@@ -118,8 +130,14 @@ interface ActivateArgs {
   app: Channel;
   by: string;
 }
+interface SetMandatoryArgs {
+  mode: 'set-mandatory';
+  versionCode: number;
+  value: boolean;
+  app: Channel;
+}
 
-function parseArgs(argv: string[]): PublishArgs | ActivateArgs {
+function parseArgs(argv: string[]): PublishArgs | ActivateArgs | SetMandatoryArgs {
   const args = argv.slice(2);
   if (args.length === 0) usage();
 
@@ -131,6 +149,8 @@ function parseArgs(argv: string[]): PublishArgs | ActivateArgs {
   let activateCode: number | null = null;
   let positional: string | null = null;
   let mandatory = false;
+  let setMandatoryCode: number | null = null;
+  let setMandatoryValue: boolean | null = null;
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -138,6 +158,15 @@ function parseArgs(argv: string[]): PublishArgs | ActivateArgs {
       const v = args[++i];
       if (!v || Number.isNaN(Number(v))) fail('--activate requires a numeric version_code.');
       activateCode = Number(v);
+    } else if (a === '--set-mandatory') {
+      const v = args[++i];
+      if (!v || Number.isNaN(Number(v))) fail('--set-mandatory requires a numeric version_code.');
+      const b = args[++i];
+      if (b !== 'true' && b !== 'false') {
+        fail('--set-mandatory requires "true" or "false" after the version_code, e.g. --set-mandatory 42 false.');
+      }
+      setMandatoryCode = Number(v);
+      setMandatoryValue = b === 'true';
     } else if (a === '--app') {
       const v = args[++i];
       if (!v) fail('--app requires a value.');
@@ -169,6 +198,33 @@ function parseArgs(argv: string[]): PublishArgs | ActivateArgs {
 
   if (!(CHANNELS as readonly string[]).includes(app)) {
     fail(`Invalid --app "${app}". Must be one of: ${CHANNELS.join(', ')}`);
+  }
+
+  if (setMandatoryCode !== null) {
+    if (activateCode !== null) {
+      fail(
+        '--set-mandatory is not valid with --activate. --set-mandatory only flips the is_mandatory flag ' +
+          'on an existing row and never touches is_active or uploads anything — run it as its own command.',
+      );
+    }
+    if (mandatory) {
+      fail(
+        '--set-mandatory is not valid with --mandatory. --mandatory only applies when publishing a new APK; ' +
+          '--set-mandatory flips the flag on an already-published row — run it as its own command.',
+      );
+    }
+    if (positional !== null) {
+      fail(
+        '--set-mandatory does not take an APK path. It PATCHes only the is_mandatory column on an existing ' +
+          'row matched by (app, version_code) — no upload, no publish.',
+      );
+    }
+    return {
+      mode: 'set-mandatory',
+      versionCode: setMandatoryCode,
+      value: setMandatoryValue as boolean,
+      app: app as Channel,
+    };
   }
 
   if (activateCode !== null) {
@@ -371,6 +427,24 @@ async function activateReleaseById(
   return { ok: true };
 }
 
+async function setMandatoryById(
+  supabaseUrl: string,
+  serviceKey: string,
+  id: string,
+  value: boolean,
+): Promise<{ ok: true } | { ok: false; status: number; text: string }> {
+  // PATCHes ONLY is_mandatory, scoped to this row's primary key — is_active
+  // is never part of the body, so this can never flip which release is live.
+  const url = `${supabaseUrl}/rest/v1/pyra_app_releases?id=eq.${encodeURIComponent(id)}`;
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: { ...restHeaders(serviceKey), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    body: JSON.stringify({ is_mandatory: value }),
+  });
+  if (!res.ok) return { ok: false, status: res.status, text: await res.text() };
+  return { ok: true };
+}
+
 async function uploadApk(
   supabaseUrl: string,
   serviceKey: string,
@@ -468,6 +542,61 @@ async function runActivate(args: ActivateArgs, supabaseUrl: string, serviceKey: 
   if (current) console.log(`   Previously active: version_code=${current.version_code}`);
   console.log(`   is_mandatory: ${target.is_mandatory ? 'true — BLOCKING for phones below this version' : 'false'}`);
   console.log('\n📱 الأجهزة هتشوف التحديث خلال ٦ ساعات كحد أقصى.');
+}
+
+async function runSetMandatory(
+  args: SetMandatoryArgs,
+  supabaseUrl: string,
+  serviceKey: string,
+): Promise<void> {
+  console.log(`Channel:          ${args.app}`);
+  console.log(`Target version:   ${args.versionCode}`);
+  console.log(`Requested value:  is_mandatory=${args.value}\n`);
+
+  const target = await getReleaseByVersionCode(supabaseUrl, serviceKey, args.app, args.versionCode);
+  if (!target) {
+    fail(`No release row found for app="${args.app}" version_code=${args.versionCode}. Nothing to change.`);
+  }
+
+  const current = target.is_mandatory ?? false;
+  console.log(`Current is_mandatory: ${current}`);
+  console.log(`New is_mandatory:     ${args.value}`);
+
+  if (current === args.value) {
+    console.log(
+      `\n✅ version_code=${args.versionCode} (${target.version_name}) on ${args.app} is already ` +
+        `is_mandatory=${args.value}. No change made.`,
+    );
+    return;
+  }
+
+  // Only this column is written — is_active is never part of the body, and
+  // no upload/storage call happens on this path.
+  const result = await setMandatoryById(supabaseUrl, serviceKey, target.id, args.value);
+  if (!result.ok) {
+    fail(`Failed to update is_mandatory: HTTP ${result.status}: ${result.text}`);
+  }
+
+  console.log(
+    `\n✅ Updated version_code=${args.versionCode} (${target.version_name}) on ${args.app}: ` +
+      `is_mandatory ${current} → ${args.value}.`,
+  );
+
+  if (args.value) {
+    console.log(
+      '\n' +
+        '🚫🚫🚫  MANDATORY UPDATE  🚫🚫🚫\n' +
+        `This release (version_code=${args.versionCode}, ${target.version_name}) is now is_mandatory = true.\n` +
+        'Every phone running a version BELOW this one will be shown a BLOCKING screen and cannot use\n' +
+        'the app until it updates.\n' +
+        '🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫\n',
+    );
+  } else {
+    console.log(
+      `\n📱 Phones will stop being blocked by version_code=${args.versionCode} (${target.version_name}) — ` +
+        'the blocking screen no longer triggers for this release.',
+    );
+  }
 }
 
 async function runPublish(args: PublishArgs, supabaseUrl: string, serviceKey: string): Promise<void> {
@@ -594,6 +723,10 @@ async function main(): Promise<void> {
 
   if (parsed.mode === 'activate') {
     await runActivate(parsed, supabaseUrl, serviceKey);
+    return;
+  }
+  if (parsed.mode === 'set-mandatory') {
+    await runSetMandatory(parsed, supabaseUrl, serviceKey);
     return;
   }
   await runPublish(parsed, supabaseUrl, serviceKey);
