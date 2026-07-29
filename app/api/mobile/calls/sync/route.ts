@@ -55,10 +55,15 @@ function parseCalls(raw: unknown): IncomingCall[] | null {
  *   - 'matched'   — phone matched an existing lead. If the call was
  *     CONNECTED (`isConnectedCall`: direction != 'missed' AND
  *     duration_seconds > 0) this ALSO writes a `call_logged`
- *     pyra_lead_activities row + bumps the lead's last_contact_at. Missed
- *     calls AND 0-second unanswered dials are still stored + counted but
- *     get NO timeline activity and NO last_contact_at bump (design lock —
- *     see call-tracking spec).
+ *     pyra_lead_activities row + bumps the lead's last_contact_at. A
+ *     matched but UNANSWERED dial (direction != 'missed' AND
+ *     duration_seconds === 0) writes a `call_attempt` activity instead —
+ *     visible on the timeline as effort, but it does NOT bump
+ *     last_contact_at and every "last touched" consumer (lead-idle-check,
+ *     deals-at-risk, ai-insights, the customer dossier health score)
+ *     excludes activity_type='call_attempt' so an unanswered dial can never
+ *     look like contact. Missed calls get NO timeline activity and NO
+ *     last_contact_at bump at all (design lock — see call-tracking spec).
  *   - 'ignored'   — phone matched a row in this agent's pyra_ignored_numbers
  *   - 'unmatched' — no lead, not ignored
  *   - 'error'     — the pyra_agent_calls insert failed for a NON-unique-
@@ -73,10 +78,11 @@ function parseCalls(raw: unknown): IncomingCall[] | null {
  * pre-v1.4 phone decodes with ignoreUnknownKeys and never sees it.
  *
  * Persistence ordering: the pyra_agent_calls row is inserted FIRST (with
- * activity_id null); the call_logged activity + last_contact_at bump run
- * only AFTER the row is durable, then the row's activity_id is
- * back-filled. A failed/raced row insert therefore never leaves an orphan
- * timeline activity or a phantom last_contact_at bump behind.
+ * activity_id null); the call_logged/call_attempt activity (+ last_contact_at
+ * bump for call_logged only) run only AFTER the row is durable, then the
+ * row's activity_id is back-filled. A failed/raced row insert therefore
+ * never leaves an orphan timeline activity or a phantom last_contact_at
+ * bump behind.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -216,6 +222,40 @@ export async function POST(request: NextRequest) {
             .eq('id', lead.id);
           if (bumpErr) {
             console.error('[calls/sync] last_contact_at bump failed:', bumpErr.message);
+          }
+        }
+      } else if (lead && call.direction !== 'missed') {
+        // Matched but unanswered (0-second outgoing/incoming dial): visible on
+        // the timeline as effort, but NOT contact — no last_contact_at bump,
+        // and every "last touched" consumer excludes activity_type=call_attempt
+        // (lead-idle-check, deals-at-risk, ai-insights, dossier health score).
+        // Missed inbound calls stay excluded entirely — they are not the
+        // agent's attempt.
+        const activityId = generateId('la');
+        const { error: actErr } = await supabase.from('pyra_lead_activities').insert({
+          id: activityId,
+          lead_id: lead.id,
+          activity_type: 'call_attempt',
+          description: null,
+          metadata: {
+            direction: call.direction === 'incoming' ? 'inbound' : 'outbound',
+            duration_seconds: 0,
+            auto: true,
+            source: 'device_sync',
+            called_at: call.called_at,
+          },
+          created_by: agentUsername,
+        });
+        if (actErr) {
+          // non-fatal — the call row stays with activity_id null
+          console.error('[calls/sync] call_attempt activity insert failed:', actErr.message);
+        } else {
+          const { error: linkErr } = await supabase
+            .from('pyra_agent_calls')
+            .update({ activity_id: activityId })
+            .eq('id', callId);
+          if (linkErr) {
+            console.error('[calls/sync] call_attempt activity_id back-fill failed:', linkErr.message);
           }
         }
       }

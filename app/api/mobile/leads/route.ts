@@ -30,13 +30,26 @@ function resolveLeadSource(raw: unknown): MobileLeadSource {
 
 /**
  * Retro-link every unlinked call for this number to the lead + write
- * `call_logged` activities for connected ones.
+ * `call_logged` activities for connected ones and `call_attempt` activities
+ * for matched-but-unanswered ones (mirrors /api/mobile/calls/sync). A
+ * `call_attempt` is visible on the timeline as effort but is NOT contact —
+ * it never bumps `last_contact_at`, and every "last touched" consumer
+ * (lead-idle-check, deals-at-risk, ai-insights, the customer dossier health
+ * score) excludes activity_type='call_attempt'. Missed calls get neither.
  *
  * Persistence ordering mirrors /api/mobile/calls/sync: the calls already
  * exist as durable rows, so writing the activity first and the call-row
  * update second cannot orphan anything — worst case on an update failure is
  * a `pyra_lead_activities` row with no back-linked `pyra_agent_calls.activity_id`,
  * which is the same "non-fatal, logged" shape the sync route already accepts.
+ *
+ * last_contact_at: after linking, if any retro-linked call was CONNECTED,
+ * advance the lead's last_contact_at to the newest such call's called_at —
+ * but only FORWARD, never backward. Unlike the live sync path (where the
+ * bumped call just happened), a retro-link batch can carry old historical
+ * calls, and the lead may already carry a newer last_contact_at from another
+ * source (e.g. it was just created, or touched since) — an unconditional
+ * overwrite here would regress it into the past.
  */
 async function retroLinkCalls(
   supabase: SupabaseClient,
@@ -56,6 +69,11 @@ async function retroLinkCalls(
     return 0;
   }
   if (!unlinked || unlinked.length === 0) return 0;
+
+  // Newest CONNECTED call's called_at across this batch — used for the
+  // forward-only last_contact_at bump below.
+  let newestConnectedCalledAt: string | null = null;
+
   for (const call of unlinked) {
     let activityId: string | null = null;
     if (isConnectedCall(call)) {
@@ -79,6 +97,32 @@ async function retroLinkCalls(
         console.error('[quick-add retro-link] call_logged activity insert failed:', actErr.message);
         activityId = null;
       }
+      if (!newestConnectedCalledAt || call.called_at > newestConnectedCalledAt) {
+        newestConnectedCalledAt = call.called_at;
+      }
+    } else if (call.direction !== 'missed') {
+      // Matched but unanswered (0-second dial) — visible on the timeline as
+      // effort, but NOT contact. Mirrors the live-sync path's call_attempt
+      // branch; missed inbound calls stay excluded entirely.
+      activityId = generateId('la');
+      const { error: actErr } = await supabase.from('pyra_lead_activities').insert({
+        id: activityId,
+        lead_id: leadId,
+        activity_type: 'call_attempt',
+        description: null,
+        metadata: {
+          direction: call.direction === 'incoming' ? 'inbound' : 'outbound',
+          duration_seconds: 0,
+          auto: true,
+          source: 'device_sync_retro',
+          called_at: call.called_at,
+        },
+        created_by: call.agent_username,
+      });
+      if (actErr) {
+        console.error('[quick-add retro-link] call_attempt activity insert failed:', actErr.message);
+        activityId = null;
+      }
     }
     const { error: updErr } = await supabase
       .from('pyra_agent_calls')
@@ -88,6 +132,29 @@ async function retroLinkCalls(
       console.error('[quick-add retro-link] call row update failed:', updErr.message, { call_id: call.id });
     }
   }
+
+  if (newestConnectedCalledAt) {
+    const { data: leadRow, error: leadSelErr } = await supabase
+      .from('pyra_sales_leads')
+      .select('last_contact_at')
+      .eq('id', leadId)
+      .maybeSingle();
+    if (leadSelErr) {
+      console.error('[quick-add retro-link] last_contact_at read failed:', leadSelErr.message);
+    } else {
+      const current = (leadRow as { last_contact_at: string | null } | null)?.last_contact_at ?? null;
+      if (!current || new Date(newestConnectedCalledAt).getTime() > new Date(current).getTime()) {
+        const { error: bumpErr } = await supabase
+          .from('pyra_sales_leads')
+          .update({ last_contact_at: newestConnectedCalledAt })
+          .eq('id', leadId);
+        if (bumpErr) {
+          console.error('[quick-add retro-link] last_contact_at bump failed:', bumpErr.message);
+        }
+      }
+    }
+  }
+
   return unlinked.length;
 }
 

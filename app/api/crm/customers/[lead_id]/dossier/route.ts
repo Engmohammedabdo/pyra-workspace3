@@ -194,10 +194,14 @@ export async function GET(
       // Single most-recent activity WITHOUT the 30-day floor — the windowed
       // query above (engagement) can never surface an activity older than 30d,
       // so the recency 30-90d / >90d buckets were unreachable from it.
+      // A call nobody answered is visible on the timeline but is NOT contact —
+      // counting it here would inflate the health-score recency factor for a
+      // customer the agent has been unable to reach.
       supabase
         .from('pyra_lead_activities')
         .select('created_at')
         .eq('lead_id', leadId)
+        .neq('activity_type', 'call_attempt')
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle(),

@@ -222,15 +222,46 @@ overwritten by the later missed call).
 — NOT direction alone. An `outgoing`/`incoming` call with
 `duration_seconds = 0` is a dial nobody answered: it is still stored in
 `pyra_agent_calls` and still counted by the calls report (it really
-happened), but exactly like a missed call it writes **no**
-`pyra_lead_activities` row and does **not** bump `last_contact_at` — no
-actual contact occurred, so it must not read as one. Before this fix the
-gate was direction-only, so an unanswered dial wrote a fake `call_logged`
-timeline row and stamped `last_contact_at` as if the lead had answered,
-poisoning the health-score recency factor and the `lead-idle-check`
-fallback for every lead with an unanswered outgoing dial (257 fake rows /
-107 leads backfilled — see `.superpowers/sdd/progress.md` urgent-fix
-wave entry).
+happened), and it does **not** bump `last_contact_at` — no actual contact
+occurred, so it must not read as one. Before this fix the gate was
+direction-only, so an unanswered dial wrote a fake `call_logged` timeline
+row and stamped `last_contact_at` as if the lead had answered, poisoning
+the health-score recency factor and the `lead-idle-check` fallback for
+every lead with an unanswered outgoing dial (257 fake rows / 107 leads
+backfilled — see `.superpowers/sdd/progress.md` urgent-fix wave entry).
+
+**`call_attempt` — visible but not contact (Task CA-B1, 2026-07-29):** the
+2026-07-25 fix above made an unanswered dial write **no** timeline row at
+all, which also erased the agent's effort from view — a rep who dialed a
+lead 5 times with no answer had a timeline that looked completely
+untouched. As of this task, a matched-but-unanswered dial
+(`direction !== 'missed' && duration_seconds === 0`) writes a new
+`pyra_lead_activities.activity_type = 'call_attempt'` row instead of
+nothing, with `metadata = { direction, duration_seconds: 0, auto: true,
+source: 'device_sync' | 'device_sync_retro' }`. Missed inbound calls still
+write nothing — a missed call is not the agent's attempt.
+
+`call_attempt` is visible on the lead's timeline (rendered distinctly —
+Task CA-B2) but is deliberately excluded from **every** computation of
+"was this lead touched" so it can never suppress a follow-up warning or
+inflate a health score for a lead the agent has been unable to reach.
+Every "last touched" consumer adds `.neq('activity_type', 'call_attempt')`
+to the query it uses to compute recency:
+- `app/api/cron/lead-idle-check/route.ts` (the batched activities SELECT
+  feeding `lastActivityByLead`)
+- `app/api/crm/dashboard/deals-at-risk/route.ts`
+- `app/api/crm/dashboard/ai-insights/route.ts` (the idle-deals "has recent
+  activity" lookup)
+- `app/api/crm/customers/[lead_id]/dossier/route.ts` (the health-score
+  recency query — `lastActivityRes`)
+
+It never bumps `last_contact_at` either — same as before this task. The
+`activity_count`/`last_activity_type` enrichment on the leads list
+(`app/api/crm/leads/route.ts`) and the CRM dashboard's recent-activity feed
+(`app/api/crm/dashboard/recent-activity/route.ts`) deliberately do NOT
+exclude it — those are plain visibility surfaces (a count badge, an
+activity feed), not "was this lead touched" gates, so a `call_attempt`
+showing up there is the intended behavior.
 
 ### 3. `POST /api/mobile/leads` — quick-add from an unmatched call
 
@@ -717,13 +748,21 @@ the route was written.
 - **Batch cap**: 100 calls per request (422 if 0 or >100).
 - **Missed-call rule**: stored + counted, but writes no timeline activity
   and does not bump `last_contact_at`.
-- **0-second dial rule**: same treatment as a missed call —
-  `isConnectedCall()` requires `duration_seconds > 0` in addition to
-  `direction !== 'missed'`. Stored + counted, but no timeline activity and
-  no `last_contact_at` bump (urgent-fix wave 2026-07-25 — previously any
-  non-missed direction counted as contact regardless of duration).
+- **0-second dial rule**: `isConnectedCall()` requires `duration_seconds > 0`
+  in addition to `direction !== 'missed'`. Stored + counted, never bumps
+  `last_contact_at` (urgent-fix wave 2026-07-25 — previously any non-missed
+  direction counted as contact regardless of duration). As of Task CA-B1
+  (2026-07-29) it writes a visible `call_attempt` timeline row instead of
+  none — see the `call_attempt` section above; every "last touched"
+  consumer excludes that type, so it still can't read as contact.
 - **Retro-link**: quick-add links not just the triggering call but every
-  other unlinked call sharing the same normalized phone number.
+  other unlinked call sharing the same normalized phone number, writing
+  `call_logged`/`call_attempt` activities the same way the live sync path
+  does. If any linked call was CONNECTED, `last_contact_at` is advanced to
+  the newest such call's `called_at` — but only forward, never backward
+  (Task CA-B1 fold-in: the connected retro-link path previously never
+  bumped `last_contact_at` at all, leaving it stale for a real answered call
+  that arrived inside the retro-link window).
 - **Phone matching**: `phoneMatchKey()` (`lib/utils/phone.ts`) — last 9
   digits after stripping non-digits and a leading `00`. Same convention the
   CRM already uses for duplicate-lead detection (Q-API-001). First lead

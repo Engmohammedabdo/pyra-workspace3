@@ -118,6 +118,10 @@ export async function GET() {
           .select('lead_id, created_at')
           .in('lead_id', idBatch)
           .gte('created_at', sevenDaysAgo)
+          // A call nobody answered is visible on the timeline but is NOT contact —
+          // counting it here would suppress the idle warning for a lead the agent
+          // has been unable to reach, which is exactly the lead that needs one.
+          .neq('activity_type', 'call_attempt')
           // Explicit .range so the "has recent activity" set is complete — a
           // truncated fetch would wrongly mark active leads as idle.
           .range(0, 99999);

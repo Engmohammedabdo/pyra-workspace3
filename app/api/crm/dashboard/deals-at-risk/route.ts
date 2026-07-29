@@ -63,6 +63,10 @@ export async function GET(request: NextRequest) {
         .from('pyra_lead_activities')
         .select('lead_id, created_at')
         .in('lead_id', idBatch)
+        // A call nobody answered is visible on the timeline but is NOT contact —
+        // counting it here would suppress the idle warning for a lead the agent
+        // has been unable to reach, which is exactly the lead that needs one.
+        .neq('activity_type', 'call_attempt')
         .order('created_at', { ascending: false });
       if (actsErr) {
         console.error('GET /api/crm/dashboard/deals-at-risk error:', actsErr.message);
