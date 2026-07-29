@@ -7,8 +7,9 @@ import { classifyLinkState } from '@/lib/documents/link-state';
 import { toPublicQuotePayload } from '@/lib/quotes/public-payload';
 import { quoteContentHash } from '@/lib/quotes/content-hash';
 import { signQuote, MAX_SIGNATURE_LENGTH, MAX_SIGNED_BY_LENGTH } from '@/lib/quotes/sign-quote';
-import { dubaiDayKey } from '@/lib/utils/format';
+import { dubaiDayKey, formatCurrency } from '@/lib/utils/format';
 import { notify } from '@/lib/notifications/notify';
+import { sendWhatsAppToUser } from '@/lib/notifications/whatsapp';
 import { logActivity } from '@/lib/api/activity';
 import { logError } from '@/lib/observability/log-error';
 import { loadServerPdfFonts, loadServerDefaultLogo } from '@/lib/pdf/pdf-assets-server';
@@ -280,6 +281,27 @@ export async function POST(request: NextRequest, context: RouteContext) {
       message: `تم توقيع عرض السعر ${quote.quote_number} بواسطة ${signedBy}`, // i18n-exempt: notification content, Phase 8
       link: `/dashboard/quotes/${quote.id}`,
       entity: { type: 'quote', id: quote.id },
+    });
+  }
+
+  // WhatsApp ping for the creating agent — this business runs on WhatsApp
+  // and production email coverage is effectively zero (0 of 4 active users
+  // have an email address, audited 2026-07-29), so notifyQuoteSigned above
+  // has nowhere to land for most agents. sendWhatsAppToUser() never throws
+  // (internal try/catch, resolves false on any skip/failure) — same
+  // fire-and-forget contract every other caller relies on (e.g.
+  // app/api/cron/task-deadline-reminders). No link or token in the body:
+  // this is an unauthenticated public route, so a forwarded WhatsApp
+  // message must never carry anything that reaches the signing link.
+  if (quote.created_by) {
+    const waMessage = `✍️ تم توقيع عرض السعر ${quote.quote_number}\nالعميل: ${signedBy}\nالقيمة: ${formatCurrency(Number(quote.total) || 0, quote.currency || 'AED')}`; // i18n-exempt: persisted WhatsApp notification
+    void sendWhatsAppToUser(supabase, quote.created_by, waMessage).catch((error) => {
+      // `request` withheld — see the linkErr branch above (Task 6 Finding 3).
+      logError({
+        severity: 'warning',
+        error,
+        metadata: { scope: 'public_quote_sign_whatsapp', quote_id: quote.id, request_method: request.method },
+      });
     });
   }
 

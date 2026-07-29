@@ -1,5 +1,14 @@
 import { sendEmail, emailTemplates } from './mailer';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+// Service role, not the session client. Every lookup in this file answers
+// "which internal address do we notify" — it is never scoped to whoever
+// triggered it, and several callers are fire-and-forget IIFEs that run after
+// the response was already sent, where `cookies()` has no request to read.
+// Using the session client meant these lookups returned NOTHING whenever
+// there was no session: Gap #3 Phase 0 revoked `anon` globally, so an
+// unauthenticated caller gets 42501 permission denied on pyra_users and the
+// notifier silently sent no email at all. That is exactly what happened on
+// the public quote-signing path (verified 2026-07-28).
+import { createServiceRoleClient } from '@/lib/supabase/server';
 
 // ============================================================
 // Notification Dispatcher
@@ -14,7 +23,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://workspace.pyramedia.
  */
 async function getAdminEmails(): Promise<string[]> {
   try {
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceRoleClient();
     const { data } = await supabase
       .from('pyra_users')
       .select('email')
@@ -31,7 +40,7 @@ async function getAdminEmails(): Promise<string[]> {
  */
 async function getClientEmail(clientCompany: string): Promise<string | null> {
   try {
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceRoleClient();
     const { data } = await supabase
       .from('pyra_clients')
       .select('email')
@@ -193,7 +202,7 @@ export function notifyQuoteApproved(data: {
 }) {
   (async () => {
     try {
-      const supabase = await createServerSupabaseClient();
+      const supabase = createServiceRoleClient();
       const { data: user } = await supabase
         .from('pyra_users')
         .select('email, display_name')
@@ -230,7 +239,7 @@ export function notifyQuoteRejected(data: {
 }) {
   (async () => {
     try {
-      const supabase = await createServerSupabaseClient();
+      const supabase = createServiceRoleClient();
       const { data: user } = await supabase
         .from('pyra_users')
         .select('email, display_name')
@@ -349,7 +358,7 @@ export function notifyQuoteSigned(data: {
 }) {
   (async () => {
     try {
-      const supabase = await createServerSupabaseClient();
+      const supabase = createServiceRoleClient();
       const quoteUrl = `${APP_URL}/dashboard/quotes/${data.quoteId}`;
       const templateData = {
         quoteNumber: data.quoteNumber,
@@ -441,7 +450,7 @@ export function notifyLeadAssigned(data: {
 }) {
   (async () => {
     try {
-      const supabase = await createServerSupabaseClient();
+      const supabase = createServiceRoleClient();
       const { data: user } = await supabase
         .from('pyra_users')
         .select('email, display_name')

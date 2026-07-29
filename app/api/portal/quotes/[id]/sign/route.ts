@@ -12,7 +12,8 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { notifyQuoteSigned } from '@/lib/email/notify';
 import { notify } from '@/lib/notifications/notify';
-import { dubaiDayKey } from '@/lib/utils/format';
+import { sendWhatsAppToUser } from '@/lib/notifications/whatsapp';
+import { dubaiDayKey, formatCurrency } from '@/lib/utils/format';
 import { signQuote, MAX_SIGNATURE_LENGTH } from '@/lib/quotes/sign-quote';
 import { logError } from '@/lib/observability/log-error';
 
@@ -142,6 +143,24 @@ export async function POST(request: NextRequest, context: RouteContext) {
         message: `تم توقيع عرض السعر ${quote.quote_number} بواسطة ${signedByTrimmed}`,
         link: `/dashboard/quotes/${id}`,
         entity: { type: 'quote', id },
+      });
+    }
+
+    // WhatsApp ping for the creating agent — mirrors the public sign route
+    // (app/api/public/quotes/[token]/sign) so both signing paths notify the
+    // agent the same way. sendWhatsAppToUser() never throws (internal
+    // try/catch, resolves false on any skip/failure) — fire-and-forget, same
+    // contract as every other caller (see lib/notifications/whatsapp.ts).
+    // No link/token in the body, matching the public path.
+    if (quote.created_by) {
+      const waMessage = `✍️ تم توقيع عرض السعر ${quote.quote_number}\nالعميل: ${signedByTrimmed}\nالقيمة: ${formatCurrency(Number(quote.total) || 0, quote.currency || 'AED')}`; // i18n-exempt: persisted WhatsApp notification
+      void sendWhatsAppToUser(supabase, quote.created_by, waMessage).catch((error) => {
+        logError({
+          severity: 'warning',
+          error,
+          request,
+          metadata: { route: 'portal-quotes-sign', quoteId: id, action: 'whatsapp_notify' },
+        });
       });
     }
 
