@@ -426,11 +426,20 @@ phone, and vice versa.
 GET /api/mobile/app-version?app=pyra-calls   (x-api-key: <device key>)
 
 → HTTP 200
-{"data":{"latest":{"version_code":2,"version_name":"1.2.0","release_notes":"..."}}}
+{"data":{"latest":{"version_code":2,"version_name":"1.2.0","release_notes":"...","is_mandatory":false}}}
 ```
 
 Returns `{"latest":null}` (still HTTP 200) when no active release row
 exists yet for that channel — not an error, just "nothing published".
+
+**`is_mandatory` (Task CA-C1, migration 056).** Per-release "must update"
+switch, set by the publisher at `pnpm app:publish` time via `--mandatory` —
+never a blanket policy. `false` unless explicitly set. Additive field: a
+pre-CA-C2 phone's JSON decoder ignores unknown keys and never blocks; the
+blocking screen that reacts to `true` is a separate task (CA-C2). The column
+defaults `false` and was added to an existing table via `ALTER TABLE ...
+ADD COLUMN`, so no previously-published release became retroactively
+mandatory (verified against the sole active row at migration time).
 
 ### 7. `GET /api/mobile/app-download?app=`
 
@@ -1127,10 +1136,30 @@ pull the APK from the private `pyra-private` bucket via a signed URL.
    download → verify → install. The APK payload MUST stay **< 10 MB** (the
    `pyra-private` bucket's `file_size_limit`); the signed release is ~7.8 MB.
 
+**Marking a release mandatory (Task CA-C1, migration 056).** Add
+`--mandatory` to the publish command above to set `is_mandatory=true` on the
+new row:
+```powershell
+pnpm app:publish pyra-calls-app\app\build\outputs\apk\release\app-release.apk `
+  --app pyra-calls --notes "..." --mandatory
+```
+This is a **per-release, owner-decided** switch — never a default, never
+retroactive to older rows. It makes the app show a BLOCKING screen on every
+phone below this version_code until it updates (the blocking UI is task
+CA-C2; this flag only sets the DB column and is already returned by
+`GET /api/mobile/app-version`). The script prints a loud warning at both the
+start and the end of the publish when `--mandatory` is used — read it before
+confirming, since this switch can stop a rep from using the app entirely.
+`--mandatory` is publish-only; it is rejected together with `--activate`
+(rollback reactivates a row's existing flag as-is, it does not set a new one).
+
 **Rollback:** re-activate a previous release row (no re-upload):
 ```powershell
 pnpm app:publish --activate <version_code> --app pyra-calls
 ```
+If the reactivated row was itself published with `--mandatory`, the script
+prints a note that the BLOCKING behavior comes back with it — reactivating
+does not change `is_mandatory`, it only flips `is_active`.
 
 **Channels:** debug/emulator builds use `pyra-calls-e2e`; production builds use
 `pyra-calls`. E2E test APKs are published ONLY to `pyra-calls-e2e` so the real

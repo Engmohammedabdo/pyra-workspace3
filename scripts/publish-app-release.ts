@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 /**
  * pnpm app:publish <apk-path> [--notes "..."] [--app pyra-calls|pyra-calls-e2e]
- *                              [--code N --name X] [--by <username>]
+ *                              [--code N --name X] [--by <username>] [--mandatory]
  * pnpm app:publish --activate <version_code> [--app pyra-calls|pyra-calls-e2e]
  *                              [--by <username>]
  *
@@ -25,6 +25,15 @@
  * Rollback flow (--activate N):
  *   Verifies a row exists for (app, version_code=N), deactivates whatever is
  *   currently active, activates row N. No upload, no storage writes.
+ *
+ * --mandatory (Task CA-C1, migration 056): sets is_mandatory=true on the
+ * newly-inserted release row. Owner decision 2026-07-29: mandatory is a
+ * PER-RELEASE switch decided at publish time, never a blanket policy — a
+ * mandatory release makes the app show a BLOCKING screen (a later task,
+ * CA-C2) on every phone below its version_code until it updates. Default is
+ * false (opt-in, never accidental). Publish-mode only — not accepted with
+ * --activate, since a rollback reactivates a row's EXISTING is_mandatory
+ * value as-is rather than setting a new one.
  *
  * Security: SUPABASE_SERVICE_ROLE_KEY (and NEXT_PUBLIC_SUPABASE_URL) are read
  * from .env.local ONLY — never from process.env or CLI args. Same discipline
@@ -55,7 +64,7 @@ function fail(message: string): never {
 function usage(): never {
   console.log(`
 Usage:
-  pnpm app:publish <apk-path> [--notes "..."] [--app pyra-calls|pyra-calls-e2e] [--code N --name X] [--by <username>]
+  pnpm app:publish <apk-path> [--notes "..."] [--app pyra-calls|pyra-calls-e2e] [--code N --name X] [--by <username>] [--mandatory]
   pnpm app:publish --activate <version_code> [--app pyra-calls|pyra-calls-e2e] [--by <username>]
 `);
   process.exit(1);
@@ -101,6 +110,7 @@ interface PublishArgs {
   code: number | null;
   name: string | null;
   by: string;
+  mandatory: boolean;
 }
 interface ActivateArgs {
   mode: 'activate';
@@ -120,6 +130,7 @@ function parseArgs(argv: string[]): PublishArgs | ActivateArgs {
   let by = 'abdou';
   let activateCode: number | null = null;
   let positional: string | null = null;
+  let mandatory = false;
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -147,6 +158,8 @@ function parseArgs(argv: string[]): PublishArgs | ActivateArgs {
       const v = args[++i];
       if (!v) fail('--by requires a value.');
       by = v;
+    } else if (a === '--mandatory') {
+      mandatory = true;
     } else if (!a.startsWith('--')) {
       if (positional === null) positional = a;
     } else {
@@ -159,6 +172,13 @@ function parseArgs(argv: string[]): PublishArgs | ActivateArgs {
   }
 
   if (activateCode !== null) {
+    if (mandatory) {
+      fail(
+        '--mandatory is not valid with --activate. A rollback reactivates a release row\'s ' +
+          'EXISTING is_mandatory value as-is — it cannot set a new one. Use --mandatory only ' +
+          'when publishing a new APK.',
+      );
+    }
     return { mode: 'activate', versionCode: activateCode, app: app as Channel, by };
   }
 
@@ -167,7 +187,7 @@ function parseArgs(argv: string[]): PublishArgs | ActivateArgs {
   }
   if (!positional) usage();
 
-  return { mode: 'publish', apkPath: positional, app: app as Channel, notes, code, name, by };
+  return { mode: 'publish', apkPath: positional, app: app as Channel, notes, code, name, by, mandatory };
 }
 
 // ── aapt2 discovery + version detection ─────────────────────────────────────
@@ -294,6 +314,7 @@ interface ReleaseRow {
   version_code: number;
   version_name: string;
   is_active?: boolean;
+  is_mandatory?: boolean;
 }
 
 function restHeaders(serviceKey: string): Record<string, string> {
@@ -305,7 +326,7 @@ async function getActiveRelease(
   serviceKey: string,
   app: string,
 ): Promise<ReleaseRow | null> {
-  const url = `${supabaseUrl}/rest/v1/pyra_app_releases?app=eq.${encodeURIComponent(app)}&is_active=is.true&select=id,version_code,version_name`;
+  const url = `${supabaseUrl}/rest/v1/pyra_app_releases?app=eq.${encodeURIComponent(app)}&is_active=is.true&select=id,version_code,version_name,is_mandatory`;
   const res = await fetch(url, { headers: restHeaders(serviceKey) });
   if (!res.ok) fail(`REST GET (active release) failed: HTTP ${res.status}: ${await res.text()}`);
   const rows = (await res.json()) as ReleaseRow[];
@@ -318,7 +339,7 @@ async function getReleaseByVersionCode(
   app: string,
   versionCode: number,
 ): Promise<ReleaseRow | null> {
-  const url = `${supabaseUrl}/rest/v1/pyra_app_releases?app=eq.${encodeURIComponent(app)}&version_code=eq.${versionCode}&select=id,version_code,version_name,is_active`;
+  const url = `${supabaseUrl}/rest/v1/pyra_app_releases?app=eq.${encodeURIComponent(app)}&version_code=eq.${versionCode}&select=id,version_code,version_name,is_active,is_mandatory`;
   const res = await fetch(url, { headers: restHeaders(serviceKey) });
   if (!res.ok) fail(`REST GET (by version_code) failed: HTTP ${res.status}: ${await res.text()}`);
   const rows = (await res.json()) as ReleaseRow[];
@@ -416,6 +437,13 @@ async function runActivate(args: ActivateArgs, supabaseUrl: string, serviceKey: 
     return;
   }
 
+  if (target.is_mandatory) {
+    console.log(
+      `⚠️  NOTE: version_code=${args.versionCode} was published with is_mandatory=true. Reactivating it ` +
+        'will BLOCK every phone below this version until it updates (this rollback does not change that flag).',
+    );
+  }
+
   const current = await getActiveRelease(supabaseUrl, serviceKey, args.app);
   if (current) {
     console.log(`Deactivating current active release (version_code=${current.version_code}) ...`);
@@ -438,6 +466,7 @@ async function runActivate(args: ActivateArgs, supabaseUrl: string, serviceKey: 
 
   console.log(`\n✅ Activated version_code=${args.versionCode} (${target.version_name}) on ${args.app}.`);
   if (current) console.log(`   Previously active: version_code=${current.version_code}`);
+  console.log(`   is_mandatory: ${target.is_mandatory ? 'true — BLOCKING for phones below this version' : 'false'}`);
   console.log('\n📱 الأجهزة هتشوف التحديث خلال ٦ ساعات كحد أقصى.');
 }
 
@@ -476,6 +505,19 @@ async function runPublish(args: PublishArgs, supabaseUrl: string, serviceKey: st
   console.log(`App:          ${args.app}`);
   console.log(`Version code: ${versionCode}`);
   console.log(`Version name: ${versionName}`);
+  console.log(`Mandatory:    ${args.mandatory ? 'YES — see warning below' : 'no'}`);
+
+  if (args.mandatory) {
+    console.warn(
+      '\n' +
+        '🚫🚫🚫  MANDATORY UPDATE  🚫🚫🚫\n' +
+        `This release (version_code=${versionCode}, ${versionName}) will be published with\n` +
+        'is_mandatory = true. Every phone running a version BELOW this one will be shown a\n' +
+        'BLOCKING screen and cannot use the app until it updates. This is NOT the default —\n' +
+        'you passed --mandatory explicitly. If that was not intentional, press Ctrl+C now.\n' +
+        '🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫🚫\n',
+    );
+  }
 
   const sizeBytes = statSync(args.apkPath).size;
   const sha256 = await sha256File(args.apkPath);
@@ -511,6 +553,7 @@ async function runPublish(args: PublishArgs, supabaseUrl: string, serviceKey: st
     size_bytes: sizeBytes,
     release_notes: args.notes,
     is_active: true,
+    is_mandatory: args.mandatory,
     created_by: args.by,
   };
 
@@ -533,7 +576,14 @@ async function runPublish(args: PublishArgs, supabaseUrl: string, serviceKey: st
   console.log(`  sha256:        ${sha256}`);
   console.log(`  size:          ${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`);
   console.log(`  storage_path:  ${storagePath}`);
+  console.log(`  is_mandatory:  ${args.mandatory ? 'true' : 'false'}`);
   if (args.notes) console.log(`  notes:         ${args.notes}`);
+  if (args.mandatory) {
+    console.log(
+      '\n🚫 BLOCKING RELEASE: every phone below this version will be BLOCKED from using the ' +
+        'app until it updates.',
+    );
+  }
   console.log('\n📱 الأجهزة هتشوف التحديث خلال ٦ ساعات كحد أقصى.');
 }
 

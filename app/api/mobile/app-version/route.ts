@@ -16,6 +16,13 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 //
 // Returns `latest: null` when no active release row exists for the channel
 // yet (e.g. a brand-new e2e channel before its first publish).
+//
+// `latest.is_mandatory` (Task CA-C1, migration 056): per-release "must
+// update" switch, false unless the publisher explicitly set --mandatory at
+// publish time (`pnpm app:publish`). Additive field — a pre-CA-C2 phone's
+// JSON decoder ignores unknown keys and simply never blocks. The blocking
+// screen that reacts to `true` is a separate task (CA-C2); this route only
+// reports the flag.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -26,7 +33,7 @@ export async function GET(request: NextRequest) {
     const svc = createServiceRoleClient();
     const { data: release, error } = await svc
       .from('pyra_app_releases')
-      .select('version_code, version_name, release_notes')
+      .select('version_code, version_name, release_notes, is_mandatory')
       .eq('app', resolveChannel(request))
       .eq('is_active', true)
       .maybeSingle();
