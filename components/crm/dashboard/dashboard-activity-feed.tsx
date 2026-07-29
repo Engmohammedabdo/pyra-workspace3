@@ -78,7 +78,9 @@ const ACTIVITY_TONE: Partial<Record<LeadActivityTypeNew, string>> = {
   stage_change:        'text-orange-600 dark:text-orange-400 bg-orange-500/10',
   note:                'text-muted-foreground bg-muted',
   call_logged:         'text-indigo-600 dark:text-indigo-400 bg-indigo-500/10',
-  call_attempt:        'text-amber-600 dark:text-amber-400 bg-amber-500/10',
+  // Rose, matching activity-item.tsx — an unanswered attempt must read
+  // differently from both a connected call and a note at a glance.
+  call_attempt:        'text-rose-600 dark:text-rose-400 bg-rose-500/10',
   whatsapp_inbound:    'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10',
   whatsapp_outbound:   'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10',
   closed_won_approved: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10',
