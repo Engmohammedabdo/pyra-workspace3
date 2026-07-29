@@ -399,7 +399,9 @@
         "callOutbound": "مكالمة صادرة — المدة {duration}",
         "callInboundNoDuration": "مكالمة واردة",
         "callOutboundNoDuration": "مكالمة صادرة",
-        "callWithDuration": "مكالمة — المدة {duration}"
+        "callWithDuration": "مكالمة — المدة {duration}",
+        "callAttemptOutbound": "محاولة اتصال — لم يرد",
+        "callAttemptInbound": "مكالمة واردة لم يُرد عليها"
       },
       "fields": {
         "name": "الاسم",

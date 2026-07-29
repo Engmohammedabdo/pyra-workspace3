@@ -517,6 +517,7 @@ export const LEAD_ACTIVITY_TYPES = [
   'stage_change',
   'note',
   'call_logged',
+  'call_attempt', // CA-B1: unanswered dial on a matched lead — excluded from every "last touched" signal
   'meeting_scheduled',
   'whatsapp_inbound',
   'whatsapp_outbound',
@@ -540,6 +541,7 @@ export const LEAD_ACTIVITY_LABELS_AR: Record<LeadActivityTypeNew, string> = {
   stage_change:        'انتقلت المرحلة',
   note:                'ملاحظة',
   call_logged:         'تم تسجيل مكالمة',
+  call_attempt:        'محاولة اتصال',
   meeting_scheduled:   'اجتماع محدد',
   whatsapp_inbound:    'رسالة واتساب واردة',
   whatsapp_outbound:   'رسالة واتساب صادرة',

@@ -399,7 +399,9 @@
         "callOutbound": "Outgoing call — {duration}",
         "callInboundNoDuration": "Incoming call",
         "callOutboundNoDuration": "Outgoing call",
-        "callWithDuration": "Call — {duration}"
+        "callWithDuration": "Call — {duration}",
+        "callAttemptOutbound": "Call attempt — no answer",
+        "callAttemptInbound": "Unanswered incoming call"
       },
       "fields": {
         "name": "Name",

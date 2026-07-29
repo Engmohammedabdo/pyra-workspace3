@@ -1691,6 +1691,7 @@ export type LeadActivityType =
   // ── CRM rebuild canonical types ──
   | 'lead_created'
   | 'call_logged'
+  | 'call_attempt' // CA-B1: unanswered dial on a matched lead — never a "last touched" signal
   | 'meeting_scheduled'
   | 'whatsapp_inbound'
   | 'whatsapp_outbound'

@@ -16,7 +16,7 @@
 import { useLocale, useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils/cn';
 import {
-  StickyNote, Phone, PhoneIncoming, PhoneOutgoing, CalendarClock,
+  StickyNote, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, CalendarClock,
   MessageCircle, Mail, Paperclip,
   Pencil, UserCog, AlertTriangle, CheckCircle2, XCircle, Hourglass,
   PlusCircle, Activity as ActivityIcon, ArrowRightCircle, BellRing,
@@ -46,6 +46,7 @@ const VARIANTS: Partial<Record<LeadActivityTypeNew, VariantSpec>> = {
   stage_change:        { icon: ArrowRightCircle, tone: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' },
   note:                { icon: StickyNote,    tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' },
   call_logged:         { icon: Phone,         tone: 'bg-sky-500/10 text-sky-700 dark:text-sky-300' },
+  call_attempt:        { icon: PhoneMissed,   tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' },
   meeting_scheduled:   { icon: CalendarClock, tone: 'bg-purple-500/10 text-purple-700 dark:text-purple-300' },
   whatsapp_inbound:    { icon: MessageCircle, tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' },
   whatsapp_outbound:   { icon: MessageCircle, tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' },
@@ -151,6 +152,13 @@ export function ActivityItem({ activity }: ActivityItemProps) {
         }
         // legacy rows without direction metadata
         return duration ? t('titles.callWithDuration', { duration }) : defaultLabel;
+      }
+      case 'call_attempt': {
+        // No duration — an unanswered dial never connects.
+        const direction = metadataString(activity.metadata, 'direction');
+        if (direction === 'inbound') return t('titles.callAttemptInbound');
+        if (direction === 'outbound') return t('titles.callAttemptOutbound');
+        return defaultLabel;
       }
       default:
         return defaultLabel;
