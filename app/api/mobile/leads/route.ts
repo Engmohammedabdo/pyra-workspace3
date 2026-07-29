@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceRoleClient();
     const { data: call } = await supabase
       .from('pyra_agent_calls')
-      .select('id, phone_raw, phone_normalized, called_at, lead_id')
+      .select('id, phone_raw, phone_normalized, called_at, lead_id, direction, duration_seconds')
       .eq('agent_username', agentUsername)
       .eq('device_call_key', deviceCallKey)
       .maybeSingle();
@@ -157,7 +157,13 @@ export async function POST(request: NextRequest) {
       win_probability_overridden: false,
       created_by: agentUsername,
       is_converted: false,
-      last_contact_at: call.called_at,
+      // A dial nobody answered is not contact. This line previously stamped
+      // last_contact_at unconditionally, so a lead created from the
+      // unknown-number prompt after two unanswered dials was born looking
+      // "freshly contacted" — 41 real leads were mis-stamped this way between
+      // 2026-07-25 and 2026-07-29. The sync path was fixed earlier; this is
+      // the same rule, at the path the earlier fix missed.
+      last_contact_at: isConnectedCall(call) ? call.called_at : null,
     });
     if (insertErr) throw insertErr;
 
