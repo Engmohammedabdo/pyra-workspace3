@@ -135,4 +135,17 @@ class UpdatePolicyTest {
     @Test fun shouldShowBannerFalseWhenLatestOlder() {
         assertFalse(UpdatePolicy.shouldShowBanner(latestCode = 4, currentCode = 5))
     }
+
+    // --- Blocked-poll interval must stay far shorter than the standard 6h
+    // check (CA-C3) — locks the two constants apart so nobody "tidies" them
+    // into one value and silently regresses the fast-unblock fix. ---
+
+    @Test fun blockedPollIntervalIsMuchShorterThanStandardCheckInterval() {
+        // "Much shorter" = at least an order of magnitude — 60s vs. 6h is
+        // ~360x, comfortably clearing a 10x bar while still catching any
+        // accidental merge of the two constants.
+        assertTrue(
+            UpdatePolicy.BLOCKED_POLL_INTERVAL_MILLIS * 10 < UpdatePolicy.CHECK_INTERVAL_MILLIS
+        )
+    }
 }

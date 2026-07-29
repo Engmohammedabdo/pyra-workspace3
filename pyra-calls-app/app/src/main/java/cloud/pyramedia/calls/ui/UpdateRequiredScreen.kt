@@ -1,6 +1,7 @@
 package cloud.pyramedia.calls.ui
 
 import android.content.Intent
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,8 +21,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import cloud.pyramedia.calls.BuildConfig
 import cloud.pyramedia.calls.R
+import cloud.pyramedia.calls.core.UpdatePolicy
+import cloud.pyramedia.calls.data.ApiClient
+import cloud.pyramedia.calls.data.ApiResult
+import cloud.pyramedia.calls.data.AppPrefs
 import kotlinx.coroutines.delay
+
+private const val TAG = "UpdateRequiredScreen"
 
 /**
  * Full-screen, non-dismissable block for a MANDATORY release the installed
@@ -46,21 +54,77 @@ import kotlinx.coroutines.delay
  * `blocked` already goes live on ON_RESUME (see `rememberPendingUpdate` in
  * PermissionsScreen.kt), but a rep who leaves the phone sitting on THIS
  * screen — never backgrounding/foregrounding the app — would never trigger
- * that. The `LaunchedEffect` below polls [onRecheck] on a slow, cheap timer
- * (a local prefs read, no network) instead, so a release the owner
- * un-mandates or rolls back still un-blocks this rep on its own, with no
- * force-close needed.
+ * that.
+ *
+ * CA-C3 fix round 2 — round 1's poll only re-read [AppPrefs]' LOCAL cache,
+ * and that cache is only ever refreshed by SyncWorker's OWN
+ * `/api/mobile/app-version` poll, throttled to once per 6h
+ * ([UpdatePolicy.CHECK_INTERVAL_MILLIS]). So a rep parked on this exact
+ * screen could stay blocked for up to ~6h after the owner un-mandates or
+ * rolls back the release that put them here — a safety valve that slow is
+ * not a safety valve. The `LaunchedEffect` below now hits the server
+ * DIRECTLY via [ApiClient.appVersion] every
+ * [UpdatePolicy.BLOCKED_POLL_INTERVAL_MILLIS] (60s) instead, and writes
+ * whatever it finds into [AppPrefs] before calling [onRecheck] to refresh
+ * the live Compose state — this is the ONLY place in the app that bypasses
+ * the 6h throttle, and only while this screen is actually composed.
+ *
+ * Failure handling is deliberate: a network error (or non-2xx response)
+ * must NEVER clear the block — a rep offline in a basement must not slip
+ * past a genuine mandatory update just because one poll failed — so only
+ * the success branch below ever touches [AppPrefs]. Every other branch just
+ * logs and waits for the next tick; nothing here can crash or spam (at most
+ * one HTTP call per minute).
+ *
+ * The loop lives entirely inside this `@Composable`'s `LaunchedEffect(Unit)`,
+ * so structured concurrency does the rest: the moment `blocked` in
+ * MainActivity flips false (including as a direct result of THIS poll
+ * succeeding) or the app backgrounds far enough to tear down the
+ * composition, this screen leaves composition, its coroutine scope is
+ * cancelled, and the `while (true)` loop stops — there is no separate
+ * lifecycle to manage and nothing keeps polling once the screen is gone.
  */
 @Composable
-fun UpdateRequiredScreen(versionName: String, onRecheck: () -> Unit) {
+fun UpdateRequiredScreen(
+    versionName: String,
+    api: ApiClient,
+    prefs: AppPrefs,
+    onRecheck: () -> Unit,
+) {
     val context = LocalContext.current
 
     BackHandler { /* consumed — no escape short of updating */ }
 
     LaunchedEffect(Unit) {
         while (true) {
-            delay(60_000)
-            onRecheck()
+            delay(UpdatePolicy.BLOCKED_POLL_INTERVAL_MILLIS)
+            when (val res = api.appVersion()) {
+                is ApiResult.Ok -> {
+                    val latest = res.data.latest
+                    // Mirrors SyncWorker's own "Self-update check" mapping
+                    // byte-for-byte, so the two poll paths (the normal 6h one
+                    // and this fast blocked-only one) can never disagree on
+                    // what the pending-update cache should hold.
+                    if (latest != null &&
+                        UpdatePolicy.shouldShowBanner(latest.version_code, BuildConfig.VERSION_CODE)
+                    ) {
+                        prefs.pendingUpdateVersionCode = latest.version_code
+                        prefs.pendingUpdateVersionName = latest.version_name
+                        prefs.pendingUpdateMandatory = latest.is_mandatory
+                    } else {
+                        prefs.pendingUpdateVersionCode = 0
+                        prefs.pendingUpdateVersionName = null
+                        prefs.pendingUpdateMandatory = false
+                    }
+                    onRecheck()
+                }
+                // Deliberately NOT clearing/touching prefs here — see the
+                // failure-handling note in this function's doc comment above.
+                is ApiResult.Err ->
+                    Log.w(TAG, "blocked-poll app-version check failed: ${res.code} ${res.message}")
+                ApiResult.NetworkError ->
+                    Log.w(TAG, "blocked-poll app-version check: network error, will retry next tick")
+            }
         }
     }
 

@@ -6,13 +6,29 @@ package cloud.pyramedia.calls.core
  * two callers.
  */
 object UpdatePolicy {
-    private const val CHECK_INTERVAL_MILLIS = 6 * 60 * 60 * 1000L // 6h
+    // Kept `internal` (not private) so UpdatePolicyTest can compare it
+    // directly against BLOCKED_POLL_INTERVAL_MILLIS below (CA-C3) — a plain
+    // JUnit assertion that fails loudly if anyone ever "tidies" the two
+    // constants into one value.
+    internal const val CHECK_INTERVAL_MILLIS = 6 * 60 * 60 * 1000L // 6h
     private const val RENOTIFY_INTERVAL_MILLIS = 24 * 60 * 60 * 1000L // 24h
 
     // CA-C2 Step 4 — a mandatory release re-nags much sooner than a normal
     // one. Kept as a constant here (not inline in SyncWorker) so the choice
     // stays plain-JUnit testable alongside RENOTIFY_INTERVAL_MILLIS.
     private const val MANDATORY_RENOTIFY_INTERVAL_MILLIS = 60 * 60 * 1000L // 1h
+
+    // CA-C3 — the safety valve for a mistaken mandatory release
+    // (`pnpm app:publish --set-mandatory <code> false`) is only as fast as
+    // whatever re-reads the server. CHECK_INTERVAL_MILLIS above throttles
+    // SyncWorker's normal poll to once per 6h, which would leave a blocked
+    // rep stuck for up to ~6h even after the owner fixes the release.
+    // UpdateRequiredScreen uses THIS separate, much shorter interval for its
+    // own direct server poll while — and only while — it is actually
+    // blocking the screen. It must stay a distinct constant (never merged
+    // with CHECK_INTERVAL_MILLIS) so the normal, non-blocked poll cadence is
+    // completely untouched.
+    internal const val BLOCKED_POLL_INTERVAL_MILLIS = 60 * 1000L // 60s
 
     /** Throttles the `/api/mobile/app-version` poll to at most once per 6h. */
     fun shouldCheck(nowMillis: Long, lastCheckMillis: Long): Boolean =

@@ -116,6 +116,8 @@ class MainActivity : ComponentActivity() {
                             }
                             blocked -> UpdateRequiredScreen(
                                 versionName = pendingUpdate.value.versionName ?: BuildConfig.VERSION_NAME,
+                                api = api,
+                                prefs = prefs,
                                 onRecheck = pendingUpdate::refresh,
                             )
                             else -> {
