@@ -317,12 +317,15 @@ lib/production/report.ts     → computeProductivity() server aggregation (board
 lib/notifications/whatsapp.ts → sendWhatsAppToUser() — user-level WA: profile phone by default, agent_whatsapp_settings row as admin override
 lib/utils/notification-sound.ts → Web Audio chime + mute persistence (dashboard bell)
 hooks/useProductivity.ts     → useProductivityReport(month) + useMyProductivity()
-app/api/mobile/*             → Android call-tracking app (device x-api-key auth via getExternalAuth + 'calls:device'; login/calls/sync/leads/calls/ignore — see docs/CALL-TRACKING.md)
+app/api/mobile/*             → Android call-tracking app (device x-api-key auth via getExternalAuth + 'calls:device'; login/calls/sync/leads/calls/ignore/my-day/call-outcome/app-version/app-download/log-error/ping — see docs/CALL-TRACKING.md)
 app/api/crm/calls/report/    → Per-agent calls report (calls.view gate; scope 'own' unless crm_reports.team_view)
 app/dashboard/crm/calls/     → Calls report page (admin: all agents; sales agent: own)
-lib/calls/match.ts           → buildLeadPhoneIndex() + matchLeadByPhone() — phoneMatchKey-based lead matching for call sync
-lib/calls/report.ts          → computeCallsReport() — pure per-agent/per-day aggregation from pyra_agent_calls
+app/api/cron/error-digest/   → Daily admin digest of new/unresolved pyra_error_logs (silent on a clean day; Dubai-day dedup)
+lib/calls/match.ts           → buildLeadPhoneIndex() + matchLeadByPhone() + isConnectedCall() — the ONE contact predicate (see the calls locked decisions)
+lib/calls/report.ts          → computeCallsReport() — pure per-agent/per-day aggregation; answered-only average + answer_rate
+lib/utils/chunk.ts           → chunk() — batch unbounded .in() lists (150/batch) so PostgREST never 414s
 pyra_agent_calls / pyra_ignored_numbers → Call-tracking tables (migration 037; service-role-only, Gap #3 doctrine)
+pyra_app_releases            → Android release channel (migration 039 + 056 is_mandatory); publish via pnpm app:publish
 lib/production/deadlines.ts  → Dubai-zoned deadline parsing/comparison for pipeline tasks
 lib/production/quality.ts    → Rejection/review-round events derived from task activity (feeds the quality deduction tier)
 lib/production/attribution.ts → Who owns a task's first-review outcome (assignee snapshot at review time)
@@ -809,6 +812,7 @@ to forget once buried in an archive.
 | [CRM Audit Remediation](docs/decisions/crm.md#crm-audit-remediation-locked-decisions-2026-07-02) | Lead soft-archive; reopen keeps the client link; `is_converted IS NOT TRUE`; per-currency money |
 | [Admin Lead-Data Edit](docs/decisions/crm.md#crm-admin-lead-data-edit-full-activity-logging-locked-2026-07-03) | `leads.edit_core` is admin-only; diff-only PATCH; every changed field writes a timeline row |
 | [Pyra Pro Redesign](docs/decisions/crm.md#crm-pyra-pro-redesign-locked-decisions-2026-07-10) | Warm palette scoped via `.crm-theme`; **`font-mono` on Latin numerics ONLY — never Arabic** |
+| [Calls: contact semantics + update enforcement](docs/decisions/crm.md#calls-contact-semantics-update-enforcement-locked-2026-07-29) | `isConnectedCall()` is the ONE contact predicate; `call_attempt` is effort, never a touch — **4 recency consumers must exclude it**; answered-only metrics; `updates_v2` channel; `--mandatory` rules + the `--set-mandatory false` escape hatch; call sync never stops while blocked |
 
 ### Finance — [`docs/decisions/finance.md`](docs/decisions/finance.md)
 | Decision set | Governs |

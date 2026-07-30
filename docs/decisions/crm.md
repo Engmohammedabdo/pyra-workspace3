@@ -23,6 +23,7 @@ Pipeline, leads, customers, follow-ups, WhatsApp-adjacent CRM surfaces, and the 
 - [CRM Audit Remediation — Locked Decisions (2026-07-02)](#crm-audit-remediation-locked-decisions-2026-07-02)
 - [CRM — Admin Lead-Data Edit + Full Activity Logging (Locked, 2026-07-03)](#crm-admin-lead-data-edit-full-activity-logging-locked-2026-07-03)
 - [CRM "Pyra Pro" Redesign — Locked Decisions (2026-07-10)](#crm-pyra-pro-redesign-locked-decisions-2026-07-10)
+- [Calls — Contact Semantics + Update Enforcement (Locked, 2026-07-29)](#calls-contact-semantics-update-enforcement-locked-2026-07-29)
 
 ---
 
@@ -1803,3 +1804,102 @@ shadcn base: `bg-transparent`/`rounded-none`/`border-b-2` active). The shared
   to avoid summing across currencies.
 - Real "next step" free-text field + edit UI.
 - Real-RTL-device verification of the scroll-fade + entrance polish.
+
+---
+
+## Calls — Contact Semantics + Update Enforcement (Locked, 2026-07-29)
+
+Shipped to prod 2026-07-29/30 across three waves (urgent fixes → agent app →
+call attempts + update enforcement). Full operational runbook lives in
+`docs/CALL-TRACKING.md`; this section records only what must not be
+re-litigated. Origin: the reps reported "our calls don't show on the lead" —
+the investigation found the opposite defect underneath it (dials nobody
+answered were being recorded as real contact).
+
+### 1. `isConnectedCall()` is the ONE contact predicate
+`lib/calls/match.ts`:
+
+```ts
+direction !== 'missed' && duration_seconds > 0
+```
+
+A dial that rang out is **not** contact. Before this, the gate was
+`direction !== 'missed'` alone, duplicated in two routes: 257 fake
+`call_logged` rows and 164 poisoned `last_contact_at` values (backfilled
+2026-07-25; a further 41 from the quick-add path on 2026-07-29). **Never
+re-inline a direction check** — both mobile write paths
+(`app/api/mobile/calls/sync/route.ts`, `app/api/mobile/leads/route.ts`) import
+the predicate, and it is unit-tested in `__tests__/calls-connected-gate.test.ts`.
+
+### 2. `call_attempt` is visible effort, never a "touch"
+An unanswered dial on a **matched** lead writes an `activity_type='call_attempt'`
+row so the rep can see the work. It must never make a lead look contacted, so
+every "last touched" consumer excludes it:
+
+| Consumer | Site |
+|---|---|
+| Idle-lead cron | `app/api/cron/lead-idle-check/route.ts:163` |
+| Deals at risk | `app/api/crm/dashboard/deals-at-risk/route.ts:69` |
+| AI insights | `app/api/crm/dashboard/ai-insights/route.ts:124` |
+| Customer dossier (health recency) | `app/api/crm/customers/[lead_id]/dossier/route.ts:204` |
+
+**Adding a fifth recency consumer means adding the fifth
+`.neq('activity_type', 'call_attempt')`.** Verified live: a lead whose only
+fresh activity is an attempt is still selected as idle. `last_contact_at` moves
+only for connected calls, and the quick-add retro-link bump is forward-only.
+
+### 3. Attempt vs. answered must be distinguishable at a glance
+`call_attempt` renders **rose + `PhoneMissed`** in both the lead timeline
+(`components/crm/activity/activity-item.tsx`) and the dashboard feed
+(`components/crm/dashboard/dashboard-activity-feed.tsx`). Deliberately NOT
+amber (owned by `note`/`idle_warning`) and NOT sky/indigo (owned by
+`call_logged`) — the first build shipped it amber, i.e. indistinguishable from
+a note, which defeats the entire point of the type.
+
+### 4. Call metrics are answered-only
+`lib/calls/report.ts` counts `answered` with the same predicate, divides the
+average duration by `answered` (not by all non-missed dials), and reports
+`answer_rate = answered / (outgoing + incoming)`. The old all-dials average
+under-reported by ~36 % (47 s displayed vs 73 s true).
+
+### 5. Unbounded `.in('lead_id', ids)` is a production outage
+754 ids ≈ 13.5 KB of query string → PostgREST "URI too long"; it killed
+`lead-idle-check` silently for 11 days. Chunk through `lib/utils/chunk.ts`
+(150/batch). Bounded-by-headcount `.in()` calls are fine — the rule is about
+lists that grow with lead volume.
+
+### 6. Update enforcement — Android channel + blocking rules
+- The high-importance channel is **`updates_v2`**; the old `updates` channel is
+  deleted on upgrade. Android freezes a channel's importance at creation, so
+  raising it in place is a **silent no-op on every existing phone** — a new
+  channel id is the only way to change importance. Same trap applies to any
+  future importance change.
+- A persistent, non-dismissable Home banner shows for **any** newer release.
+  The full-screen `UpdateRequiredScreen` shows **only** for a release published
+  as mandatory.
+- The blocked branch sits **after** permissions + login, so a logged-out rep is
+  never trapped behind it.
+- **Call sync never stops while blocked** (owner's hard rule, E2E-proven: a
+  13 s call placed with the blocking screen up reached `pyra_agent_calls`).
+  `SyncWorker` / `SyncScheduler` / `PhoneStateReceiver` / `QuickAddActivity`
+  bypass MainActivity's composition entirely — keep it that way.
+
+### 7. `--mandatory` is per-release and always escapable
+- Set only at publish: `pnpm app:publish <apk> --app pyra-calls --mandatory`.
+  Never retroactive, never a default, rejected together with `--activate`
+  (a rollback re-activates that row's existing flag as-is).
+- **The one undo:** `pnpm app:publish --set-mandatory <code> false --app pyra-calls`
+  — PATCHes `is_mandatory` only, never `is_active`, no upload.
+- While blocked, the screen polls the **server** every 60 s, so the undo frees
+  the phone in ~60 s with no force-close and no reinstall (the 6 h throttle
+  applies only to the normal update path). A network error, 401, or malformed
+  response can **never** clear a block — only a real server answer can.
+- v1.5.0 was deliberately published **non-mandatory**: the block is reserved
+  for a release with a real reason. Habituating reps to it destroys its value.
+
+### 8. Publishing order and limits
+Deploy the server to `main` **first**, verify, then `pnpm app:publish` — a
+phone that self-updates ahead of the endpoints gets screens that 404. The prod
+channel refuses debuggable or wrong-package APKs, and the `pyra-private` bucket
+caps uploads at **10 MiB** (v1.5.0 signed release = 7.87 MB; the debug build was
+10.56 MB and could not be uploaded).

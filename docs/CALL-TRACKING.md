@@ -1220,14 +1220,16 @@ and refuses with a clear message if no such row exists. Re-running it with the
 value the row already has is a successful no-op. It is its own mode: rejected
 together with `--activate`, `--mandatory`, or an APK path.
 
-⚠️ **How fast it reaches a blocked phone.** The app only learns the flag
-changed on its next `/api/mobile/app-version` poll, and that poll is throttled
-to **once per 6 h** (`UpdatePolicy.shouldCheck`). Once the poll lands, the
-blocking screen clears itself within **≤60 s** with no force-close (measured
-15 s in the CA-C3 E2E). So worst case end-to-end is ~6 h, not instant — if a
-rep is blocked and needs the app *now*, un-mandate AND have them force-close
-and reopen the app (a cold start re-polls at once when the 6 h has elapsed);
-otherwise tell them it clears itself within the day.
+✅ **How fast it reaches a blocked phone: ~60 s** (fixed in `94032a8`, after
+the CA-C3 E2E showed the first implementation left a rep stuck for up to 6 h).
+While — and only while — `UpdateRequiredScreen` is actually blocking, it runs
+its **own direct `/api/mobile/app-version` poll every 60 s**
+(`UpdatePolicy.BLOCKED_POLL_INTERVAL_MILLIS`), bypassing SyncWorker's 6 h
+throttle (`CHECK_INTERVAL_MILLIS`, untouched for the normal path — a JUnit
+test asserts the two constants stay far apart). Measured 15 s to un-block in
+the E2E, 38 s end-to-end from running the escape hatch, with **no force-close
+and no reinstall**. Safety property: only a real server answer can clear a
+block — a network error, a 401, or a malformed response never does.
 
 **Rollback:** re-activate a previous release row (no re-upload):
 ```powershell
@@ -1243,6 +1245,49 @@ WITHOUT its block.
 `pyra-calls`. E2E test APKs are published ONLY to `pyra-calls-e2e` so the real
 fleet (which polls `pyra-calls`) can never see a test build. NEVER pass
 `--app pyra-calls` for a debug/test APK.
+
+### Release history — `pyra-calls` channel
+
+| Version | Code | Published | What shipped | Rollout |
+|---|---|---|---|---|
+| 1.0.0 | 1 | 2026-07-10 | First build — login, sync, unmatched-call quick-add, ignore | Hand-installed |
+| 1.1.x | — | 2026-07-11 | Heartbeat `/ping` + per-call table + silent-device cron | Hand-installed |
+| 1.2.0 | 2 | 2026-07-16 | Self-update, error reporting, logout fix | Superseded before rollout |
+| 1.2.1 | 3 | 2026-07-20 | Review fixes (publish guards, `future.get()`, fresh-install path) | Hand-installed, both phones |
+| 1.3.0 | 4 | 2026-07-20 | Lead **source** picker in quick-add | First self-serve fleet update |
+| 1.4.0 | 5 | — | Caller identity, «شغل النهاردة», outcome capture — **never published alone**, folded into 1.5.0 | — |
+| 1.5.0 | 6 | 2026-07-29 | Update banner + mandatory-block support (+ all of 1.4.0) | Self-serve; **whole fleet on 6 by 2026-07-30** |
+
+v1.5.0: SHA-256 `CD95E8325A0644A98DB35F6A155214BBC945FCA9BCD326B9C6E0C6AB73B864A3`,
+7.87 MB, published **`is_mandatory: false`** on purpose — the block is reserved
+for a release with a real reason.
+
+**Fleet state verified 2026-07-30:** both active device keys
+(`device:youssef:…`, `device:cosette:…`) report `app_version_code = 6` and are
+syncing; zero `pyra_error_logs` rows from `pyra-calls-app` since the release.
+
+### Post-deploy verification queries
+
+Run these after any calls-stack deploy or publish — they are the cheapest proof
+the chain is alive end to end:
+
+```sql
+-- fleet is on the release you just published
+SELECT name, app_version_code, last_used_at FROM pyra_api_keys
+WHERE app_version_code IS NOT NULL AND is_active = true ORDER BY last_used_at DESC;
+
+-- the app is not silently failing on the phones
+SELECT count(*) FROM pyra_error_logs
+WHERE created_at > now() - interval '24 hours';
+
+-- attempt visibility is producing rows on real traffic
+SELECT count(*), max(created_at) FROM pyra_lead_activities
+WHERE activity_type = 'call_attempt';
+
+-- the two cron watchdogs are still firing (idle sweep + error digest)
+SELECT type, count(*), max(created_at) FROM pyra_notifications
+WHERE type IN ('lead_idle_warning', 'system_error_digest') GROUP BY type;
+```
 
 ### Verified this task (2026-07-16 — v1.2 E2E + first production publish)
 
