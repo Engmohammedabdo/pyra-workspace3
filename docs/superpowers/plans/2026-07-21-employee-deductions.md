@@ -1,5 +1,12 @@
 # Employee Deductions and Exact Production Deadlines Implementation Plan
 
+> **HISTORICAL PLAN — COMPLETED AND SUPERSEDED. DO NOT EXECUTE.**
+>
+> The authoritative shipped-state handoff is `docs/EMPLOYEE-DEDUCTIONS-HANDOFF.md`.
+> Final owner overrides preserve day-based scoring for legacy tasks that have a
+> real `due_date`, keep attendance outside the 25% disciplinary cap, and allow
+> explicit current-month computed approval. Production migrations are 041–052.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add exact Dubai-time production deadlines and a transparent, derived employee-deductions workflow that never touches payroll until an admin explicitly approves a capped monthly case.
@@ -11,16 +18,16 @@
 ## Global Constraints
 
 - Delivery deduction percentages are exactly: minor `3%`, moderate `7%`, major `12%` of monthly salary.
-- Monthly attendance + delivery + explicitly approved quality deduction plus existing manual `source_type='deduction'` rows is capped at exactly `25%` of that employee's salary snapshot. Unpaid leave remains outside this disciplinary-deduction ceiling (owner-confirmed 2026-07-22).
+- Delivery + explicitly approved quality + manual disciplinary deductions are capped at exactly `25%` of that employee's salary snapshot. Attendance and unpaid leave remain outside this disciplinary-deduction ceiling (final owner override 2026-07-22).
 - A task whose exact `due_at - created_at` lead time is less than `24` hours is visible but excluded from the on-time-rate denominator. Exactly 24 hours remains eligible.
-- Quality is below band when monthly `avg_rounds > 2` OR outright-rejection rate is `>= 20%`; it becomes money-eligible only after `2` consecutive below-band months. The monthly cohort is the unique production tasks that received a native review decision in that month; the rejection numerator is the outright subset of that same cohort (owner-confirmed 2026-07-22).
+- Quality is below band when monthly `avg_rounds > 2` OR outright-rejection rate is `>= 20%`; it becomes money-eligible only after `2` consecutive below-band months. Average rounds remain derived from stage-history review entries across delivered tasks; native review decisions supply only explicit outright-rejection classification/rate.
 - Attendance tiers are: `<=15` late minutes free; `>15..60` quarter day; `>60..120` half day; `>120` or no-show full day. Daily rate is `salary / 30`.
 - Exact deadline comparison is `first_submitted_at <= due_at_snapshot`; equality is on time. Canonical wall time is `Asia/Dubai` (`+04:00`, no DST).
-- Existing production tasks with a day deadline received the migration-041 compatibility value `23:59:59.999 Asia/Dubai`; that value is explicitly unverified and excluded from delivery scoring. The identified historical task with no deadline remains null and unscored; no deadline is fabricated.
+- Existing production tasks with a day deadline received the migration-041 compatibility value `23:59:59.999 Asia/Dubai`; that value is explicitly unverified as an exact time, but a real `due_date` keeps legacy Dubai calendar-day scoring. The synthetic day-end instant is used only for the 24-hour lead-time test. A historical task with no deadline remains null and unscored.
 - New production tasks and every duplicated production task require a newly chosen date and time. A duplicate never inherits the source production deadline. Generic boards retain optional date-only behavior (owner-confirmed 2026-07-22).
 - A production deadline cannot be changed after the first review submission. The immutable snapshot, not a later task edit, drives metrics.
 - A production task that entered review cannot be hard-deleted, including through a parent board/project cascade; it must be archived so payroll evidence survives (owner-confirmed 2026-07-22).
-- Current-month employee data is an amber at-risk projection only. Approval is always an explicit admin action; whether approval is restricted to a closed month is an unresolved owner decision.
+- Current-month employee data is an amber at-risk projection until explicit Admin approval. Migration 050 and the approval route allow current-Dubai-month computed approval after trusted server recomputation; historical and future computed approval fail closed.
 - Quality never supplies a money amount automatically. After eligibility, the admin enters the amount and documented reason explicitly (owner-confirmed 2026-07-22).
 - Admin page/API gates use `hr.manage`; the employee read endpoint uses existing `payroll.view`, exact self scope, and legacy role `employee`. Sales-agent and client roles receive no deductions surface.
 - No new RBAC permission is introduced, so no live `pyra_roles` row update is required.
@@ -126,7 +133,7 @@ export interface ProductionTaskInput {
 }
 ```
 
-`buildTaskJourney()` uses the first review event's `due_at_snapshot`, otherwise the current task `due_at`, only when that instant is a verified exact deadline. An exemption flag or the migration-041 end-of-day sentinel makes `effective_due_at` null and records `unverified_legacy_deadline`; there is no scoring fallback. It exposes `effective_due_at`, `delivery_eligible`, `delivery_exclusion`, and review-entry timestamps. `summarizeEmployee()` uses native decisions whose decision timestamp falls inside the selected Dubai month: the denominator is unique tasks with an approve/reject decision, review rounds are all decisions in that cohort, and the numerator is unique tasks with an explicit outright rejection. Legacy activity rows never enter this cohort.
+`buildTaskJourney()` uses the first review event's `due_at_snapshot`, otherwise the current task `due_at`, when that instant is a verified exact deadline. An exemption flag or the migration-041 end-of-day sentinel makes `effective_due_at` null, but a real `due_date` supplies the final owner-approved Dubai calendar-day scoring fallback; its synthetic day-end instant is used only for the 24-hour lead-time test. It exposes `effective_due_at`, `delivery_eligible`, `delivery_exclusion`, and review-entry timestamps. `summarizeEmployee()` keeps review-round totals from stage-history review entries across delivered tasks. Native decisions whose decision timestamp falls inside the selected Dubai month supply the explicit reviewed-task cohort and outright-rejection numerator/rate; legacy activity strings never enter that rejection cohort.
 
 - [ ] **Step 5: Run GREEN tests and the full phase gate**
 

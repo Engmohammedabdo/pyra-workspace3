@@ -1,5 +1,12 @@
 # Productivity Visibility and Deduction Controls Implementation Plan
 
+> **HISTORICAL PLAN — COMPLETED AND SUPERSEDED. DO NOT EXECUTE.**
+>
+> Use `docs/EMPLOYEE-DEDUCTIONS-HANDOFF.md` for the shipped behavior. Final
+> implementation preserves Dubai day-based scoring for legacy tasks with a real
+> date, represents cancellation as payment status `rejected` plus audit fields,
+> and uses migrations 050 (current approval), 051 (cancellation), and 052 (lock order).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Restore Wael's truthful month-to-date productivity report for both Admin and employee views, then let HR explicitly apply and cancel deductions before payroll is approved or paid.
@@ -15,7 +22,7 @@
 - Attendance deductions are outside the 25% cap; delivery, quality, and other disciplinary deductions are inside it.
 - Quality remains warning-first and needs two consecutive below-band months before money can be approved.
 - No automatic payroll write. Admin approval is the only path to `source_type='deduction'`.
-- Admin uses `hr.manage`; employee data is server-enforced own-scope; Sales gets only inherited own-scope; Client gets nothing.
+- Admin uses `hr.manage`; employee data is server-enforced own-scope; Sales gets inherited own productivity but no deduction panel; Client gets nothing.
 - Components use React Query hooks with `fetchAPI`/`mutateAPI`, never raw `fetch()`.
 - Arabic and English keys remain in parity; RTL uses logical properties and light colors have dark variants.
 - Every implementation commit runs `pnpm run check`, `pnpm test -- --run`, and `pnpm build` before commit.
@@ -121,7 +128,7 @@ if (actor && currentAssignees.includes(actor) && isValidIsoInstant(input.current
 }
 ```
 
-Keep `LEGACY_UNVERIFIED` excluded; `legacy_actor_verified` flows through normal metrics. A sentinel/exempt deadline remains `unverified_legacy_deadline` and therefore never enters `on_time_pct`.
+Keep unverified employee attribution excluded; `legacy_actor_verified` flows through normal metrics. A sentinel/exempt task with a real `due_date` enters `on_time_pct` using the former Dubai calendar-day rule; the sentinel is used only for the 24-hour lead-time test and is never shown as an exact time.
 
 - [ ] **Step 4: Wire the report query**
 
@@ -154,7 +161,7 @@ git commit -m "fix: restore verified legacy productivity attribution"
 
 - [ ] **Step 1: Add a failing employee parity test**
 
-Render `MyProductivityCard` with one exact late task and one legacy deadline task. Assert the five headline values, open `Tasks & numbers (2)`, then assert both titles, Dubai deadline time, `Late on the same day`, and `Excluded · unverified legacy deadline`.
+Render `MyProductivityCard` with one exact late task and one legacy dated task. Assert the five headline values, open the task evidence, then assert both titles, the exact Dubai deadline/result, and the legacy calendar-day result without inventing a clock time.
 
 - [ ] **Step 2: Run the focused test and confirm RED**
 
@@ -222,7 +229,8 @@ Commit message: `feat: wire computed deduction approval`.
 ### Task 5: Add audited pre-payroll deduction cancellation
 
 **Files:**
-- Create: `supabase/migrations/050_cancel_employee_deductions.sql`
+- Create: `supabase/migrations/051_cancel_employee_deductions.sql`
+- Create: `supabase/migrations/052_fix_deduction_cancellation_lock_order.sql`
 - Create: `.superpowers/sdd/deduction-cancellation-schema-preflight.sql`
 - Create: `.superpowers/sdd/deduction-cancellation-postflight.sql`
 - Modify: `lib/constants/statuses.ts`
@@ -243,7 +251,7 @@ Commit message: `feat: wire computed deduction approval`.
 - Modify: `__tests__/my-deduction-risk-panel.test.tsx`
 
 **Interfaces:**
-- Produces: payment state `cancelled`; fields `cancelled_at timestamptz`, `cancelled_by varchar`, `cancellation_reason text`; RPC `pyra_cancel_employee_deduction(p_payment_id varchar, p_cancelled_by varchar, p_reason text)` returning `status`, `changed`, `payment_data`, `invalidated_payroll_id`.
+- Produces: payment state `rejected` plus `cancelled_at timestamptz`, `cancelled_by varchar`, and `cancellation_reason text`; RPC `pyra_cancel_employee_deduction(p_payment_id varchar, p_cancelled_by varchar, p_reason text)` returns `status`, `changed`, `payment_data`, and `run_data`.
 
 - [ ] **Step 1: Query the live schema before SQL authoring**
 
@@ -251,27 +259,29 @@ Use `information_schema.columns`, `pg_constraint`, `pg_get_constraintdef`, `pg_p
 
 - [ ] **Step 2: Write failing migration and route tests**
 
-Assert the RPC locks payment/run in stable order, accepts deductions only, blocks approved/paid runs, marks unlinked deductions cancelled, clears a draft/calculated run's items and payment links, resets the run to draft, and issues the private deduction-write capability before the guarded update.
+Assert the RPC observes the payment, locks a linked payroll run first, then locks and revalidates the payment; accepts deductions only; blocks approved/paid runs; marks unlinked deductions rejected with cancellation audit; clears a draft/calculated run's items and payment links; resets the run to draft; and issues the private deduction-write capability before the guarded update.
 
-- [ ] **Step 3: Implement migration 050**
+- [ ] **Step 3: Implement migrations 051 and 052**
 
-Alter the live status check idempotently to include `cancelled`; add the three audit fields with consistency checks; create the service-role-only atomic RPC; retain the migration 047 write guard; add double-commented DOWN notes.
+Keep the existing `rejected` status, add the three audit fields with consistency checks, create the service-role-only atomic RPC, retain the migration 047 write guard, then align the function with the canonical payroll-run-first lock order; add double-commented DOWN notes.
 
 - [ ] **Step 4: Implement API, hook, and UI**
 
-The route gates `hr.manage`, validates a non-empty reason up to 2000 characters, calls the RPC, maps known statuses, logs `${ENTITY_TYPES.DEDUCTION}_${ACTIVITY_ACTIONS.UPDATE}` with `details.source='employee_deduction_cancelled'`, and never directly updates a payment. The dialog requires confirmation and shows when payroll recalculation will be required. Employee transparency shows cancelled rows as cancelled and excludes them from at-risk/applied totals.
+The route gates `hr.manage`, validates a non-empty reason up to 2000 characters, calls the RPC, maps known statuses, logs `${ENTITY_TYPES.DEDUCTION}_${ACTIVITY_ACTIONS.REJECT}` with `details.source='employee_deduction_cancelled'`, and never directly updates a payment. The dialog requires confirmation and shows when payroll recalculation will be required. Employee transparency presents audited rejected rows as cancelled and excludes them from at-risk/applied totals.
 
 - [ ] **Step 5: Run focused tests and all gates**
 
 Run cancellation tests first, then the full global gates.
 
-- [ ] **Step 6: Apply, verify, and record migration 050**
+- [ ] **Step 6: Apply, verify, and record migrations 051 and 052**
 
 ```bash
 pnpm db:query .superpowers/sdd/deduction-cancellation-schema-preflight.sql
-pnpm db:query supabase/migrations/050_cancel_employee_deductions.sql
+pnpm db:query supabase/migrations/051_cancel_employee_deductions.sql
 pnpm db:query .superpowers/sdd/deduction-cancellation-postflight.sql
-pnpm db:record 050_cancel_employee_deductions --by=codex --notes="Audited pre-payroll deduction cancellation with forced recalculation"
+pnpm db:record 051_cancel_employee_deductions --by=elharm --notes="Audited pre-payroll deduction cancellation with forced recalculation"
+pnpm db:query supabase/migrations/052_fix_deduction_cancellation_lock_order.sql
+pnpm db:record 052_fix_deduction_cancellation_lock_order --by=elharm --notes="Canonical payroll-run-first cancellation lock order"
 ```
 
 - [ ] **Step 7: Commit**

@@ -63,6 +63,8 @@ Every feature in this system is seen by up to 4 different audiences.
 | Directory | ✅ All info | ✅ Contact info | ✅ Contact info | ✅ Contact info | ❌ | — | users, teams |
 | Announcements | Create + target | ✅ Read | ✅ Read | ✅ Read | ❌ | Priority + targeting | users (audience) |
 | My Tasks | View all tasks | ✅ Own tasks only | ✅ Own tasks only | ❌ | ❌ | — | boards, assignees |
+| Production Productivity | ✅ All employees + trends/export (`hr.view`) | ✅ Own only | ✅ Own only | ✅ Own only | ❌ | Admin report | production tasks, stage history, review decisions, attendance summary, deductions |
+| Employee Deductions | ✅ Review + approve + cancel (`hr.manage`) | ❌ | ✅ Own projection/evidence | ❌ | ❌ | Deduction review | attendance, productivity, employee payments, payroll |
 | Content Pipeline | Manage all | ❌ | ❌ | ❌ | ❌ | — | projects, stages |
 
 ### Finance

@@ -646,6 +646,11 @@ Table `pyra_business_entities` — select trade license per invoice/quote. Entit
 
 ## Employee Deductions (SHIPPED 2026-07-22 — read before touching payroll money)
 
+The full continuation guide is `docs/EMPLOYEE-DEDUCTIONS-HANDOFF.md` — read it
+before changing attendance deductions, delivery scoring, production deadlines,
+quality warnings, approval, cancellation, or payroll integration. Plans under
+`docs/superpowers/` are implementation history and do not override it.
+
 Deductions are a **separate detect → admin-approve pipeline**, NOT part of the
 payroll calculation. This is the reconciliation of two rules that otherwise look
 contradictory:
@@ -764,6 +769,7 @@ Production URL: `https://workspace.pyramedia.cloud`
 | `docs/SYSTEM-STRUCTURE.md` | Complete 94-page reference with all tables and integrations |
 | `docs/FEATURE-IMPACT-MAP.md` | What connects to what — READ BEFORE any new feature |
 | `docs/EMPLOYEE-SYSTEM.md` | HR modules (14 modules, attendance→payroll chain) |
+| `docs/EMPLOYEE-DEDUCTIONS-HANDOFF.md` | Built deductions + productivity rules, data flow, migrations, APIs, production handoff |
 | `docs/ARCHITECTURE.md` | System architecture, backup-rollback pattern |
 | `docs/CLIENT-MANAGEMENT.md` | Client system, portal branding |
 | `docs/MIGRATIONS.md` | Migration runbook, backup/record/drift workflow, n8n cron setup |

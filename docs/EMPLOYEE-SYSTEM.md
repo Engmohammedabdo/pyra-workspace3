@@ -3,6 +3,11 @@
 > Documentation for the Employee System added to Pyra Workspace 3.0
 > Date: 2026-03-04
 
+> **2026-07-22 extension:** exact production productivity and the
+> detect→Admin-approve employee-deductions workflow are documented in
+> `docs/EMPLOYEE-DEDUCTIONS-HANDOFF.md`. That handoff is authoritative for the
+> newer metrics, approval, cancellation, and payroll guardrails.
+
 ---
 
 ## Overview
@@ -14,6 +19,8 @@ The Employee System transforms Pyra Workspace from an admin-only tool into a ful
 | Module | Page | Audience | Description |
 |--------|------|----------|-------------|
 | HR Overview | `/dashboard/hr` | Admin only | Headcount, attendance rate, leave liability, payroll trend, evaluations, alerts, celebrations |
+| Production Productivity | `/dashboard/hr/productivity` plus employee dashboard/My Tasks | Admin all; internal users own only | Exact/legacy-compatible deadlines, on-time rate, review rounds, rejection evidence, task drill-down |
+| Employee Deductions | `/dashboard/hr/deductions` plus employee My Payslips | Admin approval; employee own transparency | Attendance/delivery/quality projection, explicit approval, cap enforcement, audited cancellation |
 | Profile | `/dashboard/profile` | All employees | Personal info, avatar, password, permissions view |
 | My Tasks | `/dashboard/my-tasks` | All employees | All tasks assigned to the current user |
 | Timesheet | `/dashboard/timesheet` | All employees | Time tracking with approval workflow |

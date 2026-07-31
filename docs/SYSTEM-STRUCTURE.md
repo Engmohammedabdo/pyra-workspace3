@@ -129,7 +129,9 @@ Pyra Workspace هو نظام **ERP + CRM** متكامل مبني على Next.js 
 | **الحضور** | `/dashboard/attendance` | تسجيل دخول/خروج • موقع جغرافي + IP • تقويم شهري • إحصائيات | `pyra_attendance` |
 | **الإجازات** | `/dashboard/leave` | طلب إجازة • أرصدة (سنوية/مرضية/شخصية) • سير عمل موافقة • أنواع ديناميكية | `pyra_leave_requests`, `pyra_leave_balances_v2`, `pyra_leave_types` |
 | **إعدادات الإجازات** | `/dashboard/leave/settings` | إدارة أنواع الإجازات • أيام افتراضية • ترحيل • مرفقات مطلوبة • مدفوعة/غير مدفوعة | `pyra_leave_types` |
-| **كشف راتبي** | `/dashboard/my-payslips` | عرض كشوف الرواتب الشخصية • تفاصيل (أساسي + إضافي - خصومات = صافي) | `pyra_payroll_items`, `pyra_payroll_runs` |
+| **تقرير الإنتاجية** | `/dashboard/hr/productivity` | تقرير شهري لكل موظف • الالتزام بالمواعيد • جولات المراجعة • أدلة المهام • Trends وتصدير | `pyra_tasks`, `pyra_task_stage_history`, `pyra_task_review_decisions` |
+| **مراجعة الخصومات** | `/dashboard/hr/deductions` | تقدير شهري مشتق • أدلة حضور وتسليم وجودة • اعتماد صريح • خصم يدوي موثق • إلغاء آمن قبل إقفال الراتب | `pyra_deduction_cases`, `pyra_manual_deductions`, `pyra_employee_payments` |
+| **كشف راتبي** | `/dashboard/my-payslips` | عرض كشوف الرواتب الشخصية • تفاصيل (أساسي + إضافي - خصومات = صافي) • لوحة «معرّض للخصم» للموظف فقط | `pyra_payroll_items`, `pyra_payroll_runs`, `pyra_employee_payments` |
 | **دليل الفريق** | `/dashboard/directory` | بطاقات الموظفين • بحث وفلتر • معلومات الاتصال • الحالة | `pyra_users`, `pyra_roles` |
 | **الإعلانات** | `/dashboard/announcements` | إعلانات الشركة • أولويات (عادي/مهم/عاجل) • استهداف حسب الدور • تتبع القراءة | `pyra_announcements`, `pyra_announcement_reads` |
 | **الهيكل التنظيمي** | `/dashboard/org-chart` | شجرة تنظيمية تفاعلية • تبعيات الإدارة | `pyra_users`, `pyra_teams` |
@@ -142,6 +144,7 @@ Pyra Workspace هو نظام **ERP + CRM** متكامل مبني على Next.js 
 - **رواتب → مصاريف**: عند اعتماد الرواتب تُنشأ مصاريف بتصنيف `ec_salaries`
 - **تقييم → مكافأة**: اقتراح مكافأة تلقائي (rating ≥ 4.0 → 10%, ≥ 4.5 → 15%)
 - **حضور → تقارير**: إحصائيات شهرية (حاضر/غائب/متأخر)
+- **حضور + إنتاجية → مراجعة الخصومات**: كشف وتقدير فقط؛ لا يصل للراتب إلا بعد اعتماد Admin صريح ينشئ صف `source_type='deduction'`
 
 ---
 
@@ -160,7 +163,7 @@ Pyra Workspace هو نظام **ERP + CRM** متكامل مبني على Next.js 
 | **أوامر الشراء** | `/dashboard/finance/purchase-orders` | PO كامل • بنود • حالات (مسودة→مرسل→مستلم→مفوتر) • تحويل لمصروف عند الاستلام | `pyra_purchase_orders`, `pyra_purchase_order_items` |
 | **التقارير المالية** | `/dashboard/finance/reports` | P&L (ربح وخسارة) • VAT • Aging • Cashflow • ربحية العملاء • ربحية المشاريع | `pyra_invoices`, `pyra_expenses`, `pyra_payments` |
 | **أهداف الإيرادات** | `/dashboard/finance/targets` | أهداف شهرية/ربعية/سنوية • مقارنة بالفعلي • نسبة الإنجاز | `pyra_revenue_targets` |
-| **الرواتب** | `/dashboard/payroll` | دورات رواتب شهرية • حساب تلقائي (أساسي + أوفرتايم + مكافآت + عمولات - خصومات) • اعتماد → صرف • تاب المدفوعات (إضافة عمولة/مهمة/مكافأة/خصم مباشرة) | `pyra_payroll_runs`, `pyra_payroll_items`, `pyra_employee_payments` |
+| **الرواتب** | `/dashboard/payroll` | دورات رواتب شهرية • حساب تلقائي (أساسي + أوفرتايم + مكافآت + عمولات - خصومات معتمدة) • اعتماد → صرف • تاب المدفوعات يضيف عمولة/مهمة/مكافأة؛ الخصومات من شاشة المراجعة فقط | `pyra_payroll_runs`, `pyra_payroll_items`, `pyra_employee_payments` |
 
 #### ← روابط التكامل:
 - **رواتب معتمدة → مصاريف**: إنشاء تلقائي بتصنيف `ec_salaries`
@@ -490,6 +493,8 @@ pyra_payroll_runs.id
 | `announcements` | `.view`, `.manage` |
 | `leave` | `.view`, `.manage`, `.approve` |
 | `attendance` | `.view`, `.manage` |
+| `hr` | `.view`, `.manage` |
+| `productivity` | `.view` |
 | `payroll` | `.view`, `.manage` |
 | `evaluations` | `.view`, `.manage` |
 | `overtime` | `.view`, `.manage` |

@@ -142,6 +142,15 @@ authenticated DML on the protected production tables. It is applied only after
 every affected writer uses gate-then-service-role. Legacy assignee snapshots are
 never backfilled.
 
+Migration `045_production_evidence_clock.sql` redefines the protected transition
+writers so financial/productivity timestamps come from the database clock and
+their compare-and-swap timestamps remain monotonic. Migration
+`046_atomic_payroll_integrity.sql` adds atomic payroll mutation boundaries,
+manual deduction evidence, salary/currency/cap revalidation, and attendance-cap
+exemption accounting. Migration `047_harden_deduction_writes.sql` installs the
+private one-shot capability guard so deduction payment DML can occur only inside
+approved atomic functions.
+
 Migration `048_attendance_tracking_start.sql` adds nullable
 `pyra_users.attendance_tracking_started_on` plus
 `attendance_tracking_start_source` (`observed` or `admin`). The pair stays
@@ -150,6 +159,15 @@ hire date, current schedule, or deployment date. Existing rows are backfilled
 only from the earliest attendance record at or after a documented hire date.
 New attendance inserts maintain the observed minimum, while an explicit
 admin-attested start is preserved.
+
+Migration `049_correct_wael_task_deadlines.sql` records the owner-supplied 18:00
+Dubai deadlines for the two identified July tasks. Migration
+`050_enable_current_month_computed_deduction_approval.sql` permits explicit
+current-month computed approval after trusted server recomputation. Migration
+`051_cancel_employee_deductions.sql` adds audited soft cancellation and draft
+payroll invalidation; migration
+`052_fix_deduction_cancellation_lock_order.sql` locks the payroll run before the
+payment and revalidates the payment to close the cancellation race.
 
 ### Employee Documents Vault (021_pyra_employee_documents.sql)
 
@@ -964,6 +982,14 @@ without a date remains null. `due_date` stays as the date-only compatibility
 field, and migration 041 intentionally adds no production `NOT NULL`/`CHECK`
 before the exact-deadline API is deployed.
 
+**Final legacy scoring rule (owner override, 2026-07-22):** an exempt/sentinel
+task that still has a real `due_date` remains eligible under the former Dubai
+calendar-day contract. Its first review submission is on time when its Dubai
+day is on or before `due_date`. The derived day-end instant is used only for the
+24-hour lead-time exclusion and is never exposed as an exact employee deadline.
+An exempt legacy task with no date remains visible and unscored. Verified exact
+deadlines continue to use instant comparison (`first_submitted_at <= due_at`).
+
 The application writer accepts a production deadline only as a Dubai-local
 `due_date` plus `due_time`, derives `due_at` on the server, and ignores any
 client-supplied timestamp. Migration 042 persists the first-review lock
@@ -1151,6 +1177,12 @@ function is the only application write boundary. A validation trigger matches
 each new row to its exact history/activity/comment evidence. The application
 report filters by the production board and verifies the same immutable history
 link before aggregation.
+
+This table supplies explicit `revision`/`outright` classification and the
+outright-rejection rate only. Monthly `avg_rounds` and `review_rounds_total`
+continue to come from review-entry rows in `pyra_task_stage_history` across the
+month's delivered tasks. Do not replace historical round counts with the newer
+decision-row count.
 
 **Retention**: after any production task first enters a review column, database
 triggers reject hard deletion of that task and reject parent board/project
@@ -2198,10 +2230,13 @@ Migration `046_atomic_payroll_integrity.sql` serializes computed and manual
 approvals per employee/effective month, counts only each approved or paid
 payment's amount **after subtracting its documented attendance exemption**
 toward the 25% ceiling, and snapshots the prior and remaining cap. Attendance
-and unpaid leave stay outside this disciplinary ceiling. Future Dubai months,
-the still-mutable current Dubai month, non-employee targets, ambiguous legacy
-months, cross-currency month conflicts, and approved/paid payroll periods fail
-closed for computed approval.
+and unpaid leave stay outside this disciplinary ceiling. Migration
+`050_enable_current_month_computed_deduction_approval.sql` then allows explicit
+computed approval for the current Dubai month only: the API rebuilds trusted
+evidence at the approval instant and the RPC rechecks salary, currency, cap,
+idempotency, and payroll state. Future months, historical computed approval,
+non-employee targets, ambiguous legacy months, cross-currency month conflicts,
+and approved/paid payroll periods fail closed.
 
 ---
 
