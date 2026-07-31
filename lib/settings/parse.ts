@@ -48,6 +48,24 @@ export function parseSettingObject<T = Record<string, unknown>>(value: unknown):
 }
 
 /**
+ * Parse a settings value that is expected to hold a number.
+ *
+ * Returns `fallback` for absent, blank, non-numeric or non-finite values — never
+ * NaN, which would silently poison any arithmetic downstream.
+ */
+export function parseSettingNumber(value: unknown, fallback: number): number {
+  if (value == null) return fallback;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : fallback;
+  if (typeof value !== 'string') return fallback;
+
+  const trimmed = value.trim();
+  if (!trimmed) return fallback;
+
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+/**
  * Parse a settings value that is expected to hold a boolean.
  *
  * Accepts a real boolean, the strings "true"/"false", and a JSON object of the
