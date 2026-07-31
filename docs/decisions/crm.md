@@ -1848,6 +1848,35 @@ every "last touched" consumer excludes it:
 fresh activity is an attempt is still selected as idle. `last_contact_at` moves
 only for connected calls, and the quick-add retro-link bump is forward-only.
 
+### 2b. The ignore list beats the lead match — order is load-bearing
+`app/api/mobile/calls/sync/route.ts` classifies a call as ignored **before** it
+looks for a lead, and an ignored call carries `lead = null`:
+
+```ts
+const isIgnored = ignoredSet.has(normalized);
+const lead = isIgnored ? null : matchLeadByPhone(index, call.phone);
+const matchStatus = isIgnored ? 'ignored' : lead ? 'matched' : 'unmatched';
+```
+
+The original order (`lead ? 'matched' : ignored…`) made the ignore list
+unreachable whenever a lead happened to carry that number — and the owner's own
+two lines **were** saved as leads ("boss", "mohamed abdou"), so 24 internal
+calls between him and his team were filed as customer contact with 19 timeline
+rows (cleaned 2026-07-31, snapshots in `backups/own-numbers-*.json`). Ignoring
+first also means an ignored call writes no activity and never moves
+`last_contact_at`, even if someone re-creates a lead on that number later.
+
+Two supporting rules:
+- **`agent_username = '*'` is a fleet-wide ignore** (company lines, owner
+  mobile) — the sync route reads `.in('agent_username', [agentUsername, '*'])`,
+  same wildcard convention as the cron scopes, so a newly provisioned agent
+  inherits them on day one instead of needing per-agent rows.
+- **Quick-add's `retroLinkCalls()` excludes `match_status='ignored'`** — without
+  it, creating a lead on an ignored number would pull every internal call onto
+  the new card.
+- **`computeCallsReport` counts an ignored call in `ignored` and nothing else**
+  — not the workload, day chart, answer rate, or average.
+
 ### 3. Attempt vs. answered must be distinguishable at a glance
 `call_attempt` renders **rose + `PhoneMissed`** in both the lead timeline
 (`components/crm/activity/activity-item.tsx`) and the dashboard feed
