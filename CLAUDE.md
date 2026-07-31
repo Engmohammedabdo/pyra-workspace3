@@ -59,7 +59,6 @@ import { useContracts } from '@/hooks/useContracts';
 import { useRecurring } from '@/hooks/useRecurring';
 import { useCreditNotes } from '@/hooks/useCreditNotes';
 import { usePurchaseOrders } from '@/hooks/usePurchaseOrders';
-import { useSubscriptions } from '@/hooks/useSubscriptions';
 import { useSuppliers } from '@/hooks/useSuppliers';
 import { useLeave } from '@/hooks/useLeave';
 import { useAttendance } from '@/hooks/useAttendance';
