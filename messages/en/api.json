@@ -238,7 +238,9 @@
       "quickPayInvalidCurrency": "That currency is not supported by the quick payment link",
       "quickPayInvalidEmail": "The email address format is invalid",
       "quickPayInvalidDescription": "The description is too long (500 characters max)",
-      "quickPayInvalidSurcharge": "The card fee rate must be between 0 and {max}%"
+      "quickPayInvalidSurcharge": "The card fee rate must be between 0 and {max}%",
+      "quickPayLeadNotFound": "That lead no longer exists",
+      "quickPayClientNotFound": "That client no longer exists"
     },
     "invoices": {
       "notFound": "Invoice not found",

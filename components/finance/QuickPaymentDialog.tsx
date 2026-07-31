@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { toast } from 'sonner';
 import {
-  Zap, Copy, Loader2, ExternalLink, MessageCircle, ChevronDown, CheckCircle2,
+  Zap, Copy, Loader2, ExternalLink, MessageCircle, ChevronDown, CheckCircle2, UserCheck,
 } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -19,10 +19,14 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { fetchAPI, ApiError } from '@/hooks/api-helpers';
-import { useQuickPaymentLink, type QuickPaymentLinkResult } from '@/hooks/useInvoices';
+import {
+  useQuickPaymentLink, useQuickPaymentMatch, type QuickPaymentLinkResult,
+} from '@/hooks/useInvoices';
 import { calcSurcharge } from '@/lib/stripe/surcharge';
+import { isMatchablePhone } from '@/lib/finance/quick-payment-match';
 import { whatsAppHref } from '@/lib/utils/whatsapp';
-import { formatCurrency } from '@/lib/utils/format';
+import { formatCurrency, formatDate } from '@/lib/utils/format';
+import type { Locale } from '@/lib/i18n/config';
 
 interface QuickPaymentDefaults {
   surcharge_percent: number;
@@ -48,6 +52,7 @@ export function QuickPaymentDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const t = useTranslations('finance.invoices.quickPay');
+  const locale = useLocale() as Locale;
   const mutation = useQuickPaymentLink();
 
   const defaultsQuery = useQuery<QuickPaymentDefaults>({
@@ -69,6 +74,34 @@ export function QuickPaymentDialog({
   const [showMore, setShowMore] = useState(false);
   const [result, setResult] = useState<QuickPaymentLinkResult | null>(null);
 
+  // ── Phone match ──
+  // Debounced so the lookup fires on a settled number, not per keystroke.
+  const [debouncedPhone, setDebouncedPhone] = useState('');
+  // The operator's explicit "no, different person" — the match is offered by
+  // default (they typed the number to find them) but never forced.
+  const [rejectedMatch, setRejectedMatch] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedPhone(phone.trim()), 500);
+    return () => clearTimeout(timer);
+  }, [phone]);
+
+  const matchQuery = useQuickPaymentMatch(
+    debouncedPhone,
+    open && !result && isMatchablePhone(debouncedPhone),
+  );
+  const match = matchQuery.data;
+
+  // A new number is a new question — an earlier "not them" must not silently
+  // suppress the match for whoever is standing at the counter now.
+  useEffect(() => { setRejectedMatch(false); }, [debouncedPhone]);
+
+  // A matched lead wins over a matched client: it resolves to the same customer
+  // when the lead already has one, and carries the CRM link when it does not.
+  const activeLead = !rejectedMatch ? match?.lead ?? null : null;
+  const activeClient = !rejectedMatch && !activeLead ? match?.client ?? null : null;
+  const hasActiveMatch = !!(activeLead || activeClient);
+
   // Fresh form every time the dialog opens. Without this, the previous
   // walk-in's name and amount are pre-filled for the next one — the exact way
   // a wrong amount gets charged to the wrong person.
@@ -82,6 +115,8 @@ export function QuickPaymentDialog({
     setPhone('');
     setShowMore(false);
     setResult(null);
+    setDebouncedPhone('');
+    setRejectedMatch(false);
     mutation.reset();
     // `mutation` is recreated each render by useMutation; depending on it here
     // would re-run this effect constantly and wipe the form as the user types.
@@ -112,8 +147,11 @@ export function QuickPaymentDialog({
     surchargeInput !== '' &&
     (!Number.isFinite(parsedSurcharge) || parsedSurcharge < 0 || parsedSurcharge > maxSurcharge);
 
+  // A matched customer supplies the name, so the field stops being required
+  // once one is accepted — the operator should not have to retype a name the
+  // system just showed them.
   const canSubmit =
-    !!name.trim() &&
+    (!!name.trim() || hasActiveMatch) &&
     Number.isFinite(parsedAmount) &&
     parsedAmount > 0 &&
     !surchargeOutOfRange &&
@@ -123,7 +161,10 @@ export function QuickPaymentDialog({
     if (!canSubmit) return;
     try {
       const res = await mutation.mutateAsync({
-        name: name.trim(),
+        // The matched customer's own name is the better label, and the server
+        // overrides it with their stored details anyway — but `name` is
+        // required by the API, so fall back to it rather than sending blank.
+        name: name.trim() || activeLead?.name || activeClient?.name || '',
         amount: parsedAmount,
         currency: currency || undefined,
         description: description.trim() || undefined,
@@ -135,6 +176,11 @@ export function QuickPaymentDialog({
         // the configured default and charge a fee the operator was shown as
         // zero. Preview and charge must be the same number by construction.
         surcharge_percent: Number.isFinite(parsedSurcharge) ? parsedSurcharge : 0,
+        // Only ever an id the operator was shown and did not reject. The server
+        // re-verifies both, so a stale id here fails loudly rather than
+        // attaching the payment to the wrong account.
+        lead_id: activeLead?.id,
+        client_id: activeClient?.id,
       });
       setResult(res);
       toast.success(t('createdToast', { invoiceNumber: res.invoice_number }));
@@ -188,6 +234,18 @@ export function QuickPaymentDialog({
               </span>
             </div>
 
+            {result.lead_linked && (
+              <p className="text-xs text-muted-foreground">{t('resultLeadLinked')}</p>
+            )}
+            {!result.client_created && !result.lead_linked && (
+              <p className="text-xs text-muted-foreground">{t('resultClientReused')}</p>
+            )}
+            {result.lead_link_skipped === 'no_permission' && (
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                {t('resultLeadLinkSkipped')}
+              </p>
+            )}
+
             <div className="space-y-1.5">
               <Label htmlFor="quickpay-url">{t('urlLabel')}</Label>
               <div className="flex items-center gap-2">
@@ -236,15 +294,90 @@ export function QuickPaymentDialog({
         ) : (
           /* ── Phase 1: the form ── */
           <div className="space-y-4">
+            {/* Phone first, deliberately: typing it is what tells us whether
+                this person is already a lead or a customer, and the answer
+                changes what the rest of the form needs. */}
             <div className="space-y-1.5">
-              <Label htmlFor="quickpay-name">{t('nameLabel')}</Label>
+              <Label htmlFor="quickpay-phone">{t('phoneLabel')}</Label>
+              <Input
+                id="quickpay-phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder={t('phonePlaceholder')}
+                dir="ltr"
+                autoFocus
+              />
+              {!hasActiveMatch && !matchQuery.isFetching && (
+                <p className="text-xs text-muted-foreground">{t('phoneHint')}</p>
+              )}
+            </div>
+
+            {matchQuery.isFetching && (
+              <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                {t('matchSearching')}
+              </p>
+            )}
+
+            {hasActiveMatch && (
+              <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm dark:border-blue-800/40 dark:bg-blue-950/30">
+                <UserCheck
+                  className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400"
+                  aria-hidden="true"
+                />
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="font-medium text-blue-900 dark:text-blue-200">
+                    {activeLead
+                      ? t('matchLeadTitle', { name: activeLead.name })
+                      : t('matchClientTitle', { name: activeClient?.name ?? '' })}
+                  </p>
+                  <p className="text-xs text-blue-800/80 dark:text-blue-300/80">
+                    {activeLead
+                      ? activeLead.client_id
+                        ? t('matchLeadHasClient')
+                        : t('matchLeadWillLink', {
+                            stage: activeLead.stage ?? '—',
+                            date: formatDate(activeLead.created_at, undefined, locale),
+                          })
+                      : t('matchClientBody')}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setRejectedMatch(true)}
+                    className="text-xs underline underline-offset-2 opacity-70 hover:opacity-100"
+                  >
+                    {t('matchReject')}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {rejectedMatch && match?.matched && (
+              <p className="text-xs text-muted-foreground">
+                {t('matchRejected')}{' '}
+                <button
+                  type="button"
+                  onClick={() => setRejectedMatch(false)}
+                  className="underline underline-offset-2"
+                >
+                  {t('matchUndo')}
+                </button>
+              </p>
+            )}
+
+            <div className="space-y-1.5">
+              <Label htmlFor="quickpay-name">
+                {hasActiveMatch ? t('nameLabelOptional') : t('nameLabel')}
+              </Label>
               <Input
                 id="quickpay-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder={t('namePlaceholder')}
+                placeholder={
+                  activeLead?.name ?? activeClient?.name ?? t('namePlaceholder')
+                }
                 maxLength={200}
-                autoFocus
               />
             </div>
 
@@ -356,17 +489,6 @@ export function QuickPaymentDialog({
                     dir="ltr"
                   />
                   <p className="text-xs text-muted-foreground">{t('emailHint')}</p>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="quickpay-phone">{t('phoneLabel')}</Label>
-                  <Input
-                    id="quickpay-phone"
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    dir="ltr"
-                  />
-                  <p className="text-xs text-muted-foreground">{t('phoneHint')}</p>
                 </div>
               </div>
             )}

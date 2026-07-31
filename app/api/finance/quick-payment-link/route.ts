@@ -3,7 +3,11 @@ import { getTranslations } from 'next-intl/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type Stripe from 'stripe';
 import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
-import { apiSuccess, apiError, apiValidationError, apiServerError } from '@/lib/api/response';
+import {
+  apiSuccess, apiError, apiForbidden, apiValidationError, apiServerError,
+} from '@/lib/api/response';
+import { hasPermission } from '@/lib/auth/rbac';
+import { canAccessLead } from '@/lib/auth/lead-scope';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { generateNextInvoiceNumber } from '@/lib/utils/invoice-number';
@@ -18,7 +22,7 @@ import {
 } from '@/lib/finance/quick-payment';
 import { INVOICE_STATUS } from '@/lib/constants/statuses';
 import { dubaiDayKey } from '@/lib/utils/format';
-import { logActivity } from '@/lib/api/activity';
+import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 import { logError } from '@/lib/observability/log-error';
 import { checkRateLimit, apiWriteLimiter } from '@/lib/utils/rate-limit';
 
@@ -118,6 +122,12 @@ type Created = {
   clientId: string | null;
   invoiceId: string | null;
   linkId: string | null;
+  /**
+   * Only set when this request wrote `client_id` onto a lead that had none.
+   * A lead that was ALREADY linked is never unlinked — undoing someone else's
+   * link would be a silent CRM regression, not a rollback.
+   */
+  linkedLeadId: string | null;
 };
 
 /**
@@ -138,6 +148,16 @@ async function rollback(
 ): Promise<void> {
   const failures: string[] = [];
 
+  // Undone FIRST: it points at a client row this same rollback is about to
+  // delete, so leaving it would dangle a lead at a customer that no longer
+  // exists — and pyra_sales_leads.client_id has no FK to catch that.
+  if (created.linkedLeadId) {
+    const { error } = await supabase
+      .from('pyra_sales_leads')
+      .update({ client_id: null })
+      .eq('id', created.linkedLeadId);
+    if (error) failures.push(`lead link ${created.linkedLeadId}: ${error.message}`);
+  }
   if (created.linkId) {
     const { error } = await supabase.from('pyra_document_links').delete().eq('id', created.linkId);
     if (error) failures.push(`link ${created.linkId}: ${error.message}`);
@@ -167,7 +187,9 @@ export async function POST(request: NextRequest) {
   // — a Stripe timeout, a thrown Supabase client init — is just as capable of
   // stranding a half-built invoice as a checked `{ error }` is, and the catch
   // is the only place that sees it.
-  const created: Created = { clientId: null, invoiceId: null, linkId: null };
+  const created: Created = {
+    clientId: null, invoiceId: null, linkId: null, linkedLeadId: null,
+  };
   const supabase = createServiceRoleClient();
 
   try {
@@ -220,32 +242,113 @@ export async function POST(request: NextRequest) {
     const { surcharge, gross } = calcSurcharge(input.amount, surchargePercent);
 
     // ── 1. Client ────────────────────────────────────────────────────────
-    // With a real email, reuse the existing client so a repeat customer does
-    // not accumulate a duplicate row per payment. Without one, always create:
-    // a placeholder address is unique by construction and matching walk-ins by
-    // name would merge two different people who happen to share one.
+    // Resolution order — most explicit first:
+    //   1. a lead the operator picked from the phone match
+    //   2. a client the operator picked from the phone match
+    //   3. an exact email already on file
+    //   4. a brand-new client with a placeholder address
+    //
+    // Note what does NOT appear: automatic phone matching. The lookup endpoint
+    // SHOWS a phone match, the operator accepts it, and only then does the id
+    // arrive here. Silently reusing a customer because a number looked similar
+    // would attach a stranger's payment to a real account — two people can
+    // share an office landline, and the last-9-digit key is a heuristic.
     let clientId: string | null = null;
     let clientEmail = input.email;
+    let leadLinked = false;
+    let leadLinkSkippedReason: 'no_permission' | null = null;
 
-    if (input.email) {
-      const { data: existing, error: lookupErr } = await supabase
-        .from('pyra_clients')
-        .select('id')
-        .eq('email', input.email)
+    const leadId = typeof body.lead_id === 'string' && body.lead_id.trim() ? body.lead_id.trim() : null;
+    const pickedClientId =
+      typeof body.client_id === 'string' && body.client_id.trim() ? body.client_id.trim() : null;
+
+    let lead: { id: string; client_id: string | null; stage_id: string | null } | null = null;
+    if (leadId) {
+      // Scope gate, same as every other lead mutation: a finance manager must
+      // not reach a lead they cannot otherwise see just by knowing its id.
+      const allowed = await canAccessLead(
+        supabase, auth.pyraUser.username, auth.pyraUser.role, leadId,
+      );
+      if (!allowed) return apiForbidden(t('crm.leadAccessDenied'));
+
+      const { data: leadRow, error: leadErr } = await supabase
+        .from('pyra_sales_leads')
+        .select('id, client_id, stage_id')
+        .eq('id', leadId)
         .maybeSingle();
-      // A failed lookup is NOT "no match" — reading it as one would hit the
-      // UNIQUE(email) constraint on the insert below and fail the whole call
-      // for a customer who is already in the system.
-      if (lookupErr) {
+      if (leadErr) {
         logError({
-          error: lookupErr, request,
-          metadata: { source: 'quick_payment_link', step: 'client_lookup' },
+          error: leadErr, request,
+          metadata: { source: 'quick_payment_link', step: 'lead_lookup', lead_id: leadId },
         });
         return apiServerError();
       }
-      if (existing) clientId = existing.id;
-    } else {
-      clientEmail = mintPlaceholderEmail();
+      if (!leadRow) return apiValidationError(t('finance.quickPayLeadNotFound'));
+      lead = leadRow;
+
+      // Already promoted to a customer — reuse that one rather than minting a
+      // second account for the same person.
+      if (leadRow.client_id) clientId = leadRow.client_id;
+    }
+
+    if (!clientId && pickedClientId) clientId = pickedClientId;
+
+    // Whatever id we arrived at, prove it exists before hanging an invoice off
+    // it. pyra_invoices.client_id has NO foreign key, so a bad id would insert
+    // cleanly and produce an invoice belonging to nobody.
+    // Snapshot fields for the invoice. Default to what the operator typed;
+    // an existing customer overrides them with their own stored details below.
+    let invoiceClientName = input.name;
+    let invoiceClientCompany: string | null = input.name;
+    let invoiceClientPhone = input.phone;
+
+    if (clientId) {
+      const { data: picked, error: pickedErr } = await supabase
+        .from('pyra_clients')
+        .select('id, name, company, email, phone')
+        .eq('id', clientId)
+        .maybeSingle();
+      if (pickedErr) {
+        logError({
+          error: pickedErr, request,
+          metadata: { source: 'quick_payment_link', step: 'client_verify', client_id: clientId },
+        });
+        return apiServerError();
+      }
+      if (!picked) return apiValidationError(t('finance.quickPayClientNotFound'));
+
+      // Their stored details win over whatever shorthand was typed at the
+      // counter, so this invoice reads the same as every other invoice that
+      // customer has. The typed phone still fills a gap if we never had one.
+      clientEmail = picked.email;
+      invoiceClientName = picked.name;
+      invoiceClientCompany = picked.company;
+      invoiceClientPhone = picked.phone || input.phone;
+    }
+
+    // Only reached when nothing was picked. An exact email is unambiguous
+    // enough to match on without the operator confirming — unlike a phone.
+    if (!clientId) {
+      if (input.email) {
+        const { data: existing, error: lookupErr } = await supabase
+          .from('pyra_clients')
+          .select('id')
+          .eq('email', input.email)
+          .maybeSingle();
+        // A failed lookup is NOT "no match" — reading it as one would hit the
+        // UNIQUE(email) constraint on the insert below and fail the whole call
+        // for a customer who is already in the system.
+        if (lookupErr) {
+          logError({
+            error: lookupErr, request,
+            metadata: { source: 'quick_payment_link', step: 'client_lookup' },
+          });
+          return apiServerError();
+        }
+        if (existing) clientId = existing.id;
+      } else {
+        clientEmail = mintPlaceholderEmail();
+      }
     }
 
     if (!clientId) {
@@ -274,6 +377,71 @@ export async function POST(request: NextRequest) {
       }
       clientId = newClientId;
       created.clientId = newClientId;
+    }
+
+    // ── 1b. Link the lead to the customer ────────────────────────────────
+    // Only when the operator picked a lead that had no customer yet. This
+    // mirrors /api/crm/leads/[id]/link-client exactly, INCLUDING its locked
+    // invariants: `is_converted` and `name` are untouched and the lead stays
+    // in its stage. Taking a payment is not the same event as converting the
+    // lead, and conflating them here would quietly rewrite pipeline history.
+    if (lead && !lead.client_id) {
+      // Writing to a CRM row needs the CRM permission, not just finance's.
+      if (!hasPermission(auth.pyraUser.rolePermissions, 'leads.update')) {
+        // Do NOT fail the payment over this. The money is the point; the link
+        // is a convenience, and the response says plainly that it was skipped.
+        leadLinkSkippedReason = 'no_permission';
+      } else {
+        const { error: linkLeadErr } = await supabase
+          .from('pyra_sales_leads')
+          .update({ client_id: clientId, updated_at: new Date().toISOString() })
+          .eq('id', lead.id)
+          // Conditional: a concurrent link wins and we leave it alone rather
+          // than overwriting whichever customer got there first.
+          .is('client_id', null);
+        if (linkLeadErr) {
+          logError({
+            error: linkLeadErr, request,
+            metadata: { source: 'quick_payment_link', step: 'lead_link', lead_id: lead.id },
+          });
+          await rollback(supabase, created, 'lead_link');
+          return apiServerError();
+        }
+        created.linkedLeadId = lead.id;
+        leadLinked = true;
+
+        // Lead timeline row — same shape the link-client route writes, so the
+        // existing renderer produces the right Arabic title with no new
+        // activity_type. `.then()` is required: the Supabase builder is lazily
+        // thenable and a bare `void` never executes it.
+        supabase
+          .from('pyra_lead_activities')
+          .insert({
+            id: generateId('la'),
+            lead_id: lead.id,
+            activity_type: 'field_updated',
+            description: 'تم ربط العميل المحتمل بحساب عميل عند إنشاء رابط دفع سريع', // i18n-exempt: persisted timeline content, not a response message
+            metadata: {
+              source: 'quick_payment_link',
+              client_id: clientId,
+              lead_stage_at_link: lead.stage_id,
+              field: 'client_id',
+            },
+            created_by: auth.pyraUser.username,
+          })
+          .then(({ error: e }) => {
+            if (e) console.error('[quick-payment-link activity] insert failed:', e.message);
+          });
+
+        logActivity(
+          auth.pyraUser.username,
+          auth.pyraUser.display_name,
+          `${ENTITY_TYPES.LEAD}_${ACTIVITY_ACTIONS.UPDATE}`,
+          `/dashboard/crm/leads/${lead.id}`,
+          { lead_id: lead.id, client_id: clientId, source: 'quick_payment_link' },
+          request.headers.get('x-forwarded-for') || undefined,
+        );
+      }
     }
 
     // ── 2. Invoice (SENT, total = BASE) ──────────────────────────────────
@@ -307,10 +475,10 @@ export async function POST(request: NextRequest) {
       notes: input.description,
       company_name: settingsMap.company_name || null,
       company_logo: settingsMap.company_logo || null,
-      client_name: input.name,
+      client_name: invoiceClientName,
       client_email: clientEmail,
-      client_company: input.name,
-      client_phone: input.phone,
+      client_company: invoiceClientCompany,
+      client_phone: invoiceClientPhone,
       created_by: auth.pyraUser.username,
       // bank_details is deliberately NOT set: this invoice is only ever seen
       // through a public forwardable URL, and the public payload excludes bank
@@ -522,6 +690,9 @@ export async function POST(request: NextRequest) {
         surcharge_percent: surchargePercent,
         currency: input.currency,
         placeholder_email: !input.email,
+        lead_id: lead?.id ?? null,
+        lead_linked: leadLinked,
+        reused_client: !created.clientId,
       },
       request.headers.get('x-forwarded-for') || undefined,
     );
@@ -538,6 +709,12 @@ export async function POST(request: NextRequest) {
         surcharge,
         gross,
         surcharge_percent: surchargePercent,
+        /** False when an existing customer was reused instead of created. */
+        client_created: !!created.clientId,
+        lead_id: lead?.id ?? null,
+        lead_linked: leadLinked,
+        /** Set only when the link was deliberately skipped — see 1b. */
+        lead_link_skipped: leadLinkSkippedReason,
       },
       undefined,
       201,

@@ -153,6 +153,41 @@ export interface QuickPaymentLinkInput {
   phone?: string;
   /** Per-link override of the configured card surcharge. Omit to use the default. */
   surcharge_percent?: number;
+  /** A lead the operator accepted from the phone match. Server re-checks access. */
+  lead_id?: string;
+  /** An existing customer the operator accepted from the phone match. */
+  client_id?: string;
+}
+
+export interface QuickPaymentMatch {
+  matched: boolean;
+  client: { id: string; name: string; company: string | null; email: string | null } | null;
+  lead: {
+    id: string;
+    name: string;
+    company: string | null;
+    stage: string | null;
+    assigned_to: string | null;
+    created_at: string;
+    /** Non-null when this lead already has a customer account to reuse. */
+    client_id: string | null;
+  } | null;
+}
+
+/**
+ * "Do we already know this number?" — read-only, safe to call while typing.
+ *
+ * Gated on `enabled` rather than a falsy phone so a half-typed number does not
+ * fire a request per keystroke; the dialog debounces before flipping it on.
+ */
+export function useQuickPaymentMatch(phone: string, enabled: boolean) {
+  return useQuery<QuickPaymentMatch>({
+    queryKey: ['quick-payment-match', phone],
+    queryFn: () =>
+      fetchAPI(`/api/finance/quick-payment-link/lookup${buildQueryString({ phone })}`),
+    enabled,
+    staleTime: 60_000,
+  });
 }
 
 export interface QuickPaymentLinkResult {
@@ -168,6 +203,12 @@ export interface QuickPaymentLinkResult {
   surcharge: number;
   gross: number;
   surcharge_percent: number;
+  /** False when an existing customer was reused instead of created. */
+  client_created: boolean;
+  lead_id: string | null;
+  lead_linked: boolean;
+  /** Set only when linking was deliberately skipped (e.g. missing leads.update). */
+  lead_link_skipped: 'no_permission' | null;
 }
 
 /**

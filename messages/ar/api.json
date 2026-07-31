@@ -238,7 +238,9 @@
       "quickPayInvalidCurrency": "العملة غير مدعومة في رابط الدفع السريع",
       "quickPayInvalidEmail": "صيغة البريد الإلكتروني غير صحيحة",
       "quickPayInvalidDescription": "الوصف طويل جداً (500 حرف كحد أقصى)",
-      "quickPayInvalidSurcharge": "نسبة رسوم البطاقة لازم تكون بين 0 و {max}%"
+      "quickPayInvalidSurcharge": "نسبة رسوم البطاقة لازم تكون بين 0 و {max}%",
+      "quickPayLeadNotFound": "العميل المحتمل غير موجود",
+      "quickPayClientNotFound": "العميل غير موجود"
     },
     "invoices": {
       "notFound": "الفاتورة غير موجودة",
