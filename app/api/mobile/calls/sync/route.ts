@@ -118,10 +118,16 @@ export async function POST(request: NextRequest) {
     if (leadsErr) throw leadsErr;
     const index = buildLeadPhoneIndex(leads ?? []);
 
+    // `agent_username = '*'` is a FLEET-WIDE ignore (the company's own lines,
+    // the owner's mobile) — same wildcard convention the cron scopes use. Any
+    // other value is that one agent's personal ignore list. A per-agent row is
+    // deliberately NOT required for the company numbers: a newly provisioned
+    // agent must inherit them on day one, not after someone remembers to add
+    // four rows.
     const { data: ignoredRows, error: ignoredErr } = await supabase
       .from('pyra_ignored_numbers')
       .select('phone_normalized')
-      .eq('agent_username', agentUsername);
+      .in('agent_username', [agentUsername, '*']);
     // a read failure here would misclassify every ignored number as
     // 'unmatched' and persist that wrong status permanently — abort instead.
     if (ignoredErr) throw ignoredErr;
@@ -147,9 +153,18 @@ export async function POST(request: NextRequest) {
       processedKeys.add(call.device_call_key);
 
       const normalized = phoneMatchKey(call.phone);
-      const lead = matchLeadByPhone(index, call.phone);
       const connected = isConnectedCall(call);
-      const matchStatus = lead ? 'matched' : ignoredSet.has(normalized) ? 'ignored' : 'unmatched';
+      // IGNORE BEATS THE LEAD MATCH — order is load-bearing. The old order
+      // (`lead ? 'matched' : ignored…`) meant the ignore list was skipped
+      // entirely whenever a lead happened to carry that phone, and the owner's
+      // own two numbers WERE saved as leads ("boss", "mohamed abdou"), so 24
+      // internal calls were filed as customer contact and 13 activities were
+      // written onto those cards. Ignoring first also nulls `lead`, so an
+      // ignored call writes no timeline row and never moves last_contact_at,
+      // even if someone re-creates a lead on that number tomorrow.
+      const isIgnored = ignoredSet.has(normalized);
+      const lead = isIgnored ? null : matchLeadByPhone(index, call.phone);
+      const matchStatus = isIgnored ? 'ignored' : lead ? 'matched' : 'unmatched';
 
       // Persist the call row FIRST (activity_id back-filled below) so a
       // failed insert never leaves an orphan activity / phantom

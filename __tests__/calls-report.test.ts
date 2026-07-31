@@ -97,4 +97,37 @@ describe('computeCallsReport — answered vs dialled', () => {
     expect(per_agent.a.missed).toBe(1);
     expect(per_agent.a.answer_rate).toBe(0); // no division by zero
   });
+
+  // An ignored number is the owner's own line (or any number the agent marked
+  // "not a customer"). It is deliberately still STORED as evidence that the
+  // dial happened, but it must not inflate a single productivity figure —
+  // before this, 24 calls between the owner and his team counted as real
+  // sales calls in every metric on the page.
+  it('keeps ignored calls out of every metric except the ignored counter', () => {
+    const rows = [
+      row({ id: 'h1', device_call_key: 'k1', agent_username: 'a', duration_seconds: 60 }),
+      row({ id: 'h2', device_call_key: 'k2', agent_username: 'a', match_status: 'ignored', direction: 'outgoing', duration_seconds: 300 }),
+      row({ id: 'h3', device_call_key: 'k3', agent_username: 'a', match_status: 'ignored', direction: 'incoming', duration_seconds: 300 }),
+    ];
+    const { per_agent, per_day } = computeCallsReport(rows, '2026-07-10');
+    expect(per_agent.a.ignored).toBe(2);        // still visible as a count
+    expect(per_agent.a.month).toBe(1);          // …but not part of the workload
+    expect(per_agent.a.today).toBe(1);
+    expect(per_agent.a.outgoing).toBe(1);
+    expect(per_agent.a.incoming).toBe(0);
+    expect(per_agent.a.answered).toBe(1);
+    expect(per_agent.a.total_duration_seconds).toBe(60);
+    expect(per_agent.a.avg_duration_seconds).toBe(60);
+    expect(per_agent.a.answer_rate).toBe(100);
+    expect(per_day['2026-07-10']).toBe(1);      // the daily chart stays honest
+  });
+
+  it('still lists an agent whose only calls are ignored, with a zeroed workload', () => {
+    const rows = [row({ id: 'i1', device_call_key: 'k1', agent_username: 'a', match_status: 'ignored' })];
+    const { per_agent, per_day } = computeCallsReport(rows, '2026-07-10');
+    expect(per_agent.a.ignored).toBe(1);
+    expect(per_agent.a.month).toBe(0);
+    expect(per_agent.a.answer_rate).toBe(0);
+    expect(per_day['2026-07-10']).toBeUndefined();
+  });
 });

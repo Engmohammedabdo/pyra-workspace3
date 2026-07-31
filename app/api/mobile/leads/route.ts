@@ -56,10 +56,17 @@ async function retroLinkCalls(
   leadId: string,
   phoneNormalized: string,
 ): Promise<number> {
+  // `match_status = 'ignored'` is excluded on purpose: an ignored number is
+  // the company's own line or one the agent marked "not a customer", and its
+  // calls carry lead_id NULL — without this filter, creating a lead on that
+  // number would retro-link every internal call onto the new card and stamp
+  // last_contact_at from it, re-creating the exact mess the ignore list exists
+  // to prevent.
   const { data: unlinked, error: selErr } = await supabase
     .from('pyra_agent_calls')
     .select('id, agent_username, direction, duration_seconds, called_at')
     .eq('phone_normalized', phoneNormalized)
+    .neq('match_status', 'ignored')
     .is('lead_id', null);
   if (selErr) {
     // non-fatal for the caller (the lead itself is fine) but MUST be

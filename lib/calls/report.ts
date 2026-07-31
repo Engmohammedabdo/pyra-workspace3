@@ -26,6 +26,17 @@ export function computeCallsReport(rows: AgentCall[], todayKey: string): CallsRe
   const per_day: Record<string, number> = {};
   for (const r of rows) {
     const s = (per_agent[r.agent_username] ??= empty());
+    // An ignored number is not sales work — it is the owner's own line, or any
+    // number the agent explicitly marked "not a customer". The row is still
+    // STORED (evidence the dial happened) and still COUNTED here so the page
+    // can show "N ignored", but it contributes to nothing else: not the
+    // workload, not the day chart, not the answer rate, not the average.
+    // Before this, 24 calls between the owner and his own team were indexed as
+    // real sales calls in every figure on the report.
+    if (r.match_status === 'ignored') {
+      s.ignored += 1;
+      continue;
+    }
     s.month += 1;
     s[r.direction] += 1;
     s[r.match_status] += 1;
