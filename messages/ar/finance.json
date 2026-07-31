@@ -1,25 +1,63 @@
 {
   "finance": {
     "activityLabels": {
-      "file_uploaded": "رفع ملف", "file_deleted": "حذف ملف", "file_renamed": "إعادة تسمية",
-      "file_moved": "نقل ملف", "folder_created": "إنشاء مجلد", "user_created": "إنشاء مستخدم",
-      "user_updated": "تحديث مستخدم", "user_deleted": "حذف مستخدم", "team_created": "إنشاء فريق",
-      "client_created": "إنشاء عميل", "project_created": "إنشاء مشروع", "project_deleted": "حذف مشروع",
-      "share_created": "إنشاء رابط مشاركة", "review_added": "إضافة مراجعة", "settings_updated": "تحديث الإعدادات",
-      "file_restored": "استعادة ملف", "file_purged": "حذف نهائي", "upload": "رفع ملف", "upload_deletion": "حذف ملف مرفوع",
-      "version_restore": "استعادة نسخة", "version_delete": "حذف نسخة", "trash_empty": "تفريغ السلة",
-      "trash_purge": "حذف منتهية", "password_changed": "تغيير كلمة مرور", "create_expense": "إنشاء مصروف",
-      "update_expense": "تحديث مصروف", "delete_expense": "حذف مصروف", "create_subscription": "إنشاء اشتراك",
-      "update_subscription": "تحديث اشتراك", "delete_subscription": "حذف اشتراك", "create_card": "إضافة بطاقة",
-      "update_card": "تحديث بطاقة", "delete_card": "حذف بطاقة", "create_contract": "إنشاء عقد",
-      "update_contract": "تحديث عقد", "create_target": "إنشاء هدف", "update_target": "تحديث هدف",
-      "payment_recorded": "تسجيل دفعة", "invoice_sent": "إرسال فاتورة", "invoice_created": "إنشاء فاتورة",
-      "milestone_invoice_generated": "فاتورة مرحلة", "quote_sent": "إرسال عرض سعر", "quote_signed": "توقيع عرض سعر",
-      "quote_viewed": "مشاهدة عرض سعر", "portal_login": "دخول عميل", "portal_logout": "خروج عميل",
-      "portal_download": "تحميل ملف (عميل)", "portal_preview": "معاينة ملف (عميل)", "file_approved": "اعتماد ملف",
-      "revision_requested": "طلب تعديل", "client_comment": "تعليق عميل", "script_approved": "اعتماد سكريبت",
-      "script_revision_requested": "طلب تعديل سكريبت", "script_reply_sent": "رد إدارة على سكريبت",
-      "script_client_reply": "رد عميل على سكريبت", "login": "تسجيل دخول", "logout": "تسجيل خروج"
+      "file_uploaded": "رفع ملف",
+      "file_deleted": "حذف ملف",
+      "file_renamed": "إعادة تسمية",
+      "file_moved": "نقل ملف",
+      "folder_created": "إنشاء مجلد",
+      "user_created": "إنشاء مستخدم",
+      "user_updated": "تحديث مستخدم",
+      "user_deleted": "حذف مستخدم",
+      "team_created": "إنشاء فريق",
+      "client_created": "إنشاء عميل",
+      "project_created": "إنشاء مشروع",
+      "project_deleted": "حذف مشروع",
+      "share_created": "إنشاء رابط مشاركة",
+      "review_added": "إضافة مراجعة",
+      "settings_updated": "تحديث الإعدادات",
+      "file_restored": "استعادة ملف",
+      "file_purged": "حذف نهائي",
+      "upload": "رفع ملف",
+      "upload_deletion": "حذف ملف مرفوع",
+      "version_restore": "استعادة نسخة",
+      "version_delete": "حذف نسخة",
+      "trash_empty": "تفريغ السلة",
+      "trash_purge": "حذف منتهية",
+      "password_changed": "تغيير كلمة مرور",
+      "create_expense": "إنشاء مصروف",
+      "update_expense": "تحديث مصروف",
+      "delete_expense": "حذف مصروف",
+      "create_subscription": "إنشاء اشتراك",
+      "update_subscription": "تحديث اشتراك",
+      "delete_subscription": "حذف اشتراك",
+      "create_card": "إضافة بطاقة",
+      "update_card": "تحديث بطاقة",
+      "delete_card": "حذف بطاقة",
+      "create_contract": "إنشاء عقد",
+      "update_contract": "تحديث عقد",
+      "create_target": "إنشاء هدف",
+      "update_target": "تحديث هدف",
+      "payment_recorded": "تسجيل دفعة",
+      "invoice_sent": "إرسال فاتورة",
+      "invoice_created": "إنشاء فاتورة",
+      "milestone_invoice_generated": "فاتورة مرحلة",
+      "quote_sent": "إرسال عرض سعر",
+      "quote_signed": "توقيع عرض سعر",
+      "quote_viewed": "مشاهدة عرض سعر",
+      "portal_login": "دخول عميل",
+      "portal_logout": "خروج عميل",
+      "portal_download": "تحميل ملف (عميل)",
+      "portal_preview": "معاينة ملف (عميل)",
+      "file_approved": "اعتماد ملف",
+      "revision_requested": "طلب تعديل",
+      "client_comment": "تعليق عميل",
+      "script_approved": "اعتماد سكريبت",
+      "script_revision_requested": "طلب تعديل سكريبت",
+      "script_reply_sent": "رد إدارة على سكريبت",
+      "script_client_reply": "رد عميل على سكريبت",
+      "login": "تسجيل دخول",
+      "logout": "تسجيل خروج"
     },
     "dashboardHome": {
       "statCards": {
@@ -48,7 +86,9 @@
       }
     },
     "invoices": {
-      "meta": { "title": "الفواتير | Pyra Workspace" },
+      "meta": {
+        "title": "الفواتير | Pyra Workspace"
+      },
       "milestoneTypes": {
         "booking": "دفعة حجز",
         "initial_delivery": "تسليم أولي",
@@ -85,7 +125,8 @@
           "title": "الفواتير",
           "subtitle": "إدارة الفواتير والمدفوعات",
           "refresh": "تحديث",
-          "newInvoice": "فاتورة جديدة"
+          "newInvoice": "فاتورة جديدة",
+          "quickPay": "رابط دفع سريع"
         },
         "summary": {
           "totalRevenue": "إجمالي الإيرادات",
@@ -253,6 +294,46 @@
           "notes": "ملاحظات",
           "notesPlaceholder": "ملاحظات إضافية..."
         }
+      },
+      "quickPay": {
+        "title": "رابط دفع سريع",
+        "description": "اكتب الاسم والمبلغ — النظام يعمل العميل والفاتورة والرابط لوحده.",
+        "resultTitle": "الرابط جاهز",
+        "resultDescription": "ابعت الرابط ده للعميل. نفس الرابط هو صفحة الدفع والإيصال.",
+        "nameLabel": "اسم العميل",
+        "namePlaceholder": "مثال: أحمد محمد",
+        "amountLabel": "المبلغ",
+        "currencyLabel": "العملة",
+        "surchargeLabel": "رسوم البطاقة (%)",
+        "surchargeHint": "تتضاف فوق المبلغ ويشوفها العميل قبل ما يدفع. الفاتورة نفسها تفضل بالمبلغ الأصلي.",
+        "surchargeOutOfRange": "النسبة لازم تكون بين 0 و {max}%.",
+        "previewBase": "قيمة الفاتورة",
+        "previewSurcharge": "رسوم البطاقة",
+        "previewGross": "الإجمالي المطلوب من العميل",
+        "previewNote": "الفاتورة هتتسجل بقيمة الفاتورة فقط — الرسوم مش إيراد.",
+        "moreToggle": "تفاصيل إضافية",
+        "descriptionLabel": "الوصف",
+        "descriptionPlaceholder": "مثال: حجز DJ ليلة 5 أغسطس",
+        "emailLabel": "البريد الإلكتروني",
+        "emailHint": "اختياري. لو موجود ومسجّل قبل كده هنستخدم نفس العميل بدل ما نعمل واحد جديد.",
+        "phoneLabel": "رقم الموبايل",
+        "phoneHint": "اختياري — بس من غيره مش هتقدر تبعت الرابط على واتساب من هنا.",
+        "createButton": "اعمل الرابط",
+        "cancelButton": "إلغاء",
+        "doneButton": "تم",
+        "urlLabel": "رابط الدفع",
+        "urlHint": "الرابط ده عام ومن غير تسجيل دخول — ابعته للعميل بس.",
+        "copyButton": "نسخ",
+        "openButton": "فتح",
+        "whatsappButton": "واتساب",
+        "whatsappNoPhone": "اكتب رقم موبايل في «تفاصيل إضافية» عشان تقدر تبعت على واتساب.",
+        "whatsappMessage": "اتفضل رابط الدفع: {url}",
+        "createdToast": "تم إنشاء الفاتورة {invoiceNumber} ورابط الدفع",
+        "createdSummary": "الفاتورة {invoiceNumber} — المطلوب من العميل {amount}",
+        "createError": "تعذّر إنشاء رابط الدفع. حاول مرة أخرى.",
+        "copiedToast": "تم نسخ الرابط",
+        "copyFailed": "تعذّر نسخ الرابط — انسخه يدوياً",
+        "stripeDisabled": "الدفع الإلكتروني غير مفعّل. فعّل Stripe من الإعدادات قبل إنشاء رابط."
       }
     },
     "quotes": {
@@ -262,7 +343,9 @@
         "notDelivered": "تم تحديد العرض كمُرسل لكن تعذّر إرسال البريد"
       },
       "list": {
-        "meta": { "title": "عروض الأسعار | Pyra Workspace" },
+        "meta": {
+          "title": "عروض الأسعار | Pyra Workspace"
+        },
         "toasts": {
           "duplicateSuccess": "تم نسخ عرض السعر",
           "loadFailed": "فشل في تحميل بيانات العرض",
@@ -411,13 +494,17 @@
         "subtitle": "تعديل بيانات عرض السعر"
       },
       "new": {
-        "meta": { "title": "عروض الأسعار | Pyra Workspace" },
+        "meta": {
+          "title": "عروض الأسعار | Pyra Workspace"
+        },
         "title": "عرض سعر جديد",
         "subtitle": "إنشاء عرض سعر جديد للعميل",
         "linkedToLead": "مرتبط بالعميل المحتمل: {leadName}"
       },
       "analytics": {
-        "meta": { "title": "تحليلات عروض الأسعار | Pyra Workspace" },
+        "meta": {
+          "title": "تحليلات عروض الأسعار | Pyra Workspace"
+        },
         "title": "تحليلات عروض الأسعار",
         "kpis": {
           "sentRate": "نسبة الإرسال",
@@ -588,7 +675,9 @@
       }
     },
     "contracts": {
-      "meta": { "title": "العقود | Pyra" },
+      "meta": {
+        "title": "العقود | Pyra"
+      },
       "list": {
         "toasts": {
           "loadFailed": "فشل في تحميل العقود",
@@ -846,7 +935,9 @@
       }
     },
     "expenses": {
-      "meta": { "title": "المصروفات | Pyra" },
+      "meta": {
+        "title": "المصروفات | Pyra"
+      },
       "list": {
         "toasts": {
           "deleteFailedCount": "فشل حذف {count} مصروف",

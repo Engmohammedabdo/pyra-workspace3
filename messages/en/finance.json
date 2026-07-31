@@ -1,25 +1,63 @@
 {
   "finance": {
     "activityLabels": {
-      "file_uploaded": "File uploaded", "file_deleted": "File deleted", "file_renamed": "File renamed",
-      "file_moved": "File moved", "folder_created": "Folder created", "user_created": "User created",
-      "user_updated": "User updated", "user_deleted": "User deleted", "team_created": "Team created",
-      "client_created": "Client created", "project_created": "Project created", "project_deleted": "Project deleted",
-      "share_created": "Share link created", "review_added": "Review added", "settings_updated": "Settings updated",
-      "file_restored": "File restored", "file_purged": "File permanently deleted", "upload": "File uploaded", "upload_deletion": "Uploaded file deleted",
-      "version_restore": "Version restored", "version_delete": "Version deleted", "trash_empty": "Trash emptied",
-      "trash_purge": "Permanently deleted", "password_changed": "Password changed", "create_expense": "Expense created",
-      "update_expense": "Expense updated", "delete_expense": "Expense deleted", "create_subscription": "Subscription created",
-      "update_subscription": "Subscription updated", "delete_subscription": "Subscription deleted", "create_card": "Card added",
-      "update_card": "Card updated", "delete_card": "Card deleted", "create_contract": "Contract created",
-      "update_contract": "Contract updated", "create_target": "Target created", "update_target": "Target updated",
-      "payment_recorded": "Payment recorded", "invoice_sent": "Invoice sent", "invoice_created": "Invoice created",
-      "milestone_invoice_generated": "Milestone invoice generated", "quote_sent": "Quote sent", "quote_signed": "Quote signed",
-      "quote_viewed": "Quote viewed", "portal_login": "Client login", "portal_logout": "Client logout",
-      "portal_download": "File downloaded (client)", "portal_preview": "File previewed (client)", "file_approved": "File approved",
-      "revision_requested": "Revision requested", "client_comment": "Client comment", "script_approved": "Script approved",
-      "script_revision_requested": "Script revision requested", "script_reply_sent": "Admin reply on script",
-      "script_client_reply": "Client reply on script", "login": "Login", "logout": "Logout"
+      "file_uploaded": "File uploaded",
+      "file_deleted": "File deleted",
+      "file_renamed": "File renamed",
+      "file_moved": "File moved",
+      "folder_created": "Folder created",
+      "user_created": "User created",
+      "user_updated": "User updated",
+      "user_deleted": "User deleted",
+      "team_created": "Team created",
+      "client_created": "Client created",
+      "project_created": "Project created",
+      "project_deleted": "Project deleted",
+      "share_created": "Share link created",
+      "review_added": "Review added",
+      "settings_updated": "Settings updated",
+      "file_restored": "File restored",
+      "file_purged": "File permanently deleted",
+      "upload": "File uploaded",
+      "upload_deletion": "Uploaded file deleted",
+      "version_restore": "Version restored",
+      "version_delete": "Version deleted",
+      "trash_empty": "Trash emptied",
+      "trash_purge": "Permanently deleted",
+      "password_changed": "Password changed",
+      "create_expense": "Expense created",
+      "update_expense": "Expense updated",
+      "delete_expense": "Expense deleted",
+      "create_subscription": "Subscription created",
+      "update_subscription": "Subscription updated",
+      "delete_subscription": "Subscription deleted",
+      "create_card": "Card added",
+      "update_card": "Card updated",
+      "delete_card": "Card deleted",
+      "create_contract": "Contract created",
+      "update_contract": "Contract updated",
+      "create_target": "Target created",
+      "update_target": "Target updated",
+      "payment_recorded": "Payment recorded",
+      "invoice_sent": "Invoice sent",
+      "invoice_created": "Invoice created",
+      "milestone_invoice_generated": "Milestone invoice generated",
+      "quote_sent": "Quote sent",
+      "quote_signed": "Quote signed",
+      "quote_viewed": "Quote viewed",
+      "portal_login": "Client login",
+      "portal_logout": "Client logout",
+      "portal_download": "File downloaded (client)",
+      "portal_preview": "File previewed (client)",
+      "file_approved": "File approved",
+      "revision_requested": "Revision requested",
+      "client_comment": "Client comment",
+      "script_approved": "Script approved",
+      "script_revision_requested": "Script revision requested",
+      "script_reply_sent": "Admin reply on script",
+      "script_client_reply": "Client reply on script",
+      "login": "Login",
+      "logout": "Logout"
     },
     "dashboardHome": {
       "statCards": {
@@ -48,7 +86,9 @@
       }
     },
     "invoices": {
-      "meta": { "title": "Invoices | Pyra Workspace" },
+      "meta": {
+        "title": "Invoices | Pyra Workspace"
+      },
       "milestoneTypes": {
         "booking": "Booking Deposit",
         "initial_delivery": "Initial Delivery",
@@ -85,7 +125,8 @@
           "title": "Invoices",
           "subtitle": "Manage invoices and payments",
           "refresh": "Refresh",
-          "newInvoice": "New Invoice"
+          "newInvoice": "New Invoice",
+          "quickPay": "Quick payment link"
         },
         "summary": {
           "totalRevenue": "Total Revenue",
@@ -253,6 +294,46 @@
           "notes": "Notes",
           "notesPlaceholder": "Additional notes..."
         }
+      },
+      "quickPay": {
+        "title": "Quick payment link",
+        "description": "Type a name and an amount — the client, invoice and link are created for you.",
+        "resultTitle": "Link ready",
+        "resultDescription": "Send this to the customer. The same URL is the payment page and the receipt.",
+        "nameLabel": "Customer name",
+        "namePlaceholder": "e.g. Ahmed Mohamed",
+        "amountLabel": "Amount",
+        "currencyLabel": "Currency",
+        "surchargeLabel": "Card fee (%)",
+        "surchargeHint": "Added on top and shown to the customer before they pay. The invoice itself stays at the original amount.",
+        "surchargeOutOfRange": "The rate must be between 0 and {max}%.",
+        "previewBase": "Invoice amount",
+        "previewSurcharge": "Card fee",
+        "previewGross": "Total the customer pays",
+        "previewNote": "The invoice is recorded at the invoice amount only — the fee is not revenue.",
+        "moreToggle": "More details",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "e.g. DJ booking, night of 5 August",
+        "emailLabel": "Email",
+        "emailHint": "Optional. If it matches an existing client we reuse them instead of creating a duplicate.",
+        "phoneLabel": "Mobile number",
+        "phoneHint": "Optional — without it you cannot send the link over WhatsApp from here.",
+        "createButton": "Create link",
+        "cancelButton": "Cancel",
+        "doneButton": "Done",
+        "urlLabel": "Payment link",
+        "urlHint": "This URL is public and needs no login — send it only to the customer.",
+        "copyButton": "Copy",
+        "openButton": "Open",
+        "whatsappButton": "WhatsApp",
+        "whatsappNoPhone": "Add a mobile number under “More details” to send over WhatsApp.",
+        "whatsappMessage": "Here is your payment link: {url}",
+        "createdToast": "Invoice {invoiceNumber} and its payment link were created",
+        "createdSummary": "Invoice {invoiceNumber} — customer pays {amount}",
+        "createError": "Could not create the payment link. Please try again.",
+        "copiedToast": "Link copied",
+        "copyFailed": "Could not copy the link — copy it manually",
+        "stripeDisabled": "Online payments are disabled. Enable Stripe in Settings before creating a link."
       }
     },
     "quotes": {
@@ -262,7 +343,9 @@
         "notDelivered": "Quote marked as sent but the email could not be delivered"
       },
       "list": {
-        "meta": { "title": "Quotes | Pyra Workspace" },
+        "meta": {
+          "title": "Quotes | Pyra Workspace"
+        },
         "toasts": {
           "duplicateSuccess": "Quote duplicated",
           "loadFailed": "Failed to load quote data",
@@ -411,13 +494,17 @@
         "subtitle": "Edit quote details"
       },
       "new": {
-        "meta": { "title": "Quotes | Pyra Workspace" },
+        "meta": {
+          "title": "Quotes | Pyra Workspace"
+        },
         "title": "New Quote",
         "subtitle": "Create a new quote for the client",
         "linkedToLead": "Linked to lead: {leadName}"
       },
       "analytics": {
-        "meta": { "title": "Quote Analytics | Pyra Workspace" },
+        "meta": {
+          "title": "Quote Analytics | Pyra Workspace"
+        },
         "title": "Quote Analytics",
         "kpis": {
           "sentRate": "Sent Rate",
@@ -588,7 +675,9 @@
       }
     },
     "contracts": {
-      "meta": { "title": "Contracts | Pyra" },
+      "meta": {
+        "title": "Contracts | Pyra"
+      },
       "list": {
         "toasts": {
           "loadFailed": "Failed to load contracts",
@@ -846,7 +935,9 @@
       }
     },
     "expenses": {
-      "meta": { "title": "Expenses | Pyra" },
+      "meta": {
+        "title": "Expenses | Pyra"
+      },
       "list": {
         "toasts": {
           "deleteFailedCount": "Failed to delete {count} expense(s)",

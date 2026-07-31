@@ -23,8 +23,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   FileText, Plus, MoreHorizontal, Eye, Download, Trash2,
-  DollarSign, AlertTriangle, TrendingUp, ChevronLeft, ChevronRight, RefreshCw,
+  DollarSign, AlertTriangle, TrendingUp, ChevronLeft, ChevronRight, RefreshCw, Zap,
 } from 'lucide-react';
+import { QuickPaymentDialog } from '@/components/finance/QuickPaymentDialog';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import { toast } from 'sonner';
@@ -76,7 +77,12 @@ export default function InvoicesClient() {
   const searchParams = useSearchParams();
   const canCreate = usePermission('invoices.create');
   const canDelete = usePermission('invoices.delete');
+  // Not invoices.create: the quick link also creates a client, a public link
+  // and a live Stripe session, so it is gated on the same permission its API
+  // route requires rather than the weaker one that governs plain invoices.
+  const canQuickPay = usePermission('finance.manage');
   const queryClient = useQueryClient();
+  const [showQuickPay, setShowQuickPay] = useState(false);
 
   /* ── list state ── */
   const [statusFilter, setStatusFilter] = useState(() => {
@@ -327,6 +333,11 @@ export default function InvoicesClient() {
             from={new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]}
             to={new Date().toISOString().split('T')[0]}
           />
+          {canQuickPay && (
+            <Button variant="outline" onClick={() => setShowQuickPay(true)}>
+              <Zap className="h-4 w-4 me-2" /> {t('header.quickPay')}
+            </Button>
+          )}
           {canCreate && (
             <Link href="/dashboard/invoices/new">
               <Button className="bg-orange-500 hover:bg-orange-600">
@@ -336,6 +347,8 @@ export default function InvoicesClient() {
           )}
         </div>
       </div>
+
+      <QuickPaymentDialog open={showQuickPay} onOpenChange={setShowQuickPay} />
 
       {/* Revenue Summary Cards */}
       <StaggerContainer className="grid grid-cols-1 sm:grid-cols-3 gap-4">

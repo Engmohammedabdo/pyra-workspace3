@@ -7,7 +7,17 @@ import { getStripeClient, getStripeWebhookSecret } from '@/lib/stripe';
 import { logError } from '@/lib/observability/log-error';
 import { notifyMany, type NotifyInput } from '@/lib/notifications/notify';
 import { settleInvoicePayment, splitGross, recalcContractCollected, deriveInvoiceState } from '@/lib/stripe/settle';
+import { capRefundToBooked } from '@/lib/stripe/refund-cap';
 import Stripe from 'stripe';
+
+/** The three ledger columns both money-back branches reason about. */
+type LedgerRow = { amount: number; reference: string | null; method: string | null };
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const sumAmounts = (rows: LedgerRow[]) =>
+  round2(rows.reduce((s, p) => s + Number(p.amount), 0));
+const sumAbs = (rows: LedgerRow[]) =>
+  round2(rows.reduce((s, p) => s + Math.abs(Number(p.amount)), 0));
 
 /**
  * Notify all active admins. The previous direct inserts addressed a literal
@@ -518,14 +528,15 @@ export async function POST(req: NextRequest) {
           }
 
           if (stripePayment.invoice_id) {
-            // Sum refunds already recorded for this payment intent.
+            // Every ledger row for this invoice, not only the refunds: the cap
+            // below needs what was booked IN under this intent as well as what
+            // has already been booked back out.
             // The error must be checked: reading a failure as "nothing recorded
             // yet" would re-book a refund that already exists.
-            const { data: priorRefundRows, error: priorErr } = await supabase
+            const { data: priorRows, error: priorErr } = await supabase
               .from('pyra_payments')
-              .select('amount, reference')
-              .eq('invoice_id', stripePayment.invoice_id)
-              .eq('method', 'refund');
+              .select('amount, reference, method')
+              .eq('invoice_id', stripePayment.invoice_id);
 
             if (priorErr) {
               logError({
@@ -538,13 +549,34 @@ export async function POST(req: NextRequest) {
               return NextResponse.json({ error: 'prior refunds lookup failed' }, { status: 500 });
             }
 
-            const alreadyRecorded = Math.round(
-              (priorRefundRows || [])
-                .filter((p: { reference: string | null }) =>
-                  (p.reference || '').startsWith(`refund_${paymentIntentId}`))
-                .reduce((sum: number, p: { amount: number }) => sum + Math.abs(Number(p.amount)), 0) * 100
-            ) / 100;
-            const refundAmount = Math.round((cumulativeRefunded - alreadyRecorded) * 100) / 100;
+            const ledger = (priorRows || []) as LedgerRow[];
+            const alreadyRecorded = sumAbs(
+              ledger.filter((p) =>
+                p.method === 'refund' && (p.reference || '').startsWith(`refund_${paymentIntentId}`)),
+            );
+            // What settleInvoicePayment actually credited for this intent: the
+            // BASE. With a card surcharge that is LESS than the gross Stripe
+            // reports as refunded, and booking the difference would push the
+            // ledger below what it ever received.
+            const bookedForIntent = sumAmounts(
+              ledger.filter((p) => p.reference === paymentIntentId && Number(p.amount) > 0),
+            );
+
+            const { refundAmount, capped, ceiling } = capRefundToBooked({
+              cumulativeRefunded,
+              bookedForIntent,
+              alreadyRefunded: alreadyRecorded,
+              invoiceAmountPaid: sumAmounts(ledger),
+            });
+
+            if (capped) {
+              // Expected rather than exceptional: with a surcharge configured,
+              // EVERY full refund lands here. Logged at info level so it does
+              // not train anyone to ignore a real warning.
+              console.log(
+                `[Stripe Webhook] Refund capped to booked amount: cumulative=${cumulativeRefunded} ceiling=${ceiling} intent=${paymentIntentId}`,
+              );
+            }
 
             // Delta 0 means the refund row already exists. Do NOT return here:
             // a previous delivery may have inserted it and then failed before
@@ -796,21 +828,70 @@ export async function POST(req: NextRequest) {
           // If dispute lost and invoice exists, update invoice amounts
           if (outcome === 'lost' && stripePayment.invoice_id) {
             const disputeAmount = (dispute.amount || 0) / 100;
+            const disputeRef = `dispute_${dispute.id}`;
 
-            // Insert the negative payment. No pre-check probe: the unique index
-            // on (invoice_id, reference) is the idempotency authority, and 23505
-            // simply means an earlier delivery won.
-            const { error: dispErr } = await supabase.from('pyra_payments').insert({
-              id: generateId('pay'),
-              invoice_id: stripePayment.invoice_id,
-              amount: -disputeAmount,
-              // Dubai day — cash-basis reports key on payment_date.
-              payment_date: dubaiDayKey(),
-              method: 'dispute_lost',
-              reference: `dispute_${dispute.id}`,
-              notes: `خسارة نزاع Stripe — ${disputeAmount} ${dispute.currency?.toUpperCase() || 'AED'}`,
-              recorded_by: 'system',
+            // `dispute.amount` is the GROSS Stripe is clawing back, exactly
+            // like charge.amount_refunded — so a lost dispute on a surcharged
+            // payment has the same over-booking problem the refund branch
+            // above guards against, and needs the same cap.
+            const { data: dLedgerRows, error: dLedgerErr } = await supabase
+              .from('pyra_payments')
+              .select('amount, reference, method')
+              .eq('invoice_id', stripePayment.invoice_id);
+
+            if (dLedgerErr) {
+              logError({
+                error: dLedgerErr, request: req,
+                metadata: {
+                  source: 'stripe_webhook', event: event.type,
+                  step: 'dispute_ledger_read', dispute_id: dispute.id,
+                  invoice_id: stripePayment.invoice_id,
+                },
+              });
+              return NextResponse.json({ error: 'ledger read failed' }, { status: 500 });
+            }
+
+            const dLedger = (dLedgerRows || []) as LedgerRow[];
+            // Everything already booked BACK OUT against this intent — refunds
+            // and this dispute alike. Counting only the dispute would let a
+            // prior partial refund plus a lost dispute exceed the credit.
+            const alreadyReversed = sumAbs(
+              dLedger.filter((p) =>
+                Number(p.amount) < 0 &&
+                ((p.reference || '').startsWith(`refund_${paymentIntentId}`) ||
+                  p.reference === disputeRef)),
+            );
+            const dBookedForIntent = sumAmounts(
+              dLedger.filter((p) => p.reference === paymentIntentId && Number(p.amount) > 0),
+            );
+
+            const dCap = capRefundToBooked({
+              cumulativeRefunded: disputeAmount,
+              bookedForIntent: dBookedForIntent,
+              alreadyRefunded: alreadyReversed,
+              invoiceAmountPaid: sumAmounts(dLedger),
             });
+
+            // Nothing left to reverse (a replay, or the money already went back
+            // out as a refund). Skip the insert — `amount <> 0` is a CHECK
+            // constraint — but fall through to the recompute below, which is
+            // idempotent and is what repairs a delivery that inserted the row
+            // and then failed before updating the invoice.
+            const { error: dispErr } = dCap.refundAmount > 0
+              ? await supabase.from('pyra_payments').insert({
+                  id: generateId('pay'),
+                  invoice_id: stripePayment.invoice_id,
+                  amount: -dCap.refundAmount,
+                  // Dubai day — cash-basis reports key on payment_date.
+                  payment_date: dubaiDayKey(),
+                  method: 'dispute_lost',
+                  reference: disputeRef,
+                  // i18n-exempt: persisted ledger content, not a per-request
+                  // response message — Phase 8 owns notification/DB strings.
+                  notes: `خسارة نزاع Stripe — ${dCap.refundAmount} ${dispute.currency?.toUpperCase() || 'AED'}`,
+                  recorded_by: 'system',
+                })
+              : { error: null };
 
             if (dispErr && dispErr.code !== '23505') {
               logError({

@@ -139,3 +139,51 @@ export function useUpdateInvoice() {
     },
   });
 }
+
+// ============================================================
+// Quick payment link
+// ============================================================
+
+export interface QuickPaymentLinkInput {
+  name: string;
+  amount: number;
+  currency?: string;
+  description?: string;
+  email?: string;
+  phone?: string;
+  /** Per-link override of the configured card surcharge. Omit to use the default. */
+  surcharge_percent?: number;
+}
+
+export interface QuickPaymentLinkResult {
+  invoice_id: string;
+  invoice_number: string;
+  client_id: string;
+  /** The customer-facing page: view, pay and receipt in one URL. */
+  public_url: string;
+  /** Stripe Checkout, for the rare case the owner wants to hand it over directly. */
+  checkout_url: string | null;
+  currency: string;
+  base: number;
+  surcharge: number;
+  gross: number;
+  surcharge_percent: number;
+}
+
+/**
+ * Name + amount → a payable link, in one call.
+ *
+ * Invalidates `clients` as well as `invoices`: the route creates a client row
+ * behind the scenes for a walk-in, and a stale clients list would make that
+ * customer look absent right after taking their money.
+ */
+export function useQuickPaymentLink() {
+  const queryClient = useQueryClient();
+  return useMutation<QuickPaymentLinkResult, Error, QuickPaymentLinkInput>({
+    mutationFn: (data) => mutateAPI('/api/finance/quick-payment-link', 'POST', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+    },
+  });
+}

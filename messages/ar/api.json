@@ -230,7 +230,15 @@
       "targetPeriodTypeRequired": "نوع الفترة مطلوب (شهري/ربع سنوي/سنوي)",
       "targetDateRangeRequired": "تاريخ البداية والنهاية مطلوبان",
       "targetAmountInvalid": "المبلغ المستهدف يجب أن يكون أكبر من صفر",
-      "uncategorized": "غير مصنف"
+      "uncategorized": "غير مصنف",
+      "quickPayStripeDisabled": "الدفع الإلكتروني غير مفعّل حالياً — فعّله من الإعدادات قبل إنشاء رابط دفع",
+      "quickPayStripeFailed": "تعذّر إنشاء جلسة الدفع لدى Stripe — لم يتم إنشاء أي فاتورة، حاول مرة أخرى",
+      "quickPayInvalidName": "اسم العميل مطلوب (200 حرف كحد أقصى)",
+      "quickPayInvalidAmount": "المبلغ يجب أن يكون رقماً أكبر من صفر ولا يتجاوز 1,000,000",
+      "quickPayInvalidCurrency": "العملة غير مدعومة في رابط الدفع السريع",
+      "quickPayInvalidEmail": "صيغة البريد الإلكتروني غير صحيحة",
+      "quickPayInvalidDescription": "الوصف طويل جداً (500 حرف كحد أقصى)",
+      "quickPayInvalidSurcharge": "نسبة رسوم البطاقة لازم تكون بين 0 و {max}%"
     },
     "invoices": {
       "notFound": "الفاتورة غير موجودة",
