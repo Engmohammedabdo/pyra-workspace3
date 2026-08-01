@@ -1,6 +1,20 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync as readFileRaw } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+/**
+ * Read a source file with line endings normalised to \n.
+ *
+ * These assertions match on multi-line structure — `\n)\nRETURNS` in the
+ * migration, `\n      },\n    );` in the route files — which is a statement
+ * about SHAPE, not about how the working copy happens to be checked out. Git's
+ * autocrlf hands every one of these files back as CRLF on Windows, so the raw
+ * read made the whole test fail there permanently, hiding any real regression
+ * it would otherwise have caught. Normalising here keeps the patterns readable
+ * instead of sprinkling `\r?` through each one.
+ */
+const readSource = (path: string): string =>
+  readFileRaw(path, 'utf8').replace(/\r\n/g, '\n');
 
 type QueryCall = {
   table: string;
@@ -269,8 +283,8 @@ describe('atomic task duplicate route', () => {
 describe('task create/duplicate source boundaries', () => {
   it('contains no direct task or relation DML after moving writes into RPCs', () => {
     const sources = [
-      readFileSync(resolve(process.cwd(), 'app/api/boards/[id]/tasks/route.ts'), 'utf8'),
-      readFileSync(resolve(process.cwd(), 'app/api/tasks/[id]/duplicate/route.ts'), 'utf8'),
+      readSource(resolve(process.cwd(), 'app/api/boards/[id]/tasks/route.ts')),
+      readSource(resolve(process.cwd(), 'app/api/tasks/[id]/duplicate/route.ts')),
     ];
     for (const source of sources) {
       for (const table of [
@@ -285,22 +299,22 @@ describe('task create/duplicate source boundaries', () => {
   });
 
   it('passes every RPC parameter with the exact migration name and order', () => {
-    const migration = readFileSync(resolve(
+    const migration = readSource(resolve(
       process.cwd(), 'supabase/migrations/042_atomic_task_transitions.sql',
-    ), 'utf8');
+    ));
     const routeSources = {
-      pyra_create_task_atomic: readFileSync(resolve(
+      pyra_create_task_atomic: readSource(resolve(
         process.cwd(), 'app/api/boards/[id]/tasks/route.ts',
-      ), 'utf8'),
-      pyra_duplicate_task_atomic: readFileSync(resolve(
+      )),
+      pyra_duplicate_task_atomic: readSource(resolve(
         process.cwd(), 'app/api/tasks/[id]/duplicate/route.ts',
-      ), 'utf8'),
-      pyra_add_task_assignees_atomic: readFileSync(resolve(
+      )),
+      pyra_add_task_assignees_atomic: readSource(resolve(
         process.cwd(), 'app/api/tasks/[id]/assignees/route.ts',
-      ), 'utf8'),
-      pyra_remove_task_assignee_atomic: readFileSync(resolve(
+      )),
+      pyra_remove_task_assignee_atomic: readSource(resolve(
         process.cwd(), 'app/api/tasks/[id]/assignees/route.ts',
-      ), 'utf8'),
+      )),
     };
 
     for (const [functionName, routeSource] of Object.entries(routeSources)) {
