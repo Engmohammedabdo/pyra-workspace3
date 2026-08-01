@@ -40,7 +40,7 @@ fetchAPI<T>(url: string): Promise<T>
 mutateAPI<T>(url: string, method: string, body?: unknown): Promise<T>
 ```
 
-### Using Existing Hooks (42+ hooks available)
+### Using Existing Hooks (69 React Query hooks available)
 ```tsx
 // Dashboard hooks (hooks/use*.ts)
 import { useMyWork } from '@/hooks/useMyWork';        // Unified inbox aggregator
@@ -261,7 +261,7 @@ app/dashboard/hr/         → HR Overview page (admin-only, requirePermission('h
 app/dashboard/hr/documents/ → HR document management page (admin; DataTable + upload + row actions)
 app/dashboard/hr/documents/settings/ → Document-types catalogue admin page
 app/dashboard/my-documents/ → Employee read-only document list + download
-hooks/                    → 42+ React Query hooks (data fetching + mutations)
+hooks/                    → 69 React Query hooks (data fetching + mutations)
 hooks/api-helpers.ts      → fetchAPI() + mutateAPI() — shared fetch wrappers
 hooks/useMyWork.ts        → Inbox aggregator hook (30s staleTime, refetch on focus)
 hooks/useHROverview.ts    → HR Overview hook (60s staleTime, refetchOnWindowFocus)
@@ -292,7 +292,7 @@ lib/pdf/nda-pdf.ts       → generateNdaPdf(offerData) — Arabic NDA PDF
 lib/pdf/asset-handover-pdf.ts → generateAssetHandoverPdf(offerData, assets) — Arabic asset-handover PDF
 lib/constants/onboarding.ts → DEFAULT_ONBOARDING_TASKS — seed list for pyra_onboarding_tasks
 hooks/useOnboarding.ts   → useOnboardings, useOnboarding, useCreateOnboarding, useUpdateOnboarding, useToggleOnboardingTask, useRegenerateOnboardingDoc
-lib/auth/rbac.ts          → 79+ permissions, BASE_EMPLOYEE, ROLE_EXTRAS, buildUserPermissions()
+lib/auth/rbac.ts          → 125 permissions, BASE_EMPLOYEE, ROLE_EXTRAS, buildUserPermissions()
 lib/auth/auth-mapping.ts  → resolveAuthUserId() — heals legacy users missing pyra_auth_mapping rows
 lib/auth/team-scope.ts    → getDirectReports / getManagerOf / isManager / canApproveFor()
 lib/auth/whatsapp-scope.ts → canAccessWhatsAppMessage() — gates message-level mutations
@@ -303,7 +303,7 @@ lib/api/activity.ts       → logActivity() — fire-and-forget audit trail help
 lib/api/response.ts       → apiSuccess()/apiError() — consistent API responses
 lib/notifications/notify.ts → notify() / notifyMany() — central pyra_notifications writer
 lib/evolution/client.ts   → Evolution API v2 client (WhatsApp)
-lib/constants/statuses.ts → Centralized status constants (17 entity types)
+lib/constants/statuses.ts → Centralized status constants (20 entity types)
 lib/config/module-guide.ts → Guide data for every page
 eslint.config.mjs         → ESLint guard rails (raw fetch warning, RTL class warning)
 types/database.ts         → All TypeScript types
@@ -567,7 +567,8 @@ import { INVOICE_STATUS, INVOICE_STATUS_LABELS, INVOICE_PAID_STATUSES } from '@/
 // Use labels in UI:
 <Badge>{INVOICE_STATUS_LABELS[invoice.status]}</Badge>
 ```
-Entities with centralized statuses: Invoice, Quote, Contract, Expense, Leave, Payroll, PO, CreditNote, Subscription, Timesheet, FileApproval, PaymentMethod, BillingCycle, EmployeePayment, Evaluation, ContentPipeline, FollowUp, Client, Lead, Conversation.
+Entities with a `*_STATUS` constant (20): Attendance, Client, ContentPipeline, Contract, Conversation, CreditNote, EmployeePayment, Evaluation, Expense, FileApproval, FollowUp, Invoice, Lead, LeadTask, Leave, Payroll, PO, Quote, Subscription, Timesheet.
+The same file also centralizes two non-status value maps — `PAYMENT_METHOD` and `BILLING_CYCLE` — with matching `*_LABELS`.
 
 ## i18n — Bilingual AR/EN (Phases 0–5 + 6a/6b shipped; 6c in progress)
 
@@ -699,7 +700,7 @@ Safe (no dark: needed): `bg-{c}-500/10`, `text-{c}-500`, CSS vars (`bg-muted`, `
 - Empty states → `<EmptyState>` from `@/components/ui/empty-state` — NEVER inline
 - Loading → `<Skeleton>` from `@/components/ui/skeleton` — NEVER blank pages (use `isLoading` from hooks)
 - Notifications → `toast` from `sonner` — NEVER `alert()`
-- API auth → `requireApiPermission()` or `requireApiAuth()` from `@/lib/api/auth`
+- API auth → `requireApiPermission()` (gate + auth) or `getApiAuth()` (auth only) from `@/lib/api/auth`
 - API response → `apiSuccess()`/`apiError()` from `@/lib/api/response`
 - Activity logging → `logActivity()` from `@/lib/api/activity` (fire-and-forget, never blocks response)
 - Error observability → `logError({ error, request, user?, metadata? })` from `@/lib/observability/log-error` in catch blocks of long-lived routes (cron, webhooks, state-change). Server-side only — Client Component error boundaries POST to `/api/observability/log-client-error` instead. `apiServerError(message?, err?, request?)` auto-logs when `err` is passed (Phase 14.1). PII-redacted (email/phone/headers) before insert into `pyra_error_logs`.
