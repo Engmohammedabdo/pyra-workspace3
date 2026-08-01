@@ -22,6 +22,9 @@ import {
   Briefcase,
   Loader2,
   MessageSquare,
+  Banknote,
+  AlertTriangle,
+  Undo2,
   type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -89,6 +92,21 @@ function typeVisual(type: string): { icon: LucideIcon; classes: string } {
     type.startsWith('document')
   ) {
     return { icon: Briefcase, classes: 'bg-sky-500/10 text-sky-600 dark:text-sky-400' };
+  }
+  // Money — checked before the generic `payment` branch below so a failure
+  // never renders in the same reassuring green as cash arriving.
+  if (
+    type === 'payment_failed' ||
+    type.startsWith('dispute') ||
+    type === 'stripe_webhook_failing'
+  ) {
+    return { icon: AlertTriangle, classes: 'bg-red-500/10 text-red-600 dark:text-red-400' };
+  }
+  if (type === 'payment_refunded') {
+    return { icon: Undo2, classes: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' };
+  }
+  if (type.startsWith('payment') || type.startsWith('invoice')) {
+    return { icon: Banknote, classes: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' };
   }
   if (
     type.startsWith('lead') ||

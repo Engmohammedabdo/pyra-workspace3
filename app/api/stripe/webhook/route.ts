@@ -296,6 +296,46 @@ export async function POST(req: NextRequest) {
         });
       }
 
+      // 7b. Tell the owner the money arrived.
+      //
+      // Until this existed, a SUCCESSFUL payment was the only money event that
+      // passed in silence: failures, disputes, unmatched refunds and
+      // cron-rescued payments all paged an admin, but cash actually landing did
+      // not. The only way to learn a customer had paid was to go and look —
+      // which is exactly what the owner asked for on 2026-08-01 after having no
+      // way to tell whether INV-0034 had been paid.
+      //
+      // Placed AFTER the `settled.skipped` return above, so a Stripe
+      // redelivery of an already-booked payment can never re-notify. notify()
+      // also drops non-active recipients and fires the web push, so a departed
+      // admin's phone stays quiet.
+      const { data: paidInvoice } = await supabase
+        .from('pyra_invoices')
+        .select('client_name')
+        .eq('id', invoiceId)
+        .maybeSingle();
+
+      const currencyLabel = session.currency?.toUpperCase() || 'AED';
+      const fromWhom = paidInvoice?.client_name ? ` من ${paidInvoice.client_name}` : '';
+      // With a card fee the customer was charged MORE than the invoice settles
+      // for. Reporting only one of the two numbers would read as a discrepancy
+      // the first time it is checked against the Stripe statement.
+      const feeNote = surcharge > 0
+        ? ` (المخصوم من العميل ${gross} ${currencyLabel} شامل رسوم البطاقة)`
+        : '';
+      const remainingNote = settled.amountDue > 0
+        ? ` — متبقٍ ${settled.amountDue} ${currencyLabel}`
+        : '';
+
+      await notifyAdmins(supabase, {
+        type: 'payment_confirmed',
+        title: settled.amountDue > 0 ? '💰 دفعة جزئية وصلت' : '💰 دفعة جديدة وصلت',
+        message: `${paymentAmount} ${currencyLabel}${fromWhom} على الفاتورة ${invoice.invoice_number}${feeNote}${remainingNote}`,
+        link: `/dashboard/invoices/${invoiceId}`,
+        entity: { type: 'invoice', id: invoiceId },
+        from: { username: 'system', displayName: 'Stripe' },
+      });
+
       // 8. Log activity
       await supabase.from('pyra_activity_log').insert({
         id: generateId('log'),
