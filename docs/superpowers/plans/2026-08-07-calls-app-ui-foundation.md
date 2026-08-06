@@ -725,6 +725,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -733,7 +735,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import cloud.pyramedia.calls.R
@@ -845,7 +846,8 @@ private fun ScreenHeader(title: String, onBack: (() -> Unit)?) {
         if (onBack != null) {
             IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
                 Icon(
-                    imageVector = backIcon(),
+                    // AutoMirrored matters: the arrow must flip in RTL.
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = stringResource(R.string.cd_back),
                 )
             }
@@ -853,10 +855,6 @@ private fun ScreenHeader(title: String, onBack: (() -> Unit)?) {
         Text(title, style = MaterialTheme.typography.headlineSmall)
     }
 }
-
-@Composable
-private fun backIcon(): ImageVector =
-    androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack
 ```
 
 - [ ] **Step 2: Add the material-icons dependency**
@@ -933,8 +931,11 @@ screen instead of below the fold."
   - `PyraChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier)`
   - `SectionHeader(title: String, shown: Int, total: Int)`
   - `NoticeCard(title: String, body: String, action: @Composable (() -> Unit)? = null)`
-  - `LeadRow(name: String, subtitle: String?, chipText: String, tone: LeadTone, onCall: (() -> Unit)?, trailing: @Composable (RowScope.() -> Unit)? = null)`
+  - `LeadRow(name: String, chipText: String, tone: LeadTone, modifier: Modifier = Modifier, subtitle: String? = null, onCall: (() -> Unit)? = null)`
   - `enum class LeadTone { Overdue, Cold, Neutral }`
+
+  `LeadRow` deliberately has **no** trailing-slot parameter. Wave C's «تم»
+  button will need one; adding it now would ship a parameter nothing passes.
 
 - [ ] **Step 1: `StatTile`**
 
@@ -1166,7 +1167,6 @@ fun LeadRow(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     onCall: (() -> Unit)? = null,
-    trailing: @Composable (RowScope.() -> Unit)? = null,
 ) {
     val pyra = LocalPyraColors.current
     val toneColor = when (tone) {
@@ -1217,10 +1217,6 @@ fun LeadRow(
                         style = MaterialTheme.typography.labelSmall,
                         color = toneColor,
                     )
-                }
-                if (trailing != null) {
-                    Spacer(Modifier.width(8.dp))
-                    trailing()
                 }
                 if (onCall != null) {
                     Spacer(Modifier.width(8.dp))
@@ -1392,11 +1388,21 @@ package cloud.pyramedia.calls.core
  */
 object CallLogFilter {
 
-    /** True iff the syncer would send this row to the server. */
-    fun isSyncable(callLogType: Int, phone: String?): Boolean {
-        if (CallMapping.directionFor(callLogType) == null) return false
-        return !phone.isNullOrBlank()
+    /**
+     * The row's server direction if it counts as work, else null.
+     *
+     * Callers that need the direction should use this rather than calling
+     * [isSyncable] and then `CallMapping.directionFor` again — the second
+     * lookup would be a branch that can never be taken.
+     */
+    fun directionIfSyncable(callLogType: Int, phone: String?): String? {
+        if (phone.isNullOrBlank()) return null
+        return CallMapping.directionFor(callLogType)
     }
+
+    /** True iff the syncer would send this row to the server. */
+    fun isSyncable(callLogType: Int, phone: String?): Boolean =
+        directionIfSyncable(callLogType, phone) != null
 
     /**
      * True iff the call actually connected — the same predicate the server
@@ -1437,17 +1443,15 @@ In `CallLogReader.kt`, replace lines 34-36:
 with:
 
 ```kotlin
-                val type = c.getInt(iType)
                 val phone = c.getString(iNum).orEmpty()
-                if (!CallLogFilter.isSyncable(type, phone)) continue
-                val direction = CallMapping.directionFor(type) ?: continue
+                val direction = CallLogFilter.directionIfSyncable(c.getInt(iType), phone) ?: continue
 ```
 
-Add `import cloud.pyramedia.calls.core.CallLogFilter` to the imports.
+Add `import cloud.pyramedia.calls.core.CallLogFilter` to the imports. The
+`CallMapping` import becomes unused in this file — remove it.
 
-Behaviour is unchanged — the predicate is identical, it just lives in one place
-now. The `?: continue` on the second line is unreachable after the guard but
-keeps `direction` non-null without a `!!`.
+Behaviour is unchanged; the predicate is identical, it just lives in one place
+now. One call, one branch — no unreachable second lookup.
 
 - [ ] **Step 6: Route the Home counter through it**
 
@@ -1989,9 +1993,7 @@ private fun WorkCard(state: WorkState, onOpen: () -> Unit, onRetry: () -> Unit) 
         shape = shape,
         color = MaterialTheme.colorScheme.primary,
         contentColor = Color.White,
-        modifier = Modifier.fillMaxWidth().semantics {
-            contentDescription = ""
-        },
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(20.dp)) {
             Text(
