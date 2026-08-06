@@ -234,8 +234,14 @@
       "moveStageConfirmModal": {
         "titleContractSigned": "Move deal to \"Contract Signed\"",
         "titleClosedLost": "Move deal to \"Lost\"",
+        "titleReopen": "Reopen a closed deal",
         "descriptionContractSigned": "Link the deal to a contract or invoice before sending it for approval.",
         "descriptionClosedLost": "Choose a loss reason to improve our analytics.",
+        "descriptionReopen": "Give a reason — it is recorded in the deal's history and the owner is notified.",
+        "reopenWarning": "Reopening removes the deal from the customers list and resets its win probability.",
+        "reopenPlaceholder": "Why is this deal being reopened?",
+        "reopenMinChars": "{count} / {min} characters minimum",
+        "confirmReopen": "Reopen",
         "tabContract": "Contract",
         "tabInvoice": "Invoice",
         "lostReasonChips": {

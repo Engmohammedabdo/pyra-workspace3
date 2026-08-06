@@ -226,6 +226,12 @@ export function useMoveLeadStage() {
 export interface RunMoveStageExtras {
   attachment?: { type: 'contract' | 'invoice'; id: string };
   lost_reason?: string;
+  /**
+   * Required by the route when the lead is currently at stg_closed_won.
+   * MoveStageInput has always declared it; this wrapper used to drop it,
+   * which made a won deal immovable in every surface.
+   */
+  reopen_reason?: string;
 }
 
 /**
@@ -276,6 +282,7 @@ export function useMoveLeadStageWithToasts() {
           to_stage_id: toStageId,
           ...(extras?.attachment ? { attachment: extras.attachment } : {}),
           ...(extras?.lost_reason ? { lost_reason: extras.lost_reason } : {}),
+          ...(extras?.reopen_reason ? { reopen_reason: extras.reopen_reason } : {}),
         });
         const movedToContractSigned = (res as { pending_approval?: boolean })?.pending_approval;
         if (toStageId === PIPELINE_STAGE_IDS.CLOSED_LOST) {

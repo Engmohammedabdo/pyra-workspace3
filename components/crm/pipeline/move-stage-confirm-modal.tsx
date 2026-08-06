@@ -46,7 +46,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  FileSignature, Receipt, Loader2, AlertCircle, Plus, XCircle,
+  FileSignature, Receipt, Loader2, AlertCircle, Plus, XCircle, RotateCcw,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
@@ -105,11 +105,14 @@ type AttachmentSelection = { type: 'contract' | 'invoice'; id: string };
 
 export type MoveStageConfirmPayload =
   | { mode: 'contract_signed'; attachment: AttachmentSelection }
-  | { mode: 'closed_lost'; lost_reason: string };
+  | { mode: 'closed_lost'; lost_reason: string }
+  | { mode: 'reopen'; reopen_reason: string };
 
-export type MoveStageConfirmTargetId =
-  | typeof PIPELINE_STAGE_IDS.CONTRACT_SIGNED
-  | typeof PIPELINE_STAGE_IDS.CLOSED_LOST;
+/**
+ * Which variant renders. Replaces the old target-stage union: a reopen can
+ * target ANY stage, so the variant can no longer be derived from the target.
+ */
+export type MoveStageConfirmMode = 'contract_signed' | 'closed_lost' | 'reopen';
 
 interface MoveStageConfirmModalProps {
   open: boolean;
@@ -117,7 +120,7 @@ interface MoveStageConfirmModalProps {
   /** The lead being moved — name shown in title; client_id used to narrow lists. */
   lead: PyraSalesLead | null;
   /** Decides which modal variant renders. null while closed/transitioning. */
-  targetStageId: MoveStageConfirmTargetId | null;
+  mode: MoveStageConfirmMode | null;
   /** True while the parent's mutation is in flight (after confirm). */
   submitting?: boolean;
   onConfirm: (payload: MoveStageConfirmPayload) => void;
@@ -127,7 +130,7 @@ export function MoveStageConfirmModal({
   open,
   onOpenChange,
   lead,
-  targetStageId,
+  mode,
   submitting,
   onConfirm,
 }: MoveStageConfirmModalProps) {
@@ -150,7 +153,7 @@ export function MoveStageConfirmModal({
     [t],
   );
 
-  // Reset everything whenever the modal opens or the target stage changes
+  // Reset everything whenever the modal opens or the mode changes
   // — prevents state from one variant leaking into the next.
   useEffect(() => {
     if (open) {
@@ -158,10 +161,11 @@ export function MoveStageConfirmModal({
       setSelected(null);
       setReason('');
     }
-  }, [open, targetStageId]);
+  }, [open, mode]);
 
-  const isContractSigned = targetStageId === PIPELINE_STAGE_IDS.CONTRACT_SIGNED;
-  const isClosedLost = targetStageId === PIPELINE_STAGE_IDS.CLOSED_LOST;
+  const isContractSigned = mode === 'contract_signed';
+  const isClosedLost = mode === 'closed_lost';
+  const isReopen = mode === 'reopen';
 
   const clientFilter = lead?.client_id ? { client_id: lead.client_id } : undefined;
 
@@ -188,27 +192,39 @@ export function MoveStageConfirmModal({
   // ── Confirm gates
   const trimmedReason = reason.trim();
   const canConfirmAttachment = !!selected && !submitting;
-  const canConfirmLost = trimmedReason.length >= MIN_LOST_REASON && !submitting;
+  const canConfirmText = trimmedReason.length >= MIN_LOST_REASON && !submitting;
 
   function handleConfirm() {
     if (isContractSigned && selected) {
       onConfirm({ mode: 'contract_signed', attachment: selected });
     } else if (isClosedLost && trimmedReason.length >= MIN_LOST_REASON) {
       onConfirm({ mode: 'closed_lost', lost_reason: trimmedReason });
+    } else if (isReopen && trimmedReason.length >= MIN_LOST_REASON) {
+      onConfirm({ mode: 'reopen', reopen_reason: trimmedReason });
     }
   }
 
   // Header config differs per variant.
   const title = isContractSigned
     ? t('titleContractSigned')
-    : t('titleClosedLost');
+    : isReopen
+      ? t('titleReopen')
+      : t('titleClosedLost');
   const description = isContractSigned
     ? t('descriptionContractSigned')
-    : t('descriptionClosedLost');
-  const TitleIcon = isContractSigned ? FileSignature : XCircle;
+    : isReopen
+      ? t('descriptionReopen')
+      : t('descriptionClosedLost');
+  const TitleIcon = isContractSigned
+    ? FileSignature
+    : isReopen
+      ? RotateCcw
+      : XCircle;
   const titleIconColor = isContractSigned
     ? 'text-orange-500'
-    : 'text-red-500';
+    : isReopen
+      ? 'text-amber-500'
+      : 'text-red-500';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -311,6 +327,32 @@ export function MoveStageConfirmModal({
           </div>
         )}
 
+        {isReopen && (
+          <div className="flex-1 min-h-0 overflow-y-auto py-2 space-y-3">
+            <div className="rounded-lg border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/30 p-3">
+              <p className="text-xs text-amber-800 dark:text-amber-300 leading-5">
+                {t('reopenWarning')}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                rows={4}
+                placeholder={t('reopenPlaceholder')}
+                required
+                minLength={MIN_LOST_REASON}
+                className="resize-none"
+              />
+              {trimmedReason.length < MIN_LOST_REASON && (
+                <p className="text-xs text-muted-foreground">
+                  {t('reopenMinChars', { count: trimmedReason.length, min: MIN_LOST_REASON })}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         <DialogFooter className="!flex-row gap-2 pt-3 border-t border-border">
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>
             {tCommon('cancel')}
@@ -330,11 +372,22 @@ export function MoveStageConfirmModal({
             <Button
               type="button"
               variant="destructive"
-              disabled={!canConfirmLost}
+              disabled={!canConfirmText}
               onClick={handleConfirm}
             >
               {submitting ? <Loader2 className="size-4 animate-spin me-1.5" /> : null}
               {t('confirmClosedLost')}
+            </Button>
+          )}
+          {isReopen && (
+            <Button
+              type="button"
+              disabled={!canConfirmText}
+              onClick={handleConfirm}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              {submitting ? <Loader2 className="size-4 animate-spin me-1.5" /> : null}
+              {t('confirmReopen')}
             </Button>
           )}
         </DialogFooter>

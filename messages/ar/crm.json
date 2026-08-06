@@ -234,8 +234,14 @@
       "moveStageConfirmModal": {
         "titleContractSigned": "نقل الصفقة إلى \"تم توقيع العقد\"",
         "titleClosedLost": "نقل الصفقة إلى \"خسارة\"",
+        "titleReopen": "إعادة فتح صفقة مغلقة",
         "descriptionContractSigned": "اربط الصفقة بعقد أو فاتورة قبل إرسالها للاعتماد.",
         "descriptionClosedLost": "اختر سبب الخسارة لتحسين تحليلاتنا.",
+        "descriptionReopen": "اكتب سبب إعادة الفتح — سيُسجَّل في تاريخ الصفقة ويصل إشعار للمسؤول عنها.",
+        "reopenWarning": "إعادة الفتح ستُخرج الصفقة من قائمة العملاء وتُصفِّر نسبة الفوز.",
+        "reopenPlaceholder": "لماذا يُعاد فتح الصفقة؟",
+        "reopenMinChars": "{count} / {min} حرف على الأقل",
+        "confirmReopen": "إعادة الفتح",
         "tabContract": "عقد",
         "tabInvoice": "فاتورة",
         "lostReasonChips": {
