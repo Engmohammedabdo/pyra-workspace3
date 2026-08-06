@@ -13,6 +13,12 @@ type SortBy = 'newest' | 'oldest' | 'priority' | 'waiting_longest';
 type MobileView = 'list' | 'chat';
 export type ConversationType = 'all' | 'individual' | 'group';
 
+// CR-T3: top-bar counter chips. Sibling to `filters` (not a member of
+// FilterState) because it filters the already-fetched page client-side
+// rather than going into the API query params. Deliberately excluded from
+// resetFilters() — the two controls are independent.
+export type QuickFilterKey = '' | 'needs_reply' | 'unassigned' | 'late';
+
 export interface FilterState {
   priority: string[];     // multi-select: low, normal, high, urgent
   assignedTo: string[];   // multi-select: agent usernames
@@ -51,6 +57,12 @@ interface ChatState {
   setFilters: (filters: FilterState) => void;
   resetFilters: () => void;
   activeFilterCount: number;
+
+  // Top-bar counter-chip filter (needs_reply / unassigned / late) — see
+  // QuickFilterKey above. Toggling the active chip off is the caller's job
+  // (setQuickFilter('') ), this is a plain setter.
+  quickFilter: QuickFilterKey;
+  setQuickFilter: (filter: QuickFilterKey) => void;
 
   // Panels
   showContactPanel: boolean;
@@ -116,6 +128,7 @@ export function ChatStoreProvider({ children }: { children: ReactNode }) {
   const [conversationType, setConversationType] = useState<ConversationType>('all');
   const [sortBy, setSortBy] = useState<SortBy>('newest');
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
+  const [quickFilter, setQuickFilter] = useState<QuickFilterKey>('');
   const [showContactPanel, setShowContactPanel] = useState(false);
   const [mobileView, setMobileView] = useState<MobileView>('list');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -154,7 +167,8 @@ export function ChatStoreProvider({ children }: { children: ReactNode }) {
     filters.assignedTo.length +
     (filters.team ? 1 : 0) +
     (filters.label ? 1 : 0) +
-    (filters.instance ? 1 : 0);
+    (filters.instance ? 1 : 0) +
+    (quickFilter ? 1 : 0);
 
   const setBulkMode = useCallback((mode: boolean) => {
     setBulkModeState(mode);
@@ -191,6 +205,8 @@ export function ChatStoreProvider({ children }: { children: ReactNode }) {
     setFilters,
     resetFilters,
     activeFilterCount,
+    quickFilter,
+    setQuickFilter,
     showContactPanel,
     toggleContactPanel,
     setShowContactPanel,
@@ -218,6 +234,7 @@ export function ChatStoreProvider({ children }: { children: ReactNode }) {
     sortBy,
     filters,
     activeFilterCount,
+    quickFilter,
     showContactPanel,
     mobileView,
     bulkMode,
@@ -231,6 +248,7 @@ export function ChatStoreProvider({ children }: { children: ReactNode }) {
     setSortBy,
     setFilters,
     resetFilters,
+    setQuickFilter,
     toggleContactPanel,
     setShowContactPanel,
     setMobileView,

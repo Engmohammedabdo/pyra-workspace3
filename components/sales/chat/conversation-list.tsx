@@ -39,6 +39,7 @@ export function ConversationList({ conversations, selectedJid, onSelect, bulkMod
         <div className="relative">
           <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#54656f] dark:text-[#8696a0]" />
           <input
+            id="wa-conv-search"
             data-chat-search
             value={search}
             onChange={e => setSearch(e.target.value)}

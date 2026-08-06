@@ -33,6 +33,10 @@ export interface Conversation {
   last_message_type?: string;
   last_message_at?: string | null;
   last_timestamp?: string;
+  // CR-T3: present on every row (WA_CONVERSATION_FIELDS) — needed by the
+  // top bar's needs_reply/late quick filters (lib/whatsapp/inbox.ts).
+  last_customer_message_at?: string | null;
+  last_agent_message_at?: string | null;
   unread_count: number;
   total_messages?: number;
   assigned_to?: string | null;

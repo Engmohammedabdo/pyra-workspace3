@@ -4,20 +4,22 @@ import { useEffect, useMemo, useRef, useCallback, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Wifi, Inbox, User, Clock, CheckCircle2, AlarmClock, BarChart3, RefreshCw } from 'lucide-react';
+import { Wifi, Inbox, User, MessageCircle, Clock, CheckCircle2, AlarmClock, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { motion } from 'framer-motion';
-import Link from 'next/link';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { isSuperAdmin } from '@/lib/auth/rbac';
 import { useConversations, usePollWhatsApp, useCheckSla, useUpdateConversation, useSyncGroups } from '@/hooks/useWhatsApp';
 import { toast } from 'sonner';
+import { needsReply, waitingMinutes, LATE_THRESHOLD_MINUTES } from '@/lib/whatsapp/inbox';
+import { CrmThemeScope } from '@/components/crm/crm-theme-scope';
 import { ConversationList } from './conversation-list';
 import { ChatPanel } from './chat-panel';
 import { BulkActionsBar } from './bulk-actions-bar';
 import { FilterBar } from './filters/filter-bar';
 import { SortSelector } from './filters/sort-selector';
 import { AssignDialog } from './dialogs/assign-dialog';
+import { TopBar } from './top-bar';
 import { useChatStore, TABS } from './use-chat-store';
 import { useChatShortcuts } from './use-chat-shortcuts';
 import {
@@ -57,6 +59,7 @@ export function ChatLayout() {
     toggleSelectedId,
     selectAllIds,
     clearSelectedIds,
+    quickFilter,
   } = store;
 
   // Group type filter (with safety fallback)
@@ -89,6 +92,38 @@ export function ChatLayout() {
   const { data: conversationsResponse, isLoading } = useConversations(queryParams);
   const conversations = conversationsResponse?.data || [];
   const counts = conversationsResponse?.meta?.counts || {};
+
+  // CR-T3 — top-bar counter chip applied client-side to the already-fetched
+  // page. The chip COUNTS themselves come from meta.counts (server-computed,
+  // scope-wide) — this filter only narrows what the list shows for the
+  // current fetch; it never re-derives the counts shown on the chips.
+  const filteredConversations = useMemo(() => {
+    if (!quickFilter) return conversations;
+    const nowMs = Date.now();
+    return conversations.filter(c => {
+      if (quickFilter === 'needs_reply') {
+        return needsReply({
+          id: c.id ?? '',
+          status: c.status ?? '',
+          last_customer_message_at: c.last_customer_message_at ?? null,
+          last_agent_message_at: c.last_agent_message_at ?? null,
+          last_message_at: c.last_message_at ?? null,
+        });
+      }
+      if (quickFilter === 'unassigned') return !c.assigned_to;
+      if (quickFilter === 'late') {
+        const mins = waitingMinutes({
+          id: c.id ?? '',
+          status: c.status ?? '',
+          last_customer_message_at: c.last_customer_message_at ?? null,
+          last_agent_message_at: c.last_agent_message_at ?? null,
+          last_message_at: c.last_message_at ?? null,
+        }, nowMs);
+        return mins !== null && mins >= LATE_THRESHOLD_MINUTES;
+      }
+      return true;
+    });
+  }, [conversations, quickFilter]);
 
   // Sync groups mutation
   const syncGroupsMutation = useSyncGroups();
@@ -139,9 +174,9 @@ export function ChatLayout() {
     setShortcutAssignOpen(true);
   }, [selectedConversation]);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts — navigate over what's actually visible (quickFilter-narrowed)
   useChatShortcuts({
-    conversations,
+    conversations: filteredConversations,
     onResolve: handleShortcutResolve,
     onOpenAssign: handleShortcutAssign,
   });
@@ -190,26 +225,11 @@ export function ChatLayout() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-3">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-          <MessageCircle className="h-5 w-5 text-white" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">محادثات واتساب</h1>
-          <p className="text-xs text-muted-foreground/60">Shared Inbox</p>
-        </div>
-        <div className="flex-1" />
-        {isAdmin && (
-          <Link href="/dashboard/sales/whatsapp-analytics">
-            <Button variant="outline" size="sm" className="rounded-lg text-xs h-8 gap-1.5">
-              <BarChart3 className="h-3.5 w-3.5" />
-              عرض التحليلات
-            </Button>
-          </Link>
-        )}
-      </div>
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="crm-theme space-y-3">
+      <CrmThemeScope />
+
+      {/* Top bar (CR-T3): title + counter-chip quick filters + line switcher + Ctrl+K */}
+      <TopBar counts={counts} />
 
       {/* Tabs -- WhatsApp-style underline tabs */}
       <div role="tablist" aria-label="تصفية المحادثات" className="flex bg-[#f0f2f5] dark:bg-[#202c33] rounded-lg overflow-x-auto">
@@ -308,13 +328,13 @@ export function ChatLayout() {
           {/* Conversation List */}
           <div className={cn('h-full min-h-0 overflow-hidden border-e border-[#e9edef] dark:border-[#313d45] md:block', mobileView === 'chat' ? 'hidden' : 'block')}>
             <ConversationList
-              conversations={conversations}
+              conversations={filteredConversations}
               selectedJid={selectedConversation?.remote_jid || null}
               onSelect={selectConversation}
               bulkMode={bulkMode}
               selectedIds={selectedIds}
               onToggleCheck={toggleSelectedId}
-              onSelectAll={() => selectAllIds(conversations.map(c => c.id).filter(Boolean) as string[])}
+              onSelectAll={() => selectAllIds(filteredConversations.map(c => c.id).filter(Boolean) as string[])}
             />
           </div>
 
