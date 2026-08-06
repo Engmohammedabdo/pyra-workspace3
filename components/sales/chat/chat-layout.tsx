@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils/cn';
 import { motion } from 'framer-motion';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { isSuperAdmin } from '@/lib/auth/rbac';
-import { useConversations, usePollWhatsApp, useCheckSla, useUpdateConversation, useSyncGroups } from '@/hooks/useWhatsApp';
+import { useConversations, usePollWhatsApp, useCheckSla, useUpdateConversation, useSyncGroups, type Conversation } from '@/hooks/useWhatsApp';
 import { toast } from 'sonner';
 import { needsReply, waitingMinutes, LATE_THRESHOLD_MINUTES } from '@/lib/whatsapp/inbox';
 import { CrmThemeScope } from '@/components/crm/crm-theme-scope';
@@ -151,9 +151,13 @@ export function ChatLayout() {
     return () => { clearTimeout(timeout); clearInterval(interval); };
   }, []);
 
-  // Resolve mutation for keyboard shortcut (E)
+  // Resolve mutation for keyboard shortcut (E) and row-level quick actions
   const updateConversation = useUpdateConversation();
   const [shortcutAssignOpen, setShortcutAssignOpen] = useState(false);
+  // CR-T4 — row-level "إسناد": a conversation override so the ONE AssignDialog
+  // instance below can open prefilled for whichever row was hovered, without
+  // requiring that row to be selected first.
+  const [quickAssignConv, setQuickAssignConv] = useState<Conversation | null>(null);
 
   const handleShortcutResolve = useCallback(() => {
     if (!selectedConversation?.id) return;
@@ -173,6 +177,21 @@ export function ChatLayout() {
     if (!selectedConversation?.id) return;
     setShortcutAssignOpen(true);
   }, [selectedConversation]);
+
+  const handleQuickAssign = useCallback((conv: Conversation) => {
+    setQuickAssignConv(conv);
+  }, []);
+
+  const handleQuickResolve = useCallback((conv: Conversation) => {
+    if (!conv.id) return;
+    updateConversation.mutate(
+      { conversationId: conv.id, data: { status: 'resolved' } },
+      {
+        onSuccess: () => toast.success('تم حل المحادثة'),
+        onError: () => toast.error('فشل في حل المحادثة'),
+      }
+    );
+  }, [updateConversation]);
 
   // Keyboard shortcuts — navigate over what's actually visible (quickFilter-narrowed)
   useChatShortcuts({
@@ -335,6 +354,10 @@ export function ChatLayout() {
               selectedIds={selectedIds}
               onToggleCheck={toggleSelectedId}
               onSelectAll={() => selectAllIds(filteredConversations.map(c => c.id).filter(Boolean) as string[])}
+              sectioned={activeTab !== 'resolved' && activeTab !== 'snoozed'}
+              isAdmin={isAdmin}
+              onQuickAssign={handleQuickAssign}
+              onQuickResolve={handleQuickResolve}
             />
           </div>
 
@@ -414,6 +437,19 @@ export function ChatLayout() {
           currentAgent={selectedConversation.assigned_to || null}
           onAssigned={() => setShortcutAssignOpen(false)}
           onClose={() => setShortcutAssignOpen(false)}
+        />
+      )}
+
+      {/* Assign Dialog triggered by a row's hover-revealed «إسناد» quick action (CR-T4) */}
+      {quickAssignConv && (
+        <AssignDialog
+          open
+          conversationId={quickAssignConv.id}
+          remoteJid={quickAssignConv.remote_jid}
+          instanceName={quickAssignConv.instance_name || 'pyraai'}
+          currentAgent={quickAssignConv.assigned_to || null}
+          onAssigned={() => setQuickAssignConv(null)}
+          onClose={() => setQuickAssignConv(null)}
         />
       )}
     </motion.div>
