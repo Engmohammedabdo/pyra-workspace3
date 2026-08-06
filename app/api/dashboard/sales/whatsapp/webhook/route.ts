@@ -102,8 +102,23 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ status: 'ok' });
 }
 
-async function processWebhook(event: string, instanceName: string, data: Record<string, unknown>) {
+async function processWebhook(rawEvent: string, instanceName: string, data: Record<string, unknown>) {
   const supabase = createServiceRoleClient();
+
+  // Evolution sends the event name DOT-SEPARATED AND LOWERCASE in the payload
+  // body — `messages.upsert`, not the `MESSAGES_UPSERT` it accepts when you
+  // REGISTER the webhook. Every case below was written against the registration
+  // spelling, so the switch fell through on every real delivery: 200 OK, no
+  // error, no row. Six live test messages were confirmed dispatched by
+  // Evolution (server log: `event: 'messages.upsert'`, `instance: 'selver'`)
+  // and silently dropped here. The only reason groups ever worked is that
+  // someone hit this for `groups.update` alone and patched that one case
+  // instead of the cause.
+  //
+  // Normalising once means both spellings — and the hyphenated
+  // `group-participants.update` — land on the same branch, so a future event
+  // name cannot reintroduce the bug.
+  const event = rawEvent.toUpperCase().replace(/[.-]/g, '_');
 
   switch (event) {
     case 'MESSAGES_UPSERT': {
@@ -546,8 +561,7 @@ async function processWebhook(event: string, instanceName: string, data: Record<
     }
 
     // ── GROUPS_UPDATE — group metadata changed ──
-    case 'GROUPS_UPDATE':
-    case 'groups.update': {
+    case 'GROUPS_UPDATE': {
       const groupData = data as Record<string, unknown>;
       const groupId = groupData.id as string | undefined;
       if (groupId) {
@@ -573,8 +587,7 @@ async function processWebhook(event: string, instanceName: string, data: Record<
     }
 
     // ── GROUP_PARTICIPANTS_UPDATE — member added/removed/promoted/demoted ──
-    case 'GROUP_PARTICIPANTS_UPDATE':
-    case 'group-participants.update': {
+    case 'GROUP_PARTICIPANTS_UPDATE': {
       const gpData = data as Record<string, unknown>;
       const groupJid = gpData.id as string | undefined;
       const participants = gpData.participants as string[] | undefined;
