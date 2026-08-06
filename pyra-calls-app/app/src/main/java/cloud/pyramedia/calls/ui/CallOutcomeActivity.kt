@@ -8,9 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import cloud.pyramedia.calls.BuildConfig
 import cloud.pyramedia.calls.R
@@ -21,6 +19,7 @@ import cloud.pyramedia.calls.data.ApiResult
 import cloud.pyramedia.calls.data.AppPrefs
 import cloud.pyramedia.calls.data.ErrorQueue
 import cloud.pyramedia.calls.notify.Notifier
+import cloud.pyramedia.calls.ui.theme.PyraTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -64,103 +63,101 @@ class CallOutcomeActivity : ComponentActivity() {
         val api = ApiClient(BuildConfig.BASE_URL) { prefs.deviceKey }
 
         setContent {
-            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                MaterialTheme { Surface {
-                    var outcomeIndex by remember { mutableStateOf<Int?>(null) }
-                    var note by remember { mutableStateOf("") }
-                    var presetDays by remember { mutableStateOf<Int?>(null) }
-                    var saving by remember { mutableStateOf(false) }
-                    var error by remember { mutableStateOf<String?>(null) }
-                    val scope = rememberCoroutineScope()
-                    val unknownLead = stringResource(R.string.my_day_unknown_lead)
-                    val outcomeRequired = stringResource(R.string.co_outcome_required)
-                    val netError = stringResource(R.string.net_error)
-                    val saved = stringResource(R.string.co_saved)
-                    val followUpErrorMsg = stringResource(R.string.co_follow_up_error)
+            PyraTheme {
+                var outcomeIndex by remember { mutableStateOf<Int?>(null) }
+                var note by remember { mutableStateOf("") }
+                var presetDays by remember { mutableStateOf<Int?>(null) }
+                var saving by remember { mutableStateOf(false) }
+                var error by remember { mutableStateOf<String?>(null) }
+                val scope = rememberCoroutineScope()
+                val unknownLead = stringResource(R.string.my_day_unknown_lead)
+                val outcomeRequired = stringResource(R.string.co_outcome_required)
+                val netError = stringResource(R.string.net_error)
+                val saved = stringResource(R.string.co_saved)
+                val followUpErrorMsg = stringResource(R.string.co_follow_up_error)
 
-                    Column(Modifier.fillMaxSize().padding(24.dp)) {
-                        Text(stringResource(R.string.co_title), style = MaterialTheme.typography.headlineSmall)
-                        Spacer(Modifier.height(8.dp))
-                        Text(stringResource(R.string.co_lead_label, leadName.ifBlank { unknownLead }))
-                        Spacer(Modifier.height(16.dp))
-                        Row {
-                            OUTCOME_OPTIONS.forEachIndexed { index, opt ->
-                                if (index != 0) Spacer(Modifier.width(8.dp))
-                                FilterChip(
-                                    selected = outcomeIndex == index,
-                                    onClick = { outcomeIndex = index },
-                                    label = { Text(stringResource(opt.labelRes)) },
-                                )
-                            }
+                Column(Modifier.fillMaxSize().padding(24.dp)) {
+                    Text(stringResource(R.string.co_title), style = MaterialTheme.typography.headlineSmall)
+                    Spacer(Modifier.height(8.dp))
+                    Text(stringResource(R.string.co_lead_label, leadName.ifBlank { unknownLead }))
+                    Spacer(Modifier.height(16.dp))
+                    Row {
+                        OUTCOME_OPTIONS.forEachIndexed { index, opt ->
+                            if (index != 0) Spacer(Modifier.width(8.dp))
+                            FilterChip(
+                                selected = outcomeIndex == index,
+                                onClick = { outcomeIndex = index },
+                                label = { Text(stringResource(opt.labelRes)) },
+                            )
                         }
-                        Spacer(Modifier.height(16.dp))
-                        OutlinedTextField(
-                            value = note, onValueChange = { note = it },
-                            label = { Text(stringResource(R.string.co_note_label)) },
-                            modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 4,
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Text(stringResource(R.string.co_follow_up_label), style = MaterialTheme.typography.labelLarge)
-                        Spacer(Modifier.height(8.dp))
-                        Row {
-                            FOLLOW_UP_PRESETS.forEachIndexed { index, preset ->
-                                if (index != 0) Spacer(Modifier.width(8.dp))
-                                FilterChip(
-                                    selected = presetDays == preset.days,
-                                    onClick = { presetDays = if (presetDays == preset.days) null else preset.days },
-                                    label = { Text(stringResource(preset.labelRes)) },
-                                )
-                            }
-                        }
-                        error?.let { Spacer(Modifier.height(8.dp)); Text(it, color = MaterialTheme.colorScheme.error) }
-                        Spacer(Modifier.height(24.dp))
-                        Button(
-                            enabled = !saving, modifier = Modifier.fillMaxWidth(),
-                            onClick = {
-                                error = null
-                                val idx = outcomeIndex
-                                if (idx == null) { error = outcomeRequired; return@Button }
-                                saving = true
-                                scope.launch {
-                                    val nextFollowUpAtIso = presetDays?.let { days ->
-                                        DubaiTime.isoUtc(DubaiTime.followUpPresetMillis(System.currentTimeMillis(), days))
-                                    }
-                                    val req = CallOutcomeRequest(
-                                        lead_id = leadId,
-                                        outcome = OUTCOME_OPTIONS[idx].value,
-                                        note = note.trim().ifBlank { null },
-                                        next_follow_up_at = nextFollowUpAtIso,
-                                    )
-                                    val res = withContext(Dispatchers.IO) { api.callOutcome(req) }
-                                    saving = false
-                                    when (res) {
-                                        is ApiResult.Ok -> {
-                                            // Success covers BOTH the plain-success and
-                                            // deduplicated=true cases (a 60s retry match is
-                                            // not an error — route.ts:67-79). follow_up_error
-                                            // still means the outcome itself was saved, so
-                                            // this is still an ApiResult.Ok, just with a
-                                            // different toast — never treated as a failure.
-                                            Notifier.cancel(this@CallOutcomeActivity, leadId.hashCode())
-                                            val msg = if (res.data.follow_up_error) followUpErrorMsg else saved
-                                            Toast.makeText(this@CallOutcomeActivity, msg, Toast.LENGTH_LONG).show()
-                                            finish()
-                                        }
-                                        is ApiResult.Err -> {
-                                            ErrorQueue(this@CallOutcomeActivity).enqueue(
-                                                message = "HTTP ${res.code}: ${res.message}",
-                                                source = "call_outcome_failed",
-                                                severity = "warning",
-                                            )
-                                            error = res.message
-                                        }
-                                        ApiResult.NetworkError -> error = netError
-                                    }
-                                }
-                            },
-                        ) { Text(stringResource(if (saving) R.string.co_saving else R.string.co_save)) }
                     }
-                } }
+                    Spacer(Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = note, onValueChange = { note = it },
+                        label = { Text(stringResource(R.string.co_note_label)) },
+                        modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 4,
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text(stringResource(R.string.co_follow_up_label), style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.height(8.dp))
+                    Row {
+                        FOLLOW_UP_PRESETS.forEachIndexed { index, preset ->
+                            if (index != 0) Spacer(Modifier.width(8.dp))
+                            FilterChip(
+                                selected = presetDays == preset.days,
+                                onClick = { presetDays = if (presetDays == preset.days) null else preset.days },
+                                label = { Text(stringResource(preset.labelRes)) },
+                            )
+                        }
+                    }
+                    error?.let { Spacer(Modifier.height(8.dp)); Text(it, color = MaterialTheme.colorScheme.error) }
+                    Spacer(Modifier.height(24.dp))
+                    Button(
+                        enabled = !saving, modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            error = null
+                            val idx = outcomeIndex
+                            if (idx == null) { error = outcomeRequired; return@Button }
+                            saving = true
+                            scope.launch {
+                                val nextFollowUpAtIso = presetDays?.let { days ->
+                                    DubaiTime.isoUtc(DubaiTime.followUpPresetMillis(System.currentTimeMillis(), days))
+                                }
+                                val req = CallOutcomeRequest(
+                                    lead_id = leadId,
+                                    outcome = OUTCOME_OPTIONS[idx].value,
+                                    note = note.trim().ifBlank { null },
+                                    next_follow_up_at = nextFollowUpAtIso,
+                                )
+                                val res = withContext(Dispatchers.IO) { api.callOutcome(req) }
+                                saving = false
+                                when (res) {
+                                    is ApiResult.Ok -> {
+                                        // Success covers BOTH the plain-success and
+                                        // deduplicated=true cases (a 60s retry match is
+                                        // not an error — route.ts:67-79). follow_up_error
+                                        // still means the outcome itself was saved, so
+                                        // this is still an ApiResult.Ok, just with a
+                                        // different toast — never treated as a failure.
+                                        Notifier.cancel(this@CallOutcomeActivity, leadId.hashCode())
+                                        val msg = if (res.data.follow_up_error) followUpErrorMsg else saved
+                                        Toast.makeText(this@CallOutcomeActivity, msg, Toast.LENGTH_LONG).show()
+                                        finish()
+                                    }
+                                    is ApiResult.Err -> {
+                                        ErrorQueue(this@CallOutcomeActivity).enqueue(
+                                            message = "HTTP ${res.code}: ${res.message}",
+                                            source = "call_outcome_failed",
+                                            severity = "warning",
+                                        )
+                                        error = res.message
+                                    }
+                                    ApiResult.NetworkError -> error = netError
+                                }
+                            }
+                        },
+                    ) { Text(stringResource(if (saving) R.string.co_saving else R.string.co_save)) }
+                }
             }
         }
     }

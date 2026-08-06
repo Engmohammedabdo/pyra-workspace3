@@ -4,11 +4,7 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.core.content.ContextCompat
 import cloud.pyramedia.calls.BuildConfig
 import cloud.pyramedia.calls.core.DubaiTime
@@ -17,6 +13,7 @@ import cloud.pyramedia.calls.data.ApiClient
 import cloud.pyramedia.calls.data.AppPrefs
 import cloud.pyramedia.calls.data.ErrorQueue
 import cloud.pyramedia.calls.sync.SyncScheduler
+import cloud.pyramedia.calls.ui.theme.PyraTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,84 +58,80 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                MaterialTheme {
-                    Surface {
-                        var granted by remember { mutableStateOf(allPermissionsGranted()) }
-                        var loggedIn by remember { mutableStateOf(prefs.isLoggedIn()) }
-                        // Per-release mandatory block (CA-C2). Deliberately
-                        // placed AFTER the permissions/login branches below
-                        // and BEFORE the normal Home branch: a logged-out
-                        // user who is also behind a mandatory release must
-                        // still see LoginScreen, not a screen with one
-                        // action they have no session to complete anything
-                        // from — trapping them here would be worse than not
-                        // blocking at all.
-                        //
-                        // CA-C2 fix round 1: `blocked` derives from
-                        // rememberPendingUpdate's LIVE state, not a raw
-                        // SharedPreferences read — a raw read is frozen for
-                        // the life of this composition, so a mandatory flag
-                        // SyncWorker later clears/un-mandates (owner fixes or
-                        // rolls back the release) would otherwise never be
-                        // seen again, trapping whoever is already on
-                        // UpdateRequiredScreen until they force-close the
-                        // app. See PermissionsScreen.kt's rememberPendingUpdate
-                        // doc for the full idiom this reuses.
-                        val pendingUpdate = rememberPendingUpdate(prefs)
-                        val blocked = UpdatePolicy.shouldBlock(
-                            pendingUpdate.value.versionCode, BuildConfig.VERSION_CODE, pendingUpdate.value.mandatory,
-                        )
-                        when {
-                            !granted -> PermissionsScreen(onAllGranted = { granted = true })
-                            !loggedIn -> LoginScreen(api, prefs.deviceId) { data ->
-                                prefs.deviceKey = data.device_key
-                                prefs.username = data.username
-                                prefs.displayName = data.display_name
-                                // Agent-handover guard: if this phone previously belonged to a
-                                // DIFFERENT agent, pin the sync window to "now" instead of the
-                                // usual day-start — otherwise the new agent's first sync would
-                                // re-ingest the previous agent's same-day calls under the new
-                                // agent's name (double-counted + re-notified).
-                                val priorUsername = prefs.lastLoginUsername
-                                if (priorUsername != null && priorUsername != data.username) {
-                                    prefs.installDayStartMillis = System.currentTimeMillis()
-                                } else if (prefs.installDayStartMillis == 0L) {
-                                    prefs.installDayStartMillis =
-                                        DubaiTime.dayStartMillis(System.currentTimeMillis())
-                                }
-                                prefs.lastLoginUsername = data.username
-                                prefs.lastSyncedCallLogId = 0L
-                                prefs.wasLoggedIn = true
-                                SyncScheduler.ensurePeriodic(this@MainActivity)
-                                SyncScheduler.syncNow(this@MainActivity)
-                                loggedIn = true
-                            }
-                            blocked -> UpdateRequiredScreen(
-                                versionName = pendingUpdate.value.versionName ?: BuildConfig.VERSION_NAME,
-                                api = api,
-                                prefs = prefs,
-                                onRecheck = pendingUpdate::refresh,
-                            )
-                            else -> {
-                                // "شغل النهاردة" is a sub-screen of Home, not a new
-                                // top-level `when` branch — same pattern as the
-                                // granted/loggedIn flags above, just nested one level
-                                // in so Home's own state (refreshTick etc.) survives
-                                // the round trip.
-                                var showMyDay by remember { mutableStateOf(false) }
-                                if (showMyDay) {
-                                    MyDayScreen(api = api, onBack = { showMyDay = false })
-                                } else {
-                                    HomeScreen(prefs, onOpenMyDay = { showMyDay = true }) {
-                                        // Explicit logout — flip the tripwire off FIRST so a
-                                        // clean logout is never mistaken for abnormal session
-                                        // loss on the next launch.
-                                        prefs.wasLoggedIn = false
-                                        prefs.clearSession()
-                                        loggedIn = false
-                                    }
-                                }
+            PyraTheme {
+                var granted by remember { mutableStateOf(allPermissionsGranted()) }
+                var loggedIn by remember { mutableStateOf(prefs.isLoggedIn()) }
+                // Per-release mandatory block (CA-C2). Deliberately
+                // placed AFTER the permissions/login branches below
+                // and BEFORE the normal Home branch: a logged-out
+                // user who is also behind a mandatory release must
+                // still see LoginScreen, not a screen with one
+                // action they have no session to complete anything
+                // from — trapping them here would be worse than not
+                // blocking at all.
+                //
+                // CA-C2 fix round 1: `blocked` derives from
+                // rememberPendingUpdate's LIVE state, not a raw
+                // SharedPreferences read — a raw read is frozen for
+                // the life of this composition, so a mandatory flag
+                // SyncWorker later clears/un-mandates (owner fixes or
+                // rolls back the release) would otherwise never be
+                // seen again, trapping whoever is already on
+                // UpdateRequiredScreen until they force-close the
+                // app. See PermissionsScreen.kt's rememberPendingUpdate
+                // doc for the full idiom this reuses.
+                val pendingUpdate = rememberPendingUpdate(prefs)
+                val blocked = UpdatePolicy.shouldBlock(
+                    pendingUpdate.value.versionCode, BuildConfig.VERSION_CODE, pendingUpdate.value.mandatory,
+                )
+                when {
+                    !granted -> PermissionsScreen(onAllGranted = { granted = true })
+                    !loggedIn -> LoginScreen(api, prefs.deviceId) { data ->
+                        prefs.deviceKey = data.device_key
+                        prefs.username = data.username
+                        prefs.displayName = data.display_name
+                        // Agent-handover guard: if this phone previously belonged to a
+                        // DIFFERENT agent, pin the sync window to "now" instead of the
+                        // usual day-start — otherwise the new agent's first sync would
+                        // re-ingest the previous agent's same-day calls under the new
+                        // agent's name (double-counted + re-notified).
+                        val priorUsername = prefs.lastLoginUsername
+                        if (priorUsername != null && priorUsername != data.username) {
+                            prefs.installDayStartMillis = System.currentTimeMillis()
+                        } else if (prefs.installDayStartMillis == 0L) {
+                            prefs.installDayStartMillis =
+                                DubaiTime.dayStartMillis(System.currentTimeMillis())
+                        }
+                        prefs.lastLoginUsername = data.username
+                        prefs.lastSyncedCallLogId = 0L
+                        prefs.wasLoggedIn = true
+                        SyncScheduler.ensurePeriodic(this@MainActivity)
+                        SyncScheduler.syncNow(this@MainActivity)
+                        loggedIn = true
+                    }
+                    blocked -> UpdateRequiredScreen(
+                        versionName = pendingUpdate.value.versionName ?: BuildConfig.VERSION_NAME,
+                        api = api,
+                        prefs = prefs,
+                        onRecheck = pendingUpdate::refresh,
+                    )
+                    else -> {
+                        // "شغل النهاردة" is a sub-screen of Home, not a new
+                        // top-level `when` branch — same pattern as the
+                        // granted/loggedIn flags above, just nested one level
+                        // in so Home's own state (refreshTick etc.) survives
+                        // the round trip.
+                        var showMyDay by remember { mutableStateOf(false) }
+                        if (showMyDay) {
+                            MyDayScreen(api = api, onBack = { showMyDay = false })
+                        } else {
+                            HomeScreen(prefs, onOpenMyDay = { showMyDay = true }) {
+                                // Explicit logout — flip the tripwire off FIRST so a
+                                // clean logout is never mistaken for abnormal session
+                                // loss on the next launch.
+                                prefs.wasLoggedIn = false
+                                prefs.clearSession()
+                                loggedIn = false
                             }
                         }
                     }

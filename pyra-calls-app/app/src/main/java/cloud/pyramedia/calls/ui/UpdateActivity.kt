@@ -19,10 +19,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,9 +28,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.core.content.pm.PackageInfoCompat
@@ -44,6 +40,7 @@ import cloud.pyramedia.calls.data.ApkDownloader
 import cloud.pyramedia.calls.data.AppPrefs
 import cloud.pyramedia.calls.data.DownloadResult
 import cloud.pyramedia.calls.data.ErrorQueue
+import cloud.pyramedia.calls.ui.theme.PyraTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -69,11 +66,7 @@ class UpdateActivity : ComponentActivity() {
         val api = ApiClient(BuildConfig.BASE_URL) { prefs.deviceKey }
 
         setContent {
-            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                MaterialTheme {
-                    Surface { UpdateScreen(api) }
-                }
-            }
+            PyraTheme { UpdateScreen(api) }
         }
     }
 }
