@@ -135,6 +135,7 @@ export function ChatPanel({
   // DealBanner/ContextDrawer to read (currentLeadId, not the initial leadId
   // prop, so a freshly created lead shows up without a parent refetch).
   const bannerConversation: Conversation = useMemo(() => ({
+    id: conversationId ?? undefined,
     remote_jid: remoteJid,
     instance_name: instanceName,
     lead_id: currentLeadId ?? null,
@@ -149,7 +150,7 @@ export function ChatPanel({
     group_picture_url: groupPictureUrl,
     participant_count: participantCount,
     labels,
-  }), [remoteJid, instanceName, currentLeadId, clientId, contactName, phone, assignedTo, isGroup, groupSubject, groupPictureUrl, participantCount, labels]);
+  }), [conversationId, remoteJid, instanceName, currentLeadId, clientId, contactName, phone, assignedTo, isGroup, groupSubject, groupPictureUrl, participantCount, labels]);
 
   // ── React Query hooks ──
   const { data: messages = [], isLoading: messagesLoading } = useMessages(

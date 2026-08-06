@@ -85,7 +85,9 @@ export function DealBanner({
     : conversation.contact_name || displayPhone || 'غير معروف';
   const subtitle = isContactTyping
     ? 'يكتب...'
-    : lead?.company || (conversation.contact_name ? displayPhone : null);
+    : conversation.is_group
+      ? `${conversation.participant_count ?? 0} عضو`
+      : lead?.company || (conversation.contact_name ? displayPhone : null);
 
   const isWon = lead?.stage_id === PIPELINE_STAGE_IDS.CLOSED_WON;
   const isLost = lead?.stage_id === PIPELINE_STAGE_IDS.CLOSED_LOST;
@@ -94,8 +96,20 @@ export function DealBanner({
     <div className="border-b border-border bg-card">
       {/* Row 1 — identity + KPIs + drawer toggle */}
       <div className="flex items-center gap-3 px-4 py-2.5">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-sm font-medium text-muted-foreground">
-          {conversation.is_group ? <Users className="h-5 w-5" /> : displayName.charAt(0).toUpperCase()}
+        <div className="h-10 w-10 shrink-0 rounded-full border border-border overflow-hidden">
+          {conversation.is_group ? (
+            conversation.group_picture_url ? (
+              <img src={conversation.group_picture_url} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-muted text-muted-foreground">
+                <Users className="h-5 w-5" />
+              </div>
+            )
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-muted text-sm font-medium text-muted-foreground">
+              {displayName.charAt(0).toUpperCase()}
+            </div>
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1.5">
