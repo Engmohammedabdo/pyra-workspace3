@@ -16,6 +16,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import cloud.pyramedia.calls.BuildConfig
 import cloud.pyramedia.calls.R
+import cloud.pyramedia.calls.core.CallCounts
+import cloud.pyramedia.calls.core.CallLogFilter
 import cloud.pyramedia.calls.core.DubaiTime
 import cloud.pyramedia.calls.core.UpdatePolicy
 import cloud.pyramedia.calls.data.ApiClient
@@ -27,12 +29,30 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Date
 
-private fun countSince(context: Context, sinceMillis: Long): Int {
+/**
+ * Tally the local call log using the EXACT predicate the syncer uses, so the
+ * number on Home and the number in the CRM are the same number at two points
+ * in time — the only gap being sync lag, which the sync chip already shows.
+ */
+private fun countSince(context: Context, sinceMillis: Long): CallCounts {
+    var total = 0
+    var connected = 0
     context.contentResolver.query(
-        CallLog.Calls.CONTENT_URI, arrayOf(CallLog.Calls._ID),
+        CallLog.Calls.CONTENT_URI,
+        arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.TYPE, CallLog.Calls.DURATION),
         "${CallLog.Calls.DATE} >= ?", arrayOf(sinceMillis.toString()), null,
-    )?.use { return it.count }
-    return 0
+    )?.use { c ->
+        val iNum = c.getColumnIndexOrThrow(CallLog.Calls.NUMBER)
+        val iType = c.getColumnIndexOrThrow(CallLog.Calls.TYPE)
+        val iDur = c.getColumnIndexOrThrow(CallLog.Calls.DURATION)
+        while (c.moveToNext()) {
+            val type = c.getInt(iType)
+            if (!CallLogFilter.isSyncable(type, c.getString(iNum))) continue
+            total++
+            if (CallLogFilter.isConnected(type, c.getInt(iDur))) connected++
+        }
+    }
+    return CallCounts(total, connected)
 }
 
 @Composable
@@ -44,8 +64,8 @@ fun HomeScreen(prefs: AppPrefs, onOpenMyDay: () -> Unit, onLogout: () -> Unit) {
     val upToDateMsg = stringResource(R.string.home_up_to_date)
     val checkFailedMsg = stringResource(R.string.home_check_failed)
     val now = System.currentTimeMillis()
-    val todayCount = remember(refreshTick) { countSince(context, DubaiTime.dayStartMillis(now)) }
-    val monthCount = remember(refreshTick) { countSince(context, DubaiTime.monthStartMillis(now)) }
+    val today = remember(refreshTick) { countSince(context, DubaiTime.dayStartMillis(now)) }
+    val month = remember(refreshTick) { countSince(context, DubaiTime.monthStartMillis(now)) }
     val lastSync = prefs.lastSyncAtMillis
     val synced = lastSync > 0 && now - lastSync < 30 * 60 * 1000
     val hibernationRestricted by rememberUnusedAppRestrictionsEnabled()
@@ -131,14 +151,14 @@ fun HomeScreen(prefs: AppPrefs, onOpenMyDay: () -> Unit, onLogout: () -> Unit) {
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
                 Text(stringResource(R.string.home_today), style = MaterialTheme.typography.labelMedium)
-                Text("$todayCount", style = MaterialTheme.typography.displaySmall)
+                Text("${today.total}", style = MaterialTheme.typography.displaySmall)
             }
         }
         Spacer(Modifier.height(12.dp))
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
                 Text(stringResource(R.string.home_month), style = MaterialTheme.typography.labelMedium)
-                Text("$monthCount", style = MaterialTheme.typography.displaySmall)
+                Text("${month.total}", style = MaterialTheme.typography.displaySmall)
             }
         }
         Spacer(Modifier.height(16.dp))

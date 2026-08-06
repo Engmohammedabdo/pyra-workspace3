@@ -3,7 +3,7 @@ package cloud.pyramedia.calls.data
 import android.content.Context
 import android.provider.CallLog
 import cloud.pyramedia.calls.core.CallEntry
-import cloud.pyramedia.calls.core.CallMapping
+import cloud.pyramedia.calls.core.CallLogFilter
 import cloud.pyramedia.calls.core.DubaiTime
 
 data class PendingCall(val callLogId: Long, val entry: CallEntry)
@@ -31,9 +31,8 @@ object CallLogReader {
             while (c.moveToNext() && calls.size < limit) {
                 val id = c.getLong(iId)
                 lastScannedId = maxOf(lastScannedId, id)
-                val direction = CallMapping.directionFor(c.getInt(iType)) ?: continue
                 val phone = c.getString(iNum).orEmpty()
-                if (phone.isBlank()) continue // withheld/private number — nothing to match or count against a lead
+                val direction = CallLogFilter.directionIfSyncable(c.getInt(iType), phone) ?: continue
                 calls.add(PendingCall(id, CallEntry(
                     device_call_key = "${prefs.deviceId}:$id",
                     phone = phone,
