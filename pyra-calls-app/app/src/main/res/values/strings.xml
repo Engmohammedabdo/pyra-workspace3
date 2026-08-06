@@ -115,4 +115,5 @@
     <string name="co_saved">تم تسجيل نتيجة المكالمة</string>
     <string name="co_follow_up_error">تم تسجيل نتيجة المكالمة، لكن تعذر جدولة المتابعة — حاول لاحقًا من لوحة الـ CRM</string>
     <string name="cd_back">رجوع</string>
+    <string name="cd_call">اتصال بـ %1$s</string>
 </resources>
