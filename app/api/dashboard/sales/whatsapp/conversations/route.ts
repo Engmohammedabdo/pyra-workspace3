@@ -274,9 +274,11 @@ export async function GET(request: NextRequest) {
     // ever actually hit, warn loudly instead of silently undercounting
     // (same pattern as /api/mobile/my-day's going-cold fetch).
     const INBOX_COUNTS_PROJECTION_CAP = 2000;
+    // Snoozed = deliberately deferred, excluded from needs_reply/late (mirrors the list's non-snoozed tabs)
     const { data: projectionRows, error: projectionError } = await buildBaseQuery()
       .eq('status', CONVERSATION_STATUS.OPEN)
       .not('last_customer_message_at', 'is', null)
+      .or('snoozed_until.is.null,snoozed_until.lte.' + nowIso)
       .limit(INBOX_COUNTS_PROJECTION_CAP);
 
     if (projectionError) {
