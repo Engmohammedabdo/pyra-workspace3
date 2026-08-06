@@ -85,11 +85,11 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
       : mediaUrl
     : null;
 
-  // Status icons — WhatsApp Web style: gray checks, blue for read, red for failed
+  // Status icons — gray checks, blue for read, red for failed
   const statusIcon = isOutgoing && status ? {
-    sent: <Check className="h-3 w-3 text-[#667781] dark:text-[#8696a0]" />,
-    delivered: <CheckCheck className="h-3 w-3 text-[#667781] dark:text-[#8696a0]" />,
-    read: <CheckCheck className="h-3 w-3 text-[#53bdeb]" />,
+    sent: <Check className="h-3 w-3 text-muted-foreground" />,
+    delivered: <CheckCheck className="h-3 w-3 text-muted-foreground" />,
+    read: <CheckCheck className="h-3 w-3 text-blue-500 dark:text-blue-400" />,
     received: null,
     failed: <X className="h-3 w-3 text-red-500" />,
   }[status] || null : null;
@@ -100,7 +100,7 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
         className={cn('flex group/msg relative', isOutgoing ? 'justify-end' : 'justify-start')}
         onMouseEnter={() => setShowReactions(false)}
       >
-        {/* Hover action buttons — compact row, WhatsApp style */}
+        {/* Hover action buttons — compact row */}
         <div className={cn(
           'absolute top-1 flex items-center gap-px opacity-0 group-hover/msg:opacity-100 transition-opacity z-10',
           isOutgoing ? 'start-0 -translate-x-full pe-1' : 'end-0 translate-x-full ps-1'
@@ -113,7 +113,7 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
                 content: content || '',
                 sender: direction === 'incoming' ? (contactName || undefined) : 'أنت',
               })}
-              className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-[#667781] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-[#e9edef] transition-colors"
+              className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors"
               aria-label="رد"
               title="رد"
             >
@@ -123,7 +123,7 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
           {onReact && (
             <button
               onClick={() => setShowReactions(!showReactions)}
-              className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-[#667781] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-[#e9edef] transition-colors"
+              className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors"
               aria-label="تفاعل"
               title="تفاعل"
             >
@@ -133,7 +133,7 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
           {onSaveToFiles && ['image', 'document', 'video', 'audio'].includes(messageType) && (
             <button
               onClick={() => onSaveToFiles(id)}
-              className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-[#667781] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-[#e9edef] transition-colors"
+              className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors"
               aria-label="حفظ"
               title="حفظ"
             >
@@ -143,7 +143,7 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
           {onForward && (
             <button
               onClick={() => onForward(id)}
-              className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-[#667781] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-[#e9edef] transition-colors"
+              className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors"
               aria-label="تحويل"
               title="تحويل"
             >
@@ -152,10 +152,10 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
           )}
         </div>
 
-        {/* Quick reactions picker — WhatsApp style pill */}
+        {/* Quick reactions picker */}
         {showReactions && onReact && (
           <div className={cn(
-            'absolute -top-9 flex items-center gap-0.5 bg-white dark:bg-[#233138] rounded-full px-1.5 py-1 shadow-lg z-20 border border-gray-200/60 dark:border-gray-700/40',
+            'absolute -top-9 flex items-center gap-0.5 bg-card rounded-full px-1.5 py-1 shadow-lg z-20 border border-border',
             isOutgoing ? 'end-0' : 'start-0'
           )}>
             {QUICK_REACTIONS.map(emoji => (
@@ -165,7 +165,7 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
                   onReact(id, emoji);
                   setShowReactions(false);
                 }}
-                className="w-7 h-7 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 flex items-center justify-center text-sm transition-transform hover:scale-125"
+                className="w-7 h-7 rounded-full hover:bg-muted flex items-center justify-center text-sm transition-transform hover:scale-125"
               >
                 {emoji}
               </button>
@@ -175,33 +175,31 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
 
         <div
           className={cn(
-            'max-w-[65%] rounded-lg px-2 py-1 space-y-0.5 relative shadow-sm',
+            'max-w-[65%] rounded-lg px-2 py-1 space-y-0.5 relative shadow-sm border',
             isOutgoing
-              ? 'bg-[#d9fdd3] dark:bg-[#005c4b] text-[#111b21] dark:text-[#e9edef] rounded-ee-none'
-              : 'bg-white dark:bg-[#202c33] text-[#111b21] dark:text-[#e9edef] rounded-es-none'
+              ? 'bg-orange-500/10 border-orange-500/20 text-foreground rounded-ee-none'
+              : 'bg-card border-border text-foreground rounded-es-none'
           )}
         >
-          {/* ── Quoted Reply Preview — WhatsApp style side bar ── */}
+          {/* ── Quoted Reply Preview ── */}
           {replyPreview && (
             <div className={cn(
               'rounded px-2 py-1.5 mb-0.5 border-s-3 text-xs cursor-pointer',
               isOutgoing
-                ? 'bg-[#c3eebb] dark:bg-[#025144] border-s-[#06cf9c]'
-                : 'bg-gray-100 dark:bg-[#1d282f] border-s-[#667781] dark:border-s-[#8696a0]'
+                ? 'bg-orange-500/15 border-s-orange-500'
+                : 'bg-muted border-s-muted-foreground'
             )}>
               {replyPreview.sender && (
-                <span className="text-[11px] font-medium block text-[#06cf9c]">
+                <span className="text-[11px] font-medium block text-orange-600 dark:text-orange-400">
                   {replyPreview.sender}
                 </span>
               )}
-              <span className={cn(
-                'line-clamp-1 text-[#667781] dark:text-[#8696a0]'
-              )}>
+              <span className="line-clamp-1 text-muted-foreground">
                 {replyPreview.text || '...'}
               </span>
             </div>
           )}
-          {/* ── Image Preview — WhatsApp style (no inner rounding) ── */}
+          {/* ── Image Preview ── */}
           {messageType === 'image' && resolvedMediaUrl && (
             <div
               className="relative overflow-hidden cursor-pointer group/img -mx-2 -mt-1"
@@ -220,7 +218,7 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
             </div>
           )}
 
-          {/* ── Audio Player — WhatsApp style waveform ── */}
+          {/* ── Audio Player ── */}
           {messageType === 'audio' && resolvedMediaUrl && (
             <div className="flex items-center gap-2.5 min-w-[220px] py-1">
               {/* Hidden audio element */}
@@ -240,13 +238,13 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
                   if (audioPlaying) { el.pause(); setAudioPlaying(false); }
                   else { el.play(); setAudioPlaying(true); }
                 }}
-                className="w-8 h-8 rounded-full bg-[#00a884] text-white flex items-center justify-center shrink-0 transition-transform hover:scale-105"
+                className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center shrink-0 transition-transform hover:scale-105"
               >
                 {audioPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ms-0.5" />}
               </button>
               <div className="flex-1 min-w-0">
                 <div
-                  className={cn('h-[3px] rounded-full cursor-pointer', isOutgoing ? 'bg-[#005c4b]/30 dark:bg-white/15' : 'bg-gray-300 dark:bg-gray-600')}
+                  className={cn('h-[3px] rounded-full cursor-pointer', isOutgoing ? 'bg-orange-500/20' : 'bg-muted')}
                   onClick={(e) => {
                     const el = audioRef.current;
                     if (!el || !el.duration) return;
@@ -256,18 +254,18 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
                   }}
                 >
                   <div
-                    className="h-full rounded-full bg-[#00a884] transition-all"
+                    className="h-full rounded-full bg-orange-500 transition-all"
                     style={{ width: `${audioProgress}%` }}
                   />
                 </div>
-                <p className="text-[10px] mt-0.5 text-[#667781] dark:text-[#8696a0]">
+                <p className="text-[10px] mt-0.5 text-muted-foreground">
                   رسالة صوتية
                 </p>
               </div>
             </div>
           )}
 
-          {/* ── Video — WhatsApp style ── */}
+          {/* ── Video ── */}
           {messageType === 'video' && resolvedMediaUrl && (
             <div className="overflow-hidden -mx-2 -mt-1">
               <video
@@ -277,14 +275,14 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
                 className="w-full max-h-72"
               />
               {fileName && (
-                <p className="text-[10px] mt-0.5 px-1 text-[#667781] dark:text-[#8696a0]">
+                <p className="text-[10px] mt-0.5 px-1 text-muted-foreground">
                   {fileName}
                 </p>
               )}
             </div>
           )}
 
-          {/* ── Document — WhatsApp style card ── */}
+          {/* ── Document ── */}
           {messageType === 'document' && resolvedMediaUrl && (
             <a
               href={resolvedMediaUrl!}
@@ -293,22 +291,22 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
               className={cn(
                 'flex items-center gap-2.5 rounded-md px-2.5 py-2 transition-colors',
                 isOutgoing
-                  ? 'bg-[#c3eebb] dark:bg-[#025144] hover:bg-[#b8e6ae] dark:hover:bg-[#034a3f]'
-                  : 'bg-gray-100 dark:bg-[#1d282f] hover:bg-gray-200/70 dark:hover:bg-[#233138]'
+                  ? 'bg-orange-500/15 hover:bg-orange-500/25'
+                  : 'bg-muted hover:bg-muted/70'
               )}
             >
-              <div className="w-8 h-10 rounded flex items-center justify-center shrink-0 bg-gray-400/20 dark:bg-gray-500/20 text-[#667781] dark:text-[#8696a0]">
+              <div className="w-8 h-10 rounded flex items-center justify-center shrink-0 bg-muted-foreground/10 text-muted-foreground">
                 <FileText className="h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-normal truncate text-[#111b21] dark:text-[#e9edef]">
+                <p className="text-[13px] font-normal truncate text-foreground">
                   {fileName || 'مستند'}
                 </p>
-                <p className="text-[10px] text-[#667781] dark:text-[#8696a0]">
+                <p className="text-[10px] text-muted-foreground">
                   اضغط للتحميل
                 </p>
               </div>
-              <Download className="h-4 w-4 shrink-0 text-[#667781] dark:text-[#8696a0]" />
+              <Download className="h-4 w-4 shrink-0 text-muted-foreground" />
             </a>
           )}
 
@@ -316,17 +314,15 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
           {messageType === 'poll' && content && (
             <div className={cn(
               'rounded-md px-2.5 py-2',
-              isOutgoing
-                ? 'bg-[#c3eebb] dark:bg-[#025144]'
-                : 'bg-gray-100 dark:bg-[#1d282f]'
+              isOutgoing ? 'bg-orange-500/15' : 'bg-muted'
             )}>
               <div className="flex items-center gap-1.5 mb-1.5">
-                <Vote className="h-3.5 w-3.5 text-[#00a884]" />
-                <span className="text-[11px] font-medium text-[#00a884]">
+                <Vote className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
+                <span className="text-[11px] font-medium text-orange-600 dark:text-orange-400">
                   استطلاع
                 </span>
               </div>
-              <p className="text-[13px] font-semibold mb-0.5 text-[#111b21] dark:text-[#e9edef]">
+              <p className="text-[13px] font-semibold mb-0.5 text-foreground">
                 {content}
               </p>
             </div>
@@ -336,9 +332,7 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
           {messageType === 'location' && (
             <div className={cn(
               'rounded-md px-2.5 py-2',
-              isOutgoing
-                ? 'bg-[#c3eebb] dark:bg-[#025144]'
-                : 'bg-gray-100 dark:bg-[#1d282f]'
+              isOutgoing ? 'bg-orange-500/15' : 'bg-muted'
             )}>
               <div className="flex items-center gap-1.5">
                 <MapPin className="h-3.5 w-3.5 text-red-500" />
@@ -347,7 +341,7 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
                 </span>
               </div>
               {content && (
-                <p className="text-[13px] mt-0.5 text-[#111b21] dark:text-[#e9edef]">
+                <p className="text-[13px] mt-0.5 text-foreground">
                   {content}
                 </p>
               )}
@@ -358,18 +352,16 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
           {messageType === 'contact' && (
             <div className={cn(
               'rounded-md px-2.5 py-2',
-              isOutgoing
-                ? 'bg-[#c3eebb] dark:bg-[#025144]'
-                : 'bg-gray-100 dark:bg-[#1d282f]'
+              isOutgoing ? 'bg-orange-500/15' : 'bg-muted'
             )}>
               <div className="flex items-center gap-1.5">
-                <Phone className="h-3.5 w-3.5 text-[#00a884]" />
-                <span className="text-[11px] font-medium text-[#00a884]">
+                <Phone className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
+                <span className="text-[11px] font-medium text-orange-600 dark:text-orange-400">
                   جهة اتصال
                 </span>
               </div>
               {content && (
-                <p className="text-[13px] mt-0.5 font-medium text-[#111b21] dark:text-[#e9edef]">
+                <p className="text-[13px] mt-0.5 font-medium text-foreground">
                   {content}
                 </p>
               )}
@@ -378,7 +370,7 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
 
           {/* ── Fallback media badge (no URL) ── */}
           {messageType !== 'text' && !resolvedMediaUrl && !['poll', 'location', 'contact'].includes(messageType) && (
-            <div className="flex items-center gap-1.5 text-[13px] text-[#667781] dark:text-[#8696a0]">
+            <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
               {MEDIA_ICONS[messageType] || null}
               <span className="text-xs">
                 {fileName || (messageType === 'image' ? 'صورة' : messageType === 'audio' ? 'صوت' : messageType === 'video' ? 'فيديو' : 'ملف')}
@@ -386,9 +378,9 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
             </div>
           )}
 
-          {/* Text content + inline timestamp (WhatsApp style) */}
+          {/* Text content + inline timestamp */}
           {content && (
-            <p className="text-[13.6px] whitespace-pre-wrap break-words leading-[19px] text-[#111b21] dark:text-[#e9edef]">
+            <p className="text-[13.6px] whitespace-pre-wrap break-words leading-[19px] text-foreground">
               {content}
               {/* Invisible spacer so timestamp floats at end of text */}
               <span className="inline-block w-[70px]" />
@@ -396,21 +388,18 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
           )}
 
           {/* Time + Status — floated inside bubble, bottom-end */}
-          <span className={cn(
-            'text-[11px] float-end ms-2 -mt-4 flex items-center gap-0.5 relative z-[1]',
-            'text-[#667781] dark:text-[#8696a0]'
-          )}>
+          <span className="text-[11px] float-end ms-2 -mt-4 flex items-center gap-0.5 relative z-[1] text-muted-foreground">
             <span className="tabular-nums">{time}</span>
             {statusIcon}
           </span>
 
-          {/* ── Reaction Pills — WhatsApp style (below bubble, slight overlap) ── */}
+          {/* ── Reaction Pills (below bubble, slight overlap) ── */}
           {reactions && reactions.length > 0 && (
             <div className="flex gap-0.5 -mb-3 mt-0.5 ms-1 flex-wrap relative z-[2]">
               {reactions.map((r, i) => (
                 <span
                   key={i}
-                  className="bg-white dark:bg-[#233138] rounded-full px-1.5 py-0.5 text-sm shadow-sm border border-gray-200/60 dark:border-gray-700/40"
+                  className="bg-card rounded-full px-1.5 py-0.5 text-sm shadow-sm border border-border"
                 >
                   {r.emoji}
                 </span>
@@ -420,10 +409,10 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
         </div>
       </div>
 
-      {/* ── Fullscreen Image Lightbox — WhatsApp style dark overlay ── */}
+      {/* ── Fullscreen Image Lightbox ── */}
       {imagePreview && resolvedMediaUrl && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0b141a]/90 animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 animate-in fade-in duration-200"
           onClick={() => setImagePreview(false)}
         >
           <button
@@ -443,7 +432,7 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
             href={resolvedMediaUrl!}
             target="_blank"
             rel="noopener noreferrer"
-            className="absolute bottom-6 w-10 h-10 rounded-full bg-[#00a884] hover:bg-[#00a884]/80 flex items-center justify-center text-white transition-colors"
+            className="absolute bottom-6 w-10 h-10 rounded-full bg-orange-500 hover:bg-orange-500/80 flex items-center justify-center text-white transition-colors"
             onClick={e => e.stopPropagation()}
           >
             <Download className="h-5 w-5" />
@@ -451,5 +440,41 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
         </div>
       )}
     </>
+  );
+}
+
+export interface NoteBubbleProps {
+  content: string;
+  authorName?: string | null;
+  timestamp: string;
+}
+
+/**
+ * Internal-note bubble (CR-T6) — amber dashed border + a lock tag, so it
+ * reads as unmistakably NOT an outgoing WhatsApp message. Notes never carry
+ * media/reactions/statuses, so this stays a small, separate component
+ * instead of a MessageBubble "variant" prop with mostly-unused fields.
+ */
+export function NoteBubble({ content, authorName, timestamp }: NoteBubbleProps) {
+  const time = new Date(timestamp).toLocaleString('ar-EG', {
+    hour: '2-digit',
+    minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+  });
+  return (
+    <div className="flex justify-center px-4 py-0.5">
+      <div className="max-w-[80%] rounded-lg border border-dashed border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5">
+        <div className="flex items-center gap-1 mb-0.5">
+          <span className="text-[10px]">🔒</span>
+          <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400">ملاحظة داخلية</span>
+          {authorName && (
+            <span className="text-[10px] text-muted-foreground">-- {authorName}</span>
+          )}
+        </div>
+        <p className="text-[13px] text-amber-900 dark:text-amber-200 whitespace-pre-wrap leading-snug">{content}</p>
+        <span className="text-[10px] text-muted-foreground mt-0.5 block">{time}</span>
+      </div>
+    </div>
   );
 }

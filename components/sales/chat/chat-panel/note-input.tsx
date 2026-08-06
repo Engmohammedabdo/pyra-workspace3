@@ -71,10 +71,9 @@ export function NoteInput({ onSend, disabled }: NoteInputProps) {
             size="icon"
             aria-label="إرسال ملاحظة"
             className={cn(
-              'shrink-0 rounded-xl w-10 h-10 shadow-md dark:shadow-black/20 transition-all duration-200',
-              'bg-gradient-to-br from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700',
-              'text-white shadow-amber-500/20',
-              'disabled:opacity-40 disabled:shadow-none'
+              'shrink-0 rounded-full w-10 h-10 transition-all duration-200',
+              'bg-amber-500 hover:bg-amber-600 text-white',
+              'disabled:opacity-40'
             )}
           >
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

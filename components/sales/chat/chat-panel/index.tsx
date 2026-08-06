@@ -440,6 +440,7 @@ export function ChatPanel({
         <MessageList
           messages={displayMessages}
           notes={notes}
+          leadId={currentLeadId}
           isGroup={isGroup}
           onReply={handleReply}
           onReact={handleReact}
@@ -457,33 +458,35 @@ export function ChatPanel({
           />
         )}
 
-        {/* Input Mode Toggle + Input */}
+        {/* Input Mode Segmented Toggle (رد/ملاحظة) + Input */}
         {conversationId && (
-          <div className="flex items-center gap-1 px-3 pt-1">
-            <button
-              onClick={() => setInputMode('message')}
-              className={cn(
-                'flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors',
-                inputMode === 'message'
-                  ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                  : 'text-muted-foreground hover:bg-muted/50'
-              )}
-            >
-              <MessageCircle className="h-3 w-3" />
-              رسالة
-            </button>
-            <button
-              onClick={() => setInputMode('note')}
-              className={cn(
-                'flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors',
-                inputMode === 'note'
-                  ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
-                  : 'text-muted-foreground hover:bg-muted/50'
-              )}
-            >
-              <Pencil className="h-3 w-3" />
-              ملاحظة داخلية
-            </button>
+          <div className="px-3 pt-1">
+            <div className="inline-flex items-center gap-0.5 rounded-full bg-muted p-0.5">
+              <button
+                onClick={() => setInputMode('message')}
+                className={cn(
+                  'flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-medium transition-colors',
+                  inputMode === 'message'
+                    ? 'bg-card text-emerald-700 dark:text-emerald-400 shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <MessageCircle className="h-3 w-3" />
+                رد
+              </button>
+              <button
+                onClick={() => setInputMode('note')}
+                className={cn(
+                  'flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-medium transition-colors',
+                  inputMode === 'note'
+                    ? 'bg-card text-amber-700 dark:text-amber-400 shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Pencil className="h-3 w-3" />
+                ملاحظة
+              </button>
+            </div>
           </div>
         )}
         {inputMode === 'note' ? (

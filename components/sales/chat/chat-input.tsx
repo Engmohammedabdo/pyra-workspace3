@@ -320,8 +320,8 @@ export function ChatInput({
   return (
     <div
       className={cn(
-        'border-t border-[#e9edef] dark:border-[#313d45] bg-[#f0f2f5] dark:bg-[#202c33] transition-colors',
-        isDragging && 'bg-[#e2f7cb] dark:bg-[#025144]/30 border-[#00a884]/50'
+        'border-t border-border bg-muted transition-colors',
+        isDragging && 'bg-orange-500/10 border-orange-500/40'
       )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -330,19 +330,19 @@ export function ChatInput({
       {/* Quoted message preview */}
       {quotedMessage && (
         <div className="px-4 py-2 flex items-center gap-2">
-          <div className="flex-1 bg-white dark:bg-[#2a3942] rounded-lg border-s-4 border-s-[#00a884] ps-3 pe-2 py-2 min-w-0">
+          <div className="flex-1 bg-card rounded-lg border-s-4 border-s-primary ps-3 pe-2 py-2 min-w-0">
             {quotedMessage.sender && (
-              <p className="text-[11px] font-medium text-[#00a884]">
+              <p className="text-[11px] font-medium text-orange-600 dark:text-orange-400">
                 {quotedMessage.sender}
               </p>
             )}
-            <p className="text-[13px] text-[#667781] dark:text-[#8696a0] line-clamp-1">
+            <p className="text-[13px] text-muted-foreground line-clamp-1">
               {quotedMessage.content || '...'}
             </p>
           </div>
           <button
             onClick={onClearQuote}
-            className="shrink-0 text-[#667781] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-[#e9edef] transition-colors"
+            className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
             aria-label="إلغاء الرد"
           >
             <X className="h-4 w-4" />
@@ -352,7 +352,7 @@ export function ChatInput({
 
       {/* Drag overlay */}
       {isDragging && (
-        <div className="px-4 pt-3 text-center text-sm text-[#00a884] font-medium">
+        <div className="px-4 pt-3 text-center text-sm text-orange-600 dark:text-orange-400 font-medium">
           اسحب الملف هنا للإرسال
         </div>
       )}
@@ -360,15 +360,15 @@ export function ChatInput({
       {/* Recording UI */}
       {isRecording && (
         <div className="px-4 pt-3 flex items-center gap-3">
-          <div className="flex items-center gap-2 flex-1 bg-white dark:bg-[#2a3942] rounded-lg px-4 py-2.5">
+          <div className="flex items-center gap-2 flex-1 bg-card rounded-lg px-4 py-2.5">
             <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
             <span className="text-[15px] font-medium text-red-500 tabular-nums">
               {formatRecordingTime(recordingTime)}
             </span>
-            <span className="text-[13px] text-[#667781] dark:text-[#8696a0]">جاري التسجيل...</span>
+            <span className="text-[13px] text-muted-foreground">جاري التسجيل...</span>
           </div>
           <button
-            className="h-10 w-10 rounded-full flex items-center justify-center text-[#54656f] dark:text-[#aebac1] hover:bg-[#e9edef] dark:hover:bg-[#313d45] transition-colors"
+            className="h-10 w-10 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"
             onClick={cancelRecording}
             title="إلغاء"
             aria-label="إلغاء"
@@ -390,8 +390,8 @@ export function ChatInput({
       {attachmentFile && (
         <div className="px-4 pt-3 flex items-start gap-3">
           <div className={cn(
-            'relative rounded-lg overflow-hidden border border-[#e9edef] dark:border-[#313d45]',
-            attachmentPreview ? 'w-20 h-20' : 'flex items-center gap-2 px-3 py-2 bg-white dark:bg-[#2a3942]'
+            'relative rounded-lg overflow-hidden border border-border',
+            attachmentPreview ? 'w-20 h-20' : 'flex items-center gap-2 px-3 py-2 bg-card'
           )}>
             {attachmentPreview ? (
               <>
@@ -400,19 +400,19 @@ export function ChatInput({
               </>
             ) : (
               <>
-                <FileText className="h-5 w-5 text-[#667781] dark:text-[#8696a0] shrink-0" />
-                <span className="text-[13px] text-[#667781] dark:text-[#8696a0] truncate max-w-[200px]">{attachmentFile.name}</span>
+                <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
+                <span className="text-[13px] text-muted-foreground truncate max-w-[200px]">{attachmentFile.name}</span>
               </>
             )}
             <button
               onClick={clearAttachment}
-              className="absolute -top-0.5 -end-0.5 w-5 h-5 rounded-full bg-[#54656f] text-white flex items-center justify-center shadow-sm"
+              className="absolute -top-0.5 -end-0.5 w-5 h-5 rounded-full bg-muted-foreground text-white flex items-center justify-center shadow-sm"
               aria-label="إزالة"
             >
               <X className="h-3 w-3" />
             </button>
           </div>
-          <div className="text-[13px] text-[#667781] dark:text-[#8696a0] mt-2">
+          <div className="text-[13px] text-muted-foreground mt-2">
             <p>{attachmentFile.name}</p>
             <p>{(attachmentFile.size / 1024).toFixed(0)} KB</p>
           </div>
@@ -425,7 +425,7 @@ export function ChatInput({
         <Popover>
           <PopoverTrigger asChild>
             <button
-              className="shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-[#54656f] dark:text-[#8696a0] hover:bg-[#e9edef] dark:hover:bg-[#313d45] transition-colors disabled:opacity-40"
+              className="shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors disabled:opacity-40"
               disabled={disabled || sending || !onSendMedia}
               aria-label="إرفاق ملف"
             >
@@ -513,7 +513,7 @@ export function ChatInput({
         <Popover open={templatesOpen} onOpenChange={setTemplatesOpen}>
           <PopoverTrigger asChild>
             <button
-              className="shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-[#54656f] dark:text-[#8696a0] hover:bg-[#e9edef] dark:hover:bg-[#313d45] transition-colors disabled:opacity-40"
+              className="shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors disabled:opacity-40"
               disabled={disabled || sending}
               title="ردود سريعة"
               aria-label="ردود سريعة"
@@ -596,9 +596,9 @@ export function ChatInput({
               disabled={disabled || sending}
               rows={1}
               className={cn(
-                'w-full rounded-lg bg-white dark:bg-[#2a3942] px-3 py-2.5 text-[15px] resize-none',
-                'text-[#111b21] dark:text-[#e9edef]',
-                'placeholder:text-[#667781] dark:placeholder:text-[#8696a0]',
+                'w-full rounded-lg bg-card px-3 py-2.5 text-[15px] resize-none',
+                'text-foreground',
+                'placeholder:text-muted-foreground',
                 'focus:outline-none',
                 'transition-all duration-200',
                 'disabled:opacity-50',
@@ -612,7 +612,7 @@ export function ChatInput({
         {/* Voice Record Button -- show when no text and no attachment */}
         {!text.trim() && !attachmentFile && !isRecording && (
           <button
-            className="shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-[#54656f] dark:text-[#8696a0] hover:bg-[#e9edef] dark:hover:bg-[#313d45] transition-colors disabled:opacity-40"
+            className="shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors disabled:opacity-40"
             onClick={startRecording}
             disabled={disabled || sending}
             title="تسجيل رسالة صوتية"
@@ -622,7 +622,7 @@ export function ChatInput({
           </button>
         )}
 
-        {/* Send Button -- WhatsApp green circle */}
+        {/* Send Button -- round primary (orange) circle */}
         {!isRecording && (text.trim() || attachmentFile) && (
           <button
             onClick={handleSend}
@@ -631,7 +631,7 @@ export function ChatInput({
             data-testid="chat-send-button"
             className={cn(
               'shrink-0 rounded-full w-10 h-10 flex items-center justify-center transition-all duration-200',
-              'bg-[#00a884] hover:bg-[#008f72] text-white',
+              'bg-primary hover:bg-primary/90 text-primary-foreground',
               'disabled:opacity-40'
             )}
           >

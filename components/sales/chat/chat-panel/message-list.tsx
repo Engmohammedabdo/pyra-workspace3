@@ -1,9 +1,12 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
-import { MessageBubble, type QuotedMessage } from '../message-bubble';
-import { MessageCircle, ChevronDown, Pencil } from 'lucide-react';
+import { MessageBubble, NoteBubble, type QuotedMessage } from '../message-bubble';
+import { CallEventPill } from '../call-event-pill';
+import { MessageCircle, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { useLeadActivities, type LeadActivity } from '@/hooks/useLeadActivities';
+import { mergeThread } from '@/lib/whatsapp/inbox';
 import type { Message, ConversationNote } from '@/hooks/useWhatsApp';
 
 const SENDER_COLORS = [
@@ -26,13 +29,19 @@ function getSenderColor(senderJid: string): string {
   return SENDER_COLORS[Math.abs(hash) % SENDER_COLORS.length];
 }
 
+// Activity types that render as inline call pills. mergeThread (lib/whatsapp/
+// inbox.ts) itself does not filter by type — the caller (here) does.
+const CALL_ACTIVITY_TYPES = new Set(['call_logged', 'call_attempt']);
+
 type TimelineItem =
   | { type: 'message'; data: Message; sortTime: string }
-  | { type: 'note'; data: ConversationNote; sortTime: string };
+  | { type: 'note'; data: ConversationNote; sortTime: string }
+  | { type: 'call'; data: LeadActivity; sortTime: string };
 
 interface MessageListProps {
   messages: Message[];
   notes: ConversationNote[];
+  leadId?: string | null;
   isGroup?: boolean;
   onReply?: (quote: QuotedMessage) => void;
   onReact?: (messageId: string, emoji: string) => void;
@@ -40,19 +49,37 @@ interface MessageListProps {
   onForward?: (messageId: string) => void;
 }
 
-export function MessageList({ messages, notes, isGroup, onReply, onReact, onSaveToFiles, onForward }: MessageListProps) {
+export function MessageList({ messages, notes, leadId, isGroup, onReply, onReact, onSaveToFiles, onForward }: MessageListProps) {
   const [showScrollDown, setShowScrollDown] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Merge notes into the message timeline by timestamp
-  const timeline = useMemo<TimelineItem[]>(() =>
-    [
-      ...messages.map(m => ({ type: 'message' as const, data: m, sortTime: m.timestamp })),
-      ...notes.map(n => ({ type: 'note' as const, data: n, sortTime: n.created_at })),
-    ].sort((a, b) => new Date(a.sortTime).getTime() - new Date(b.sortTime).getTime()),
-    [messages, notes]
+  // Inline call events (CR-T6) — skipped entirely when the conversation has
+  // no linked lead (useLeadActivities gates on `enabled: !!leadId`).
+  const { data: activitiesData } = useLeadActivities(leadId ?? undefined);
+  const callActivities = useMemo(
+    () =>
+      (activitiesData?.pages.flatMap((p) => p.activities) ?? []).filter((a) =>
+        CALL_ACTIVITY_TYPES.has(a.activity_type),
+      ),
+    [activitiesData],
   );
+
+  // Merge messages + calls chronologically (ties: message before call — see
+  // mergeThread's own contract), then fold in notes the same way the
+  // original code did before calls existed.
+  const threadEvents = useMemo(() => mergeThread(messages, callActivities), [messages, callActivities]);
+  const timeline = useMemo<TimelineItem[]>(() => {
+    const fromThread: TimelineItem[] = threadEvents.map((ev) =>
+      ev.kind === 'message'
+        ? { type: 'message', data: ev.item as Message, sortTime: (ev.item as Message).timestamp }
+        : { type: 'call', data: ev.item as LeadActivity, sortTime: (ev.item as LeadActivity).created_at },
+    );
+    const noteItems: TimelineItem[] = notes.map((n) => ({ type: 'note', data: n, sortTime: n.created_at }));
+    return [...fromThread, ...noteItems].sort(
+      (a, b) => new Date(a.sortTime).getTime() - new Date(b.sortTime).getTime(),
+    );
+  }, [threadEvents, notes]);
 
   // Group timeline items by date
   const groupedItems = useMemo(() => {
@@ -94,23 +121,23 @@ export function MessageList({ messages, notes, isGroup, onReply, onReact, onSave
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className="flex-1 overflow-y-auto px-4 py-3 relative bg-[#efeae2] dark:bg-[#0b141a]"
+      className="flex-1 overflow-y-auto px-4 py-3 relative bg-background"
     >
       {timeline.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-full text-[#667781] dark:text-[#8696a0]">
-          <div className="w-16 h-16 rounded-full bg-[#dfe5e7] dark:bg-[#6b7b8a] flex items-center justify-center mb-4">
-            <MessageCircle className="h-7 w-7 text-white" />
+        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+            <MessageCircle className="h-7 w-7 text-muted-foreground" />
           </div>
-          <p className="text-sm font-normal text-[#111b21] dark:text-[#e9edef]">لا توجد رسائل بعد</p>
+          <p className="text-sm font-normal text-foreground">لا توجد رسائل بعد</p>
           <p className="text-[13px] mt-1">ابدأ المحادثة بإرسال رسالة</p>
         </div>
       ) : (
         <div className="space-y-1">
           {groupedItems.map((group, gi) => (
             <div key={group.date || gi}>
-              {/* Date separator — WhatsApp pill style */}
+              {/* Date separator — pill style */}
               <div className="flex justify-center my-3">
-                <span className="bg-white/90 dark:bg-[#182229] text-[#54656f] dark:text-[#8696a0] text-[12.5px] px-3 py-1 rounded-lg shadow-sm">
+                <span className="bg-card/90 text-muted-foreground text-[12.5px] px-3 py-1 rounded-lg shadow-sm">
                   {group.date}
                 </span>
               </div>
@@ -146,21 +173,17 @@ export function MessageList({ messages, notes, isGroup, onReply, onReact, onSave
                       </div>
                     );
                   }
+                  if (item.type === 'call') {
+                    return <CallEventPill key={item.data.id} activity={item.data} />;
+                  }
                   const note = item.data;
                   return (
-                    <div key={note.id} className="flex justify-center px-4 py-0.5">
-                      <div className="max-w-[80%] bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/30 rounded-lg px-2.5 py-1.5">
-                        <div className="flex items-center gap-1 mb-0.5">
-                          <Pencil className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
-                          <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400">ملاحظة داخلية</span>
-                          <span className="text-[10px] text-[#667781] dark:text-[#8696a0]">-- {note.author_display_name}</span>
-                        </div>
-                        <p className="text-[13px] text-amber-900 dark:text-amber-200 whitespace-pre-wrap leading-snug">{note.content}</p>
-                        <span className="text-[10px] text-[#667781] dark:text-[#8696a0] mt-0.5 block">
-                          {new Date(note.created_at).toLocaleString('ar-EG', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
-                        </span>
-                      </div>
-                    </div>
+                    <NoteBubble
+                      key={note.id}
+                      content={note.content}
+                      authorName={note.author_display_name}
+                      timestamp={note.created_at}
+                    />
                   );
                 })}
               </div>
@@ -175,7 +198,7 @@ export function MessageList({ messages, notes, isGroup, onReply, onReact, onSave
       {showScrollDown && (
         <button
           onClick={scrollToBottom}
-          className="sticky bottom-3 left-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-white dark:bg-[#202c33] border border-[#e9edef] dark:border-[#313d45] shadow-md flex items-center justify-center text-[#54656f] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-[#e9edef] transition-all hover:scale-110 z-10"
+          className="sticky bottom-3 left-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-card border border-border shadow-md flex items-center justify-center text-muted-foreground hover:text-foreground transition-all hover:scale-110 z-10"
         >
           <ChevronDown className="h-4 w-4" />
         </button>
