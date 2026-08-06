@@ -73,7 +73,8 @@ object Notifier {
         )
         notifySafe(context, deviceCallKey.hashCode(),
             NotificationCompat.Builder(context, CHANNEL_UNMATCHED)
-                .setSmallIcon(android.R.drawable.sym_call_missed)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setColor(0xFFC2410C.toInt())
                 .setContentTitle(context.getString(R.string.notif_unmatched_title))
                 .setContentText(context.getString(R.string.notif_unmatched_body, phone))
                 .setContentIntent(openForm)
@@ -90,7 +91,8 @@ object Notifier {
         )
         notifySafe(context, leadUrl.hashCode(),
             NotificationCompat.Builder(context, CHANNEL_FEEDBACK)
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setColor(0xFFC2410C.toInt())
                 .setContentTitle(context.getString(R.string.notif_feedback_title))
                 .setContentText(context.getString(R.string.notif_feedback_body, leadName))
                 .setContentIntent(open)
@@ -124,7 +126,8 @@ object Notifier {
         )
         notifySafe(context, leadId.hashCode(),
             NotificationCompat.Builder(context, CHANNEL_FEEDBACK)
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setColor(0xFFC2410C.toInt())
                 .setContentTitle(context.getString(R.string.notif_matched_title, leadName))
                 .setContentText(context.getString(R.string.notif_matched_body))
                 .setContentIntent(openOutcome)
@@ -142,7 +145,8 @@ object Notifier {
         )
         notifySafe(context, UPDATE_NOTIFICATION_ID,
             NotificationCompat.Builder(context, CHANNEL_UPDATES)
-                .setSmallIcon(android.R.drawable.stat_sys_download)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setColor(0xFFC2410C.toInt())
                 .setContentTitle(context.getString(R.string.notif_update_title))
                 .setContentText(context.getString(R.string.notif_update_body, versionName))
                 .setContentIntent(open)

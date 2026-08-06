@@ -275,7 +275,9 @@ components/ui/            → Shared primitives (both dashboard + portal)
 components/layout/        → Dashboard layout (sidebar, topbar)
 components/portal/        → Portal layout
 components/boards/        → Board components (toolbar, task-sheet, calendar, list, settings)
-components/sales/chat/    → WhatsApp chat (conversation list, chat window, contact sidebar)
+components/sales/chat/    → WhatsApp shared inbox (REDESIGNED 2026-08-07: Pyra Pro theme via .crm-theme, top-bar counter-filter chips + line switcher, needs-reply-first sectioned list with row assign/resolve, deal banner w/ pipeline stage steps, context drawer, inline call pills in the thread)
+lib/whatsapp/inbox.ts     → Pure inbox prioritization: needsReply/waitingMinutes/formatWaiting/splitInbox/mergeThread (unit-tested in __tests__/whatsapp-inbox.test.ts); LATE_THRESHOLD_MINUTES=120
+lib/whatsapp/pull-messages.ts → pullInstanceMessages() — shared Evolution pull used by the browser poll (all registered lines; dedup on message_id)
 components/files/         → Unified file-preview (shared between dashboard + portal)
 components/dashboard/MyWorkInbox.tsx → 5-section inbox card
 components/hr/overview/   → HR Overview widgets (HrAlerts, HrKpiRow, HeadcountChart, PayrollTrendChart, UpcomingLeaveList, EvaluationsStatusCard, CelebrationsCard)
