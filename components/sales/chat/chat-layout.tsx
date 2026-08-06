@@ -187,11 +187,19 @@ export function ChatLayout() {
     updateConversation.mutate(
       { conversationId: conv.id, data: { status: 'resolved' } },
       {
-        onSuccess: () => toast.success('تم حل المحادثة'),
+        onSuccess: () => {
+          toast.success('تم حل المحادثة');
+          // Mirror handleShortcutResolve — if the row just resolved from the
+          // list is also the open thread, clear it too, otherwise the panel
+          // keeps showing a conversation that no longer belongs on this tab.
+          if (selectedConversation?.id === conv.id) {
+            setSelectedConversation(null);
+          }
+        },
         onError: () => toast.error('فشل في حل المحادثة'),
       }
     );
-  }, [updateConversation]);
+  }, [updateConversation, selectedConversation, setSelectedConversation]);
 
   // Keyboard shortcuts — navigate over what's actually visible (quickFilter-narrowed)
   useChatShortcuts({

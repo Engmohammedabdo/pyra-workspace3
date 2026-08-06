@@ -76,12 +76,19 @@ export const ConversationItem = memo(function ConversationItem({
 
   const hasUnread = conv.unread_count > 0;
   const isResolved = conv.status === 'resolved';
+  // Snoozing only sets snoozed_until — status stays 'open' — so a snoozed
+  // row still looks like a needs-reply row to waitingMinutes(). Compute it
+  // explicitly so the chip can be suppressed on the Snoozed tab (CR-T2
+  // precedent: a deliberately-deferred conversation must not show urgency).
+  const isSnoozed = !!conv.snoozed_until && new Date(conv.snoozed_until).getTime() > Date.now();
 
-  // Waiting chip — only ever non-null on a genuine needs-reply row (open,
-  // customer waiting on us); resolved/pending/snoozed rows always get null
-  // here, so this naturally scopes the chip to the needs section without
-  // the item needing to know which section it's rendered in.
-  const waitMins = waitingMinutes(toInboxLike(conv), Date.now());
+  // Waiting chip — non-null only on a genuine needs-reply row (open,
+  // customer waiting on us) that hasn't been deliberately snoozed;
+  // resolved/pending rows always get null from waitingMinutes() itself,
+  // and snoozed rows are forced to null here since snoozing doesn't
+  // change status. This naturally scopes the chip to the needs section
+  // without the item needing to know which section it's rendered in.
+  const waitMins = isSnoozed ? null : waitingMinutes(toInboxLike(conv), Date.now());
   const severity = waitMins !== null ? waitingSeverity(waitMins) : null;
 
   const canAssign = isAdmin && !!onQuickAssign;
@@ -97,6 +104,15 @@ export const ConversationItem = memo(function ConversationItem({
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    // Nested-button keyboard path: the quick-action buttons (⤺ إسناد / ✓ حل)
+    // live inside this row, so a bubbled Enter/Space keydown from a focused
+    // button would otherwise land here too. Bail unless the row itself is
+    // the actual target — acting on it would call preventDefault() and
+    // handleActivate() before the browser's own Enter-to-click synthesis
+    // for the button ever fires, silently swallowing the button's action
+    // and selecting the row instead. Defense in depth alongside the
+    // stopPropagation() on the quick-actions wrapper below.
+    if (e.target !== e.currentTarget) return;
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       handleActivate();
@@ -245,13 +261,15 @@ export const ConversationItem = memo(function ConversationItem({
       </div>
 
       {/* Row-level quick actions — revealed on hover/keyboard focus, never
-          trigger row selection (stopPropagation on every click). */}
+          trigger row selection (stopPropagation on every click, and on
+          keydown too — see the nested-button note on handleKeyDown above). */}
       {showQuickActions && (
         <div
           className={cn(
             'absolute inset-inline-end-2 top-1/2 -translate-y-1/2 flex items-center gap-1',
             'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity'
           )}
+          onKeyDown={(e) => e.stopPropagation()}
         >
           {canAssign && (
             <button

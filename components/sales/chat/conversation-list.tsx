@@ -26,22 +26,17 @@ interface ConversationListProps {
   onQuickResolve?: (conv: Conversation) => void;
 }
 
-// Conversation's id/status/timestamp fields are optional; splitInbox requires
-// InboxConversationLike's required fields. This widens each row with safe
-// defaults while keeping every original Conversation field, so the sectioned
-// arrays can still be handed straight to ConversationItem.
+// Conversation types id/status as optional so callers without a real row can
+// still build one, but every row that actually reaches this list comes from
+// WA_CONVERSATION_FIELDS (lib/supabase/fields.ts) and always carries them —
+// this is a type-level widening only, never a runtime default. It used to be
+// a per-row rebuild (`.map(c => ({ ...c, id: c.id ?? '', ... }))`), which
+// allocated a brand-new object for every row on every poll tick and defeated
+// React Query's structural sharing: even rows whose data hadn't changed got
+// a new object identity, so ConversationItem's memo never bailed out and the
+// whole list re-rendered. Casting the array instead keeps every row's exact
+// object reference, so unchanged rows stay referentially equal across polls.
 type SectionableConversation = Conversation & InboxConversationLike;
-
-function toSectionable(c: Conversation): SectionableConversation {
-  return {
-    ...c,
-    id: c.id ?? '',
-    status: c.status ?? '',
-    last_customer_message_at: c.last_customer_message_at ?? null,
-    last_agent_message_at: c.last_agent_message_at ?? null,
-    last_message_at: c.last_message_at ?? null,
-  };
-}
 
 export function ConversationList({
   conversations,
@@ -71,10 +66,11 @@ export function ConversationList({
   // Needs-reply (oldest customer message first) vs rest (most recent first).
   // Non-sectioned tabs skip the split entirely and keep the API's own order.
   const { needs, rest } = useMemo(() => {
+    const sectionable = filtered as SectionableConversation[];
     if (!sectioned) {
-      return { needs: [] as SectionableConversation[], rest: filtered.map(toSectionable) };
+      return { needs: [] as SectionableConversation[], rest: sectionable };
     }
-    return splitInbox(filtered.map(toSectionable), Date.now());
+    return splitInbox(sectionable, Date.now());
   }, [filtered, sectioned]);
 
   // Headers show ONLY when there's something needing a reply — otherwise the
