@@ -95,8 +95,17 @@ export async function middleware(request: NextRequest) {
   // (all other routes, via getExternalAuth) — neither relies on ambient
   // cookie authority, so CSRF (cross-site cookie-riding) doesn't apply,
   // same reasoning as /api/external.
+  // /api/dashboard/sales/whatsapp/webhook is the Evolution API callback. Same
+  // shape as the Stripe webhook above: a server-to-server POST with no
+  // Origin/Referer, authenticated by a shared secret the route compares with
+  // timingSafeEqual — never by an ambient session cookie, so CSRF does not
+  // apply. Without this exemption the CSRF gate answered every Evolution
+  // delivery with 403 "missing origin" and the route never ran: the shared
+  // inbox has only ever been fed by the browser-driven poll, which is why it
+  // froze whenever nobody had the chat page open.
   if (
     pathname.startsWith('/api/stripe/webhook') ||
+    pathname.startsWith('/api/dashboard/sales/whatsapp/webhook') ||
     pathname.startsWith('/api/external') ||
     pathname.startsWith('/api/cron') ||
     pathname.startsWith('/api/mobile')
@@ -160,6 +169,7 @@ export async function middleware(request: NextRequest) {
     !pathname.startsWith('/api/shares/download') &&
     !pathname.startsWith('/api/public') &&
     !pathname.startsWith('/api/stripe/webhook') &&
+    !pathname.startsWith('/api/dashboard/sales/whatsapp/webhook') &&
     !pathname.startsWith('/api/external') &&
     !pathname.startsWith('/api/cron') &&
     !pathname.startsWith('/api/observability') &&
