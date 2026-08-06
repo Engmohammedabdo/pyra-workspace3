@@ -94,7 +94,6 @@ buildStageOptions({
   stages,            // PipelineStage[] from usePipelineStages()
   currentStageId,    // lead.stage_id
   canAttachFinance,  // finance.view || invoices.view
-  canReopen,         // leads.manage
   isArchived,        // !!lead.archived_at
 }): StageOption[]    // { id, disabled, disabledReasonKey }[]
 ```
