@@ -7,6 +7,7 @@ import { WA_CONVERSATION_FIELDS } from '@/lib/supabase/fields';
 import { CONVERSATION_STATUS } from '@/lib/constants/statuses';
 import { typingMap } from '@/lib/whatsapp/typing-map';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
+import { needsReply, waitingMinutes, waitingSeverity } from '@/lib/whatsapp/inbox';
 
 /**
  * GET /api/dashboard/sales/whatsapp/conversations
@@ -237,7 +238,89 @@ export async function GET(request: NextRequest) {
       return q;
     }
 
-    const [openRes, pendingRes, resolvedRes, unassignedRes, snoozedRes, groupRes] = await Promise.all([
+    // CR-T2 — server-computed inbox chip counts (needs_reply / unassigned /
+    // late), consumed by the redesigned top bar's quick-filter chips. Their
+    // base scope MIRRORS the list's own-number exclusion + merged exclusion
+    // + instance filter (own-number/merged are baked into buildBaseQuery();
+    // instance is applied inside it too) — but NEVER the status-tab/label/
+    // team/priority/search filters, so the chips read as global counts for
+    // the current line+scope, not "counts within whatever tab is open".
+    //
+    // Supabase query builders are lazy and mutate in place on every
+    // .eq()/.is()/... call, so forking one builder instance into two
+    // queries would corrupt both. buildBaseQuery() returns a FRESH builder
+    // every call — never reused across queries.
+    function buildBaseQuery() {
+      let q = supabase
+        .from('pyra_whatsapp_conversations')
+        .select('id, status, assigned_to, last_customer_message_at, last_agent_message_at, last_message_at')
+        .or('contact_phone.is.null,contact_phone.neq.971565799505')
+        .is('merged_into_id', null);
+      if (instanceFilter && instanceFilter !== 'all') {
+        q = q.eq('instance_name', instanceFilter);
+      }
+      if (!isAdmin) {
+        q = q.eq('assigned_to', username);
+      }
+      return q;
+    }
+
+    // needs_reply / late: PostgREST cannot compare two columns
+    // (last_customer_message_at vs last_agent_message_at) in one filter, so
+    // we pull a light projection of OPEN conversations that have a customer
+    // message on record and evaluate needsReply()/waitingMinutes() — the
+    // SAME predicate CR-T1 gave the client-side inbox split, reused here
+    // rather than re-derived — in JS. Capped at 2000 rows; if the cap is
+    // ever actually hit, warn loudly instead of silently undercounting
+    // (same pattern as /api/mobile/my-day's going-cold fetch).
+    const INBOX_COUNTS_PROJECTION_CAP = 2000;
+    const { data: projectionRows, error: projectionError } = await buildBaseQuery()
+      .eq('status', CONVERSATION_STATUS.OPEN)
+      .not('last_customer_message_at', 'is', null)
+      .limit(INBOX_COUNTS_PROJECTION_CAP);
+
+    if (projectionError) {
+      console.error('Conversations inbox-counts projection error:', projectionError);
+    }
+    if (projectionRows && projectionRows.length === INBOX_COUNTS_PROJECTION_CAP) {
+      console.warn(
+        `[conversations] inbox-counts projection hit the ${INBOX_COUNTS_PROJECTION_CAP}-row cap — ` +
+        'needs_reply/late counts may undercount for this scope'
+      );
+    }
+
+    const nowMs = Date.now();
+    let needsReplyCount = 0;
+    let lateCount = 0;
+    for (const row of projectionRows || []) {
+      if (!needsReply(row)) continue;
+      needsReplyCount++;
+      const mins = waitingMinutes(row, nowMs);
+      if (mins !== null && waitingSeverity(mins) === 'late') lateCount++;
+    }
+
+    // unassigned: a true head-count, deliberately WITHOUT the agent-scope
+    // filter that buildBaseQuery() applies — even for a non-admin this chip
+    // shows the system-wide open+unassigned pickup pool, not "my
+    // unassigned" (which is always 0 — an agent's own conversations are,
+    // by definition, assigned to them). needs_reply/late above stay scoped
+    // to the agent; this one field intentionally does not. This also
+    // replaces the old admin-only "unassigned" tab-badge count (which
+    // counted any non-resolved status and never matched what the tab
+    // itself queries — status='open' + assigned_to is null); the new
+    // definition matches the tab's real query.
+    let unassignedCountQuery = supabase
+      .from('pyra_whatsapp_conversations')
+      .select('id', { count: 'exact', head: true })
+      .or('contact_phone.is.null,contact_phone.neq.971565799505')
+      .is('merged_into_id', null)
+      .eq('status', CONVERSATION_STATUS.OPEN)
+      .is('assigned_to', null);
+    if (instanceFilter && instanceFilter !== 'all') {
+      unassignedCountQuery = unassignedCountQuery.eq('instance_name', instanceFilter);
+    }
+
+    const [openRes, pendingRes, resolvedRes, unassignedCountRes, snoozedRes, groupRes] = await Promise.all([
       scopedCount()
         .eq('status', CONVERSATION_STATUS.OPEN)
         .or('snoozed_until.is.null,snoozed_until.lte.' + nowIso),
@@ -246,12 +329,7 @@ export async function GET(request: NextRequest) {
         .or('snoozed_until.is.null,snoozed_until.lte.' + nowIso),
       scopedCount()
         .eq('status', CONVERSATION_STATUS.RESOLVED),
-      isAdmin
-        ? supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true })
-            .is('assigned_to', null)
-            .is('merged_into_id', null)
-            .neq('status', CONVERSATION_STATUS.RESOLVED)
-        : Promise.resolve({ count: 0 }), // Agents don't see unassigned tab
+      unassignedCountQuery,
       scopedCount()
         .gt('snoozed_until', nowIso),
       // Group conversations count (non-resolved)
@@ -260,13 +338,19 @@ export async function GET(request: NextRequest) {
         .neq('status', CONVERSATION_STATUS.RESOLVED),
     ]);
 
+    if (unassignedCountRes.error) {
+      console.error('Conversations unassigned-count error:', unassignedCountRes.error);
+    }
+
     const tabCounts = {
       open: openRes.count || 0,
       pending: pendingRes.count || 0,
       resolved: resolvedRes.count || 0,
-      unassigned: unassignedRes.count || 0,
+      unassigned: unassignedCountRes.count || 0,
       snoozed: snoozedRes.count || 0,
       groups: groupRes.count || 0,
+      needs_reply: needsReplyCount,
+      late: lateCount,
     };
 
     return apiSuccess(enriched, { counts: tabCounts });
