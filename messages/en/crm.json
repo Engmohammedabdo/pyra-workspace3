@@ -227,6 +227,7 @@
         "fromToSuccess": "Lead moved from \"{from}\" to \"{to}\"",
         "toOnlySuccess": "Lead moved to \"{to}\"",
         "forbidden": "You don't have permission to move stages",
+        "reopenForbidden": "This deal is closed — only an admin can reopen it",
         "conflict": "This Lead has changed. Please refresh",
         "invalidTransition": "The Lead can't move to \"{to}\" directly — check the stage requirements",
         "fallback": "Failed to move stage — try again"

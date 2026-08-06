@@ -50,8 +50,8 @@ import { BulkActionBar } from '@/components/crm/pipeline/bulk-action-bar';
 import { AddLeadModal } from '@/components/crm/add-lead-modal/add-lead-modal';
 import {
   MoveStageConfirmModal,
+  type MoveStageConfirmMode,
   type MoveStageConfirmPayload,
-  type MoveStageConfirmTargetId,
 } from '@/components/crm/pipeline/move-stage-confirm-modal';
 import { PIPELINE_ACTIVE_STAGES, PIPELINE_STAGE_IDS } from '@/lib/constants/statuses';
 import type { PyraSalesLead } from '@/types/database';
@@ -102,6 +102,8 @@ export function PipelineClient() {
   // cards) so it lives here, not per-card. Entering selection mode disables
   // drag board-wide (PipelineBoard sets the sensor distance unreachable).
   const canBulk = usePermission('leads.assign');
+  // Only leads.manage can reopen a won deal — the route enforces the same gate.
+  const canReopen = usePermission('leads.manage');
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const bulkAssign = useBulkAssignLeads();
@@ -147,15 +149,16 @@ export function PipelineClient() {
   );
 
   // Shared "needs-extra-data" modal state. Set when a card is dropped on
-  // stg_contract_signed (needs attachment) or stg_closed_lost (needs
-  // reason). The lead reference is the source-of-truth for the modal
-  // title + client_id filtering; targetStageId picks the variant.
-  // Mutation fires only on confirm.
+  // stg_contract_signed (needs attachment) or stg_closed_lost (needs reason),
+  // or when it is dragged OUT of stg_closed_won (needs a reopen reason).
+  // The lead reference is the source-of-truth for the modal title + client_id
+  // filtering; mode picks the variant. Mutation fires only on confirm.
   const [confirmModal, setConfirmModal] = useState<{
     open: boolean;
     lead: PyraSalesLead | null;
-    targetStageId: MoveStageConfirmTargetId | null;
-  }>({ open: false, lead: null, targetStageId: null });
+    mode: MoveStageConfirmMode | null;
+    targetStageId: string | null;
+  }>({ open: false, lead: null, mode: null, targetStageId: null });
 
   // Build filter object from URL (the same params the filter bar writes).
   const filters = useMemo<Record<string, string | undefined>>(() => {
@@ -259,13 +262,15 @@ export function PipelineClient() {
 
   // Drop handler — fired by PipelineBoard after a cross-column drop (desktop
   // drag) AND from the mobile StagePickerSheet via the same onChangeStage
-  // callback path. Three branches:
-  // Three branches:
+  // callback path. Four branches:
   //   1. stg_closed_won → BLOCKED client-side. No mutation, no flicker.
   //                       Toast tells the user the right path.
-  //   2. stg_contract_signed / stg_closed_lost → INTERCEPT. Open the
+  //   2. leaving stg_closed_won → INTERCEPT. The route demands a reopen
+  //                       reason + leads.manage; without the modal this
+  //                       drag always came back 422.
+  //   3. stg_contract_signed / stg_closed_lost → INTERCEPT. Open the
   //                       confirm modal, source stays put until confirm.
-  //   3. anything else  → routine mutation w/ optimistic update.
+  //   4. anything else  → routine mutation w/ optimistic update.
   const handleDropChangeStage = useCallback(
     (leadId: string, toStageId: string, fromStageId: string | null) => {
       // (1) closed_won client-side guard — never round-trip to the server.
@@ -274,33 +279,45 @@ export function PipelineClient() {
         return;
       }
 
-      // (2) stages that require extra data via the modal.
-      const needsModal =
-        toStageId === PIPELINE_STAGE_IDS.CONTRACT_SIGNED ||
-        toStageId === PIPELINE_STAGE_IDS.CLOSED_LOST;
-      if (needsModal) {
-        const lead = leads?.find((l) => l.id === leadId);
+      const lead = leads?.find((l) => l.id === leadId);
+
+      // (2) leaving closed_won is a reopen.
+      if (fromStageId === PIPELINE_STAGE_IDS.CLOSED_WON) {
+        if (!canReopen) {
+          toast.error(t('moveToasts.reopenForbidden'), { duration: 6000 });
+          return;
+        }
+        if (lead) {
+          setConfirmModal({ open: true, lead, mode: 'reopen', targetStageId: toStageId });
+          return;
+        }
+      }
+
+      // (3) stages that require extra data via the modal.
+      const modalMode: MoveStageConfirmMode | null =
+        toStageId === PIPELINE_STAGE_IDS.CONTRACT_SIGNED
+          ? 'contract_signed'
+          : toStageId === PIPELINE_STAGE_IDS.CLOSED_LOST
+            ? 'closed_lost'
+            : null;
+      if (modalMode) {
         if (!lead) {
           // Shouldn't happen — board already validated the lead exists.
           // Fall through to the routine path which will 422.
           void runMoveStage(leadId, toStageId, fromStageId);
           return;
         }
-        setConfirmModal({
-          open: true,
-          lead,
-          targetStageId: toStageId as MoveStageConfirmTargetId,
-        });
+        setConfirmModal({ open: true, lead, mode: modalMode, targetStageId: toStageId });
         return;
       }
 
-      // (3) routine.
+      // (4) routine.
       void runMoveStage(leadId, toStageId, fromStageId);
     },
-    [leads, runMoveStage, t],
+    [leads, runMoveStage, t, canReopen],
   );
 
-  // Confirm handler shared between both modal variants — discriminates
+  // Confirm handler shared between all three modal variants — discriminates
   // on the payload's `mode` field.
   const handleConfirmModal = useCallback(
     async (payload: MoveStageConfirmPayload) => {
@@ -309,22 +326,14 @@ export function PipelineClient() {
       // Close the modal optimistically — the toast (success or error)
       // will surface either way; if the mutation fails the user sees the
       // error toast and the source card is still in its original column.
-      setConfirmModal({ open: false, lead: null, targetStageId: null });
-      if (payload.mode === 'contract_signed') {
-        await runMoveStage(
-          lead.id,
-          PIPELINE_STAGE_IDS.CONTRACT_SIGNED,
-          lead.stage_id ?? null,
-          { attachment: payload.attachment },
-        );
-      } else {
-        await runMoveStage(
-          lead.id,
-          PIPELINE_STAGE_IDS.CLOSED_LOST,
-          lead.stage_id ?? null,
-          { lost_reason: payload.lost_reason },
-        );
-      }
+      setConfirmModal({ open: false, lead: null, mode: null, targetStageId: null });
+      const extras =
+        payload.mode === 'contract_signed'
+          ? { attachment: payload.attachment }
+          : payload.mode === 'closed_lost'
+            ? { lost_reason: payload.lost_reason }
+            : { reopen_reason: payload.reopen_reason };
+      await runMoveStage(lead.id, targetStageId, lead.stage_id ?? null, extras);
     },
     [confirmModal, runMoveStage],
   );
@@ -377,11 +386,11 @@ export function PipelineClient() {
         open={confirmModal.open}
         onOpenChange={(o) =>
           setConfirmModal((s) =>
-            o ? s : { open: false, lead: null, targetStageId: null },
+            o ? s : { open: false, lead: null, mode: null, targetStageId: null },
           )
         }
         lead={confirmModal.lead}
-        targetStageId={confirmModal.targetStageId}
+        mode={confirmModal.mode}
         submitting={moveStage.isPending}
         onConfirm={handleConfirmModal}
       />
