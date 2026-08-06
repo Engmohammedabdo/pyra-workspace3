@@ -125,7 +125,7 @@ class MainActivity : ComponentActivity() {
                         if (showMyDay) {
                             MyDayScreen(api = api, onBack = { showMyDay = false })
                         } else {
-                            HomeScreen(prefs, onOpenMyDay = { showMyDay = true }) {
+                            HomeScreen(prefs, api, onOpenMyDay = { showMyDay = true }) {
                                 // Explicit logout — flip the tripwire off FIRST so a
                                 // clean logout is never mistaken for abnormal session
                                 // loss on the next launch.

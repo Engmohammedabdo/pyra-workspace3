@@ -5,14 +5,20 @@ import android.provider.CallLog
 import android.content.Context
 import android.text.format.DateFormat
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import cloud.pyramedia.calls.BuildConfig
 import cloud.pyramedia.calls.R
@@ -24,6 +30,8 @@ import cloud.pyramedia.calls.data.ApiClient
 import cloud.pyramedia.calls.data.ApiResult
 import cloud.pyramedia.calls.data.AppPrefs
 import cloud.pyramedia.calls.sync.SyncScheduler
+import cloud.pyramedia.calls.ui.components.*
+import cloud.pyramedia.calls.ui.theme.LocalPyraColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -55,138 +63,146 @@ private fun countSince(context: Context, sinceMillis: Long): CallCounts {
     return CallCounts(total, connected)
 }
 
+/** Per-day totals for the last 7 Dubai days, oldest first. Local only. */
+private fun lastSevenDays(context: Context, now: Long): List<Int> {
+    val dayStart = DubaiTime.dayStartMillis(now)
+    val oneDay = 24L * 60 * 60 * 1000
+    return (6 downTo 0).map { back ->
+        val from = dayStart - back * oneDay
+        val to = from + oneDay
+        var n = 0
+        context.contentResolver.query(
+            CallLog.Calls.CONTENT_URI,
+            arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.TYPE),
+            "${CallLog.Calls.DATE} >= ? AND ${CallLog.Calls.DATE} < ?",
+            arrayOf(from.toString(), to.toString()), null,
+        )?.use { c ->
+            val iNum = c.getColumnIndexOrThrow(CallLog.Calls.NUMBER)
+            val iType = c.getColumnIndexOrThrow(CallLog.Calls.TYPE)
+            while (c.moveToNext()) {
+                if (CallLogFilter.isSyncable(c.getInt(iType), c.getString(iNum))) n++
+            }
+        }
+        n
+    }
+}
+
+private sealed class WorkState {
+    data object Loading : WorkState()
+    data class Loaded(val followUps: Int, val cold: Int) : WorkState()
+    data object Failed : WorkState()
+}
+
 @Composable
-fun HomeScreen(prefs: AppPrefs, onOpenMyDay: () -> Unit, onLogout: () -> Unit) {
+fun HomeScreen(
+    prefs: AppPrefs,
+    api: ApiClient,
+    onOpenMyDay: () -> Unit,
+    onLogout: () -> Unit,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var refreshTick by remember { mutableStateOf(0) }
+    var refreshTick by remember { mutableIntStateOf(0) }
     var checkingUpdate by remember { mutableStateOf(false) }
+    var work by remember { mutableStateOf<WorkState>(WorkState.Loading) }
+
     val upToDateMsg = stringResource(R.string.home_up_to_date)
     val checkFailedMsg = stringResource(R.string.home_check_failed)
     val now = System.currentTimeMillis()
     val today = remember(refreshTick) { countSince(context, DubaiTime.dayStartMillis(now)) }
-    val month = remember(refreshTick) { countSince(context, DubaiTime.monthStartMillis(now)) }
+    val week = remember(refreshTick) { lastSevenDays(context, now) }
     val lastSync = prefs.lastSyncAtMillis
     val synced = lastSync > 0 && now - lastSync < 30 * 60 * 1000
     val hibernationRestricted by rememberUnusedAppRestrictionsEnabled()
-    // CA-C2 fix round 1: live (ON_RESUME-refreshed) mirror of the pending-
-    // update cache — same reasoning as MainActivity's `blocked`. A raw
-    // `prefs.pendingUpdateVersionCode` read here is not Compose State, so a
-    // release the owner un-mandates or rolls back would leave this banner
-    // showing stale info until some unrelated recomposition happened to
-    // occur. See rememberPendingUpdate's doc in PermissionsScreen.kt.
     val pendingUpdate = rememberPendingUpdate(prefs)
 
-    Column(Modifier.fillMaxSize().padding(24.dp)) {
+    fun loadWork() {
+        work = WorkState.Loading
+        scope.launch {
+            val res = withContext(Dispatchers.IO) { api.myDay() }
+            work = when (res) {
+                is ApiResult.Ok -> WorkState.Loaded(
+                    followUps = res.data.counts.follow_ups,
+                    cold = res.data.counts.going_cold,
+                )
+                else -> WorkState.Failed
+            }
+        }
+    }
+
+    LaunchedEffect(refreshTick) { loadWork() }
+
+    PyraScreen(
+        bottomBar = {
+            Button(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { SyncScheduler.syncNow(context); refreshTick++ },
+            ) { Text(stringResource(R.string.home_sync_now)) }
+        },
+    ) {
+        // Greeting + sync status. The status is a plain indicator, NOT a
+        // button: the old AssistChip(onClick = {}) looked tappable and did
+        // nothing (B-08). The real sync action lives in the bottom bar.
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.home_hello, prefs.displayName ?: ""),
-                style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-            AssistChip(onClick = {}, label = {
-                Text(stringResource(if (synced) R.string.home_synced else R.string.home_not_synced))
-            })
+            Text(
+                stringResource(R.string.home_hello, prefs.displayName ?: ""),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.weight(1f),
+            )
+            SyncStatus(synced = synced)
         }
 
-        // Persistent, non-dismissable — no close button, no "later" — banner
-        // for ANY newer release (mandatory or not; a mandatory one ALSO gets
-        // the full-screen block in MainActivity, this banner still shows
-        // underneath it isn't skipped). Reads the live `rememberPendingUpdate`
-        // mirror of AppPrefs' cache (written by SyncWorker's throttled poll)
-        // rather than re-polling the network itself. Same visual pattern as
-        // the hibernation card below, per CA-C2's brief.
         if (UpdatePolicy.shouldShowBanner(pendingUpdate.value.versionCode, BuildConfig.VERSION_CODE)) {
-            Spacer(Modifier.height(12.dp))
-            Card(
-                Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3CD)),
-            ) {
-                Column(Modifier.padding(16.dp)) {
-                    Text(
-                        stringResource(R.string.home_update_banner_title),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = Color(0xFF664D03),
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        stringResource(R.string.home_update_banner_body, pendingUpdate.value.versionName ?: ""),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF664D03),
-                    )
-                    Spacer(Modifier.height(8.dp))
+            NoticeCard(
+                title = stringResource(R.string.home_update_banner_title),
+                body = stringResource(R.string.home_update_banner_body, pendingUpdate.value.versionName ?: ""),
+                action = {
                     Button(onClick = {
                         context.startActivity(Intent(context, UpdateActivity::class.java))
                     }) { Text(stringResource(R.string.home_update_banner_button)) }
-                }
-            }
+                },
+            )
         }
 
-        // Persistent nag, not a one-time card: restriction status can regress
-        // after an OS update even after the user already disabled it once
-        // from the Permissions screen — so Home keeps re-checking (ON_RESUME,
-        // see rememberUnusedAppRestrictionsEnabled) and keeps warning.
         if (hibernationRestricted) {
-            Spacer(Modifier.height(12.dp))
-            Card(
-                Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3CD)),
-            ) {
-                Column(Modifier.padding(16.dp)) {
-                    Text(
-                        stringResource(R.string.hibernation_title),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = Color(0xFF664D03),
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        stringResource(R.string.hibernation_body),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF664D03),
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    HibernationExemptionButton()
-                }
-            }
+            NoticeCard(
+                title = stringResource(R.string.hibernation_title),
+                body = stringResource(R.string.hibernation_body),
+                action = { HibernationExemptionButton() },
+            )
         }
 
-        Spacer(Modifier.height(24.dp))
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp)) {
-                Text(stringResource(R.string.home_today), style = MaterialTheme.typography.labelMedium)
-                Text("${today.total}", style = MaterialTheme.typography.displaySmall)
-            }
+        WorkCard(state = work, onOpen = onOpenMyDay, onRetry = { loadWork() })
+
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            StatTile(
+                value = "${today.total}",
+                label = stringResource(R.string.home_calls_today),
+                accent = true,
+                modifier = Modifier.weight(1f),
+            )
+            StatTile(
+                value = "${today.connected}",
+                label = stringResource(R.string.home_calls_connected),
+                modifier = Modifier.weight(1f),
+            )
         }
-        Spacer(Modifier.height(12.dp))
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp)) {
-                Text(stringResource(R.string.home_month), style = MaterialTheme.typography.labelMedium)
-                Text("${month.total}", style = MaterialTheme.typography.displaySmall)
-            }
-        }
-        Spacer(Modifier.height(16.dp))
+
+        WeekStrip(week)
+
         Text(
             if (lastSync > 0)
-                stringResource(R.string.home_last_sync,
-                    DateFormat.getTimeFormat(context).format(Date(lastSync)))
+                stringResource(R.string.home_last_sync, DateFormat.getTimeFormat(context).format(Date(lastSync)))
             else stringResource(R.string.home_last_sync_never),
             style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(16.dp))
-        Button(modifier = Modifier.fillMaxWidth(), onClick = onOpenMyDay) {
-            Text(stringResource(R.string.my_day_open_button))
-        }
-        Spacer(Modifier.weight(1f))
-        Button(modifier = Modifier.fillMaxWidth(), onClick = {
-            SyncScheduler.syncNow(context); refreshTick++
-        }) { Text(stringResource(R.string.home_sync_now)) }
-        Spacer(Modifier.height(8.dp))
-        TextButton(modifier = Modifier.fillMaxWidth(), onClick = onLogout) {
-            Text(stringResource(R.string.home_logout))
-        }
 
-        Spacer(Modifier.height(16.dp))
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(
                 stringResource(R.string.home_version, BuildConfig.VERSION_NAME),
                 style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
             )
             TextButton(
@@ -196,7 +212,6 @@ fun HomeScreen(prefs: AppPrefs, onOpenMyDay: () -> Unit, onLogout: () -> Unit) {
                     scope.launch {
                         // Manual check bypasses UpdatePolicy.shouldCheck's 6h
                         // throttle by design — the user explicitly asked.
-                        val api = ApiClient(BuildConfig.BASE_URL) { prefs.deviceKey }
                         val res = withContext(Dispatchers.IO) { api.appVersion() }
                         checkingUpdate = false
                         when (res) {
@@ -216,6 +231,150 @@ fun HomeScreen(prefs: AppPrefs, onOpenMyDay: () -> Unit, onLogout: () -> Unit) {
                 Text(stringResource(
                     if (checkingUpdate) R.string.home_checking_update else R.string.home_check_update,
                 ))
+            }
+        }
+
+        TextButton(modifier = Modifier.fillMaxWidth(), onClick = onLogout) {
+            Text(stringResource(R.string.home_logout))
+        }
+    }
+}
+
+@Composable
+private fun SyncStatus(synced: Boolean) {
+    val pyra = LocalPyraColors.current
+    val color = if (synced) pyra.cool else pyra.danger
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(7.dp).clip(CircleShape).background(color))
+        Spacer(Modifier.width(6.dp))
+        Text(
+            stringResource(if (synced) R.string.home_synced else R.string.home_not_synced),
+            style = MaterialTheme.typography.labelMedium,
+            color = color,
+        )
+    }
+}
+
+/**
+ * The thesis of the screen: what the rep should do, before how much he has
+ * already done. The whole card is the button — there is no separate
+ * "open my day" control any more.
+ *
+ * The numbers come from the server, but the call counts above do not. A
+ * network failure therefore darkens this card only; the rep in the street
+ * with no signal still sees his own call tally.
+ */
+@Composable
+private fun WorkCard(state: WorkState, onOpen: () -> Unit, onRetry: () -> Unit) {
+    val shape = MaterialTheme.shapes.large
+    val openDescription = stringResource(R.string.cd_open_my_day)
+    Surface(
+        onClick = if (state is WorkState.Failed) onRetry else onOpen,
+        shape = shape,
+        color = MaterialTheme.colorScheme.primary,
+        contentColor = Color.White,
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = openDescription },
+    ) {
+        Column(Modifier.padding(20.dp)) {
+            Text(
+                stringResource(R.string.home_work_card_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(Modifier.height(14.dp))
+            when (state) {
+                is WorkState.Loading -> Text(
+                    stringResource(R.string.home_work_loading),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                is WorkState.Failed -> Text(
+                    stringResource(R.string.home_work_failed),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                is WorkState.Loaded ->
+                    if (state.followUps == 0 && state.cold == 0) {
+                        Text(
+                            stringResource(R.string.home_work_empty),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    } else {
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            WorkCell(state.followUps, stringResource(R.string.home_work_follow_ups), Modifier.weight(1f))
+                            WorkCell(state.cold, stringResource(R.string.home_work_cold), Modifier.weight(1f))
+                        }
+                    }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorkCell(value: Int, label: String, modifier: Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.small,
+        color = Color.White.copy(alpha = 0.16f),
+        contentColor = Color.White,
+    ) {
+        Column(Modifier.padding(13.dp)) {
+            Text("$value", style = MaterialTheme.typography.displaySmall)
+            Text(label, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+/** Calls per day for the last 7 Dubai days. Local data — always available. */
+@Composable
+private fun WeekStrip(days: List<Int>) {
+    val max = (days.maxOrNull() ?: 0).coerceAtLeast(1)
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(Modifier.padding(15.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    stringResource(R.string.home_week_title),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    stringResource(R.string.home_week_total, days.sum()),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(
+                Modifier.fillMaxWidth().height(56.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                days.forEach { n ->
+                    Column(
+                        Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Bottom,
+                    ) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height((44f * n / max).dp.coerceAtLeast(3.dp))
+                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                .background(LocalPyraColors.current.brandAccent),
+                        )
+                        Spacer(Modifier.height(5.dp))
+                        Text(
+                            "$n",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
         }
     }

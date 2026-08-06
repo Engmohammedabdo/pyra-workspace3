@@ -116,4 +116,16 @@
     <string name="co_follow_up_error">تم تسجيل نتيجة المكالمة، لكن تعذر جدولة المتابعة — حاول لاحقًا من لوحة الـ CRM</string>
     <string name="cd_back">رجوع</string>
     <string name="cd_call">اتصال بـ %1$s</string>
+
+    <string name="home_work_card_title">شغل النهاردة</string>
+    <string name="home_work_follow_ups">متابعة مستحقة</string>
+    <string name="home_work_cold">عميل برد</string>
+    <string name="home_work_loading">جارٍ التحميل…</string>
+    <string name="home_work_failed">تعذر تحميل الشغل — اضغط لإعادة المحاولة</string>
+    <string name="home_work_empty">مفيش شغل مستحق النهاردة</string>
+    <string name="home_calls_today">مكالمة النهاردة</string>
+    <string name="home_calls_connected">وصلت فعلًا</string>
+    <string name="home_week_title">آخر ٧ أيام</string>
+    <string name="home_week_total">%1$d مكالمة</string>
+    <string name="cd_open_my_day">افتح شغل النهاردة</string>
 </resources>
