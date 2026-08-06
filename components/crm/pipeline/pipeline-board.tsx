@@ -11,7 +11,7 @@
  *               OFF — the sensor's activation distance is set to a value
  *               that's effectively unreachable. Mobile drag-trigger is
  *               replaced by a per-card "نقل المرحلة" button that opens // i18n-exempt: doc comment
- *               <MobileStageSheet> (Phase 10 Commit 1 / Q-UI-001).
+ *               <StagePickerSheet> (Phase 10 Commit 1 / Q-UI-001).
  *
  * The board does NOT own the mutation. It surfaces drop events via
  * onDropChangeStage(leadId, toStageId, fromStageId); the parent
@@ -213,7 +213,7 @@ export function PipelineBoard({
 
       {/* Mobile — stage tabs + single column. Drag is sensor-disabled here,
           so cards behave as plain Links plus a per-card "نقل المرحلة" // i18n-exempt: doc comment
-          button that opens <MobileStageSheet> (Phase 10 Commit 1).
+          button that opens <StagePickerSheet> (Phase 10 Commit 1).
           The PipelineCard receives `stages` + `onChangeStage` only in the
           mobile branch; the desktop column rendering omits them so the
           button doesn't mount there. */}

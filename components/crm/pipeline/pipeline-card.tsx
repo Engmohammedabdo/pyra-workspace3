@@ -40,7 +40,7 @@
  */
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils/cn';
@@ -52,7 +52,9 @@ import { useStatusLabels } from '@/lib/i18n/status-labels';
 import type { Lead } from '@/hooks/useLeads';
 import type { PipelineStage } from '@/hooks/usePipelineStages';
 import { deriveNextStep } from '@/lib/crm/next-step';
-import MobileStageSheet from './mobile-stage-sheet';
+import { buildStageOptions } from '@/lib/crm/stage-options';
+import { useAnyPermission } from '@/hooks/usePermission';
+import StagePickerSheet from './stage-picker-sheet';
 
 interface PipelineCardProps {
   lead: Lead;
@@ -63,13 +65,13 @@ interface PipelineCardProps {
   stageIndex?: number;
   stageCount?: number;
   /**
-   * Pipeline stages — passed down so the MobileStageSheet can list them.
+   * Pipeline stages — passed down so the StagePickerSheet can list them.
    * Optional: when omitted (e.g. desktop column rendering), the mobile
    * "نقل المرحلة" button is hidden. Phase 10 Commit 1 (Q-UI-001). // i18n-exempt: doc comment
    */
   stages?: PipelineStage[];
   /**
-   * Mobile stage-change callback — invoked from MobileStageSheet on tap.
+   * Mobile stage-change callback — invoked from StagePickerSheet on tap.
    * Same signature as PipelineBoard's onDropChangeStage so both desktop
    * drag AND mobile tap share the parent's single gating implementation
    * (closed_won guard + contract_signed/closed_lost modal intercept +
@@ -320,6 +322,19 @@ export function PipelineCard({
   // even when supplied, the button only paints on mobile.
   const showMobileStageButton = !!stages && !!onChangeStage;
 
+  // The board's mobile picker now refuses impossible stages up front instead
+  // of letting the tap round-trip and come back as an error toast.
+  const canAttachFinance = useAnyPermission(['finance.view', 'invoices.view']);
+  const stageOptions = useMemo(
+    () =>
+      buildStageOptions({
+        stages: stages ?? [],
+        currentStageId: lead.stage_id ?? null,
+        canAttachFinance,
+      }),
+    [stages, lead.stage_id, canAttachFinance],
+  );
+
   // Option B (Commit 2) — selection mode: render a selectable, NON-draggable,
   // NON-navigating variant. Drag is also sensor-disabled board-wide while in
   // this mode, so the default draggable <Link> path (the `return` below) is
@@ -401,11 +416,12 @@ export function PipelineCard({
           showMobileStageButton is true) so opening is instant on first tap;
           Sheet's data-state attribute keeps the DOM nearly free when closed. */}
       {showMobileStageButton && stages && onChangeStage && (
-        <MobileStageSheet
+        <StagePickerSheet
           open={sheetOpen}
           onOpenChange={setSheetOpen}
-          lead={lead}
+          leadName={lead.name}
           stages={stages}
+          options={stageOptions}
           onSelectStage={(toStageId) =>
             onChangeStage(lead.id, toStageId, lead.stage_id ?? null)
           }

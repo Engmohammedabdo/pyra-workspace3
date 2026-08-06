@@ -210,11 +210,16 @@
       "empty": {
         "message": "No deals in<stageTag>{stage}</stageTag>right now."
       },
-      "mobileStageSheet": {
+      "stagePicker": {
         "title": "Change stage",
         "description": "The customer is not notified — this is an internal action. \"{name}\" will move to a new stage.",
         "noOtherStages": "No other stages available",
-        "moveToAria": "Move to {stage}"
+        "moveToAria": "Move to {stage}",
+        "disabledReasons": {
+          "closedWonViaApproval": "Done from the approvals page after the contract is signed",
+          "contractNeedsAdmin": "An admin attaches the contract",
+          "leadArchived": "This deal is archived"
+        }
       },
       "moveToasts": {
         "closedLostSuccess": "Deal moved to \"{to}\" — reason recorded",

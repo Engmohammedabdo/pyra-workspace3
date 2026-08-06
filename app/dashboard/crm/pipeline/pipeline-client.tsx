@@ -15,7 +15,7 @@
  *                                 Q-UI-001 resolution)
  *
  * Drag-drop is owned by <PipelineBoard>; this client wires the resulting
- * onDropChangeStage callback. Mobile stage taps from <MobileStageSheet>
+ * onDropChangeStage callback. Mobile stage taps from <StagePickerSheet>
  * arrive via the same callback path (PipelineBoard passes it down to
  * PipelineCard as onChangeStage, so both surfaces hit
  * handleDropChangeStage with the same arguments). Optimistic update
@@ -92,7 +92,7 @@ export function PipelineClient() {
   const [addLeadOpen, setAddLeadOpen] = useState(false);
   // Phase 10 Commit 1 (Q-UI-001): the toast-wrapped wrapper is now a custom
   // hook reused by both desktop drag (handleDropChangeStage below) and the
-  // mobile MobileStageSheet (via PipelineBoard → PipelineCard onChangeStage
+  // mobile StagePickerSheet (via PipelineBoard → PipelineCard onChangeStage
   // prop, which ultimately calls handleDropChangeStage with the same args).
   const { moveStage, runMoveStage } = useMoveLeadStageWithToasts();
 
@@ -258,7 +258,7 @@ export function PipelineClient() {
   }, [leads]);
 
   // Drop handler — fired by PipelineBoard after a cross-column drop (desktop
-  // drag) AND from the mobile MobileStageSheet via the same onChangeStage
+  // drag) AND from the mobile StagePickerSheet via the same onChangeStage
   // callback path. Three branches:
   // Three branches:
   //   1. stg_closed_won → BLOCKED client-side. No mutation, no flicker.

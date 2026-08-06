@@ -210,11 +210,16 @@
       "empty": {
         "message": "لا توجد صفقات في<stageTag>{stage}</stageTag>حالياً."
       },
-      "mobileStageSheet": {
+      "stagePicker": {
         "title": "نقل المرحلة",
         "description": "لا يصل العميل إشعارًا — هذه عملية داخلية. سيتم نقل \"{name}\" إلى مرحلة جديدة.",
         "noOtherStages": "لا توجد مراحل أخرى متاحة",
-        "moveToAria": "نقل إلى {stage}"
+        "moveToAria": "نقل إلى {stage}",
+        "disabledReasons": {
+          "closedWonViaApproval": "يتم من صفحة الاعتمادات بعد توقيع العقد",
+          "contractNeedsAdmin": "المدير هو من يرفق العقد",
+          "leadArchived": "الصفقة مؤرشفة"
+        }
       },
       "moveToasts": {
         "closedLostSuccess": "تم نقل الصفقة إلى \"{to}\" — تم تسجيل السبب",

@@ -231,7 +231,7 @@ export interface RunMoveStageExtras {
 /**
  * Toast-wrapped variant of useMoveLeadStage. Both desktop drag-drop
  * (pipeline-client.tsx → handleDropChangeStage → runMoveStage) and the
- * mobile stage picker (PipelineCard's MobileStageSheet → onChangeStage
+ * mobile stage picker (PipelineCard's StagePickerSheet → onChangeStage
  * → handleDropChangeStage → runMoveStage) use this same hook.
  *
  * - moveStage: the underlying useMoveLeadStage mutation (exposes .isPending

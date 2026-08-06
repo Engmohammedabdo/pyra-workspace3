@@ -12,7 +12,7 @@
  *
  * Adding a new accent: define the Tailwind class once here, then any
  * stage row referencing that color key automatically renders consistently
- * across desktop kanban columns and the mobile <MobileStageSheet>.
+ * across desktop kanban columns and the mobile <StagePickerSheet>.
  */
 
 /**
