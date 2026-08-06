@@ -29,8 +29,18 @@ import {
   ArrowLeft, LayoutDashboard, Activity, FileSignature, Paperclip, StickyNote,
   Info, ChevronLeft, ClipboardList,
 } from 'lucide-react';
-import { useLead, useLinkClient, useUpdateLead, useArchiveLead } from '@/hooks/useLeads';
-import { usePermission } from '@/hooks/usePermission';
+import {
+  useLead, useLinkClient, useUpdateLead, useArchiveLead, useMoveLeadStageWithToasts,
+} from '@/hooks/useLeads';
+import { usePermission, useAnyPermission } from '@/hooks/usePermission';
+import { buildStageOptions } from '@/lib/crm/stage-options';
+import { PIPELINE_STAGE_IDS } from '@/lib/constants/statuses';
+import StagePickerSheet from '@/components/crm/pipeline/stage-picker-sheet';
+import {
+  MoveStageConfirmModal,
+  type MoveStageConfirmMode,
+  type MoveStageConfirmPayload,
+} from '@/components/crm/pipeline/move-stage-confirm-modal';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -129,6 +139,80 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
     return activitiesQuery.data?.pages?.[0]?.activities?.[0]?.created_at ?? null;
   }, [activitiesQuery.data]);
 
+  // ── Stage move. The API (POST /api/crm/leads/[id]/move-stage) and the
+  // toast-wrapped runner are shared verbatim with the pipeline board.
+  const canMoveStage = usePermission('leads.move_stage');
+  const canAttachFinance = useAnyPermission(['finance.view', 'invoices.view']);
+  const canReopen = usePermission('leads.manage');
+  const { moveStage, runMoveStage } = useMoveLeadStageWithToasts();
+  const [stagePickerOpen, setStagePickerOpen] = useState(false);
+  const [stageConfirm, setStageConfirm] = useState<{
+    open: boolean;
+    mode: MoveStageConfirmMode | null;
+    targetStageId: string | null;
+  }>({ open: false, mode: null, targetStageId: null });
+
+  const currentStageId = data?.lead.stage_id ?? null;
+  const isClosedWon = currentStageId === PIPELINE_STAGE_IDS.CLOSED_WON;
+  const isArchived = !!data?.lead.archived_at;
+
+  const stageOptions = useMemo(
+    () =>
+      buildStageOptions({
+        stages: stages ?? [],
+        currentStageId,
+        canAttachFinance,
+        isArchived,
+      }),
+    [stages, currentStageId, canAttachFinance, isArchived],
+  );
+
+  // Reopening is the only path out of stg_closed_won and it needs leads.manage;
+  // an archived lead is out of the pipeline entirely.
+  const moveStageDisabledReason = isArchived
+    ? t('header.moveStageArchivedHint')
+    : isClosedWon && !canReopen
+      ? t('header.moveStageClosedWonHint')
+      : null;
+
+  const handleSelectStage = useCallback(
+    (toStageId: string) => {
+      if (!data) return;
+      // A lead sitting at closed_won needs a reopen reason no matter where it
+      // is headed — the route rejects the move without one.
+      if (isClosedWon) {
+        setStageConfirm({ open: true, mode: 'reopen', targetStageId: toStageId });
+        return;
+      }
+      if (toStageId === PIPELINE_STAGE_IDS.CLOSED_LOST) {
+        setStageConfirm({ open: true, mode: 'closed_lost', targetStageId: toStageId });
+        return;
+      }
+      if (toStageId === PIPELINE_STAGE_IDS.CONTRACT_SIGNED) {
+        setStageConfirm({ open: true, mode: 'contract_signed', targetStageId: toStageId });
+        return;
+      }
+      void runMoveStage(data.lead.id, toStageId, currentStageId);
+    },
+    [data, isClosedWon, currentStageId, runMoveStage],
+  );
+
+  const handleStageConfirm = useCallback(
+    async (payload: MoveStageConfirmPayload) => {
+      const target = stageConfirm.targetStageId;
+      if (!data || !target) return;
+      setStageConfirm({ open: false, mode: null, targetStageId: null });
+      const extras =
+        payload.mode === 'contract_signed'
+          ? { attachment: payload.attachment }
+          : payload.mode === 'closed_lost'
+            ? { lost_reason: payload.lost_reason }
+            : { reopen_reason: payload.reopen_reason };
+      await runMoveStage(data.lead.id, target, currentStageId, extras);
+    },
+    [data, stageConfirm.targetStageId, currentStageId, runMoveStage],
+  );
+
   const handleArchiveConfirm = async () => {
     const unarchive = !!data?.lead.archived_at;
     try {
@@ -204,6 +288,9 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
         stages={stages}
         onAddNote={() => switchTab('activity')}
         onScheduleFollowUp={() => setFollowUpOpen(true)}
+        onMoveStage={() => setStagePickerOpen(true)}
+        canMoveStage={canMoveStage}
+        moveStageDisabledReason={moveStageDisabledReason}
         onLinkClient={() => setLinkClientOpen(true)}
         canLinkClient={canLinkClient}
         onReassign={() => setReassignOpen(true)}
@@ -237,6 +324,24 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
         </AlertDialogContent>
       </AlertDialog>
       <FollowUpModal open={followUpOpen} onOpenChange={setFollowUpOpen} leadId={lead.id} />
+      <StagePickerSheet
+        open={stagePickerOpen}
+        onOpenChange={setStagePickerOpen}
+        leadName={lead.name}
+        stages={stages ?? []}
+        options={stageOptions}
+        onSelectStage={handleSelectStage}
+      />
+      <MoveStageConfirmModal
+        open={stageConfirm.open}
+        onOpenChange={(o) =>
+          setStageConfirm((s) => (o ? s : { open: false, mode: null, targetStageId: null }))
+        }
+        lead={lead}
+        mode={stageConfirm.mode}
+        submitting={moveStage.isPending}
+        onConfirm={handleStageConfirm}
+      />
       {/* Conditional mount: the modal owns a ['users','lite'] query that
           should only fire when the admin actually opens the picker. */}
       {reassignOpen && (

@@ -22,6 +22,7 @@ import { LeadPriorityBadge } from '@/components/crm/lead/lead-priority-badge';
 import {
   ArrowLeft, Phone, MessageCircle, Mail, NotebookPen, CalendarPlus, Building2,
   Link2, UserCheck, FileSignature, UserCog, Archive, ArchiveRestore, Pencil,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { useStatusLabels } from '@/lib/i18n/status-labels';
 import {
@@ -42,6 +43,12 @@ interface LeadHeaderProps {
   onAddNote?: () => void;
   /** Open the Schedule Follow-up modal. */
   onScheduleFollowUp?: () => void;
+  /** Open the stage picker. Button hidden when undefined. */
+  onMoveStage?: () => void;
+  /** Whether current user has leads.move_stage. Gates the button's visibility. */
+  canMoveStage?: boolean;
+  /** When set, the button renders disabled and this text explains why. */
+  moveStageDisabledReason?: string | null;
   /** Open the Link-Client modal (Phase 11.5). Admin actions row hidden when undefined. */
   onLinkClient?: () => void;
   /** Whether current user has leads.update permission. Required for the Link button visibility. */
@@ -84,6 +91,9 @@ export function LeadHeader({
   stages,
   onAddNote,
   onScheduleFollowUp,
+  onMoveStage,
+  canMoveStage,
+  moveStageDisabledReason,
   onLinkClient,
   canLinkClient,
   onReassign,
@@ -240,6 +250,23 @@ export function LeadHeader({
             >
               <CalendarPlus className="size-4 me-1.5" /> {t('followUp')}
             </Button>
+            {/* Move stage — the deal-advancing action, grouped with the quote
+                CTA rather than the contact actions. Wrapped in a span so the
+                explanation still surfaces on hover when the button is
+                disabled (disabled elements swallow title tooltips). */}
+            {canMoveStage && onMoveStage && (
+              <span title={moveStageDisabledReason ?? undefined} className="inline-flex">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onMoveStage}
+                  disabled={!!moveStageDisabledReason}
+                  className="max-md:bg-white/10 max-md:text-white max-md:border-white/20 max-md:hover:bg-white/20"
+                >
+                  <ArrowRightLeft className="size-4 me-1.5" /> {t('moveStage')}
+                </Button>
+              </span>
+            )}
             {/* "Create quote" — quote CTA. Links to the existing
                 /dashboard/quotes/new?lead_id= flow (Phase 9 nullable
                 client_id + lead_id FK; auto-prefills from lead via the
