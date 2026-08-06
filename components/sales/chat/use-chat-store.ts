@@ -156,6 +156,12 @@ export function ChatStoreProvider({ children }: { children: ReactNode }) {
   const setActiveTab = useCallback((tab: TabKey) => {
     setActiveTabState(tab);
     setSelectedConversation(null);
+    // needs_reply/late (and unassigned, for admins) only make sense over
+    // open conversations — a chip left active from the previous tab (e.g.
+    // switching to "محلول"/"مؤجل") would silently filter the new tab into
+    // a guaranteed-empty list. Reset it on every tab change, same as the
+    // selection reset above.
+    setQuickFilter('');
   }, []);
 
   const resetFilters = useCallback(() => {

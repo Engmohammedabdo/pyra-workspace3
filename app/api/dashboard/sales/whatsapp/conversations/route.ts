@@ -317,7 +317,11 @@ export async function GET(request: NextRequest) {
       .or('contact_phone.is.null,contact_phone.neq.971565799505')
       .is('merged_into_id', null)
       .eq('status', CONVERSATION_STATUS.OPEN)
-      .is('assigned_to', null);
+      .is('assigned_to', null)
+      // M8 (whole-wave review) — exclude currently-snoozed rows, same as every
+      // other count below; a snoozed-but-unassigned row was deliberately
+      // deferred and shouldn't inflate the pickup-pool chip.
+      .or('snoozed_until.is.null,snoozed_until.lte.' + nowIso);
     if (instanceFilter && instanceFilter !== 'all') {
       unassignedCountQuery = unassignedCountQuery.eq('instance_name', instanceFilter);
     }

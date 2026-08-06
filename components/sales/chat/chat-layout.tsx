@@ -11,7 +11,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { isSuperAdmin } from '@/lib/auth/rbac';
 import { useConversations, usePollWhatsApp, useCheckSla, useUpdateConversation, useSyncGroups, type Conversation } from '@/hooks/useWhatsApp';
 import { toast } from 'sonner';
-import { needsReply, waitingMinutes, LATE_THRESHOLD_MINUTES } from '@/lib/whatsapp/inbox';
+import { needsReply, waitingMinutes, splitInbox, LATE_THRESHOLD_MINUTES, type InboxConversationLike } from '@/lib/whatsapp/inbox';
 import { CrmThemeScope } from '@/components/crm/crm-theme-scope';
 import { ConversationList } from './conversation-list';
 import { ChatPanel } from './chat-panel';
@@ -125,6 +125,48 @@ export function ChatLayout() {
     });
   }, [conversations, quickFilter]);
 
+  // CR-T4 — needs-reply/rest sectioning is skipped entirely on flat tabs
+  // (resolved/snoozed keep the API's own order, no headers).
+  const sectioned = activeTab !== 'resolved' && activeTab !== 'snoozed';
+
+  // Conversation-list's own contact search box — lifted up here (rather than
+  // kept as local state inside conversation-list.tsx) so the ordering it
+  // produces can also feed use-chat-shortcuts below. See displayConversations.
+  const [listSearch, setListSearch] = useState('');
+  const searchedConversations = useMemo(() => {
+    if (!listSearch) return filteredConversations;
+    const q = listSearch.toLowerCase();
+    return filteredConversations.filter(c => {
+      const name = c.contact_name?.toLowerCase() || '';
+      const phone = c.contact_phone || c.phone || c.remote_jid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@lid', '');
+      return name.includes(q) || phone.includes(q);
+    });
+  }, [filteredConversations, listSearch]);
+
+  // I3 (whole-wave review) — the ONE display-order computation. Previously
+  // conversation-list.tsx recomputed this split internally while
+  // use-chat-shortcuts walked the pre-split `filteredConversations`, so
+  // ArrowUp/ArrowDown moved through a different order than what was on
+  // screen. Computing it once here and handing the EXACT same array to both
+  // ConversationList (render) and useChatShortcuts (navigation) makes
+  // rendered order === navigation order by construction.
+  //
+  // Conversation types id/status as optional so callers without a real row
+  // can still build one, but every row that actually reaches this list comes
+  // from WA_CONVERSATION_FIELDS (lib/supabase/fields.ts) and always carries
+  // them — this cast is a type-level widening only, never a runtime default.
+  // splitInbox() itself only filters/sorts (new arrays, same row references),
+  // so unchanged rows stay referentially equal across polls and
+  // ConversationItem's memo keeps bailing out.
+  const { displayConversations, needsCount } = useMemo(() => {
+    const sectionable = searchedConversations as (Conversation & InboxConversationLike)[];
+    if (!sectioned) {
+      return { displayConversations: sectionable, needsCount: 0 };
+    }
+    const { needs, rest } = splitInbox(sectionable, Date.now());
+    return { displayConversations: [...needs, ...rest], needsCount: needs.length };
+  }, [searchedConversations, sectioned]);
+
   // Sync groups mutation
   const syncGroupsMutation = useSyncGroups();
 
@@ -201,9 +243,10 @@ export function ChatLayout() {
     );
   }, [updateConversation, selectedConversation, setSelectedConversation]);
 
-  // Keyboard shortcuts — navigate over what's actually visible (quickFilter-narrowed)
+  // Keyboard shortcuts — navigate over the EXACT rendered order (I3: same
+  // array the list below renders, not the pre-split/pre-search one).
   useChatShortcuts({
-    conversations: filteredConversations,
+    conversations: displayConversations,
     onResolve: handleShortcutResolve,
     onOpenAssign: handleShortcutAssign,
   });
@@ -256,7 +299,7 @@ export function ChatLayout() {
       <CrmThemeScope />
 
       {/* Top bar (CR-T3): title + counter-chip quick filters + line switcher + Ctrl+K */}
-      <TopBar counts={counts} />
+      <TopBar counts={counts} isAdmin={isAdmin} />
 
       {/* Tabs -- WhatsApp-style underline tabs */}
       <div role="tablist" aria-label="تصفية المحادثات" className="flex bg-muted rounded-lg overflow-x-auto">
@@ -355,14 +398,17 @@ export function ChatLayout() {
           {/* Conversation List */}
           <div className={cn('h-full min-h-0 overflow-hidden border-e border-border md:block', mobileView === 'chat' ? 'hidden' : 'block')}>
             <ConversationList
-              conversations={filteredConversations}
+              conversations={displayConversations}
+              needsCount={needsCount}
+              search={listSearch}
+              onSearchChange={setListSearch}
               selectedJid={selectedConversation?.remote_jid || null}
               onSelect={selectConversation}
               bulkMode={bulkMode}
               selectedIds={selectedIds}
               onToggleCheck={toggleSelectedId}
-              onSelectAll={() => selectAllIds(filteredConversations.map(c => c.id).filter(Boolean) as string[])}
-              sectioned={activeTab !== 'resolved' && activeTab !== 'snoozed'}
+              onSelectAll={() => selectAllIds(displayConversations.map(c => c.id).filter(Boolean) as string[])}
+              sectioned={sectioned}
               isAdmin={isAdmin}
               onQuickAssign={handleQuickAssign}
               onQuickResolve={handleQuickResolve}
@@ -382,9 +428,11 @@ export function ChatLayout() {
                 assignedTo={selectedConversation.assigned_to}
                 conversationId={selectedConversation.id}
                 conversationStatus={selectedConversation.status}
-                snoozedUntil={selectedConversation.snoozed_until}
                 isMuted={selectedConversation.is_muted}
                 labels={selectedConversation.labels}
+                customAttributes={selectedConversation.custom_attributes}
+                groupDescription={selectedConversation.group_description}
+                csatRating={selectedConversation.csat_rating}
                 slaData={selectedConversation.sla_policy_id ? {
                   sla_policy_id: selectedConversation.sla_policy_id,
                   sla_first_response_due: selectedConversation.sla_first_response_due,
@@ -454,7 +502,7 @@ export function ChatLayout() {
           open
           conversationId={quickAssignConv.id}
           remoteJid={quickAssignConv.remote_jid}
-          instanceName={quickAssignConv.instance_name || 'pyraai'}
+          instanceName={quickAssignConv.instance_name}
           currentAgent={quickAssignConv.assigned_to || null}
           onAssigned={() => setQuickAssignConv(null)}
           onClose={() => setQuickAssignConv(null)}

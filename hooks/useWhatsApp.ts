@@ -135,24 +135,28 @@ export interface WhatsAppTemplate {
 // Hooks: Queries
 // ============================================================
 
-/** Raw shape from the conversations API (may be wrapped or bare array) */
-type RawConvResponse =
-  | { data?: Conversation[]; meta?: { counts?: Record<string, number> } }
-  | Conversation[];
-
 /** Fetch conversations with filter params (status, assigned) */
 export function useConversations(params?: Record<string, string | undefined>) {
   const qs = buildQueryString(params);
   return useQuery<ConversationsResponse>({
     queryKey: ['whatsapp-conversations', params],
     queryFn: async () => {
-      const result = await fetchAPI<RawConvResponse>(`/api/dashboard/sales/whatsapp/conversations${qs}`);
-      // API may return data + meta.counts or just an array
-      const data = Array.isArray(result) ? result : (result?.data || result || []);
-      const meta = Array.isArray(result) ? undefined : result?.meta || undefined;
+      // fetchAPI() unwraps `.data` and discards `meta` (repo memory:
+      // "fetchAPI already unwraps .data; if you need meta, use raw fetch").
+      // The top bar chips + tab badges read meta.counts (server-computed,
+      // scope-wide), so this hook is the documented raw-fetch exemption —
+      // do NOT swap this back to fetchAPI.
+      const res = await fetch(`/api/dashboard/sales/whatsapp/conversations${qs}`, {
+        credentials: 'same-origin',
+      });
+      if (!res.ok) {
+        throw new Error(`API error: ${res.status}`);
+      }
+      const json = await res.json();
+      const data = json?.data;
       return {
         data: Array.isArray(data) ? data : [],
-        meta,
+        meta: json?.meta,
       };
     },
     staleTime: 15_000,

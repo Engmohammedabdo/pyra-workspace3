@@ -52,9 +52,15 @@ interface ChatPanelProps {
   assignedTo?: string | null;
   conversationId?: string | null;
   conversationStatus?: string | null;
-  snoozedUntil?: string | null;
   isMuted?: boolean;
   labels?: import('@/hooks/useWhatsApp').ConversationLabel[];
+  // I4 (whole-wave review) — bannerConversation below must seed these from
+  // the REAL row, not `{}`, or the contact-panel's attribute editor PATCHes
+  // a wholesale update built off an empty seed and erases profile_pic /
+  // last_seen_at / group description / CSAT on save.
+  customAttributes?: Record<string, string> | null;
+  groupDescription?: string | null;
+  csatRating?: number | null;
   slaData?: SlaConversationData | null;
   isAdmin?: boolean;
   isContactTyping?: boolean;
@@ -78,6 +84,9 @@ export function ChatPanel({
   conversationStatus: initialConversationStatus,
   isMuted: initialMuted,
   labels,
+  customAttributes,
+  groupDescription,
+  csatRating,
   slaData,
   isAdmin,
   isContactTyping,
@@ -147,10 +156,13 @@ export function ChatPanel({
     assigned_to: assignedTo,
     is_group: isGroup,
     group_subject: groupSubject,
+    group_description: groupDescription ?? null,
     group_picture_url: groupPictureUrl,
     participant_count: participantCount,
     labels,
-  }), [conversationId, remoteJid, instanceName, currentLeadId, clientId, contactName, phone, assignedTo, isGroup, groupSubject, groupPictureUrl, participantCount, labels]);
+    custom_attributes: customAttributes ?? null,
+    csat_rating: csatRating ?? null,
+  }), [conversationId, remoteJid, instanceName, currentLeadId, clientId, contactName, phone, assignedTo, isGroup, groupSubject, groupDescription, groupPictureUrl, participantCount, labels, customAttributes, csatRating]);
 
   // ── React Query hooks ──
   const { data: messages = [], isLoading: messagesLoading } = useMessages(

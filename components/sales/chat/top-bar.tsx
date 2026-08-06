@@ -19,6 +19,10 @@ import { useChatStore, type QuickFilterKey } from './use-chat-store';
 
 interface TopBarProps {
   counts: Record<string, number>;
+  // «غير مسند» only makes sense for admins — an agent's own scope never has
+  // unassigned rows to pick up (see the chip's countKey comment below), so
+  // showing it to an agent is a chip that always filters to an empty list.
+  isAdmin?: boolean;
 }
 
 type Tone = 'orange' | 'amber' | 'red';
@@ -44,9 +48,15 @@ const CHIPS: Array<{ key: QuickFilterKey; label: string; tone: Tone; countKey: s
   { key: 'late', label: 'متأخر', tone: 'red', countKey: 'late' },
 ];
 
-export function TopBar({ counts }: TopBarProps) {
+export function TopBar({ counts, isAdmin }: TopBarProps) {
   const { filters, setFilters, quickFilter, setQuickFilter } = useChatStore();
   const { data: waInstances = [] } = useWAInstances();
+  // Agents only ever see their own scope (assigned-to-me + the shared
+  // unassigned pool is admin's job to distribute) — an agent has no reason
+  // to filter by "unassigned" and the tab it maps to isn't even in their
+  // visibleTabs (chat-layout.tsx), so hide the chip rather than ship a
+  // control that always narrows to an empty list.
+  const visibleChips = isAdmin ? CHIPS : CHIPS.filter(c => c.key !== 'unassigned');
 
   // Ctrl/Cmd+K — focuses the conversation search input (id="wa-conv-search",
   // set on the list's own search box in conversation-list.tsx).
@@ -79,7 +89,7 @@ export function TopBar({ counts }: TopBarProps) {
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        {CHIPS.map(chip => {
+        {visibleChips.map(chip => {
           const isActive = quickFilter === chip.key;
           const tone = TONE_CLASSES[chip.tone];
           const count = counts[chip.countKey] ?? 0;

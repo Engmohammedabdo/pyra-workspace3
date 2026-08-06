@@ -136,7 +136,7 @@ export const ConversationItem = memo(function ConversationItem({
     >
       {/* Selected-row indicator — 3px start-side bar, logical so it flips with RTL */}
       {isSelected && (
-        <span aria-hidden="true" className="absolute inset-inline-start-0 inset-y-0 w-[3px] bg-orange-500" />
+        <span aria-hidden="true" className="absolute start-0 inset-y-0 w-[3px] bg-orange-500" />
       )}
 
       {/* Bulk checkbox */}
@@ -266,7 +266,7 @@ export const ConversationItem = memo(function ConversationItem({
       {showQuickActions && (
         <div
           className={cn(
-            'absolute inset-inline-end-2 top-1/2 -translate-y-1/2 flex items-center gap-1',
+            'absolute end-2 top-1/2 -translate-y-1/2 flex items-center gap-1',
             'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity'
           )}
           onKeyDown={(e) => e.stopPropagation()}

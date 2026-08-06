@@ -2,16 +2,26 @@
 
 import { cn } from '@/lib/utils/cn';
 import { Search, MessageCircle } from 'lucide-react';
-import { useState, useMemo } from 'react';
 import type { Conversation } from '@/hooks/useWhatsApp';
-import { splitInbox, type InboxConversationLike } from '@/lib/whatsapp/inbox';
 import { ConversationItem } from './conversation-list/conversation-item';
 
 // Re-export Conversation type for backward compatibility
 export type { Conversation } from '@/hooks/useWhatsApp';
 
 interface ConversationListProps {
+  // Pre-ordered by the caller: needs-reply (oldest customer message first),
+  // then the rest (most recent first), already search-filtered — see
+  // chat-layout.tsx's displayConversations useMemo. This list renders that
+  // EXACT order (sliced at needsCount for the section header) rather than
+  // recomputing it, so the rendered order always matches what
+  // use-chat-shortcuts.ts navigates over (I3, whole-wave review) — a second,
+  // independent split here would silently drift from the shortcuts' array.
   conversations: Conversation[];
+  // Boundary index into `conversations`: rows before it are the needs-reply
+  // section, the rest are "باقي المحادثات". 0 when unsectioned or empty.
+  needsCount: number;
+  search: string;
+  onSearchChange: (value: string) => void;
   selectedJid: string | null;
   onSelect: (conv: Conversation) => void;
   bulkMode?: boolean;
@@ -26,20 +36,11 @@ interface ConversationListProps {
   onQuickResolve?: (conv: Conversation) => void;
 }
 
-// Conversation types id/status as optional so callers without a real row can
-// still build one, but every row that actually reaches this list comes from
-// WA_CONVERSATION_FIELDS (lib/supabase/fields.ts) and always carries them —
-// this is a type-level widening only, never a runtime default. It used to be
-// a per-row rebuild (`.map(c => ({ ...c, id: c.id ?? '', ... }))`), which
-// allocated a brand-new object for every row on every poll tick and defeated
-// React Query's structural sharing: even rows whose data hadn't changed got
-// a new object identity, so ConversationItem's memo never bailed out and the
-// whole list re-rendered. Casting the array instead keeps every row's exact
-// object reference, so unchanged rows stay referentially equal across polls.
-type SectionableConversation = Conversation & InboxConversationLike;
-
 export function ConversationList({
   conversations,
+  needsCount,
+  search,
+  onSearchChange,
   selectedJid,
   onSelect,
   bulkMode,
@@ -51,33 +52,20 @@ export function ConversationList({
   onQuickAssign,
   onQuickResolve,
 }: ConversationListProps) {
-  const [search, setSearch] = useState('');
-
-  const filtered = useMemo(() => {
-    if (!search) return conversations;
-    const q = search.toLowerCase();
-    return conversations.filter(c => {
-      const name = c.contact_name?.toLowerCase() || '';
-      const phone = c.contact_phone || c.phone || c.remote_jid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@lid', '');
-      return name.includes(q) || phone.includes(q);
-    });
-  }, [conversations, search]);
-
-  // Needs-reply (oldest customer message first) vs rest (most recent first).
-  // Non-sectioned tabs skip the split entirely and keep the API's own order.
-  const { needs, rest } = useMemo(() => {
-    const sectionable = filtered as SectionableConversation[];
-    if (!sectioned) {
-      return { needs: [] as SectionableConversation[], rest: sectionable };
-    }
-    return splitInbox(sectionable, Date.now());
-  }, [filtered, sectioned]);
+  // Slicing allocates two new ARRAYS, never new per-row objects — every row
+  // keeps its exact reference from the caller's memo, so ConversationItem's
+  // own memo still bails out for unchanged rows across polls (see the
+  // reference-identity note that used to live on this file's now-removed
+  // SectionableConversation cast, moved to chat-layout.tsx alongside the
+  // computation it describes).
+  const needs = needsCount > 0 ? conversations.slice(0, needsCount) : [];
+  const rest = conversations.slice(needsCount);
 
   // Headers show ONLY when there's something needing a reply — otherwise the
   // list degrades to a plain flat list (no empty "باقي المحادثات" header).
   const showHeaders = sectioned && needs.length > 0;
 
-  function renderItem(conv: SectionableConversation) {
+  function renderItem(conv: Conversation) {
     return (
       <ConversationItem
         key={conv.remote_jid}
@@ -104,7 +92,7 @@ export function ConversationList({
             id="wa-conv-search"
             data-chat-search
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => onSearchChange(e.target.value)}
             placeholder="بحث بالاسم أو الرقم..."
             className={cn(
               'w-full rounded-lg border-0 bg-card ps-9 pe-3 h-9 text-[14px]',
@@ -129,7 +117,7 @@ export function ConversationList({
 
       {/* List */}
       <div className="flex-1 overflow-y-auto">
-        {filtered.length === 0 ? (
+        {conversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
             <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-3">
               {search ? (
