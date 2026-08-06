@@ -241,8 +241,8 @@ export function ChatLayout() {
       <div className="space-y-4">
         <Skeleton className="h-10 w-56" />
         <Skeleton className="h-10 w-full" />
-        <div className="grid grid-cols-1 md:grid-cols-[340px_1fr] border border-[#e9edef] dark:border-[#313d45] rounded-lg overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
-          <div className="border-e border-[#e9edef] dark:border-[#313d45] p-3 space-y-2 hidden md:block">
+        <div className="grid grid-cols-1 md:grid-cols-[340px_1fr] border border-border rounded-lg overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
+          <div className="border-e border-border p-3 space-y-2 hidden md:block">
             {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
           </div>
           <Skeleton className="h-full" />
@@ -259,7 +259,7 @@ export function ChatLayout() {
       <TopBar counts={counts} />
 
       {/* Tabs -- WhatsApp-style underline tabs */}
-      <div role="tablist" aria-label="تصفية المحادثات" className="flex bg-[#f0f2f5] dark:bg-[#202c33] rounded-lg overflow-x-auto">
+      <div role="tablist" aria-label="تصفية المحادثات" className="flex bg-muted rounded-lg overflow-x-auto">
         {visibleTabs.map(tab => {
           const count = tab.key === 'unassigned' ? counts.unassigned
             : tab.key === 'pending' ? counts.pending
@@ -277,8 +277,8 @@ export function ChatLayout() {
               className={cn(
                 'flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-all whitespace-nowrap border-b-2',
                 activeTab === tab.key
-                  ? 'border-[#00a884] text-[#00a884]'
-                  : 'border-transparent text-[#54656f] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-[#e9edef]'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               )}
             >
               {Icon && <Icon className="h-3.5 w-3.5" />}
@@ -294,7 +294,7 @@ export function ChatLayout() {
       </div>
 
       {/* Conversation Type Filter + Toolbar -- compact bar */}
-      <div className="flex items-center gap-2 bg-[#f0f2f5] dark:bg-[#202c33] rounded-lg px-3 py-1.5">
+      <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-1.5">
         <div className="flex items-center gap-1">
           {(['all', 'individual', 'group'] as const).map((t) => (
             <button
@@ -303,8 +303,8 @@ export function ChatLayout() {
               className={cn(
                 'px-3 py-1 text-xs rounded-full transition-colors',
                 conversationType === t
-                  ? 'bg-[#00a884] text-white'
-                  : 'bg-white/60 dark:bg-[#313d45] text-[#54656f] dark:text-[#8696a0] hover:bg-white dark:hover:bg-[#3b4a54]'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-card/60 text-muted-foreground hover:bg-card'
               )}
             >
               {t === 'all' ? 'الكل' : t === 'individual' ? 'فردي' : 'مجموعات'}
@@ -322,7 +322,7 @@ export function ChatLayout() {
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 text-xs gap-1 text-[#54656f] dark:text-[#8696a0] hover:bg-white/60 dark:hover:bg-[#313d45]"
+              className="h-7 text-xs gap-1 text-muted-foreground hover:bg-card/60"
               onClick={() => syncGroupsMutation.mutate()}
               disabled={syncGroupsMutation.isPending}
             >
@@ -335,8 +335,8 @@ export function ChatLayout() {
               className={cn(
                 'h-7 text-xs',
                 bulkMode
-                  ? 'border-[#00a884] text-[#00a884]'
-                  : 'text-[#54656f] dark:text-[#8696a0] hover:bg-white/60 dark:hover:bg-[#313d45]'
+                  ? 'border-primary text-primary'
+                  : 'text-muted-foreground hover:bg-card/60'
               )}
               onClick={() => setBulkMode(!bulkMode)}
             >
@@ -348,12 +348,12 @@ export function ChatLayout() {
 
       {/* Main Chat Container */}
       <div
-        className="border border-[#e9edef] dark:border-[#313d45] overflow-hidden bg-white dark:bg-[#111b21] rounded-lg"
+        className="border border-border overflow-hidden bg-card rounded-lg"
         style={{ height: isAdmin ? 'calc(100vh - 250px)' : 'calc(100vh - 210px)' }}
       >
         <div className="grid grid-cols-1 md:grid-cols-[340px_1fr] h-full">
           {/* Conversation List */}
-          <div className={cn('h-full min-h-0 overflow-hidden border-e border-[#e9edef] dark:border-[#313d45] md:block', mobileView === 'chat' ? 'hidden' : 'block')}>
+          <div className={cn('h-full min-h-0 overflow-hidden border-e border-border md:block', mobileView === 'chat' ? 'hidden' : 'block')}>
             <ConversationList
               conversations={filteredConversations}
               selectedJid={selectedConversation?.remote_jid || null}
@@ -370,7 +370,7 @@ export function ChatLayout() {
           </div>
 
           {/* Chat Window */}
-          <div className={cn('h-full min-h-0 overflow-hidden flex flex-col bg-[#efeae2] dark:bg-[#0b141a] md:block', mobileView === 'list' ? 'hidden' : 'block')}>
+          <div className={cn('h-full min-h-0 overflow-hidden flex flex-col bg-background md:block', mobileView === 'list' ? 'hidden' : 'block')}>
             {selectedConversation ? (
               <ChatPanel
                 remoteJid={selectedConversation.remote_jid}
@@ -407,13 +407,13 @@ export function ChatLayout() {
                 }}
               />
             ) : (
-              <div className="flex-1 h-full flex items-center justify-center bg-[#f0f2f5] dark:bg-[#222e35]">
+              <div className="flex-1 h-full flex items-center justify-center bg-muted">
                 <div className="text-center px-6">
-                  <div className="w-20 h-20 rounded-full bg-[#e9edef] dark:bg-[#313d45] flex items-center justify-center mx-auto mb-5">
-                    <Wifi className="h-9 w-9 text-[#667781] dark:text-[#8696a0]" />
+                  <div className="w-20 h-20 rounded-full bg-card flex items-center justify-center mx-auto mb-5">
+                    <Wifi className="h-9 w-9 text-muted-foreground" />
                   </div>
-                  <p className="font-normal text-[#41525d] dark:text-[#e9edef] text-base">اختر محادثة</p>
-                  <p className="text-sm text-[#667781] dark:text-[#8696a0] mt-1.5 max-w-[240px] mx-auto leading-relaxed">
+                  <p className="font-normal text-foreground text-base">اختر محادثة</p>
+                  <p className="text-sm text-muted-foreground mt-1.5 max-w-[240px] mx-auto leading-relaxed">
                     اختر محادثة من القائمة لعرض الرسائل والرد عليها
                   </p>
                 </div>
