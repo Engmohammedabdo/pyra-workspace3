@@ -3,10 +3,11 @@
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils/cn';
-import { Filter, X, Check, User } from 'lucide-react';
-import { useConversationLabels } from '@/hooks/useWhatsApp';
+import { Filter, X, Check, User, Phone } from 'lucide-react';
+import { useConversationLabels, useWAInstances } from '@/hooks/useWhatsApp';
 import { useUsers } from '@/hooks/useUsers';
 import { useChatStore, type FilterState } from '../use-chat-store';
+import { lineLabel } from '../line-label';
 
 const PRIORITY_OPTIONS = [
   { value: 'urgent', label: 'عاجل', color: 'bg-red-500' },
@@ -19,6 +20,7 @@ export function FilterBar() {
   const { filters, setFilters, resetFilters, activeFilterCount } = useChatStore();
   const { data: labels = [] } = useConversationLabels();
   const { data: users = [] } = useUsers();
+  const { data: waInstances = [] } = useWAInstances();
 
   // Build agent list from users (only those with relevant roles)
   const agents = users
@@ -49,6 +51,10 @@ export function FilterBar() {
     setFilters({ ...filters, label: filters.label === labelId ? '' : labelId });
   }
 
+  function setInstance(instanceName: string) {
+    setFilters({ ...filters, instance: filters.instance === instanceName ? '' : instanceName });
+  }
+
   const activeLabel = filters.label ? labels.find(lb => lb.id === filters.label) : null;
   const activeLabelChip = activeLabel ? (
     <span className="flex items-center gap-1 bg-muted/50 rounded-full px-2 py-0.5 text-[10px]">
@@ -77,9 +83,11 @@ export function FilterBar() {
           filters={filters}
           labels={labels}
           agents={agents}
+          instances={waInstances}
           onTogglePriority={togglePriority}
           onToggleAgent={toggleAgent}
           onSetLabel={setLabel}
+          onSetInstance={setInstance}
           onReset={resetFilters}
         />
       </Popover>
@@ -106,9 +114,11 @@ export function FilterBar() {
           filters={filters}
           labels={labels}
           agents={agents}
+          instances={waInstances}
           onTogglePriority={togglePriority}
           onToggleAgent={toggleAgent}
           onSetLabel={setLabel}
+          onSetInstance={setInstance}
           onReset={resetFilters}
         />
       </Popover>
@@ -142,6 +152,16 @@ export function FilterBar() {
 
       {activeLabelChip}
 
+      {filters.instance && (
+        <span className="flex items-center gap-1 bg-muted/50 rounded-full px-2 py-0.5 text-[10px]">
+          <Phone className="h-2.5 w-2.5 text-emerald-500" />
+          {lineLabel(filters.instance)}
+          <button onClick={() => setInstance(filters.instance)} className="hover:text-destructive">
+            <X className="h-2.5 w-2.5" />
+          </button>
+        </span>
+      )}
+
       <button
         onClick={resetFilters}
         className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
@@ -156,21 +176,49 @@ function FilterContent({
   filters,
   labels,
   agents,
+  instances,
   onTogglePriority,
   onToggleAgent,
   onSetLabel,
+  onSetInstance,
   onReset,
 }: {
   filters: FilterState;
   labels: Array<{ id: string; name: string; name_ar: string; color: string }>;
   agents: Array<{ username: string; display_name: string }>;
+  instances: Array<{ id: string; instance_name: string }>;
   onTogglePriority: (p: string) => void;
   onToggleAgent: (username: string) => void;
   onSetLabel: (id: string) => void;
+  onSetInstance: (instanceName: string) => void;
   onReset: () => void;
 }) {
   return (
     <PopoverContent className="w-56 p-0" align="start">
+      {/* WhatsApp line — only worth showing once a second number exists */}
+      {instances.length > 1 && (
+        <div className="p-3 border-b border-border/40">
+          <h4 className="text-[10px] font-semibold text-muted-foreground/70 uppercase mb-2">
+            الخط
+          </h4>
+          <div className="space-y-0.5">
+            {instances.map(inst => (
+              <button
+                key={inst.id}
+                onClick={() => onSetInstance(inst.instance_name)}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-muted/50 transition-colors"
+              >
+                <Phone className="h-3 w-3 text-emerald-500 shrink-0" />
+                <span className="flex-1 text-start truncate">{lineLabel(inst.instance_name)}</span>
+                {filters.instance === inst.instance_name && (
+                  <Check className="h-3 w-3 text-emerald-500" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Priority */}
       <div className="p-3 border-b border-border/40">
         <h4 className="text-[10px] font-semibold text-muted-foreground/70 uppercase mb-2">

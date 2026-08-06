@@ -18,6 +18,7 @@ export interface FilterState {
   assignedTo: string[];   // multi-select: agent usernames
   team: string;           // single select team ID
   label: string;          // single select label ID
+  instance: string;       // single select WhatsApp line (instance_name); '' = all
 }
 
 const EMPTY_FILTERS: FilterState = {
@@ -25,6 +26,7 @@ const EMPTY_FILTERS: FilterState = {
   assignedTo: [],
   team: '',
   label: '',
+  instance: '',
 };
 
 interface ChatState {
@@ -151,7 +153,8 @@ export function ChatStoreProvider({ children }: { children: ReactNode }) {
     filters.priority.length +
     filters.assignedTo.length +
     (filters.team ? 1 : 0) +
-    (filters.label ? 1 : 0);
+    (filters.label ? 1 : 0) +
+    (filters.instance ? 1 : 0);
 
   const setBulkMode = useCallback((mode: boolean) => {
     setBulkModeState(mode);

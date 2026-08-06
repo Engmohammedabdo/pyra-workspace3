@@ -12,7 +12,13 @@ import { logActivity } from '@/lib/api/activity';
  * Send a WhatsApp message via the shared inbox.
  *
  * Shared Inbox model:
- * - Always uses 'pyraai' instance (single shared number)
+ * - The reply goes out from the SAME line the conversation lives on
+ *   (conversation.instance_name). Until 2026-08-06 this was hardcoded to
+ *   'pyraai' — harmless with one number, but the moment a second line
+ *   (`selver`) was connected, replying to its conversations from the system
+ *   would have reached the customer from the company number instead of the
+ *   one they wrote to. Fallback is still 'pyraai' for conversation-less sends
+ *   (quick actions that message a lead with no existing thread).
  * - Agent must be assigned to the conversation (or be admin)
  * - Updates conversation timestamps after sending
  */
@@ -40,21 +46,33 @@ export async function POST(request: NextRequest) {
 
   const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
 
-  // Shared Inbox: verify agent is assigned to the conversation (or admin)
-  if (!isAdmin && conversation_id) {
+  // Resolve the conversation once — it carries BOTH the assignment (auth) and
+  // the line the reply must leave from (instance_name).
+  let instanceToUse = 'pyraai';
+  if (conversation_id) {
     const { data: conv } = await supabase
       .from('pyra_whatsapp_conversations')
-      .select('assigned_to')
+      .select('assigned_to, instance_name')
       .eq('id', conversation_id)
       .maybeSingle();
 
-    if (conv && conv.assigned_to !== auth.pyraUser.username) {
+    // Shared Inbox: verify agent is assigned to the conversation (or admin)
+    if (!isAdmin && conv && conv.assigned_to !== auth.pyraUser.username) {
       return apiError('هذه المحادثة غير مسندة إليك', 403);
     }
+    if (conv?.instance_name) instanceToUse = conv.instance_name;
+  } else if (remote_jid) {
+    // Conversation-less send to a known thread (e.g. deep link by JID): still
+    // honor the line that thread lives on if we have it.
+    const { data: conv } = await supabase
+      .from('pyra_whatsapp_conversations')
+      .select('instance_name')
+      .eq('remote_jid', remote_jid)
+      .order('last_message_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (conv?.instance_name) instanceToUse = conv.instance_name;
   }
-
-  // Always use pyraai instance (shared inbox = single number)
-  const instanceToUse = 'pyraai';
 
   try {
     // Resolve Evolution message key ID for quoted reply
@@ -100,13 +118,16 @@ export async function POST(request: NextRequest) {
       isGroupSend ? sendNumber : `${number.replace(/\D/g, '')}@s.whatsapp.net`
     );
 
-    // Find or create conversation_id
+    // Find or create conversation_id — scoped to the sending line, because the
+    // same contact can now hold one thread per line and the message must land
+    // on the thread of the line it actually left from.
     let convId = conversation_id;
     if (!convId) {
       const { data: conv } = await supabase
         .from('pyra_whatsapp_conversations')
         .select('id')
         .eq('remote_jid', finalRemoteJid)
+        .eq('instance_name', instanceToUse)
         .maybeSingle();
       convId = conv?.id || null;
     }

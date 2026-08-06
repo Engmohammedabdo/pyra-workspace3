@@ -81,6 +81,7 @@ export function ChatLayout() {
     if (filters.team) params.team = filters.team;
     if (filters.priority.length > 0) params.priority = filters.priority.join(',');
     if (filters.assignedTo.length > 0) params.assigned_agents = filters.assignedTo.join(',');
+    if (filters.instance) params.instance = filters.instance;
     return params;
   }, [currentTab, sortBy, filters, conversationType]);
 

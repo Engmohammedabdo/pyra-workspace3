@@ -366,6 +366,23 @@ export function useConversationLabels() {
   });
 }
 
+/** Registered WhatsApp lines (Evolution instances) — powers the line filter/badges */
+export interface WAInstanceSummary {
+  id: string;
+  instance_name: string;
+  agent_username: string | null;
+  phone_number: string | null;
+  status: string;
+}
+
+export function useWAInstances() {
+  return useQuery<WAInstanceSummary[]>({
+    queryKey: ['whatsapp-instances'],
+    queryFn: () => fetchAPI<WAInstanceSummary[]>('/api/dashboard/sales/whatsapp/instances'),
+    staleTime: 60_000,
+  });
+}
+
 /** Fetch labels assigned to a specific conversation */
 export function useConversationLabelAssignments(conversationId: string | undefined) {
   return useQuery<ConversationLabel[]>({

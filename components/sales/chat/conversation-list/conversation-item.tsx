@@ -7,6 +7,7 @@ import { formatRelativeDate } from '@/lib/utils/format';
 import type { Conversation } from '@/hooks/useWhatsApp';
 import { LabelDots } from '../dialogs/label-picker';
 import { CsatBadge } from '../csat/csat-badge';
+import { isNonCompanyLine, lineLabel } from '../line-label';
 
 interface ConversationItemProps {
   conversation: Conversation;
@@ -149,6 +150,13 @@ export const ConversationItem = memo(function ConversationItem({ conversation: c
 
           {/* Right-side indicators */}
           <div className="flex items-center gap-1.5 shrink-0 ms-2">
+            {/* Line badge — only for non-company lines, so the default number
+                stays clean while agent lines are unmistakable at a glance */}
+            {isNonCompanyLine(conv.instance_name) && (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                {lineLabel(conv.instance_name)}
+              </span>
+            )}
             {conv.is_muted && (
               <BellOff className="h-4 w-4 text-[#667781] dark:text-[#8696a0]" />
             )}

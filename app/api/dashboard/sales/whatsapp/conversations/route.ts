@@ -21,6 +21,7 @@ import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
  *   priority = low | normal | high | urgent (comma-separated for multi)
  *   sort     = newest | oldest | priority | waiting_longest (default: newest)
  *   type     = individual | group | all (default: all)
+ *   instance = Evolution instance name (line filter) | all (default: all)
  *   limit    = number (default: 100)
  *
  * Scoping:
@@ -46,6 +47,7 @@ export async function GET(request: NextRequest) {
   const assignedAgents = sp.get('assigned_agents') || '';
   const sortBy = sp.get('sort') || 'newest';
   const type = sp.get('type') || 'all'; // 'individual' | 'group' | 'all'
+  const instanceFilter = sp.get('instance') || 'all'; // line filter (multi-number inbox)
 
   const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
   const username = auth.pyraUser.username;
@@ -66,6 +68,12 @@ export async function GET(request: NextRequest) {
       query = query.eq('is_group', false);
     } else if (type === 'group') {
       query = query.eq('is_group', true);
+    }
+
+    // Line filter — one conversation list can now hold several WhatsApp
+    // numbers (company line + per-agent lines); this narrows to one of them.
+    if (instanceFilter && instanceFilter !== 'all') {
+      query = query.eq('instance_name', instanceFilter);
     }
 
     // Snoozed tab: show only snoozed conversations

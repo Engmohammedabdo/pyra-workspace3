@@ -27,10 +27,11 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
-    // Look up conversation's remote_jid
+    // Look up conversation's remote_jid + its line — the "typing…" indicator
+    // must appear from the number the customer is actually chatting with.
     const { data: conv } = await supabase
       .from('pyra_whatsapp_conversations')
-      .select('remote_jid')
+      .select('remote_jid, instance_name')
       .eq('id', conversation_id)
       .maybeSingle();
 
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     // Send presence to WhatsApp
     await evolutionClient.sendPresence(
-      'pyraai',
+      conv.instance_name || 'pyraai',
       conv.remote_jid,
       is_typing ? 'composing' : 'paused',
     );

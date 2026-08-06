@@ -20,6 +20,7 @@ import { AssignDialog } from '../dialogs/assign-dialog';
 import { SnoozePicker } from '../dialogs/snooze-picker';
 import { LabelPicker } from '../dialogs/label-picker';
 import type { ConversationLabel } from '@/hooks/useWhatsApp';
+import { isNonCompanyLine, lineLabel } from '../line-label';
 
 interface ChatHeaderProps {
   contactName: string | null;
@@ -151,9 +152,18 @@ export function ChatHeader({
               </div>
             )}
             <div className="min-w-0 text-start">
-              <p className="text-[16px] font-normal text-[#111b21] dark:text-[#e9edef] truncate">
-                {isGroup ? (groupSubject || contactName || displayPhone) : (contactName || displayPhone)}
-              </p>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <p className="text-[16px] font-normal text-[#111b21] dark:text-[#e9edef] truncate">
+                  {isGroup ? (groupSubject || contactName || displayPhone) : (contactName || displayPhone)}
+                </p>
+                {/* Line badge — the agent must see WHICH number they are
+                    replying from before they type a word */}
+                {isNonCompanyLine(instanceName) && (
+                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 shrink-0">
+                    {lineLabel(instanceName)}
+                  </span>
+                )}
+              </div>
               {isContactTyping ? (
                 <span className="text-[13px] text-[#00a884] flex items-center gap-1">
                   <span>يكتب...</span>
