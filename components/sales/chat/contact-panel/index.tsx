@@ -47,7 +47,6 @@ interface ContactPanelProps {
   conversationId?: string | null;
   conversation?: Conversation | null;
   isAdmin?: boolean;
-  onClose: () => void;
   onConversationUpdated?: () => void;
 }
 
@@ -82,7 +81,6 @@ export function ContactPanel({
   conversationId,
   conversation,
   isAdmin,
-  onClose,
   onConversationUpdated,
 }: ContactPanelProps) {
   const [showQuotes, setShowQuotes] = useState(false);
@@ -198,13 +196,12 @@ export function ContactPanel({
   }, [conversationId, updateConvMutation, onConversationUpdated]);
 
   return (
-    <div className="h-full flex flex-col border-s border-border/60 bg-card/50 w-72 lg:w-80 animate-in slide-in-from-end duration-200">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between">
+    <div className="h-full flex flex-col bg-card/50">
+      {/* Header — presentational only now (CR-T5). The close affordance
+          lives on the Sheet wrapper (context-drawer.tsx); rendering a
+          second one here would visually stack on top of it. */}
+      <div className="px-4 py-3 border-b border-border/60">
         <h3 className="font-semibold text-sm">معلومات جهة الاتصال</h3>
-        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={onClose} aria-label="إغلاق">
-          <X className="h-4 w-4" />
-        </Button>
       </div>
 
       {/* Content */}

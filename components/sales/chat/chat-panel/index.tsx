@@ -3,10 +3,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils/cn';
-import {
-  MessageCircle, FileText, Receipt, StickyNote,
-  Clock, UserPlus, Pencil,
-} from 'lucide-react';
+import { MessageCircle, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import {
@@ -29,7 +26,8 @@ import { ChatInput, type QuotedMessageForInput } from '../chat-input';
 import type { QuotedMessage } from '../message-bubble';
 import { NoteInput } from './note-input';
 import { SuggestBar } from '../ai-suggest/suggest-bar';
-import { ContactPanel } from '../contact-panel';
+import { DealBanner } from '../deal-banner';
+import { ContextDrawer } from '../context-drawer';
 import type { SlaConversationData } from '../sla/sla-indicator';
 import { SendQuoteDialog } from '../dialogs/send-quote-dialog';
 import { SendInvoiceDialog } from '../dialogs/send-invoice-dialog';
@@ -37,7 +35,9 @@ import { CreateLeadDialog } from '../dialogs/create-lead-dialog';
 import { AddNoteDialog } from '../dialogs/add-note-dialog';
 import { ScheduleFollowupDialog } from '../dialogs/schedule-followup-dialog';
 import { ForwardDialog } from '../dialogs/forward-dialog';
+import { AssignDialog } from '../dialogs/assign-dialog';
 import { useConversationPresence } from '../hooks/use-conversation-presence';
+import type { Conversation } from '@/hooks/useWhatsApp';
 
 /** Fallback upload size limit (2 MB) */
 const MAX_FALLBACK_UPLOAD_SIZE = 2 * 1024 * 1024;
@@ -76,7 +76,6 @@ export function ChatPanel({
   assignedTo,
   conversationId,
   conversationStatus: initialConversationStatus,
-  snoozedUntil: initialSnoozedUntil,
   isMuted: initialMuted,
   labels,
   slaData,
@@ -98,10 +97,12 @@ export function ChatPanel({
     setInputMode,
     activeDialog,
     setActiveDialog,
+    showContactPanel,
+    setShowContactPanel,
+    toggleContactPanel,
   } = useChatStore();
 
   const [showAssign, setShowAssign] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(false);
   const [currentLeadId, setCurrentLeadId] = useState(leadId);
   const [conversationStatus, setConversationStatus] = useState(initialConversationStatus || 'open');
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -119,7 +120,6 @@ export function ChatPanel({
 
   // Use phone prop (from conversation metadata) or extract from JID
   const phone = phoneProp || remoteJid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@lid', '');
-  const displayPhone = phone && phone.length > 5 ? `+${phone}` : phone;
 
   // Current user for template variables
   const { data: currentUser } = useCurrentUser();
@@ -128,6 +128,28 @@ export function ChatPanel({
     agent_name: currentUser?.display_name || '',
     phone: phone || '',
   }), [contactName, currentUser?.display_name, phone]);
+
+  // Conversation-shaped view for the deal banner (CR-T5) — ChatPanel only
+  // receives the individual fields chat-layout.tsx destructured off the real
+  // Conversation row, so this reconstructs just enough of that shape for
+  // DealBanner/ContextDrawer to read (currentLeadId, not the initial leadId
+  // prop, so a freshly created lead shows up without a parent refetch).
+  const bannerConversation: Conversation = useMemo(() => ({
+    remote_jid: remoteJid,
+    instance_name: instanceName,
+    lead_id: currentLeadId ?? null,
+    client_id: clientId ?? null,
+    contact_name: contactName,
+    phone,
+    last_message: null,
+    unread_count: 0,
+    assigned_to: assignedTo,
+    is_group: isGroup,
+    group_subject: groupSubject,
+    group_picture_url: groupPictureUrl,
+    participant_count: participantCount,
+    labels,
+  }), [remoteJid, instanceName, currentLeadId, clientId, contactName, phone, assignedTo, isGroup, groupSubject, groupPictureUrl, participantCount, labels]);
 
   // ── React Query hooks ──
   const { data: messages = [], isLoading: messagesLoading } = useMessages(
@@ -379,37 +401,20 @@ export function ChatPanel({
     <div className="flex h-full">
       {/* Main Chat Area */}
       <div className="flex flex-col flex-1 min-w-0 h-full">
-        {/* Header */}
+        {/* Header — slim utility bar (back / search / kebab) */}
         <ChatHeader
-          contactName={contactName}
-          phone={phone}
-          displayPhone={displayPhone}
           leadId={currentLeadId}
-          assignedTo={assignedTo}
           conversationId={conversationId}
-          remoteJid={remoteJid}
-          instanceName={instanceName}
           conversationStatus={conversationStatus}
           isAdmin={isAdmin}
           updatingStatus={updatingStatus}
-          showSidebar={showSidebar}
-          showAssign={showAssign}
           searchOpen={searchOpen}
           searchQuery={searchQuery}
           displayMessagesCount={displayMessages.length}
-          snoozedUntil={initialSnoozedUntil}
           isMuted={isMuted}
-          labels={labels}
-          isContactTyping={isContactTyping}
           otherViewers={otherViewers}
-          isGroup={isGroup}
-          groupSubject={groupSubject}
-          participantCount={participantCount}
-          groupPictureUrl={groupPictureUrl}
           onBack={onBack}
-          onToggleSidebar={() => setShowSidebar(!showSidebar)}
           onToggleAssign={() => setShowAssign(!showAssign)}
-          onAssigned={() => onConversationUpdated?.()}
           onToggleSearch={() => {
             setSearchOpen(!searchOpen);
             setSearchQuery('');
@@ -418,7 +423,16 @@ export function ChatPanel({
           onCloseSearch={() => { setSearchOpen(false); setSearchQuery(''); }}
           onStatusChange={handleStatusChange}
           onMuteToggle={handleMuteToggle}
-          onSnoozed={() => onConversationUpdated?.()}
+        />
+
+        {/* Deal banner — identity + KPIs + stage steps + always-visible sales actions */}
+        <DealBanner
+          conversation={bannerConversation}
+          isAdmin={isAdmin}
+          isContactTyping={isContactTyping}
+          onOpenDialog={setActiveDialog}
+          onAssign={() => setShowAssign(true)}
+          onToggleDrawer={toggleContactPanel}
         />
 
         {/* Messages */}
@@ -441,50 +455,6 @@ export function ChatPanel({
             onSelect={handleSuggestionSelect}
           />
         )}
-
-        {/* Quick Actions Bar */}
-        <div className="px-3 py-1.5 border-t border-border/30 flex items-center gap-1 overflow-x-auto scrollbar-none bg-muted/10">
-          {currentLeadId ? (
-            <>
-              <button
-                onClick={() => setActiveDialog('quote')}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-orange-700 dark:text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 transition-colors whitespace-nowrap"
-              >
-                <FileText className="h-3 w-3" />
-                عرض سعر
-              </button>
-              <button
-                onClick={() => setActiveDialog('invoice')}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-purple-700 dark:text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 transition-colors whitespace-nowrap"
-              >
-                <Receipt className="h-3 w-3" />
-                فاتورة
-              </button>
-              <button
-                onClick={() => setActiveDialog('note')}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-yellow-700 dark:text-yellow-400 bg-yellow-500/10 hover:bg-yellow-500/20 transition-colors whitespace-nowrap"
-              >
-                <StickyNote className="h-3 w-3" />
-                ملاحظة
-              </button>
-              <button
-                onClick={() => setActiveDialog('followup')}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-sky-700 dark:text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 transition-colors whitespace-nowrap"
-              >
-                <Clock className="h-3 w-3" />
-                متابعة
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => setActiveDialog('lead')}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors whitespace-nowrap"
-            >
-              <UserPlus className="h-3 w-3" />
-              إنشاء عميل محتمل
-            </button>
-          )}
-        </div>
 
         {/* Input Mode Toggle + Input */}
         {conversationId && (
@@ -531,18 +501,30 @@ export function ChatPanel({
         )}
       </div>
 
-      {/* Contact Info Sidebar */}
-      {showSidebar && (
-        <ContactPanel
-          contactName={contactName}
-          phone={phone}
-          leadId={currentLeadId}
-          conversationId={conversationId}
-          isAdmin={isAdmin}
-          onClose={() => setShowSidebar(false)}
-          onConversationUpdated={onConversationUpdated}
-        />
-      )}
+      {/* Context drawer — replaces the old always-visible contact panel column */}
+      <ContextDrawer
+        open={showContactPanel}
+        onOpenChange={setShowContactPanel}
+        contactName={contactName}
+        phone={phone}
+        leadId={currentLeadId}
+        conversationId={conversationId}
+        conversation={bannerConversation}
+        isAdmin={isAdmin}
+        onConversationUpdated={onConversationUpdated}
+      />
+
+      {/* Assign dialog — single instance opened from either the banner's
+          «إسناد» button or the header kebab's «تعيين لوكيل» item */}
+      <AssignDialog
+        open={showAssign}
+        conversationId={conversationId}
+        remoteJid={remoteJid}
+        instanceName={instanceName}
+        currentAgent={assignedTo || null}
+        onAssigned={() => onConversationUpdated?.()}
+        onClose={() => setShowAssign(false)}
+      />
 
       {/* Dialogs */}
       {activeDialog === 'quote' && currentLeadId && (
