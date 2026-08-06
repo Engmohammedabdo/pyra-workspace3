@@ -26,7 +26,13 @@ import { extractMentions } from '@/lib/utils/mentions';
  *
  * Optional filter:
  *   - type: a single LeadActivityType value
+ *   - types: comma-separated allowlist (currently: call_logged, call_attempt —
+ *     CR-T7's calls-only query for the chat thread's inline call pills, kept
+ *     narrow on purpose; unknown values are dropped, not rejected). Additive
+ *     to `type` above — CRM timeline callers keep using `type` untouched.
  */
+const TYPES_FILTER_ALLOWLIST = new Set(['call_logged', 'call_attempt']);
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -52,6 +58,10 @@ export async function GET(
       return apiValidationError(t('crm.isoDateInvalid', { field: 'before' }));
     }
     const typeFilter = sp.get('type')?.trim() || null;
+    const typesParam = sp.get('types')?.trim() || null;
+    const typesFilter = typesParam
+      ? typesParam.split(',').map((v) => v.trim()).filter((v) => TYPES_FILTER_ALLOWLIST.has(v))
+      : null;
 
     let q = supabase
       .from('pyra_lead_activities')
@@ -60,7 +70,11 @@ export async function GET(
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    if (typeFilter) q = q.eq('activity_type', typeFilter);
+    if (typesFilter && typesFilter.length > 0) {
+      q = q.in('activity_type', typesFilter);
+    } else if (typeFilter) {
+      q = q.eq('activity_type', typeFilter);
+    }
     if (before) q = q.lt('created_at', before);
 
     const { data, error } = await q;

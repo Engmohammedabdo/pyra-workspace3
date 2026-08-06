@@ -46,6 +46,39 @@ export function useLeadActivities(
   });
 }
 
+/**
+ * Calls-only activity timeline for a lead — CR-T7. Backs the chat thread's
+ * inline call pills (`message-list.tsx`), which used to read the SAME
+ * mixed-activity query as the CRM timeline (`useLeadActivities`). Because
+ * the webhook mirrors every WhatsApp message into `pyra_lead_activities`
+ * too, a busy lead's `call_logged`/`call_attempt` rows could fall off the
+ * timeline's first 50-activity page and silently vanish from the thread.
+ *
+ * This hook requests `types=call_logged,call_attempt` (server-validated
+ * allowlist, `app/api/crm/leads/[id]/activities/route.ts`) so the 50-row
+ * page is 50 CALLS, unaffected by message volume. Additive only — the CRM
+ * timeline keeps using `useLeadActivities` untouched.
+ */
+export function useLeadCallActivities(leadId: string | undefined) {
+  return useInfiniteQuery<LeadActivitiesPage>({
+    queryKey: ['crm', 'leads', leadId, 'activities', { types: 'call_logged,call_attempt' }],
+    queryFn: ({ pageParam }) => {
+      const sp = new URLSearchParams();
+      sp.set('limit', String(PAGE_SIZE));
+      sp.set('types', 'call_logged,call_attempt');
+      if (pageParam) sp.set('before', pageParam as string);
+      return fetchAPI(`/api/crm/leads/${leadId}/activities?${sp.toString()}`);
+    },
+    enabled: !!leadId,
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => {
+      if (!lastPage.has_more || lastPage.activities.length === 0) return undefined;
+      return lastPage.activities[lastPage.activities.length - 1].created_at;
+    },
+    staleTime: 30_000,
+  });
+}
+
 // ── Mutation (endpoint lands in Phase 6) ──
 
 export interface CreateLeadActivityInput {

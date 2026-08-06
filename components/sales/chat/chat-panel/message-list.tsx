@@ -5,7 +5,7 @@ import { MessageBubble, NoteBubble, type QuotedMessage } from '../message-bubble
 import { CallEventPill } from '../call-event-pill';
 import { MessageCircle, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
-import { useLeadActivities, type LeadActivity } from '@/hooks/useLeadActivities';
+import { useLeadCallActivities, type LeadActivity } from '@/hooks/useLeadActivities';
 import { mergeThread } from '@/lib/whatsapp/inbox';
 import type { Message, ConversationNote } from '@/hooks/useWhatsApp';
 
@@ -55,10 +55,15 @@ export function MessageList({ messages, notes, leadId, isGroup, onReply, onReact
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Inline call events (CR-T6) — skipped entirely when the conversation has
-  // no linked lead (useLeadActivities gates on `enabled: !!leadId`).
-  const { data: activitiesData } = useLeadActivities(leadId ?? undefined);
+  // no linked lead (useLeadCallActivities gates on `enabled: !!leadId`).
+  // CR-T7: reads a calls-only query (server-filtered `types=call_logged,
+  // call_attempt`) instead of the mixed-activity CRM timeline query — a busy
+  // lead's webhook-mirrored messages no longer push older calls off page 1.
+  const { data: activitiesData } = useLeadCallActivities(leadId ?? undefined);
   const callActivities = useMemo(
     () =>
+      // Defensive re-filter: the query is already calls-only server-side,
+      // this just guards against a future allowlist change on the route.
       (activitiesData?.pages.flatMap((p) => p.activities) ?? []).filter((a) =>
         CALL_ACTIVITY_TYPES.has(a.activity_type),
       ),
