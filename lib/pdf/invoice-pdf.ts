@@ -4,6 +4,7 @@
 
 import jsPDF from 'jspdf';
 import { registerArabicFont, loadImageAsBase64 } from './pdf-fonts';
+import { fitText } from './fit-text';
 
 // ============================================================
 // Invoice PDF Generator — Unified design with quote-pdf.ts
@@ -287,19 +288,26 @@ export async function generateInvoicePDF(
 
   doc.setFontSize(8.5);
 
+  // Values are fitted to the width of their own dotted line, not to a
+  // character count — see lib/pdf/fit-text.ts for why counting was wrong in
+  // both directions. Measured with the value font (normal), which every call
+  // site below sets immediately before drawing.
+  const fit = (text: string, maxWidth: number) =>
+    fitText((s) => doc.getTextWidth(s), text, maxWidth);
+
   // Row 1: Client: _____ | Email: _____ | Address: _____
   let ry = y + 6;
   doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
   doc.text('Client:', infoX, ry);
   doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gray);
   const pdfClientName = invoice.display_client_name || invoice.client_company || invoice.client_name || '---';
-  doc.text(pdfClientName.slice(0, 22), infoX + 14, ry);
+  doc.text(fit(pdfClientName, midCol - 3 - (infoX + 14)), infoX + 14, ry);
   dottedLine(doc, infoX + 14, ry + 1.5, midCol - 3);
 
   doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
   doc.text('Email:', midCol, ry);
   doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gray);
-  doc.text((invoice.client_email || '---').slice(0, 24), midCol + 13, ry);
+  doc.text(fit(invoice.client_email || '---', endLine - (midCol + 13)), midCol + 13, ry);
   dottedLine(doc, midCol + 13, ry + 1.5, endLine);
 
   // Row 2: Contact: _____ | Phone: _____
@@ -307,13 +315,13 @@ export async function generateInvoicePDF(
   doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
   doc.text('Contact:', infoX, ry);
   doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gray);
-  doc.text((invoice.client_name || '---').slice(0, 20), infoX + 17, ry);
+  doc.text(fit(invoice.client_name || '---', midCol - 3 - (infoX + 17)), infoX + 17, ry);
   dottedLine(doc, infoX + 17, ry + 1.5, midCol - 3);
 
   doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
   doc.text('Phone:', midCol, ry);
   doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gray);
-  doc.text((invoice.client_phone || '---').slice(0, 20), midCol + 13, ry);
+  doc.text(fit(invoice.client_phone || '---', endLine - (midCol + 13)), midCol + 13, ry);
   dottedLine(doc, midCol + 13, ry + 1.5, endLine);
 
   // Row 3: Address: _____
@@ -321,7 +329,7 @@ export async function generateInvoicePDF(
   doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
   doc.text('Address:', infoX, ry);
   doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gray);
-  doc.text((invoice.client_address || '---').slice(0, 50), infoX + 17, ry);
+  doc.text(fit(invoice.client_address || '---', endLine - (infoX + 17)), infoX + 17, ry);
   dottedLine(doc, infoX + 17, ry + 1.5, endLine);
 
   y = Math.max(y + logoH + 4, ry + 6);

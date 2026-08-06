@@ -7,6 +7,7 @@
 
 import jsPDF from 'jspdf';
 import { registerArabicFont, loadImageAsBase64 } from './pdf-fonts';
+import { fitText } from './fit-text';
 
 // ============================================================
 // Quote PDF — Pyramedia X Professional Template
@@ -184,19 +185,25 @@ export async function generateQuotePDF(
 
   doc.setFontSize(8.5);
 
+  // Values are fitted to the width of their own dotted line, not to a
+  // character count — see lib/pdf/fit-text.ts. Kept identical to the invoice
+  // header block, which this layout mirrors.
+  const fit = (text: string, maxWidth: number) =>
+    fitText((s) => doc.getTextWidth(s), text, maxWidth);
+
   // Row 1: Client: _____ | Email: _____
   let ry = y + 6;
   doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
   doc.text('Client:', infoX, ry);
   doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gray);
   const clientVal = (quote.client_company || quote.client_name || '---');
-  doc.text(clientVal.slice(0, 22), infoX + 14, ry);
+  doc.text(fit(clientVal, midCol - 3 - (infoX + 14)), infoX + 14, ry);
   dottedLine(doc, infoX + 14, ry + 1.5, midCol - 3);
 
   doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
   doc.text('Email:', midCol, ry);
   doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gray);
-  doc.text((quote.client_email || '---').slice(0, 24), midCol + 13, ry);
+  doc.text(fit(quote.client_email || '---', endLine - (midCol + 13)), midCol + 13, ry);
   dottedLine(doc, midCol + 13, ry + 1.5, endLine);
 
   // Row 2: Contact: _____ | Phone: _____
@@ -204,13 +211,13 @@ export async function generateQuotePDF(
   doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
   doc.text('Contact:', infoX, ry);
   doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gray);
-  doc.text((quote.client_name || '---').slice(0, 20), infoX + 17, ry);
+  doc.text(fit(quote.client_name || '---', midCol - 3 - (infoX + 17)), infoX + 17, ry);
   dottedLine(doc, infoX + 17, ry + 1.5, midCol - 3);
 
   doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
   doc.text('Phone:', midCol, ry);
   doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gray);
-  doc.text((quote.client_phone || '---').slice(0, 20), midCol + 13, ry);
+  doc.text(fit(quote.client_phone || '---', endLine - (midCol + 13)), midCol + 13, ry);
   dottedLine(doc, midCol + 13, ry + 1.5, endLine);
 
   // Row 3: Address: _____
@@ -218,7 +225,7 @@ export async function generateQuotePDF(
   doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
   doc.text('Address:', infoX, ry);
   doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gray);
-  doc.text((quote.client_address || '---').slice(0, 50), infoX + 17, ry);
+  doc.text(fit(quote.client_address || '---', endLine - (infoX + 17)), infoX + 17, ry);
   dottedLine(doc, infoX + 17, ry + 1.5, endLine);
 
   y = Math.max(y + logoH + 4, ry + 6);
