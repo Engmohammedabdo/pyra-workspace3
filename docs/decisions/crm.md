@@ -1932,3 +1932,272 @@ phone that self-updates ahead of the endpoints gets screens that 404. The prod
 channel refuses debuggable or wrong-package APKs, and the `pyra-private` bucket
 caps uploads at **10 MiB** (v1.5.0 signed release = 7.87 MB; the debug build was
 10.56 MB and could not be uploaded).
+
+---
+
+## Calls — Lead Ownership Boundary + The Follow-Up Loop (Locked, 2026-08-08)
+
+Two pieces of work that shipped together (2026-08-07 night → 08-08) and whose
+decisions interlock: **wave C — "the follow-up loop closes"** (v1.7.0,
+versionCode 8) and the **cross-agent lead-ownership fix** that wave C's own
+pre-publish code audit surfaced underneath it (backlog B-12). The operational
+contract lives in `docs/CALL-TRACKING.md`, the item ledger in
+`docs/CALL-TRACKING-BACKLOG.md`; this section records only what must not be
+re-litigated.
+
+Items 1–9 are the ownership boundary, 10–14 the follow-up loop. **Items 1, 2,
+3 and 5 look like the defect rather than the fix.** Each of them is the
+intuitive "cleanup" a future reader will reach for, and each one re-opens a
+worse hole than the one being closed. Do not change them without reading the
+item.
+
+### 1. The lead phone index stays system-wide; the WRITE is what gets gated
+
+`app/api/mobile/calls/sync/route.ts` keeps building its lead phone index with
+**no `assigned_to` filter**, on purpose. Filtering the index is the intuitive
+fix and the worst available one: every call to a colleague's lead would come
+back `unmatched`, which fires the app's «رقم غير مسجل» quick-add prompt — and
+`POST /api/mobile/leads` builds its **own** unfiltered index, so the rep
+quick-adds the number and is handed the colleague's lead straight back
+(`already_existed: true`). That converts a silent write into a louder leak,
+plus duplicate-lead pressure on exactly the numbers that already have too many
+cards. **Gate the write, never the match.**
+
+### 2. `pyra_agent_calls.lead_id` stays SET on an unowned match
+
+This is the line that looks like the leak, and it is the line holding the gate
+shut. Two consumers depend on the link existing:
+
+- `retroLinkCalls` (`app/api/mobile/leads/route.ts`) selects unlinked calls
+  with `.is('lead_id', null)` and **no agent filter**. A NULL link would leave
+  every unowned call eligible, so the next quick-add on that number would
+  re-link them all and re-write precisely the activities the gate suppressed.
+- `app/api/mobile/calls/ignore/route.ts`'s only guard is
+  `if (call.lead_id) return 409`. A NULL link would let a rep mark a
+  **colleague's customer number** as ignored — and an ignored call drops out of
+  every bucket in `lib/calls/report.ts`, erasing the rep's own workload from
+  the calls report along with it.
+
+### 3. `match_status` stays `'matched'` for an unowned match, and no new value was added
+
+Three independent reasons, any one of which is sufficient:
+
+- `lib/calls/report.ts` does `s[r.match_status] += 1` over a fixed key set, so
+  an unlisted value yields `undefined + 1 = NaN` and silently corrupts the
+  whole calls report.
+- The value would fall outside the `MATCH_STATUSES` whitelist in
+  `app/api/crm/calls/route.ts` and outside the `types/database.ts` union.
+- It would retroactively shift the 25 existing cross-agent rows out of the
+  matched bucket, rewriting history to describe a rule that did not exist when
+  they were written.
+
+**And never emit `status: 'error'` for an unowned match.** `SyncPlanner.kt`
+returns null on the literal `'error'`, `SyncWorker` then returns
+`Result.retry()` and never advances `lastSyncedCallLogId` — freezing that
+handset's uploads **permanently**, on both live versions (7 and 8). An
+ownership decision must never be expressed through a transport-level status.
+
+### 4. The activity insert and the `last_contact_at` bump are gated TOGETHER
+
+Gating only the bump is the tempting middle path ("keep the visible timeline
+row, just don't move recency") and it does not work.
+`app/api/cron/lead-idle-check/route.ts:189-193` computes
+`lastTouched = max(latest activity created_at excluding call_attempt, last_contact_at)`
+with **no `created_by` filter** — so a surviving `call_logged` row keeps the
+owner's going-cold nudge suppressed entirely on its own, bump or no bump.
+
+Verified while making this change: the other three recency consumers —
+`deals-at-risk`, `ai-insights`, and the customer dossier's health-score
+recency — all derive recency the same way and **none** of them filters by
+author either. Gating both writes together is what keeps all four consistent;
+gating one leaves four consumers disagreeing with the rule.
+
+### 5. The duplicate-key tiebreak is the root-cause fix, and it had to ship WITH the gate, not after it
+
+`buildLeadPhoneIndex` (`lib/calls/match.ts`) now takes an optional
+`preferAssignedTo` and prefers the caller's own lead when two lead rows collide
+on one phone key.
+
+**Measured: 14 of the 25 cross-agent matched calls in production were duplicate
+lead cards for the same business on the same number, where the caller owned
+their own row** — and first-match-wins over an unordered PostgREST select had
+picked the colleague's. A bare ownership gate, shipped without the tiebreak,
+would therefore have erased **14 real conversations** from the CRM: no
+notification, no outcome sheet, no follow-up attach. That is why the two
+changes are one change. With `preferAssignedTo` omitted or null the function is
+byte-identical to its previous behaviour, so no existing caller shifted.
+
+Two imperatives fall out of it:
+
+- **The inversion failure mode only shows when the preferred lead arrives
+  SECOND in the array.** Mutation-verified, and production hits that ordering
+  deterministically because the colleague's duplicate is the older row — so any
+  test that only checks preferred-first **passes against a broken
+  implementation**. Keep a second-position case in the suite.
+- **The select needs its `ORDER BY created_at, id`.** Without it, *which*
+  duplicate wins — and therefore the value of `owned` itself — is not
+  reproducible between two syncs of the same number.
+
+### 6. Three read paths were closed alongside the write
+
+A write gate is worthless if the same datum is one click away. All three now
+gate on the same ownership predicate:
+
+- `app/api/crm/calls/route.ts` was enriching `lead_name` keyed only on
+  `lead_id` with no ownership filter, and `CallsTable` rendered it as a **link
+  to the colleague's lead page** — so a rep read the name off their **own**
+  calls report.
+- Two branches of `POST /api/mobile/leads` returned the colleague's `lead_id`,
+  `lead_name` and `lead_url`.
+- `retroLinkCalls` linked **and wrote** a foreign agent's calls onto a
+  newly quick-added lead, sourcing its `last_contact_at` from a dial the
+  lead's owner never made.
+
+### 7. `QuickAddData`'s withheld fields are empty strings — not omitted, not null
+
+A live-crash guard, not a style choice. `lead_id`, `lead_name` and `lead_url`
+are declared **non-nullable with no defaults** in `core/Payloads.kt`, so
+omitting or nulling them throws `MissingFieldException` on versionCode 7 and 8.
+`ApiClient`'s `runCatching` turns that into `ApiResult.Err(200, …)`, which
+shows the rep a red error, skips `Notifier.cancel`, and retries a request that
+**already succeeded** — forever. Empty strings decode cleanly and are read
+nowhere on that path (`already_existed == true` takes the toast branch).
+
+**Do not make the Kotlin fields nullable to "clean this up".** The live fleet
+is what decodes the response; a future tolerant build does not make v7/v8
+tolerant.
+
+### 8. Two backfill scripts were fixed with the same rule
+
+`scripts/backfill-quickadd-last-contact.ts` and
+`scripts/backfill-zero-duration-contact.ts` joined `pyra_agent_calls` on
+`lead_id` with no agent filter. On `--apply` they would have set a colleague's
+lead's `last_contact_at` from a foreign dial — the exact write the gate now
+refuses. Both require `c.agent_username = l.assigned_to`. **Any future script
+that reads a call and writes to its lead inherits this predicate.**
+
+### 9. The policy this establishes: the phone stops being the exception
+
+An admin can still log a call on ANY lead through the web composer, and that
+path does bump `last_contact_at` — unchanged. A sales agent cannot, because
+`canAccessLead` is own-or-admin. The phone was the one surface where a
+non-admin could write to a lead they do not own. After this change **the phone
+is simply no longer the exception.**
+
+### 10. `STAGE_NOT_INTERESTED` is pinned by value in code, not by an `is_terminal` column
+
+Owner decision, 2026-08-07. `ps_zT_9mNvS8qxMq-7d` is a **custom, UI-generated**
+stage: `pyra_sales_pipeline_stages` has no column marking a stage terminal
+(`is_default` is its only flag). So **any future terminal stage must be added
+to `PIPELINE_TERMINAL_STAGE_IDS` (`lib/constants/statuses.ts`) by hand**, and
+`__tests__/pipeline-terminal-stages.test.ts` is the only guard that anyone
+remembered to.
+
+`ps_e-w41Um9opZvPTPf` («لا يرد») is deliberately **NOT** terminal — a lead that
+did not answer still needs chasing, and marking it done would quietly retire
+live prospects.
+
+### 11. `follow-ups/complete` accepts exactly two reasons, assignee-only, no admin override
+
+`duplicate` and `wrong_number`. The two rejected candidates were rejected for
+reasons, not for scope:
+
+- «اتواصلنا خارج النظام» **does not exist as a concept** — every conversation
+  goes through a company line.
+- «العميل مش مهتم» is a **stage move, not a close reason**. It belongs to
+  `call-outcome`'s `not_interested_reason` so the lead actually leaves the
+  pipeline, instead of quietly losing its reminder while sitting in the same
+  stage.
+
+Unlike the web route, `POST /api/mobile/follow-ups/complete` has **no admin
+override**: a device key carries no RBAC scope, so there is no admin to
+recognise. Assignee-only, and the ownership predicate stays with the caller
+while the state transition stays in `lib/crm/close-follow-up.ts`.
+
+### 12. A converted closed-won customer cannot be moved to «غير مهتم» from a phone — it refuses, it does not reopen
+
+`markNotInterested` returns `terminal_won` and the route answers **422**.
+Without that branch the phone bypassed the admin-only reopen gate the web
+enforces, and produced a lead that was simultaneously `is_converted = true`,
+`win_probability = 100` and sitting in the not-interested column. **A phone
+must never be able to reopen a won customer as a side effect of a call
+outcome.**
+
+### 13. `classifyCloseAccess` owns the ORDER, not just the predicate
+
+Ownership is tested **BEFORE** the open / already-closed split. Reversed, an
+"already closed → 200" answer becomes an oracle revealing which follow-up ids
+exist. That ordering was gotten wrong once during this wave, which is why two
+tests assert `isOwner` is called **exactly once** and **never** for
+`not_found` / `db_error` — those are the tests that fail if anyone reverses it
+again.
+
+### 14. PostgREST: a `select=` projection on a MUTATION swallows an `or=` filter
+
+The trap that cost the most this wave. On an `UPDATE` carrying `select=`,
+PostgREST resolves `or=` against the **projection** instead of leaving it in
+the mutation's `WHERE`. Measured against the live API on one compare-and-swap:
+
+| Shape | Result |
+|---|---|
+| `.or(…) + .select('id')` | `400` `42703 column … does not exist` — on a column that exists |
+| `.or(…) + .select('id, stage_id')` | `200` returning `[]` — the filter is re-applied to the RETURNING row, which already holds the NEW value. **The UPDATE commits and the caller wrongly concludes it lost a race** |
+| `.or(…) + { count: 'exact' }`, **no** `.select()` | `204`, `Content-Range: 0-0/1` — correct |
+
+Plain `.eq()` filters are **unaffected**: `app/api/mobile/calls/ignore/route.ts`
+has a filtered `.update().select('id')` on columns it does not project and is
+fine in production — **do not "fix" that one to match.**
+
+Why this is recorded as a decision and not a bug note: it shipped through
+**1,092 passing tests**, a reviewer who explicitly flagged `.update()+.or()` as
+unverifiable, and a four-lens audit. Only the real-device test caught it — and
+because the route treats a stage-move failure as warn-don't-fail, the damage
+was **silent**: note written, follow-up closed, HTTP 200, lead never moved. The
+long form with the full evidence is the PostgREST-gotcha section in
+`docs/CALL-TRACKING.md`.
+
+### Measured 2026-08-08 — the forensics, so nobody re-derives them
+
+Cross-agent matched calls in production, all-time:
+
+| Fact | Value |
+|---|---|
+| Cross-agent matched calls | **25** of 1,546 matched (**1.6 %**), across **15** leads |
+| Callers involved | two only — youssef→cosette **19**, cosette→youssef **6** |
+| Carried an activity id | **23** · of those, **20** rows still exist |
+| Connected (real conversation) | **17** |
+| Leads still carrying a traceable `last_contact_at` | **2** |
+| Leads in live harm | **exactly 1** |
+| Phone keys with more than one lead row | **18** · **8** split across the two active agents |
+
+The one lead in live harm: **`sl_njsQ6XfyPCOL_Z12`** ("milestones coffee",
+cosette) — suppressed from the idle nudge for **14 consecutive cron ticks**.
+And it is a **duplicate** of **`sl_LIEiSbMcadQDcS-Z`** ("Milestones Coffee Abu
+Dhabi Mall", youssef) on **025836444**, where youssef was calling **his own**
+prospect. The flagship case for the duplicate-card problem is the same row as
+the flagship case for the leak.
+
+Nothing in the data looks fabricated: two device install ids, monotonic CallLog
+row ids, sync lag ranging 8 s–87 min, Dubai working hours, varied non-round
+durations. This is ordinary misdialling and duplicate cards, not abuse.
+
+**The numbers UNDERCOUNT.** `assigned_to` is mutable, and at least one call
+reads as same-agent *today* only because of the 2026-07-31 departed-agent
+reshuffle. For the same reason the older docs' **"11 of 846"** figure is not
+exactly reproducible — it was true when measured; do not treat the discrepancy
+as an error in either number.
+
+### Deliberately not done — fix the duplicate, not the timeline
+
+The 20 surviving historical activity rows were **NOT** deleted, and the 2
+`last_contact_at` values were **NOT** reset.
+
+Restoring the single suppressed nudge would require destroying **20 true
+records of real conversations**, honestly attributed in `created_by` — and it
+would not even work, because the idle cron takes the **max** of
+`last_contact_at` and the latest activity **with no author filter** (item 4).
+Deleting the bump alone changes nothing while the activity rows stand, and
+deleting the activity rows falsifies the record.
+
+The correct remedy is a **human handoff** on that one lead plus **merging the
+duplicate cards** (backlog). **Fix the duplicate, not the timeline.**

@@ -825,6 +825,7 @@ to forget once buried in an archive.
 | [Admin Lead-Data Edit](docs/decisions/crm.md#crm-admin-lead-data-edit-full-activity-logging-locked-2026-07-03) | `leads.edit_core` is admin-only; diff-only PATCH; every changed field writes a timeline row |
 | [Pyra Pro Redesign](docs/decisions/crm.md#crm-pyra-pro-redesign-locked-decisions-2026-07-10) | Warm palette scoped via `.crm-theme`; **`font-mono` on Latin numerics ONLY — never Arabic** |
 | [Calls: contact semantics + update enforcement](docs/decisions/crm.md#calls-contact-semantics-update-enforcement-locked-2026-07-29) | `isConnectedCall()` is the ONE contact predicate; `call_attempt` is effort, never a touch — **4 recency consumers must exclude it**; answered-only metrics; `updates_v2` channel; `--mandatory` rules + the `--set-mandatory false` escape hatch; call sync never stops while blocked |
+| [Calls: lead ownership boundary + the follow-up loop](docs/decisions/crm.md#calls-lead-ownership-boundary-the-follow-up-loop-locked-2026-08-08) | The phone stops being the exception — a rep cannot write to a colleague's lead. **The index stays system-wide, `lead_id` stays SET, `match_status` stays `'matched'` — each "obvious fix" re-opens a worse hole**; the duplicate-key tiebreak had to ship WITH the gate (a bare gate erases 14 real calls); `STAGE_NOT_INTERESTED` is pinned by value; `classifyCloseAccess` owns the ORDER; **a `select=` projection on a MUTATION swallows an `or=` filter** |
 
 ### Finance — [`docs/decisions/finance.md`](docs/decisions/finance.md)
 | Decision set | Governs |

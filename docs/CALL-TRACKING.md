@@ -160,25 +160,61 @@ call has `lead_id=null`, `activity_id=null`.
 **`owned` field (added in the whole-wave review fix bundle, see that section
 near the end of this doc):** every `'matched'` result also carries
 `owned: boolean` — `lead.assigned_to === agentUsername`. The lead index
-above is system-wide (no `assigned_to` filter, first-match wins), so a call
-can match a colleague's lead; `owned` lets the app skip offering the
-outcome-logging action for a lead it doesn't own (that POST 403s). Additive
-— omitted from the example above only because it predates the field; a
-pre-v1.4 phone's `ignoreUnknownKeys` decoder never sees it either way.
+above is system-wide (no `assigned_to` filter), so a call can match a
+colleague's lead. Additive — omitted from the example above only because it
+predates the field; a pre-v1.4 phone's `ignoreUnknownKeys` decoder never
+sees it either way.
 
-**⚠️ The lead index and the write path are NOT gated on `owned` — see the
-backlog item B-12 in `docs/CALL-TRACKING-BACKLOG.md`.** The index query above
-has no `assigned_to` filter and the `call_logged`/`call_attempt` activity
-insert + `last_contact_at` bump below run for ANY matched+connected call
-regardless of ownership. `owned` only controls what the RESPONSE exposes
-(the app-level decision to offer the outcome action) — it does not stop the
-server from writing to a colleague's lead. Pre-existing, not introduced by
-wave C; the 30-day measurement showing 11 of 846 matched calls landing on a
-lead the caller doesn't own (Finding 2, "Whole-wave review fix bundle"
-section below) only ever fixed the READ side — the `owned` field that stops
-the app from OFFERING the outcome action. The underlying index and write
-path were never gated. Still open — see `docs/CALL-TRACKING-BACKLOG.md`
-B-12/B-13.
+**Lead-ownership boundary (B-12, closed 2026-08-08 — server-only, no app
+release).** `owned` no longer only shapes the response; it gates the WRITE.
+For a matched call on a lead the calling agent does **not** own, the sync
+route:
+
+- writes **no** `pyra_lead_activities` row — not `call_logged`, not
+  `call_attempt`;
+- does **not** bump `last_contact_at`;
+- withholds `lead_id` and `lead_name` from the response;
+- but still **stores the call** in `pyra_agent_calls`, with its `lead_id`
+  **SET** and `match_status` still **`'matched'`**.
+
+**Exact response shape for an unowned match** — `owned: false` and nothing
+else beside the two always-present keys:
+
+```json
+{ "device_call_key": "…", "status": "matched", "owned": false }
+```
+
+Four properties of that shape are load-bearing. Do not "tidy" any of them:
+
+| Property | Why |
+|---|---|
+| `owned: false` is **sent**, never omitted | Both live versions compute `val owned = r.owned != false` — absent/null means OWNED, so dropping the key makes v7/v8 **start** notifying for a colleague's lead |
+| `status` stays `'matched'` | `'unmatched'` fires the «رقم غير مسجل» quick-add prompt, and `POST /api/mobile/leads` builds its own unfiltered index — a louder leak than the one being closed |
+| `lead_id` / `lead_name` merely **absent** | `SyncWorker.kt` gates its matched branch on `status == "matched" && lead_id != null && lead_name != null`, short-circuiting before `owned` is read. The phone shows exactly what it showed before: nothing |
+| the index stays **system-wide** | Filtering it by `assigned_to` would make every colleague-lead call read `unmatched` — see the `status` row above |
+
+The activity insert and the `last_contact_at` bump are gated **together**:
+`lead-idle-check` computes recency as `max(latest non-call_attempt activity,
+last_contact_at)` with **no author filter**, so a surviving `call_logged` row
+would keep the owner's going-cold nudge suppressed on its own. Full rationale
+and forensics: `docs/decisions/crm.md` → "Calls — Lead Ownership Boundary +
+The Follow-Up Loop".
+
+**Duplicate-key tiebreak (shipped in the same change, not after it):**
+`buildLeadPhoneIndex(leads, preferAssignedTo)` (`lib/calls/match.ts`) prefers
+the calling agent's own lead when two lead rows collide on one phone key — 18
+phone keys in prod carry more than one lead row. A bare ownership gate without
+this would have dropped **14 of the 25** measured cross-agent calls, which were
+the caller's own prospect losing a first-match-wins tie to a colleague's
+duplicate card. The index select carries `ORDER BY created_at, id`: without it,
+*which* duplicate wins — and therefore the value of `owned` — is not
+reproducible between two syncs. With `preferAssignedTo` omitted the function is
+byte-identical to plain first-match-wins.
+
+The earlier **"11 of 846"** measurement quoted in the "Whole-wave review fix
+bundle" section below is superseded by **25 of 1,546**, and is not exactly
+reproducible because `assigned_to` is mutable (the 2026-07-31 departed-agent
+reshuffle). Neither figure is an error.
 
 **`open_follow_up_id` / `open_follow_up_title` / `open_follow_up_due_at` /
 `open_follow_up_overdue` (wave C, Task CA-C-ج8 + audit Fix 1):** every
@@ -350,12 +386,48 @@ of creating a duplicate lead:
    that didn't exist (or wasn't indexed) at the original sync time — the
    call is retro-linked to that lead instead of creating a new one.
 
-**Retro-link on create**: when a genuinely NEW lead is created, every OTHER
-`unmatched` `pyra_agent_calls` row sharing the same `phone_normalized` (for
-any agent — the retro-link is phone-scoped, not agent-scoped) is flipped to
-`matched` + linked to the new lead, and a `call_logged` activity
-(`metadata.source: 'device_sync_retro'`) is written for each connected one
-(missed ones among them still get no activity, same rule as live sync).
+**Withheld-fields shape when the re-matched lead belongs to someone else
+(B-12, 2026-08-08):** both `already_existed: true` branches above now check
+ownership before echoing the lead back. If the matched lead's `assigned_to`
+is not the calling agent, the response still carries `already_existed: true`
+but `lead_id`, `lead_name` and `lead_url` are returned as **empty strings**:
+
+```json
+{ "lead_id": "", "lead_name": "", "lead_url": "", "already_existed": true }
+```
+
+**Empty strings — not omitted, and not null.** All three fields are declared
+non-nullable with no defaults in `core/Payloads.kt` (`QuickAddData`), so
+omitting or nulling them throws `MissingFieldException` on versionCode 7 and
+8; `ApiClient`'s `runCatching` turns that into `ApiResult.Err(200, …)`, which
+shows the rep a red error, skips `Notifier.cancel`, and **retries a request
+that already succeeded — forever**. Empty strings decode cleanly and are read
+nowhere on this path: the app reads `lead_id`/`lead_name` only in the
+`already_existed == false` branch, and `lead_url` nowhere at all. **Do not
+make the Kotlin fields nullable to clean this up** — the live fleet is what
+decodes the response, and a future tolerant build does not make v7/v8
+tolerant.
+
+**Retro-link on create — link everything, write only for the owner**: when a
+genuinely NEW lead is created, every OTHER `unmatched` `pyra_agent_calls` row
+sharing the same `phone_normalized` (for **any** agent — the retro-link stays
+phone-scoped, not agent-scoped) is flipped to `matched` + linked to the new
+lead. **The linking is deliberately still fleet-wide; only the writing is
+gated** (B-12, 2026-08-08): a `call_logged` / `call_attempt` activity and the
+forward-only `last_contact_at` bump happen **only for calls whose
+`agent_username` equals the new lead's `assigned_to`**. A foreign agent's call
+is linked and counted, and writes nothing.
+
+Why linking must stay fleet-wide: `retroLinkCalls` selects candidates with
+`.is('lead_id', null)`, so leaving a foreign agent's call unlinked would keep
+it eligible forever — the next quick-add on that number would re-link it and
+re-write exactly the activities this gate suppressed. It would also let a rep
+send that number to `POST /api/mobile/calls/ignore`, whose only guard is
+`if (call.lead_id) return 409`, marking a colleague's customer as ignored and
+dropping those rows out of every bucket in the calls report.
+
+Missed calls among the linked set still get no activity, same rule as live
+sync. Ignored calls (`match_status='ignored'`) are still excluded entirely.
 
 **Feedback reminder**: fires only on a genuinely new lead (not on
 `already_existed`) — `notify()` with type `call_feedback_required`, no
@@ -1002,11 +1074,21 @@ follow_up_id, action: 'completed', close_reason, source:
   the newest such call's `called_at` — but only forward, never backward
   (Task CA-B1 fold-in: the connected retro-link path previously never
   bumped `last_contact_at` at all, leaving it stale for a real answered call
-  that arrived inside the retro-link window).
+  that arrived inside the retro-link window). **Linking stays fleet-wide;
+  the activity + bump happen only when the call's `agent_username` equals
+  the lead's `assigned_to`** (B-12, 2026-08-08).
+- **Lead ownership**: a matched call on a lead the calling agent does not own
+  is stored, counted, and keeps its `lead_id` + `match_status='matched'`, but
+  writes **no** timeline activity and does **not** bump `last_contact_at`;
+  the response carries `owned: false` with no `lead_id`/`lead_name`. Gated in
+  the sync route, `POST /api/mobile/leads`, `retroLinkCalls`,
+  `/api/crm/calls`, and both backfill scripts (B-12, 2026-08-08).
 - **Phone matching**: `phoneMatchKey()` (`lib/utils/phone.ts`) — last 9
   digits after stripping non-digits and a leading `00`. Same convention the
   CRM already uses for duplicate-lead detection (Q-API-001). First lead
-  wins on duplicate phone numbers across leads.
+  wins on duplicate phone numbers across leads — **except** that the sync
+  route passes `preferAssignedTo`, which breaks a duplicate-key tie in favour
+  of the calling agent's own lead.
 - **`'error'` semantics**: the phone must keep that call queued and retry
   it on a later sync — an `'error'` result means nothing was persisted
   server-side for that call.
@@ -1829,6 +1911,13 @@ Fixed on both sides:
   `SyncWorker` only calls `showMatched` when `r.owned != false` — `null`
   (old server) is treated as owned so an older server can never silently
   suppress a legitimate notification.
+
+  **Historical scope — this pass fixed only the READ side.** The index and the
+  write path (activity insert + `last_contact_at` bump) stayed ungated until
+  B-12 closed on 2026-08-08; see the lead-ownership boundary under endpoint 2
+  above. The "11 of 846" figure here is superseded by **25 of 1,546** and is
+  not exactly reproducible, because `assigned_to` is mutable (the 2026-07-31
+  departed-agent reshuffle) — neither figure is an error.
 
 **3. IMPORTANT — `my-day`'s exclusion filter was unbounded (the same
 URI-too-long class that killed the lead-idle-check cron for 11 days,
