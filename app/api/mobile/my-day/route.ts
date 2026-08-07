@@ -3,10 +3,14 @@ import { requireDeviceAuth } from '../_lib/device-auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { logError } from '@/lib/observability/log-error';
+import { PIPELINE_TERMINAL_STAGE_IDS } from '@/lib/constants/statuses';
 
 const FOLLOW_UP_LIMIT = 20;
 const GOING_COLD_LIMIT = 20;
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Hoisted: a Set built once per module, not per request.
+const TERMINAL_STAGE_SET = new Set(PIPELINE_TERMINAL_STAGE_IDS);
 
 // Generous fetch cap for the going-cold CANDIDATE set fetched from the DB,
 // distinct from GOING_COLD_LIMIT (the response cap). Supabase's query
@@ -47,6 +51,7 @@ interface ColdLeadRow {
   name: string;
   phone: string | null;
   company: string | null;
+  stage_id: string | null;
   last_contact_at: string | null;
   created_at: string;
 }
@@ -80,6 +85,10 @@ interface ColdLeadRow {
 //                 at the going_cold query below; this is the same URI-too-
 //                 long failure class that killed the lead-idle-check cron
 //                 for 11 days, UF-T3).
+//                 Leads in a TERMINAL stage (PIPELINE_TERMINAL_STAGE_IDS —
+//                 closed won, closed lost, «غير مهتم») are excluded: a lead
+//                 the rep already marked not-interested must never come back
+//                 as "you haven't called this person".
 //
 // `counts` carries the TRUE total for each list (independent of the 20-row
 // cap) so the app can render "20 من 34" without a second round trip.
@@ -117,6 +126,34 @@ export async function GET(request: NextRequest) {
       return apiServerError();
     }
     const followUps = (followUpRows ?? []) as FollowUpRow[];
+
+    // ── True overdue count — what makes the app's third tab honest ──────
+    // `followUpTotal` above merges overdue and pending into one number, so the
+    // app could never split them without miscounting any rep with more than
+    // the 20 rows the list returns (youssef: 108 overdue, measured
+    // 2026-08-07). This is a HEAD count — no rows transferred.
+    //
+    // No due_at bound is needed: an `overdue` row is by definition already
+    // past due, so it always satisfies the `due_at <= now+1d` filter the
+    // follow-ups query uses. That is what guarantees overdue ⊆ follow_ups and
+    // lets the app derive "due today" by subtraction.
+    //
+    // Fails SOFT: on error this reports null and the response still ships.
+    // The app falls back to two tabs. Never take the screen down for a badge.
+    const { count: overdueCountRaw, error: overdueErr } = await supabase
+      .from('pyra_sales_follow_ups')
+      .select('id', { count: 'exact', head: true })
+      .eq('assigned_to', agentUsername)
+      .eq('status', 'overdue');
+    if (overdueErr) {
+      logError({
+        severity: 'warning',
+        error: overdueErr,
+        request,
+        metadata: { action: 'mobile_my_day_overdue_count', agentUsername },
+      });
+    }
+    const overdueCount: number | null = overdueErr ? null : (overdueCountRaw ?? 0);
 
     // ── Going cold: mine, active (not archived/converted), 7+ days quiet ──
     // Rule: "going cold" means "a lead with NO plan". A lead the agent has
@@ -169,7 +206,7 @@ export async function GET(request: NextRequest) {
     // giant filter.
     const { data: coldRows, count: coldTotal, error: coldErr } = await supabase
       .from('pyra_sales_leads')
-      .select('id, name, phone, company, last_contact_at, created_at', { count: 'exact' })
+      .select('id, name, phone, company, stage_id, last_contact_at, created_at', { count: 'exact' })
       .eq('assigned_to', agentUsername)
       .is('archived_at', null)
       // IS NOT TRUE (never .eq(false)) — legacy rows have NULL is_converted
@@ -241,6 +278,21 @@ export async function GET(request: NextRequest) {
     const excludeLeadIdSet = new Set(excludeLeadIds);
     const coldCandidates = ((coldRows ?? []) as ColdLeadRow[])
       .filter((lead) => !excludeLeadIdSet.has(lead.id))
+      // Terminal stages are excluded HERE, not in the SQL, on purpose:
+      //   1. NULL-safe by construction. PostgREST's `stage_id NOT IN (...)`
+      //      evaluates to NULL for a NULL stage_id and silently DROPS the row.
+      //      `stage_id` is nullable (0 such rows measured 2026-08-07, but the
+      //      column permits them) and a lead with no stage is the opposite of
+      //      finished — it must stay in this feed.
+      //   2. The query already carries one `.or(...)` for last_contact_at, and
+      //      a NULL-safe stage filter needs a second one; repeated `or=` params
+      //      are not a composition this codebase has verified.
+      //   3. Same idiom as the open-follow-up exclusion two lines up. The full
+      //      candidate pool is already fetched, with GOING_COLD_FETCH_CAP's
+      //      breach alarm guaranteeing it is complete.
+      // NOT the unbounded-`.in()` failure class (UF-T3): this is a 3-element
+      // constant set, never per-agent data.
+      .filter((lead) => !TERMINAL_STAGE_SET.has(lead.stage_id ?? ''))
       .map((lead) => {
         const createdMs = new Date(lead.created_at).getTime();
         const lastContactMs = lead.last_contact_at ? new Date(lead.last_contact_at).getTime() : null;
@@ -303,6 +355,9 @@ export async function GET(request: NextRequest) {
         // long as `coldRows` captured the full candidate pool (guaranteed by
         // the breach alarm above, which fires loudly the one day it isn't).
         going_cold: coldCandidates.length,
+        // null = the count query failed; the app renders two tabs instead of
+        // three rather than showing a wrong number.
+        overdue: overdueCount,
       },
     });
   } catch (err) {
