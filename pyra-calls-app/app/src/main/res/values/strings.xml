@@ -105,6 +105,7 @@
     <string name="my_day_tab_today">النهاردة</string>
     <string name="my_day_empty_overdue">مفيش متابعات متأخرة — شغل نضيف</string>
     <string name="my_day_empty_today">مفيش متابعات مستحقة النهاردة</string>
+    <string name="my_day_empty_today_window_full">فيه متابعات مستحقة النهاردة، بس المتأخرة شغلت النافذة المعروضة — اقفل شوية منها من تبويب «متأخرة» وهتظهر</string>
     <string name="my_day_action_done">تم</string>
     <string name="my_day_action_more">خيارات أخرى</string>
     <string name="my_day_action_close_no_call">اقفل من غير مكالمة</string>
@@ -113,6 +114,7 @@
     <string name="my_day_close_reason_wrong_number">رقم غلط</string>
     <string name="my_day_close_cancel">إلغاء</string>
     <string name="my_day_closed">تم إقفال المتابعة</string>
+    <string name="my_day_closing">جارٍ الإقفال…</string>
 
     <string name="co_title">تسجيل نتيجة المكالمة</string>
     <string name="co_lead_eyebrow">خلّصت مكالمة مع</string>

@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
@@ -19,11 +21,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import cloud.pyramedia.calls.R
 import cloud.pyramedia.calls.core.CompleteFollowUpRequest
 import cloud.pyramedia.calls.core.MyDayColdLead
 import cloud.pyramedia.calls.core.MyDayData
 import cloud.pyramedia.calls.core.MyDayFollowUp
+import cloud.pyramedia.calls.core.myDayFollowUpSelection
+import cloud.pyramedia.calls.core.myDayTabs
 import cloud.pyramedia.calls.data.ApiClient
 import cloud.pyramedia.calls.data.ApiResult
 import cloud.pyramedia.calls.ui.components.LeadRow
@@ -56,6 +62,12 @@ private sealed class MyDayState {
  * «اقفل من غير مكالمة» — deliberately a visible menu and not a long-press: a
  * gesture nobody discovers is a feature nobody uses, and the duplicate
  * follow-ups keep piling up while we believe we shipped a fix.
+ *
+ * Refetches on every resume after the first (see the `hasResumed` guard
+ * below): «تم» hands off to [CallOutcomeActivity], which closes the attached
+ * follow-up server-side, so coming back to this screen its list and counts
+ * are stale until it re-asks the server — the same reason `closeWith` below
+ * refetches instead of mutating the list in place.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -85,6 +97,25 @@ fun MyDayScreen(api: ApiClient, onBack: () -> Unit) {
 
     LaunchedEffect(Unit) { fetch() }
 
+    // «تم» hands off to CallOutcomeActivity, which closes the attached
+    // follow-up server-side. Coming back, this list and its counts are stale —
+    // the same reason closeWith() refetches instead of mutating in place: only
+    // the server knows the new overdue count, and the lead may have moved into
+    // «برد». Skip the first resume: LaunchedEffect(Unit) above already
+    // fetched, and firing both would double-request on every open.
+    var hasResumed by remember { mutableStateOf(false) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (hasResumed) {
+            // Mirrors the manual «تحديث» button: refreshing = true disables
+            // it for the duration, so a rep landing back from the outcome
+            // sheet can't fire a second overlapping fetch by also tapping it.
+            refreshing = true
+            fetch(isRefresh = true)
+        } else {
+            hasResumed = true
+        }
+    }
+
     // ACTION_DIAL only — opens the dialer pre-filled, needs no permission, and
     // lets the agent confirm. ACTION_CALL would need CALL_PHONE (the app must
     // never hold it) and would place the call with no confirmation.
@@ -105,6 +136,11 @@ fun MyDayScreen(api: ApiClient, onBack: () -> Unit) {
     }
 
     fun closeWith(fu: MyDayFollowUp, reason: String) {
+        // `enabled = !closing` on the dialog buttons only takes effect on the
+        // NEXT recomposition — two clicks landing in the same frame (a fast
+        // double-tap, or two separate reason buttons) both reach here before
+        // that recomposition happens. This early return is the real guard.
+        if (closing) return
         closing = true
         scope.launch {
             val res = withContext(Dispatchers.IO) {
@@ -147,17 +183,13 @@ fun MyDayScreen(api: ApiClient, onBack: () -> Unit) {
             }
             is MyDayState.Loaded -> {
                 val d = s.data
-                // The server reports counts.overdue = null when its count query
-                // failed. Null means "I don't know", NOT zero — fall back to the
-                // two-tab layout rather than render a number we can't stand behind.
-                val overdueCount = d.counts.overdue
-                val threeTabs = overdueCount != null
-                // overdue ⊆ follow_ups by construction (an overdue row is past
-                // due, so it always satisfies the server's due_at <= now+1d
-                // filter). coerceAtLeast(0) is belt and braces.
-                val todayCount = if (overdueCount != null) {
-                    (d.counts.follow_ups - overdueCount).coerceAtLeast(0)
-                } else d.counts.follow_ups
+                // See MyDayView.kt (core/) for the derivation + its unit tests
+                // — pulled out so "null means unknown, not zero" is locked by
+                // a test, not just a comment.
+                val tabs = myDayTabs(d.counts)
+                val threeTabs = tabs.threeTabs
+                val overdueCount = tabs.overdueCount
+                val todayCount = tabs.todayCount
 
                 item {
                     // FlowRow, not Row. Two chips with weight(1f) each were safe;
@@ -211,22 +243,32 @@ fun MyDayScreen(api: ApiClient, onBack: () -> Unit) {
                         // capped 20-row array. SectionHeader still shows
                         // "shown of total", so a rep with 108 overdue sees
                         // "20 من 108" and knows the list is a window.
-                        val rows = when {
-                            !threeTabs -> d.follow_ups
-                            tab == 0 -> d.follow_ups.filter { it.status == "overdue" }
-                            else -> d.follow_ups.filter { it.status != "overdue" }
-                        }
-                        val total = when {
-                            !threeTabs -> d.counts.follow_ups
-                            tab == 0 -> overdueCount ?: rows.size
-                            else -> todayCount
-                        }
+                        val selection = myDayFollowUpSelection(tab, tabs, d.follow_ups, d.counts)
+                        val rows = selection.rows
+                        val total = selection.total
                         // Resource id only here (no stringResource call) — this
                         // branch runs directly inside the LazyListScope
                         // receiver, not a @Composable item{} lambda.
+                        //
+                        // The `tab != 0` empty branch splits in two: with 108
+                        // overdue and a 20-row window, the «النهاردة» tab's
+                        // rows can be empty while its OWN total is still > 0
+                        // — the window is entirely consumed by overdue rows,
+                        // which sort first (due_at ASC, and an overdue row's
+                        // due_at is always earlier than a pending one's). That
+                        // is exactly the case this task exists for, and
+                        // "مفيش متابعات مستحقة النهاردة" would flatly
+                        // contradict the "٠ من 5" header sitting right above
+                        // it. Tab 0 («متأخرة») gets NO such split: by the same
+                        // due_at-ASC ordering, overdue rows always occupy the
+                        // front of the window, so tab 0's rows can only be
+                        // empty when its own total (overdueCount) is also
+                        // zero — there is no case where the header and the
+                        // empty message would disagree.
                         val emptyMsgRes = when {
                             !threeTabs -> R.string.my_day_empty_follow_ups
                             tab == 0 -> R.string.my_day_empty_overdue
+                            rows.isEmpty() && total > 0 -> R.string.my_day_empty_today_window_full
                             else -> R.string.my_day_empty_today
                         }
                         item {
@@ -242,7 +284,15 @@ fun MyDayScreen(api: ApiClient, onBack: () -> Unit) {
                                 FollowUpRow(
                                     item = fu,
                                     onCall = onCall,
-                                    onDone = { openOutcome(context, fu) },
+                                    // A follow-up with no parent lead (soft-
+                                    // deleted / never linked) has nothing for
+                                    // the outcome sheet to attach an outcome
+                                    // to — CallOutcomeActivity would just
+                                    // finish() instantly with no signal to
+                                    // the rep. null here means FollowUpRow
+                                    // skips the button entirely instead of
+                                    // rendering a silent no-op.
+                                    onDone = fu.lead_id?.let { { openOutcome(context, fu) } },
                                     onCloseNoCall = { pendingClose = fu },
                                 )
                             }
@@ -267,7 +317,12 @@ fun MyDayScreen(api: ApiClient, onBack: () -> Unit) {
             onDismissRequest = { if (!closing) pendingClose = null },
             title = { Text(stringResource(R.string.my_day_close_title)) },
             text = {
-                Column {
+                // verticalScroll: at font_scale 1.5 in landscape, the title +
+                // two reason buttons + the in-flight row below can exceed the
+                // dialog's available height with no other way to reach the
+                // clipped buttons — AlertDialog's `text` slot does not scroll
+                // on its own.
+                Column(Modifier.verticalScroll(rememberScrollState())) {
                     Text(
                         fu.lead_name ?: stringResource(R.string.my_day_unknown_lead),
                         style = MaterialTheme.typography.titleSmall,
@@ -286,6 +341,20 @@ fun MyDayScreen(api: ApiClient, onBack: () -> Unit) {
                         enabled = !closing,
                         onClick = { closeWith(fu, "wrong_number") },
                     ) { Text(stringResource(R.string.my_day_close_reason_wrong_number)) }
+                    if (closing) {
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                stringResource(R.string.my_day_closing),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
                 }
             },
             confirmButton = {},
@@ -312,7 +381,9 @@ private fun EmptySectionCard(message: String) {
 private fun FollowUpRow(
     item: MyDayFollowUp,
     onCall: (String) -> Unit,
-    onDone: () -> Unit,
+    // Null when item.lead_id == null — see the call site's comment. Mirrors
+    // LeadRow's own nullable onCall.
+    onDone: (() -> Unit)?,
     onCloseNoCall: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -332,8 +403,13 @@ private fun FollowUpRow(
                 Modifier.fillMaxWidth().padding(horizontal = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = onDone, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.my_day_action_done))
+                // Skip the button rather than render one that silently does
+                // nothing: a follow-up with no parent lead has no outcome to
+                // log, and CallOutcomeActivity would just finish() on open.
+                if (onDone != null) {
+                    TextButton(onClick = onDone, modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.my_day_action_done))
+                    }
                 }
                 Box {
                     IconButton(onClick = { menuOpen = true }) {
