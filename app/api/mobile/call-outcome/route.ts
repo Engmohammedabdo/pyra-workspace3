@@ -7,7 +7,7 @@ import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity'
 import { logError } from '@/lib/observability/log-error';
 import { validateOutcomeRequest, OUTCOME_LABELS } from '@/lib/mobile/outcome-validation';
 import { markNotInterested } from '@/lib/crm/mark-not-interested';
-import { loadFollowUpForClose, closeFollowUp, type OpenFollowUp } from '@/lib/crm/close-follow-up';
+import { loadFollowUpForClose, closeFollowUp, classifyCloseAccess, type OpenFollowUp } from '@/lib/crm/close-follow-up';
 
 /**
  * POST /api/mobile/call-outcome
@@ -144,27 +144,23 @@ export async function POST(request: NextRequest) {
     // still reports success.
     let followUpAlreadyDone: OpenFollowUp | null = null;
     if (completeFollowUpId) {
-      const loaded = await loadFollowUpForClose(supabase, completeFollowUpId);
-      if (!loaded.ok && loaded.reason === 'db_error') return apiServerError();
-      if (!loaded.ok && loaded.reason === 'not_found') {
+      // classifyCloseAccess is the shared security boundary (lib/crm/close-
+      // follow-up.ts) — it applies ownership ONCE, before splitting on
+      // open-vs-closed, so a follow-up that isn't the caller's gets the
+      // identical `forbidden` regardless of whether it's still open or
+      // already done. Ownership here also pins the follow-up to THIS lead.
+      const access = classifyCloseAccess(
+        await loadFollowUpForClose(supabase, completeFollowUpId),
+        (fu) => fu.lead_id === leadId && fu.assigned_to === agentUsername,
+      );
+      if (access.kind === 'server_error') return apiServerError();
+      if (access.kind === 'forbidden') {
         return apiForbidden('لا تملك صلاحية إغلاق هذه المتابعة');
       }
-      // Both remaining shapes — open-and-found (`ok: true`) and
-      // already_closed — carry a `followUp` row (TS can't eliminate the
-      // `reason: 'not_found' | 'db_error'` member by literal comparison
-      // alone since it isn't a singleton discriminant, so narrow by
-      // property presence instead). Same ownership predicate applies to
-      // either before the response is decided.
-      if (!('followUp' in loaded)) return apiServerError();
-      const fu = loaded.followUp;
-      const alreadyClosed = !loaded.ok;
-      if (fu.lead_id !== leadId || fu.assigned_to !== agentUsername) {
-        return apiForbidden('لا تملك صلاحية إغلاق هذه المتابعة');
-      }
-      if (alreadyClosed) {
-        followUpAlreadyDone = fu;
+      if (access.kind === 'already_done') {
+        followUpAlreadyDone = access.followUp;
       } else {
-        followUpToClose = fu;
+        followUpToClose = access.followUp;
       }
     }
 

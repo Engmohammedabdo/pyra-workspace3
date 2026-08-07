@@ -4,7 +4,7 @@ import { apiSuccess, apiValidationError, apiForbidden, apiServerError } from '@/
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 import { logError } from '@/lib/observability/log-error';
-import { loadFollowUpForClose, closeFollowUp } from '@/lib/crm/close-follow-up';
+import { loadFollowUpForClose, closeFollowUp, classifyCloseAccess } from '@/lib/crm/close-follow-up';
 
 /**
  * Reasons a follow-up can be closed WITHOUT a call.
@@ -77,31 +77,23 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
-    const loaded = await loadFollowUpForClose(supabase, followUpId);
-    if (!loaded.ok && loaded.reason === 'db_error') return apiServerError();
-    if (!loaded.ok && loaded.reason === 'not_found') {
-      return apiForbidden(FORBIDDEN_MESSAGE);
-    }
-    // Both remaining shapes — open-and-found (`ok: true`) and
-    // already_closed — carry a `followUp` row (TS can't eliminate the
-    // `reason: 'not_found' | 'db_error'` member by literal comparison alone
-    // since it isn't a singleton discriminant, so narrow by property
-    // presence instead, matching /api/mobile/call-outcome).
-    if (!('followUp' in loaded)) return apiServerError();
-    const followUp = loaded.followUp;
-    const alreadyClosed = !loaded.ok;
-
-    // Ownership check ONCE, before splitting on open-vs-closed — a follow-up
-    // that isn't the caller's gets the identical 403 regardless of whether
-    // it's still open or already done.
-    if (followUp.assigned_to !== agentUsername) {
-      return apiForbidden(FORBIDDEN_MESSAGE);
-    }
-
-    if (alreadyClosed) {
+    // classifyCloseAccess is the shared security boundary (lib/crm/close-
+    // follow-up.ts) — it applies ownership ONCE, before splitting on
+    // open-vs-closed, so a follow-up that isn't the caller's gets the
+    // identical `forbidden` regardless of whether it's still open or
+    // already done. Ownership here is `assigned_to` alone (no admin
+    // override — a device key carries no RBAC scope to grant one from).
+    const access = classifyCloseAccess(
+      await loadFollowUpForClose(supabase, followUpId),
+      (fu) => fu.assigned_to === agentUsername,
+    );
+    if (access.kind === 'server_error') return apiServerError();
+    if (access.kind === 'forbidden') return apiForbidden(FORBIDDEN_MESSAGE);
+    if (access.kind === 'already_done') {
       // Genuinely done already, just not by this request — the retry case.
       return apiSuccess({ follow_up_id: followUpId, closed: true });
     }
+    const followUp = access.followUp;
 
     const closed = await closeFollowUp(supabase, {
       followUp,

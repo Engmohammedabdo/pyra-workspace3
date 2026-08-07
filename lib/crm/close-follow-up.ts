@@ -148,3 +148,50 @@ export async function closeFollowUp(
 
   return { ok: true, row: updated as Record<string, unknown> };
 }
+
+export type CloseAccess =
+  | { kind: 'server_error' }
+  | { kind: 'forbidden' }
+  | { kind: 'already_done'; followUp: OpenFollowUp }
+  | { kind: 'proceed'; followUp: OpenFollowUp };
+
+/**
+ * Decide what a caller may do with a follow-up they asked to close.
+ *
+ * Pure — the whole point. This is a security boundary whose STEP ORDER is
+ * load-bearing: ownership is checked BEFORE the open/already-closed split, so
+ * a caller who does not own the row gets the same `forbidden` either way. Flip
+ * those two and an "already closed" success becomes an oracle telling anyone
+ * which follow-up ids exist. That mistake was made once in this wave already.
+ *
+ * `already_done` is a SUCCESS for the caller, not a failure: it means the
+ * follow-up they own is already closed, which is what they asked for. It is
+ * what makes a retry of a lost-response request idempotent instead of
+ * returning a false "you don't have permission".
+ *
+ * `isOwner` is a callback because the two callers own different rules — the
+ * follow-ups/complete route checks `assigned_to` alone, while call-outcome
+ * additionally requires the follow-up to belong to the lead in the request.
+ * Both are stricter forms of the same question, so both belong here.
+ */
+export function classifyCloseAccess(
+  loaded: LoadFollowUpResult,
+  isOwner: (followUp: OpenFollowUp) => boolean,
+): CloseAccess {
+  if (!loaded.ok && loaded.reason === 'db_error') return { kind: 'server_error' };
+  if (!loaded.ok && loaded.reason === 'not_found') return { kind: 'forbidden' };
+  // Both remaining shapes — open-and-found (`ok: true`) and `already_closed`
+  // — carry a `followUp` row. `reason` isn't a singleton discriminant across
+  // the whole union (both `not_found` and `already_closed` sit under
+  // `ok: false`), so narrow by property presence instead of chasing `reason`
+  // further. This branch is unreachable given the two checks above, but it
+  // keeps the function total without an `as` cast, and — like the two
+  // checks above it — it returns WITHOUT ever calling `isOwner`.
+  if (!('followUp' in loaded)) return { kind: 'server_error' };
+  const followUp = loaded.followUp;
+  const alreadyClosed = !loaded.ok;
+
+  if (!isOwner(followUp)) return { kind: 'forbidden' };
+  if (alreadyClosed) return { kind: 'already_done', followUp };
+  return { kind: 'proceed', followUp };
+}
