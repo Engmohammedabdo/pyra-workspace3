@@ -36,4 +36,12 @@ describe('resolveStageLabelForActivity', () => {
   it('returns null unchanged for a lead with no previous stage', () => {
     expect(resolveStageLabelForActivity(null)).toBeNull();
   });
+
+  it('returns the empty string unchanged', () => {
+    // '' must round-trip unchanged — the two inline expressions this helper
+    // replaced short-circuited on any falsy input, and that byte-identity is
+    // what makes the consolidation safe. A refactor to `stageId === null`
+    // would break this and pass every other test here.
+    expect(resolveStageLabelForActivity('')).toBe('');
+  });
 });
