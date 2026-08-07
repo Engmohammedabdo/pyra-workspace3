@@ -27,8 +27,8 @@ android {
         applicationId = "cloud.pyramedia.calls"
         minSdk = 26
         targetSdk = 34
-        versionCode = 7
-        versionName = "1.6.0"
+        versionCode = 8
+        versionName = "1.7.0"
     }
 
     buildFeatures { compose = true; buildConfig = true }
