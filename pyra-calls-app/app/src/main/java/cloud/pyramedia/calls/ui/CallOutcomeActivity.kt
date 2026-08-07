@@ -6,11 +6,13 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import cloud.pyramedia.calls.BuildConfig
 import cloud.pyramedia.calls.R
@@ -100,6 +102,15 @@ class CallOutcomeActivity : ComponentActivity() {
                 val scope = rememberCoroutineScope()
                 val context = this@CallOutcomeActivity
 
+                // A transient validation/network message must never outlive the
+                // state it described. This screen can disable Save (reasonOk),
+                // so without this, picking «غير مهتم» after an empty-outcome
+                // Save tap left "اختر نتيجة المكالمة" pinned above a dead
+                // button forever — the visible explanation told the rep to do
+                // the thing they'd already done, while the real blocker (an
+                // empty reason) was a small counter further up the screen.
+                LaunchedEffect(outcomeIndex) { error = null }
+
                 val selectedOutcome = outcomeIndex?.let { OUTCOME_OPTIONS[it].value }
                 val needsReason = OutcomeForm.requiresReason(selectedOutcome)
                 val showPresets = OutcomeForm.allowsFollowUp(selectedOutcome)
@@ -164,12 +175,17 @@ class CallOutcomeActivity : ComponentActivity() {
                                                 // saved but a side effect did not land —
                                                 // still a success, just a different toast.
                                                 Notifier.cancel(context, leadId.hashCode())
-                                                val msg = when {
-                                                    res.data.stage_error -> stageErrorMsg
-                                                    res.data.complete_error -> completeErrorMsg
-                                                    res.data.follow_up_error -> followUpErrorMsg
-                                                    else -> saved
+                                                // Flags are independent — two can be true at
+                                                // once (e.g. the stage move AND the follow-up
+                                                // close both fail). Reporting only the first
+                                                // would let the rep assume the other side
+                                                // effect landed when it didn't.
+                                                val warnings = buildList {
+                                                    if (res.data.stage_error) add(stageErrorMsg)
+                                                    if (res.data.complete_error) add(completeErrorMsg)
+                                                    if (res.data.follow_up_error) add(followUpErrorMsg)
                                                 }
+                                                val msg = if (warnings.isEmpty()) saved else warnings.joinToString("\n")
                                                 Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                                                 finish()
                                             }
@@ -215,7 +231,10 @@ class CallOutcomeActivity : ComponentActivity() {
                     // FlowRow, not Row — three chips in a plain Row clipped
                     // «يحتاج إعادة اتصال» off screen at larger system font
                     // sizes (B-02).
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         OUTCOME_OPTIONS.forEachIndexed { index, opt ->
                             PyraChip(
                                 label = stringResource(opt.labelRes),
@@ -237,13 +256,21 @@ class CallOutcomeActivity : ComponentActivity() {
                             stringResource(R.string.co_reason_heading),
                             style = MaterialTheme.typography.labelLarge,
                         )
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
                             REASON_CHIPS.forEach { chipRes ->
                                 val chip = stringResource(chipRes)
                                 PyraChip(
                                     label = chip,
                                     selected = reason.trim() == chip,
-                                    onClick = { reason = if (reason.trim() == chip) "" else chip },
+                                    // Replace only — matches the web's setReason(chip)
+                                    // (move-stage-confirm-modal.tsx:296). A toggle-to-
+                                    // empty here would destroy a typed custom reason on
+                                    // the first tap, and re-tapping the selected chip
+                                    // would re-disable Save with one accidental tap.
+                                    onClick = { reason = chip },
                                 )
                             }
                         }
@@ -251,16 +278,21 @@ class CallOutcomeActivity : ComponentActivity() {
                             value = reason, onValueChange = { reason = it },
                             label = { Text(stringResource(R.string.co_reason_label)) },
                             modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 4,
-                            isError = !reasonOk,
                         )
                         if (!reasonOk) {
+                            // Muted, not error-coloured: an untouched field right
+                            // after picking «غير مهتم» is not yet "wrong" — the
+                            // disabled Save button already signals the blocker.
+                            // Matches the web's counter styling (text-xs
+                            // text-muted-foreground, no isError on the textarea) —
+                            // move-stage-confirm-modal.tsx:322.
                             Text(
                                 stringResource(
                                     R.string.co_reason_min,
                                     reason.trim().length, OutcomeForm.MIN_REASON_LENGTH,
                                 ),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -283,7 +315,22 @@ class CallOutcomeActivity : ComponentActivity() {
                             ),
                         ) {
                             Row(
-                                Modifier.fillMaxWidth().padding(14.dp),
+                                Modifier
+                                    .fillMaxWidth()
+                                    // The whole row is one labelled control — the
+                                    // Switch alone has no text riding along with
+                                    // it (the Card has no onClick, so nothing
+                                    // merges the sibling text into it), which left
+                                    // TalkBack announcing a bare "off, switch" for
+                                    // a toggle that writes to a customer record.
+                                    // This also gives the rep a much larger touch
+                                    // target than the Switch's own hit area.
+                                    .toggleable(
+                                        value = closeFollowUp,
+                                        onValueChange = { closeFollowUp = it },
+                                        role = Role.Switch,
+                                    )
+                                    .padding(14.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Column(Modifier.weight(1f)) {
@@ -310,7 +357,13 @@ class CallOutcomeActivity : ComponentActivity() {
                                     }
                                 }
                                 Spacer(Modifier.width(8.dp))
-                                Switch(checked = closeFollowUp, onCheckedChange = { closeFollowUp = it })
+                                // onCheckedChange = null: the parent Row's
+                                // toggleable already handles the tap/click and
+                                // the TalkBack double-tap. The Switch here is a
+                                // pure state mirror — checked still tracks
+                                // closeFollowUp, so it stays visually correct on
+                                // every recomposition.
+                                Switch(checked = closeFollowUp, onCheckedChange = null)
                             }
                         }
                     }
@@ -320,7 +373,10 @@ class CallOutcomeActivity : ComponentActivity() {
                             stringResource(R.string.co_follow_up_label),
                             style = MaterialTheme.typography.labelLarge,
                         )
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
                             FOLLOW_UP_PRESETS.forEach { preset ->
                                 PyraChip(
                                     label = stringResource(preset.labelRes),
