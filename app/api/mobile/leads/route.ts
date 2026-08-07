@@ -77,24 +77,50 @@ const WITHHELD_EXISTING_LEAD = {
  * (lead-idle-check, deals-at-risk, ai-insights, the customer dossier health
  * score) excludes activity_type='call_attempt'. Missed calls get neither.
  *
+ * OWNERSHIP GATE — the third path to this boundary, after
+ * /api/mobile/calls/sync's gate and the two withheld-identity branches in
+ * this file's POST handler (see WITHHELD_EXISTING_LEAD above). The SELECT
+ * below stays system-wide with no `agent_username` filter ON PURPOSE — a
+ * colleague's earlier unmatched dial to this number must still get linked,
+ * or it re-fires the app's «رقم غير مسجل» prompt forever AND (nulled
+ * `lead_id`) lets `/api/mobile/calls/ignore` mark a customer number as
+ * ignored out from under its real owner. So EVERY selected call is still
+ * LINKED (`pyra_agent_calls.lead_id` set) regardless of who dialled it. But a
+ * lead's contact timestamp and timeline must never be sourced from a dial its
+ * owner did not make — so the `call_logged` / `call_attempt` activity write
+ * AND the `last_contact_at` bump below run ONLY for calls whose
+ * `agent_username` equals `leadOwner`. A foreign agent's call is linked
+ * silently: no activity, no timestamp movement, same as if it had never been
+ * selected — filtered at the WRITE, not at the READ.
+ *
  * Persistence ordering mirrors /api/mobile/calls/sync: the calls already
  * exist as durable rows, so writing the activity first and the call-row
  * update second cannot orphan anything — worst case on an update failure is
  * a `pyra_lead_activities` row with no back-linked `pyra_agent_calls.activity_id`,
  * which is the same "non-fatal, logged" shape the sync route already accepts.
  *
- * last_contact_at: after linking, if any retro-linked call was CONNECTED,
- * advance the lead's last_contact_at to the newest such call's called_at —
- * but only FORWARD, never backward. Unlike the live sync path (where the
- * bumped call just happened), a retro-link batch can carry old historical
- * calls, and the lead may already carry a newer last_contact_at from another
- * source (e.g. it was just created, or touched since) — an unconditional
- * overwrite here would regress it into the past.
+ * last_contact_at: after linking, if any retro-linked call made BY THE OWNER
+ * was CONNECTED, advance the lead's last_contact_at to the newest such call's
+ * called_at — but only FORWARD, never backward. Unlike the live sync path
+ * (where the bumped call just happened), a retro-link batch can carry old
+ * historical calls, and the lead may already carry a newer last_contact_at
+ * from another source (e.g. it was just created, or touched since) — an
+ * unconditional overwrite here would regress it into the past.
+ *
+ * Returns the number of calls LINKED for this phone number (rows found and
+ * relinked), NOT the number that wrote an activity — those two counts
+ * diverge exactly when the batch contains a foreign agent's call, and every
+ * consumer of this return value (the `linked_calls` activity-log metadata
+ * below) is answering "how many of this number's calls are now tied to this
+ * lead", not "how many touched its timeline". Nothing downstream currently
+ * shows this number to the rep on the phone; if that ever changes, keep this
+ * meaning — do not silently switch it to an activity-written count.
  */
 async function retroLinkCalls(
   supabase: SupabaseClient,
   leadId: string,
   phoneNormalized: string,
+  leadOwner: string | null,
 ): Promise<number> {
   // `match_status = 'ignored'` is excluded on purpose: an ignored number is
   // the company's own line or one the agent marked "not a customer", and its
@@ -122,55 +148,64 @@ async function retroLinkCalls(
   let newestConnectedCalledAt: string | null = null;
 
   for (const call of unlinked) {
+    // Same predicate as /api/mobile/calls/sync's `isOwnedByAgent`
+    // (lead.assigned_to === agentUsername): `leadOwner` null fails closed, so
+    // an unassigned lead never attributes a foreign call as its own contact.
+    const ownedByLeadOwner = leadOwner != null && call.agent_username === leadOwner;
+
     let activityId: string | null = null;
-    if (isConnectedCall(call)) {
-      activityId = generateId('la');
-      const { error: actErr } = await supabase.from('pyra_lead_activities').insert({
-        id: activityId,
-        lead_id: leadId,
-        activity_type: 'call_logged',
-        description: null,
-        metadata: {
-          duration_minutes: Math.round((call.duration_seconds / 60) * 10) / 10,
-          duration_seconds: call.duration_seconds,
-          direction: call.direction === 'incoming' ? 'inbound' : 'outbound',
-          auto: true,
-          source: 'device_sync_retro',
-          called_at: call.called_at,
-        },
-        created_by: call.agent_username,
-      });
-      if (actErr) {
-        console.error('[quick-add retro-link] call_logged activity insert failed:', actErr.message);
-        activityId = null;
-      }
-      if (!newestConnectedCalledAt || call.called_at > newestConnectedCalledAt) {
-        newestConnectedCalledAt = call.called_at;
-      }
-    } else if (call.direction !== 'missed') {
-      // Matched but unanswered (0-second dial) — visible on the timeline as
-      // effort, but NOT contact. Mirrors the live-sync path's call_attempt
-      // branch; missed inbound calls stay excluded entirely.
-      activityId = generateId('la');
-      const { error: actErr } = await supabase.from('pyra_lead_activities').insert({
-        id: activityId,
-        lead_id: leadId,
-        activity_type: 'call_attempt',
-        description: null,
-        metadata: {
-          direction: call.direction === 'incoming' ? 'inbound' : 'outbound',
-          duration_seconds: 0,
-          auto: true,
-          source: 'device_sync_retro',
-          called_at: call.called_at,
-        },
-        created_by: call.agent_username,
-      });
-      if (actErr) {
-        console.error('[quick-add retro-link] call_attempt activity insert failed:', actErr.message);
-        activityId = null;
+    if (ownedByLeadOwner) {
+      if (isConnectedCall(call)) {
+        activityId = generateId('la');
+        const { error: actErr } = await supabase.from('pyra_lead_activities').insert({
+          id: activityId,
+          lead_id: leadId,
+          activity_type: 'call_logged',
+          description: null,
+          metadata: {
+            duration_minutes: Math.round((call.duration_seconds / 60) * 10) / 10,
+            duration_seconds: call.duration_seconds,
+            direction: call.direction === 'incoming' ? 'inbound' : 'outbound',
+            auto: true,
+            source: 'device_sync_retro',
+            called_at: call.called_at,
+          },
+          created_by: call.agent_username,
+        });
+        if (actErr) {
+          console.error('[quick-add retro-link] call_logged activity insert failed:', actErr.message);
+          activityId = null;
+        }
+        if (!newestConnectedCalledAt || call.called_at > newestConnectedCalledAt) {
+          newestConnectedCalledAt = call.called_at;
+        }
+      } else if (call.direction !== 'missed') {
+        // Matched but unanswered (0-second dial) — visible on the timeline as
+        // effort, but NOT contact. Mirrors the live-sync path's call_attempt
+        // branch; missed inbound calls stay excluded entirely.
+        activityId = generateId('la');
+        const { error: actErr } = await supabase.from('pyra_lead_activities').insert({
+          id: activityId,
+          lead_id: leadId,
+          activity_type: 'call_attempt',
+          description: null,
+          metadata: {
+            direction: call.direction === 'incoming' ? 'inbound' : 'outbound',
+            duration_seconds: 0,
+            auto: true,
+            source: 'device_sync_retro',
+            called_at: call.called_at,
+          },
+          created_by: call.agent_username,
+        });
+        if (actErr) {
+          console.error('[quick-add retro-link] call_attempt activity insert failed:', actErr.message);
+          activityId = null;
+        }
       }
     }
+    // LINK unconditionally — ownership gates the activity/timestamp above,
+    // never the link itself (see the OWNERSHIP GATE doc comment).
     const { error: updErr } = await supabase
       .from('pyra_agent_calls')
       .update({ lead_id: leadId, match_status: 'matched', activity_id: activityId })
@@ -290,8 +325,11 @@ export async function POST(request: NextRequest) {
       // retroLinkCalls still runs for an unowned match: the calls ARE on that
       // lead's number, and leaving them unlinked would re-fire the app's «رقم
       // غير مسجل» prompt on every future call to it. Only the IDENTITY is
-      // withheld — see WITHHELD_EXISTING_LEAD.
-      await retroLinkCalls(supabase, match.id, call.phone_normalized);
+      // withheld — see WITHHELD_EXISTING_LEAD. `match.assigned_to` (from the
+      // phone index, may be null for an unassigned lead) is the lead's ACTUAL
+      // owner — retroLinkCalls uses it to keep the activity write and the
+      // last_contact_at bump scoped to that owner's own calls only.
+      await retroLinkCalls(supabase, match.id, call.phone_normalized, match.assigned_to);
       return apiSuccess(
         match.assigned_to === agentUsername
           ? {
@@ -349,7 +387,12 @@ export async function POST(request: NextRequest) {
       console.error('[mobile quick-add] lead_created activity insert failed:', createdActErr.message);
     }
 
-    const linked = await retroLinkCalls(supabase, leadId, call.phone_normalized);
+    // The lead row inserted above carries `assigned_to: agentUsername` — that
+    // IS its owner, read from the same fact just written rather than assumed
+    // out of context, so retroLinkCalls scopes the activity write and the
+    // last_contact_at bump to agentUsername's own calls only.
+    const leadOwner = agentUsername;
+    const linked = await retroLinkCalls(supabase, leadId, call.phone_normalized, leadOwner);
 
     // feedback reminder — bell notification. NO `from`: the recipient IS the
     // actor; notify() skips self-notifications when from.username === to.
