@@ -83,7 +83,13 @@ fun MyDayScreen(api: ApiClient, onBack: () -> Unit) {
     val closedMsg = stringResource(R.string.my_day_closed)
 
     fun fetch(isRefresh: Boolean = false) {
+        // Guard against overlapping refetches: if a refresh is already in flight,
+        // do not start another one. Initial loads (isRefresh=false) bypass this guard
+        // because they are not refetches and can happen at any time.
+        if (isRefresh && refreshing) return
+
         if (!isRefresh) state = MyDayState.Loading
+        refreshing = true
         scope.launch {
             val res = withContext(Dispatchers.IO) { api.myDay() }
             state = when (res) {
@@ -106,10 +112,9 @@ fun MyDayScreen(api: ApiClient, onBack: () -> Unit) {
     var hasResumed by remember { mutableStateOf(false) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         if (hasResumed) {
-            // Mirrors the manual «تحديث» button: refreshing = true disables
-            // it for the duration, so a rep landing back from the outcome
-            // sheet can't fire a second overlapping fetch by also tapping it.
-            refreshing = true
+            // Fetch will set refreshing = true internally, which disables the
+            // manual «تحديث» button for the duration so a rep landing back from
+            // the outcome sheet can't fire a second overlapping fetch by tapping it.
             fetch(isRefresh = true)
         } else {
             hasResumed = true
@@ -154,8 +159,7 @@ fun MyDayScreen(api: ApiClient, onBack: () -> Unit) {
                     // Refetch rather than mutate the list in place: closing a
                     // follow-up also changes the overdue count AND can move the
                     // lead into "going cold", and the server is the only thing
-                    // that knows both.
-                    refreshing = true
+                    // that knows both. fetch will set refreshing = true internally.
                     fetch(isRefresh = true)
                 }
                 is ApiResult.Err -> Toast.makeText(context, res.message, Toast.LENGTH_LONG).show()
@@ -304,7 +308,7 @@ fun MyDayScreen(api: ApiClient, onBack: () -> Unit) {
                 item {
                     TextButton(
                         modifier = Modifier.fillMaxWidth(),
-                        onClick = { refreshing = true; fetch(isRefresh = true) },
+                        onClick = { fetch(isRefresh = true) },
                         enabled = !refreshing,
                     ) { Text(stringResource(R.string.my_day_refresh)) }
                 }
@@ -410,6 +414,11 @@ private fun FollowUpRow(
                     TextButton(onClick = onDone, modifier = Modifier.weight(1f)) {
                         Text(stringResource(R.string.my_day_action_done))
                     }
+                } else {
+                    // Keep the kebab at the end even when the button is hidden:
+                    // the weight is what pins it to the row's end, and losing it
+                    // silently moves it under a call button that did not move.
+                    Spacer(Modifier.weight(1f))
                 }
                 Box {
                     IconButton(onClick = { menuOpen = true }) {
