@@ -78,18 +78,25 @@ object Notifier {
                 .setContentTitle(context.getString(R.string.notif_unmatched_title))
                 .setContentText(context.getString(R.string.notif_unmatched_body, phone))
                 .setContentIntent(openForm)
-                .addAction(0, context.getString(R.string.notif_ignore_action), ignore)
+                .addAction(R.drawable.ic_action_ignore, context.getString(R.string.notif_ignore_action), ignore)
                 .setAutoCancel(true)
                 .build())
     }
 
-    fun showFeedback(context: Context, leadName: String, leadUrl: String) {
+    // B-06: the feedback notification used to open the CRM lead page in the
+    // browser, which drops the rep out of the app and asks them to log in to
+    // the web. It now opens the same in-app outcome sheet the matched-call
+    // notification uses — the action being asked for is identical.
+    fun showFeedback(context: Context, leadName: String, leadId: String) {
         val open = PendingIntent.getActivity(
-            context, leadUrl.hashCode(),
-            Intent(Intent.ACTION_VIEW, Uri.parse(BuildConfig.BASE_URL + leadUrl)),
+            context, leadId.hashCode(),
+            Intent(context, CallOutcomeActivity::class.java)
+                .putExtra("lead_id", leadId)
+                .putExtra("lead_name", leadName)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        notifySafe(context, leadUrl.hashCode(),
+        notifySafe(context, leadId.hashCode(),
             NotificationCompat.Builder(context, CHANNEL_FEEDBACK)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setColor(0xFFC2410C.toInt())
@@ -110,12 +117,22 @@ object Notifier {
     // the web deep link — the primary action is capturing the outcome, not
     // just viewing the lead. The web deep link survives as a secondary
     // action button for agents who still want the full CRM lead page.
-    fun showMatched(context: Context, leadName: String, leadId: String) {
+    fun showMatched(
+        context: Context,
+        leadName: String,
+        leadId: String,
+        // Wave C: when the matched lead has an open follow-up, carry its id
+        // through so the outcome sheet can close it in the same save. This is
+        // what makes the whole loop — call, notification, sheet, outcome +
+        // stage + close — happen without the rep ever opening a list.
+        followUpId: String? = null,
+    ) {
         val openOutcome = PendingIntent.getActivity(
             context, leadId.hashCode(),
             Intent(context, CallOutcomeActivity::class.java)
                 .putExtra("lead_id", leadId)
                 .putExtra("lead_name", leadName)
+                .putExtra("follow_up_id", followUpId)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -131,7 +148,7 @@ object Notifier {
                 .setContentTitle(context.getString(R.string.notif_matched_title, leadName))
                 .setContentText(context.getString(R.string.notif_matched_body))
                 .setContentIntent(openOutcome)
-                .addAction(0, context.getString(R.string.notif_matched_browser_action), openBrowser)
+                .addAction(R.drawable.ic_action_open_web, context.getString(R.string.notif_matched_browser_action), openBrowser)
                 .setAutoCancel(true)
                 .build())
     }

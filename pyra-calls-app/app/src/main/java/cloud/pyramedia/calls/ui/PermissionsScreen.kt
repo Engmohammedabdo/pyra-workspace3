@@ -127,6 +127,19 @@ fun rememberPendingUpdate(prefs: AppPrefs): PendingUpdateState {
     return state
 }
 
+/**
+ * Live mirror of [AppPrefs.sessionDead] — same idiom, same reason, as
+ * [rememberPendingUpdate] directly above: a raw SharedPreferences read is not
+ * Compose State, so a flag SyncWorker clears in the background would otherwise
+ * leave a stale red banner on screen for the life of the process.
+ */
+@Composable
+fun rememberSessionDead(prefs: AppPrefs): State<Boolean> {
+    val state = remember { mutableStateOf(prefs.sessionDead) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { state.value = prefs.sessionDead }
+    return state
+}
+
 /** Button that launches the system's "manage unused app restrictions" screen for this app. */
 @Composable
 fun HibernationExemptionButton(modifier: Modifier = Modifier) {

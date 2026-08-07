@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import cloud.pyramedia.calls.BuildConfig
+import cloud.pyramedia.calls.core.SessionHealth
 import cloud.pyramedia.calls.core.SyncPlanner
 import cloud.pyramedia.calls.core.UpdatePolicy
 import cloud.pyramedia.calls.data.ApiClient
@@ -21,6 +22,14 @@ class SyncWorker(context: Context, params: WorkerParameters) :
         if (!prefs.isLoggedIn()) return Result.success()
         val api = ApiClient(BuildConfig.BASE_URL) { prefs.deviceKey }
 
+        fun noteAuthOutcome(ok: Boolean, errorCode: Int?) {
+            val next = SessionHealth.next(
+                SessionHealth.State(prefs.authFailureStreak, prefs.sessionDead), ok, errorCode,
+            )
+            prefs.authFailureStreak = next.streak
+            prefs.sessionDead = next.dead
+        }
+
         while (true) {
             val batch = CallLogReader.readBatch(applicationContext, prefs)
             if (batch.calls.isEmpty()) {
@@ -31,15 +40,18 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                 // Ping the server so pyra_api_keys.last_used_at reflects that
                 // the app is still alive even when there's nothing to sync —
                 // otherwise a background-killed app looks identical to an idle
-                // one from the server's point of view. Result is intentionally
-                // ignored: a failed ping must not change worker behavior, it
-                // exists purely as a liveness signal for the device-silent-check
-                // cron.
-                api.ping()
+                // one from the server's point of view. The ping result no
+                // longer goes fully ignored: it is also the only auth signal
+                // this pass produces (an empty batch never calls api.sync()),
+                // so it still has to feed the dead-session tracker or a
+                // revoked device key on a quiet phone would never trip it.
+                val pong = api.ping()
+                noteAuthOutcome(pong is ApiResult.Ok, (pong as? ApiResult.Err)?.code)
                 break
             }
             when (val res = api.sync(batch.calls.map { it.entry })) {
                 is ApiResult.Ok -> {
+                    noteAuthOutcome(true, null)
                     val byKey = batch.calls.associateBy { it.entry.device_call_key }
                     for (r in res.data.results) {
                         if (r.status == "unmatched") {
@@ -71,7 +83,9 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                             // would guaranteed-403 (ownership gate), so skip it entirely.
                             val owned = r.owned != false
                             if (connected && owned) {
-                                Notifier.showMatched(applicationContext, r.lead_name, r.lead_id)
+                                Notifier.showMatched(
+                                    applicationContext, r.lead_name, r.lead_id, r.open_follow_up_id,
+                                )
                             }
                         }
                     }
@@ -87,6 +101,7 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                     // everything else (e.g. 422 validation) is a lower-severity warning.
                     val severity =
                         if (res.code >= 500 || res.code == 401 || res.code == 403) "error" else "warning"
+                    noteAuthOutcome(false, res.code)
                     ErrorQueue(applicationContext).enqueue(
                         message = "HTTP ${res.code}: ${res.message}",
                         source = "sync_failed",

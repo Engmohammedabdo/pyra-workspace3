@@ -214,6 +214,21 @@ class AppPrefs(context: Context) {
         get() = prefs.getBoolean("pending_update_mandatory", false)
         set(v) = prefs.edit().putBoolean("pending_update_mandatory", v).apply()
 
+    // --- Session health (wave C) ---
+    //
+    // Written ONLY by SyncWorker, via SessionHealth.next(). Same Compose
+    // caveat as the pending-update cache above: read it through
+    // `rememberSessionDead(prefs)` in ui/PermissionsScreen.kt, never directly
+    // from a Composable — a raw SharedPreferences read is not Compose State.
+
+    var authFailureStreak: Int
+        get() = prefs.getInt("auth_failure_streak", 0)
+        set(v) = prefs.edit().putInt("auth_failure_streak", v).apply()
+
+    var sessionDead: Boolean
+        get() = prefs.getBoolean("session_dead", false)
+        set(v) = prefs.edit().putBoolean("session_dead", v).apply()
+
     /**
      * Call once per launch (MainActivity.onCreate, before reading the fields
      * above for the banner/blocking-screen decision) so they clear
@@ -253,6 +268,9 @@ class AppPrefs(context: Context) {
             .remove("device_key").remove("username").remove("display_name")
             .remove("last_synced_call_log_id").remove("install_day_start_millis")
             .remove("last_sync_at_millis")
+            // A logged-out device has no session to be dead — leaving these
+            // set would greet the next login with a stale red banner.
+            .remove("auth_failure_streak").remove("session_dead")
             .apply()
     }
 }

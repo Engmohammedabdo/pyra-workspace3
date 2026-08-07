@@ -101,7 +101,7 @@ class QuickAddActivity : ComponentActivity() {
                                             if (res.data.already_existed) {
                                                 Toast.makeText(this@QuickAddActivity, alreadyExisted, Toast.LENGTH_LONG).show()
                                             } else {
-                                                Notifier.showFeedback(this@QuickAddActivity, res.data.lead_name, res.data.lead_url)
+                                                Notifier.showFeedback(this@QuickAddActivity, res.data.lead_name, res.data.lead_id)
                                             }
                                             finish()
                                         }

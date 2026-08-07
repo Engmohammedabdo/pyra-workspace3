@@ -118,6 +118,7 @@ fun HomeScreen(
     val synced = lastSync > 0 && now - lastSync < 30 * 60 * 1000
     val hibernationRestricted by rememberUnusedAppRestrictionsEnabled()
     val pendingUpdate = rememberPendingUpdate(prefs)
+    val sessionDead = rememberSessionDead(prefs)
 
     fun loadWork() {
         work = WorkState.Loading
@@ -166,6 +167,24 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f),
                 )
                 SyncStatus(synced = synced)
+            }
+
+            // Above the update banner, deliberately: a phone that is not
+            // syncing at all is a bigger problem than one that is a version
+            // behind.
+            if (sessionDead.value) {
+                NoticeCard(
+                    title = stringResource(R.string.home_session_dead_title),
+                    body = stringResource(R.string.home_session_dead_body),
+                    action = {
+                        Button(
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = LocalPyraColors.current.danger,
+                            ),
+                            onClick = onLogout,
+                        ) { Text(stringResource(R.string.home_session_dead_button)) }
+                    },
+                )
             }
 
             if (UpdatePolicy.shouldShowBanner(pendingUpdate.value.versionCode, BuildConfig.VERSION_CODE)) {

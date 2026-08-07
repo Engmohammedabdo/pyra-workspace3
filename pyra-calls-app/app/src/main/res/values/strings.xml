@@ -82,6 +82,10 @@
     <string name="home_update_banner_body">الإصدار %1$s متاح للتحميل</string>
     <string name="home_update_banner_button">تحديث الآن</string>
 
+    <string name="home_session_dead_title">الجلسة انتهت</string>
+    <string name="home_session_dead_body">التطبيق مش بيزامن المكالمات دلوقتي. غالبًا سجّلت دخول على تليفون تاني. سجّل دخول من هنا عشان يرجع يشتغل.</string>
+    <string name="home_session_dead_button">تسجيل الدخول</string>
+
     <string name="update_required_title">تحديث إلزامي مطلوب</string>
     <string name="update_required_body">النسخة الحالية من التطبيق لم تعد مدعومة. حدّث إلى الإصدار %1$s للمتابعة.</string>
     <string name="update_required_button">تحديث الآن</string>
