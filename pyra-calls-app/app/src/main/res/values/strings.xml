@@ -104,6 +104,7 @@
 
     <string name="co_title">تسجيل نتيجة المكالمة</string>
     <string name="co_lead_label">العميل: %1$s</string>
+    <string name="co_lead_eyebrow">خلّصت مكالمة مع</string>
     <string name="co_outcome_required">اختر نتيجة المكالمة</string>
     <string name="co_outcome_interested">مهتم</string>
     <string name="co_outcome_not_interested">غير مهتم</string>

@@ -18,6 +18,8 @@ import cloud.pyramedia.calls.data.ApiResult
 import cloud.pyramedia.calls.data.AppPrefs
 import cloud.pyramedia.calls.data.ErrorQueue
 import cloud.pyramedia.calls.notify.Notifier
+import cloud.pyramedia.calls.ui.components.PyraChip
+import cloud.pyramedia.calls.ui.components.PyraScreen
 import cloud.pyramedia.calls.ui.theme.PyraTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -39,11 +41,11 @@ private val SOURCE_OPTIONS = listOf(
 )
 
 class QuickAddActivity : ComponentActivity() {
-    // ExposedDropdownMenuBox/ExposedDropdownMenu/TrailingIcon/menuAnchor are
-    // still @ExperimentalMaterial3Api in the pinned compose-bom (2024.12.01) —
+    // ExposedDropdownMenuBox/ExposedDropdownMenu/TrailingIcon are still
+    // @ExperimentalMaterial3Api in the pinned compose-bom (2024.12.01) —
     // opted in here rather than project-wide so the experimental surface is
     // scoped to this one screen.
-    @OptIn(ExperimentalMaterial3Api::class)
+    @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val phone = intent.getStringExtra("phone").orEmpty()
@@ -67,29 +69,82 @@ class QuickAddActivity : ComponentActivity() {
                 val alreadyExisted = stringResource(R.string.qa_already_existed)
                 val netError = stringResource(R.string.net_error)
 
-                Column(Modifier.fillMaxSize().padding(24.dp)) {
-                    Text(stringResource(R.string.qa_title), style = MaterialTheme.typography.headlineSmall)
-                    Spacer(Modifier.height(8.dp))
+                PyraScreen(
+                    title = stringResource(R.string.qa_title),
+                    bottomBar = {
+                        Button(
+                            enabled = !saving,
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                error = null
+                                if (name.isBlank()) { error = nameRequired; return@Button }
+                                if (isB2b && company.isBlank()) { error = companyRequired; return@Button }
+                                saving = true
+                                scope.launch {
+                                    val req = QuickAddRequest(
+                                        device_call_key = deviceCallKey,
+                                        name = name.trim(),
+                                        lead_type = if (isB2b) "b2b" else "b2c",
+                                        company = if (isB2b) company.trim() else null,
+                                        source = SOURCE_OPTIONS[sourceIndex].value,
+                                    )
+                                    val res = withContext(Dispatchers.IO) { api.quickAdd(req) }
+                                    saving = false
+                                    when (res) {
+                                        is ApiResult.Ok -> {
+                                            Notifier.cancel(this@QuickAddActivity, deviceCallKey.hashCode())
+                                            if (res.data.already_existed) {
+                                                Toast.makeText(this@QuickAddActivity, alreadyExisted, Toast.LENGTH_LONG).show()
+                                            } else {
+                                                Notifier.showFeedback(this@QuickAddActivity, res.data.lead_name, res.data.lead_url)
+                                            }
+                                            finish()
+                                        }
+                                        is ApiResult.Err -> {
+                                            ErrorQueue(this@QuickAddActivity).enqueue(
+                                                message = "HTTP ${res.code}: ${res.message}",
+                                                source = "quick_add_failed",
+                                                severity = "warning",
+                                            )
+                                            error = res.message
+                                        }
+                                        ApiResult.NetworkError -> error = netError
+                                    }
+                                }
+                            },
+                        ) { Text(stringResource(if (saving) R.string.qa_saving else R.string.qa_save)) }
+                    },
+                ) {
                     Text("${stringResource(R.string.qa_phone_label)}: $phone")
-                    Spacer(Modifier.height(16.dp))
-                    Row {
-                        FilterChip(selected = isB2b, onClick = { isB2b = true },
-                            label = { Text(stringResource(R.string.qa_type_b2b)) })
-                        Spacer(Modifier.width(8.dp))
-                        FilterChip(selected = !isB2b, onClick = { isB2b = false },
-                            label = { Text(stringResource(R.string.qa_type_b2c)) })
+
+                    // FlowRow, not Row — same B-02 treatment as the outcome
+                    // chips, applied consistently even though only 2 chips
+                    // fit today.
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PyraChip(
+                            label = stringResource(R.string.qa_type_b2b),
+                            selected = isB2b,
+                            onClick = { isB2b = true },
+                        )
+                        PyraChip(
+                            label = stringResource(R.string.qa_type_b2c),
+                            selected = !isB2b,
+                            onClick = { isB2b = false },
+                        )
                     }
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedTextField(value = name, onValueChange = { name = it },
+
+                    OutlinedTextField(
+                        value = name, onValueChange = { name = it },
                         label = { Text(stringResource(R.string.qa_name)) },
-                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                        singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    )
                     if (isB2b) {
-                        Spacer(Modifier.height(12.dp))
-                        OutlinedTextField(value = company, onValueChange = { company = it },
+                        OutlinedTextField(
+                            value = company, onValueChange = { company = it },
                             label = { Text(stringResource(R.string.qa_company)) },
-                            singleLine = true, modifier = Modifier.fillMaxWidth())
+                            singleLine = true, modifier = Modifier.fillMaxWidth(),
+                        )
                     }
-                    Spacer(Modifier.height(12.dp))
                     ExposedDropdownMenuBox(
                         expanded = sourceExpanded,
                         onExpandedChange = { sourceExpanded = it },
@@ -100,7 +155,7 @@ class QuickAddActivity : ComponentActivity() {
                             readOnly = true,
                             label = { Text(stringResource(R.string.qa_source_label)) },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = sourceExpanded) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
                         )
                         ExposedDropdownMenu(
                             expanded = sourceExpanded,
@@ -114,48 +169,10 @@ class QuickAddActivity : ComponentActivity() {
                             }
                         }
                     }
-                    error?.let { Spacer(Modifier.height(8.dp)); Text(it, color = MaterialTheme.colorScheme.error) }
-                    Spacer(Modifier.height(24.dp))
-                    Button(
-                        enabled = !saving, modifier = Modifier.fillMaxWidth(),
-                        onClick = {
-                            error = null
-                            if (name.isBlank()) { error = nameRequired; return@Button }
-                            if (isB2b && company.isBlank()) { error = companyRequired; return@Button }
-                            saving = true
-                            scope.launch {
-                                val req = QuickAddRequest(
-                                    device_call_key = deviceCallKey,
-                                    name = name.trim(),
-                                    lead_type = if (isB2b) "b2b" else "b2c",
-                                    company = if (isB2b) company.trim() else null,
-                                    source = SOURCE_OPTIONS[sourceIndex].value,
-                                )
-                                val res = withContext(Dispatchers.IO) { api.quickAdd(req) }
-                                saving = false
-                                when (res) {
-                                    is ApiResult.Ok -> {
-                                        Notifier.cancel(this@QuickAddActivity, deviceCallKey.hashCode())
-                                        if (res.data.already_existed) {
-                                            Toast.makeText(this@QuickAddActivity, alreadyExisted, Toast.LENGTH_LONG).show()
-                                        } else {
-                                            Notifier.showFeedback(this@QuickAddActivity, res.data.lead_name, res.data.lead_url)
-                                        }
-                                        finish()
-                                    }
-                                    is ApiResult.Err -> {
-                                        ErrorQueue(this@QuickAddActivity).enqueue(
-                                            message = "HTTP ${res.code}: ${res.message}",
-                                            source = "quick_add_failed",
-                                            severity = "warning",
-                                        )
-                                        error = res.message
-                                    }
-                                    ApiResult.NetworkError -> error = netError
-                                }
-                            }
-                        },
-                    ) { Text(stringResource(if (saving) R.string.qa_saving else R.string.qa_save)) }
+
+                    error?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
         }
