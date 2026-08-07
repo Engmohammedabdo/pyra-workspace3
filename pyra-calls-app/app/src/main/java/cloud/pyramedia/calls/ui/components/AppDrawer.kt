@@ -75,12 +75,22 @@ fun AppDrawer(
                     .background(MaterialTheme.colorScheme.primary),
             )
             Spacer(Modifier.height(12.dp))
-            Text(prefs.displayName ?: "", style = MaterialTheme.typography.titleMedium)
+            val displayName = prefs.displayName.orEmpty()
+            val username = prefs.username.orEmpty()
             Text(
-                prefs.username ?: "",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                displayName.ifBlank { username },
+                style = MaterialTheme.typography.titleMedium,
             )
+            // Only a SECOND line if it says something the first one doesn't.
+            // Most agents' display_name is just their username, and printing
+            // "cosette / cosette" reads as a rendering bug.
+            if (username.isNotBlank() && !displayName.equals(username, ignoreCase = true)) {
+                Text(
+                    username,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             Spacer(Modifier.height(20.dp))
             HorizontalDivider()

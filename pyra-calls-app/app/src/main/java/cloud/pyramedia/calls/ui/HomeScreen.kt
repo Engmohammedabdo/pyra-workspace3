@@ -4,6 +4,7 @@ import android.content.Intent
 import android.provider.CallLog
 import android.content.Context
 import android.text.format.DateFormat
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -102,6 +103,11 @@ fun HomeScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    // Home is the back-stack root, so an unhandled back press closes the app.
+    // With the drawer open that is the wrong answer — back should dismiss the
+    // drawer first, which is what every drawer on this phone does. Enabled
+    // only while it is open, so back still exits from Home as it always did.
+    BackHandler(enabled = drawerState.isOpen) { scope.launch { drawerState.close() } }
     var refreshTick by remember { mutableIntStateOf(0) }
     var work by remember { mutableStateOf<WorkState>(WorkState.Loading) }
 
