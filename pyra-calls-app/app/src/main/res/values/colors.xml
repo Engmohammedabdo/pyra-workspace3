@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#C2410C</color>
+
+    <!-- Status-bar match for the app's own light/dark background — see
+         PyraTheme's LightBackground/DarkBackground (ui/theme/Color.kt).
+         Keeps the top strip from rendering in Samsung's default blue
+         system-accent, which has no relation to this orange-and-stone app. -->
+    <color name="status_bar_light">#FAFAF9</color>
+    <color name="status_bar_dark">#131211</color>
 </resources>

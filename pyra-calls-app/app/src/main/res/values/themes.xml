@@ -6,5 +6,7 @@
     <style name="Theme.PyraCalls" parent="@android:style/Theme.DeviceDefault.DayNight">
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
+        <item name="android:statusBarColor">@color/status_bar_light</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 </resources>
