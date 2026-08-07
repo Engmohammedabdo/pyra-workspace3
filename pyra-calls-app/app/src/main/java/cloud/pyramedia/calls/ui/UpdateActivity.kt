@@ -9,18 +9,15 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,17 +31,20 @@ import androidx.core.content.FileProvider
 import androidx.core.content.pm.PackageInfoCompat
 import cloud.pyramedia.calls.BuildConfig
 import cloud.pyramedia.calls.R
+import cloud.pyramedia.calls.core.AppVersionInfo
 import cloud.pyramedia.calls.data.ApiClient
 import cloud.pyramedia.calls.data.ApiResult
 import cloud.pyramedia.calls.data.ApkDownloader
 import cloud.pyramedia.calls.data.AppPrefs
 import cloud.pyramedia.calls.data.DownloadResult
 import cloud.pyramedia.calls.data.ErrorQueue
+import cloud.pyramedia.calls.ui.components.PyraScreen
 import cloud.pyramedia.calls.ui.theme.PyraTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.Locale
 
 private sealed class UpdateState {
     data object Idle : UpdateState()
@@ -66,16 +66,27 @@ class UpdateActivity : ComponentActivity() {
         val api = ApiClient(BuildConfig.BASE_URL) { prefs.deviceKey }
 
         setContent {
-            PyraTheme { UpdateScreen(api) }
+            PyraTheme {
+                UpdateScreen(api, onClose = { finish() })
+            }
         }
     }
 }
 
 @Composable
-private fun UpdateScreen(api: ApiClient) {
+private fun UpdateScreen(api: ApiClient, onClose: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<UpdateState>(UpdateState.Idle) }
+    var info by remember { mutableStateOf<AppVersionInfo?>(null) }
+    var sizeBytes by remember { mutableStateOf<Long?>(null) }
+
+    LaunchedEffect(Unit) {
+        val v = withContext(Dispatchers.IO) { api.appVersion() }
+        if (v is ApiResult.Ok) info = v.data.latest
+        val d = withContext(Dispatchers.IO) { api.appDownload() }
+        if (d is ApiResult.Ok) sizeBytes = d.data.size_bytes
+    }
 
     val networkFailedMsg = stringResource(R.string.update_failed_network)
     val checksumFailedMsg = stringResource(R.string.update_failed_checksum)
@@ -178,11 +189,35 @@ private fun UpdateScreen(api: ApiClient) {
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
+    PyraScreen(
+        title = stringResource(R.string.update_title),
+        onBack = onClose,
     ) {
-        Text(stringResource(R.string.update_title), style = MaterialTheme.typography.headlineSmall)
+        info?.let { latest ->
+            Text(
+                stringResource(R.string.update_version_label, latest.version_name),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            sizeBytes?.let { bytes ->
+                Text(
+                    stringResource(
+                        R.string.update_size_label,
+                        String.format(Locale.US, "%.1f MB", bytes / 1_048_576.0),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (!latest.release_notes.isNullOrBlank()) {
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    stringResource(R.string.update_notes_label),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(latest.release_notes, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
         Spacer(Modifier.height(24.dp))
 
         when (val s = state) {

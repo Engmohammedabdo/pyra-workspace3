@@ -74,6 +74,12 @@
     <string name="update_failed_network">تعذر تحميل التحديث — تأكد من الإنترنت وأعد المحاولة</string>
     <string name="update_failed_checksum">فشل التحقق من سلامة ملف التحديث</string>
     <string name="update_failed_stale">النسخة المحمّلة ليست أحدث</string>
+    <string name="login_app_name">Pyra Calls</string>
+    <string name="update_version_label">الإصدار %1$s</string>
+    <string name="update_size_label">حجم التحميل %1$s</string>
+    <string name="update_notes_label">إيه الجديد</string>
+    <string name="update_close">لاحقًا</string>
+    <string name="cd_app_logo">شعار بيراميديا</string>
 
     <string name="home_update_banner_title">تحديث جديد متاح</string>
     <string name="home_update_banner_body">الإصدار %1$s متاح للتحميل</string>

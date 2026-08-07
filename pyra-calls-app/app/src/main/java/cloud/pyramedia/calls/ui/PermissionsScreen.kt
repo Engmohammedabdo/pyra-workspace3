@@ -24,6 +24,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import cloud.pyramedia.calls.R
 import cloud.pyramedia.calls.data.AppPrefs
+import cloud.pyramedia.calls.ui.components.NoticeCard
+import cloud.pyramedia.calls.ui.components.PyraScreen
 
 val REQUIRED_PERMISSIONS: Array<String> = buildList {
     add(Manifest.permission.READ_CALL_LOG)
@@ -152,17 +154,18 @@ fun PermissionsScreen(onAllGranted: () -> Unit) {
     ) { grants -> if (grants.values.all { it }) onAllGranted() }
     val hibernationRestricted by rememberUnusedAppRestrictionsEnabled()
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(stringResource(R.string.perm_title), style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(12.dp))
-        Text(stringResource(R.string.perm_body), style = MaterialTheme.typography.bodyMedium)
-        Spacer(Modifier.height(24.dp))
-        Button(onClick = { launcher.launch(REQUIRED_PERMISSIONS) }) {
-            Text(stringResource(R.string.perm_grant))
+    PyraScreen {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(stringResource(R.string.perm_title), style = MaterialTheme.typography.headlineSmall)
+            Spacer(Modifier.height(12.dp))
+            Text(stringResource(R.string.perm_body), style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(24.dp))
+            Button(onClick = { launcher.launch(REQUIRED_PERMISSIONS) }) {
+                Text(stringResource(R.string.perm_grant))
+            }
         }
 
         // Advisory only — never gates onAllGranted. Stays visible for as long
@@ -170,29 +173,11 @@ fun PermissionsScreen(onAllGranted: () -> Unit) {
         // back from the settings screen (re-queried on ON_RESUME above).
         if (hibernationRestricted) {
             Spacer(Modifier.height(24.dp))
-            Card(
-                Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-            ) {
-                Column(
-                    Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        stringResource(R.string.hibernation_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        stringResource(R.string.hibernation_body),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    HibernationExemptionButton()
-                }
-            }
+            NoticeCard(
+                title = stringResource(R.string.hibernation_title),
+                body = stringResource(R.string.hibernation_body),
+                action = { HibernationExemptionButton() },
+            )
         }
     }
 }

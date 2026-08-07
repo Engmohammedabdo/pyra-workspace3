@@ -1,11 +1,15 @@
 package cloud.pyramedia.calls.ui
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -14,6 +18,7 @@ import cloud.pyramedia.calls.R
 import cloud.pyramedia.calls.core.LoginData
 import cloud.pyramedia.calls.data.ApiClient
 import cloud.pyramedia.calls.data.ApiResult
+import cloud.pyramedia.calls.ui.components.PyraScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -27,13 +32,33 @@ fun LoginScreen(api: ApiClient, deviceId: String, onLoggedIn: (LoginData) -> Uni
     val scope = rememberCoroutineScope()
     val netErr = stringResource(R.string.login_network_error)
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(stringResource(R.string.login_title), style = MaterialTheme.typography.headlineSmall)
-        Text(stringResource(R.string.login_subtitle), style = MaterialTheme.typography.bodySmall)
+    PyraScreen {
+        Spacer(Modifier.height(48.dp))
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Image(
+                painter = painterResource(R.drawable.ic_launcher_foreground),
+                contentDescription = stringResource(R.string.cd_app_logo),
+                modifier = Modifier
+                    .size(88.dp)
+                    .clip(MaterialTheme.shapes.large)
+                    .background(MaterialTheme.colorScheme.primary),
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                stringResource(R.string.login_app_name),
+                style = MaterialTheme.typography.titleLarge,
+            )
+            Spacer(Modifier.height(28.dp))
+            Text(stringResource(R.string.login_title), style = MaterialTheme.typography.headlineSmall)
+            Text(
+                stringResource(R.string.login_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Spacer(Modifier.height(24.dp))
         OutlinedTextField(
             value = email, onValueChange = { email = it },
