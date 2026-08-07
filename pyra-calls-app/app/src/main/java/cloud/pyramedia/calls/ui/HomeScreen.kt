@@ -4,11 +4,12 @@ import android.content.Intent
 import android.provider.CallLog
 import android.content.Context
 import android.text.format.DateFormat
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -100,12 +101,10 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var refreshTick by remember { mutableIntStateOf(0) }
-    var checkingUpdate by remember { mutableStateOf(false) }
     var work by remember { mutableStateOf<WorkState>(WorkState.Loading) }
 
-    val upToDateMsg = stringResource(R.string.home_up_to_date)
-    val checkFailedMsg = stringResource(R.string.home_check_failed)
     val now = System.currentTimeMillis()
     val today = remember(refreshTick) { countSince(context, DubaiTime.dayStartMillis(now)) }
     val week = remember(refreshTick) { lastSevenDays(context, now) }
@@ -130,110 +129,84 @@ fun HomeScreen(
 
     LaunchedEffect(refreshTick) { loadWork() }
 
-    PyraScreen(
-        bottomBar = {
-            Button(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { SyncScheduler.syncNow(context); refreshTick++ },
-            ) { Text(stringResource(R.string.home_sync_now)) }
-        },
+    // gesturesEnabled = false is mandatory, not a preference: this app runs
+    // under RTL, where an edge swipe from the drawer's own edge is ALSO the
+    // system Back gesture on gesture-nav devices. Leaving swipe-to-open on
+    // makes the two fight over the same edge — the menu IconButton below is
+    // the only opener.
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = false,
+        drawerContent = { AppDrawer(prefs = prefs, api = api, onLogout = onLogout) },
     ) {
-        // Greeting + sync status. The status is a plain indicator, NOT a
-        // button: the old AssistChip(onClick = {}) looked tappable and did
-        // nothing (B-08). The real sync action lives in the bottom bar.
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        PyraScreen(
+            bottomBar = {
+                Button(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { SyncScheduler.syncNow(context); refreshTick++ },
+                ) { Text(stringResource(R.string.home_sync_now)) }
+            },
+        ) {
+            // Greeting + sync status. The status is a plain indicator, NOT a
+            // button: the old AssistChip(onClick = {}) looked tappable and did
+            // nothing (B-08). The real sync action lives in the bottom bar.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                    Icon(Icons.Filled.Menu, contentDescription = stringResource(R.string.cd_menu))
+                }
+                Text(
+                    stringResource(R.string.home_hello, prefs.displayName ?: ""),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f),
+                )
+                SyncStatus(synced = synced)
+            }
+
+            if (UpdatePolicy.shouldShowBanner(pendingUpdate.value.versionCode, BuildConfig.VERSION_CODE)) {
+                NoticeCard(
+                    title = stringResource(R.string.home_update_banner_title),
+                    body = stringResource(R.string.home_update_banner_body, pendingUpdate.value.versionName ?: ""),
+                    action = {
+                        Button(onClick = {
+                            context.startActivity(Intent(context, UpdateActivity::class.java))
+                        }) { Text(stringResource(R.string.home_update_banner_button)) }
+                    },
+                )
+            }
+
+            if (hibernationRestricted) {
+                NoticeCard(
+                    title = stringResource(R.string.hibernation_title),
+                    body = stringResource(R.string.hibernation_body),
+                    action = { HibernationExemptionButton() },
+                )
+            }
+
+            WorkCard(state = work, onOpen = onOpenMyDay, onRetry = { loadWork() })
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                StatTile(
+                    value = "${today.total}",
+                    label = stringResource(R.string.home_calls_today),
+                    accent = true,
+                    modifier = Modifier.weight(1f),
+                )
+                StatTile(
+                    value = "${today.connected}",
+                    label = stringResource(R.string.home_calls_connected),
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            WeekStrip(week)
+
             Text(
-                stringResource(R.string.home_hello, prefs.displayName ?: ""),
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.weight(1f),
-            )
-            SyncStatus(synced = synced)
-        }
-
-        if (UpdatePolicy.shouldShowBanner(pendingUpdate.value.versionCode, BuildConfig.VERSION_CODE)) {
-            NoticeCard(
-                title = stringResource(R.string.home_update_banner_title),
-                body = stringResource(R.string.home_update_banner_body, pendingUpdate.value.versionName ?: ""),
-                action = {
-                    Button(onClick = {
-                        context.startActivity(Intent(context, UpdateActivity::class.java))
-                    }) { Text(stringResource(R.string.home_update_banner_button)) }
-                },
-            )
-        }
-
-        if (hibernationRestricted) {
-            NoticeCard(
-                title = stringResource(R.string.hibernation_title),
-                body = stringResource(R.string.hibernation_body),
-                action = { HibernationExemptionButton() },
-            )
-        }
-
-        WorkCard(state = work, onOpen = onOpenMyDay, onRetry = { loadWork() })
-
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatTile(
-                value = "${today.total}",
-                label = stringResource(R.string.home_calls_today),
-                accent = true,
-                modifier = Modifier.weight(1f),
-            )
-            StatTile(
-                value = "${today.connected}",
-                label = stringResource(R.string.home_calls_connected),
-                modifier = Modifier.weight(1f),
-            )
-        }
-
-        WeekStrip(week)
-
-        Text(
-            if (lastSync > 0)
-                stringResource(R.string.home_last_sync, DateFormat.getTimeFormat(context).format(Date(lastSync)))
-            else stringResource(R.string.home_last_sync_never),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Text(
-                stringResource(R.string.home_version, BuildConfig.VERSION_NAME),
+                if (lastSync > 0)
+                    stringResource(R.string.home_last_sync, DateFormat.getTimeFormat(context).format(Date(lastSync)))
+                else stringResource(R.string.home_last_sync_never),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
             )
-            TextButton(
-                enabled = !checkingUpdate,
-                onClick = {
-                    checkingUpdate = true
-                    scope.launch {
-                        // Manual check bypasses UpdatePolicy.shouldCheck's 6h
-                        // throttle by design — the user explicitly asked.
-                        val res = withContext(Dispatchers.IO) { api.appVersion() }
-                        checkingUpdate = false
-                        when (res) {
-                            is ApiResult.Ok -> {
-                                val latest = res.data.latest
-                                if (latest != null && latest.version_code > BuildConfig.VERSION_CODE) {
-                                    context.startActivity(Intent(context, UpdateActivity::class.java))
-                                } else {
-                                    Toast.makeText(context, upToDateMsg, Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                            else -> Toast.makeText(context, checkFailedMsg, Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                },
-            ) {
-                Text(stringResource(
-                    if (checkingUpdate) R.string.home_checking_update else R.string.home_check_update,
-                ))
-            }
-        }
-
-        TextButton(modifier = Modifier.fillMaxWidth(), onClick = onLogout) {
-            Text(stringResource(R.string.home_logout))
         }
     }
 }
