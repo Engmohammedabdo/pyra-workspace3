@@ -6,6 +6,7 @@ import { generateId } from '@/lib/utils/id';
 import { phoneMatchKey } from '@/lib/utils/phone';
 import { buildLeadPhoneIndex, matchLeadByPhone, isConnectedCall } from '@/lib/calls/match';
 import { logError } from '@/lib/observability/log-error';
+import { FOLLOW_UP_STATUS } from '@/lib/constants/statuses';
 
 const MAX_BATCH = 100;
 const DIRECTIONS = new Set(['outgoing', 'incoming', 'missed']);
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
     const processedKeys = new Set(existingKeys);
     interface SyncResultOut {
       device_call_key: string;
-      status: string;
+      status: 'duplicate' | 'error' | 'unmatched' | 'ignored' | 'matched';
       lead_id?: string;
       lead_name?: string;
       owned?: boolean;
@@ -302,19 +303,34 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Attach each matched lead's earliest OPEN follow-up ────────────────
-    // ONE query for the whole batch, not one per call. Only leads the calling
-    // agent OWNS are queried (`assigned_to`), so this can never surface a
-    // colleague's follow-up id to a device.
+    // ONE query for the whole batch, not one per call. Two independent
+    // `assigned_to` columns are in play here and must not be conflated:
+    // the query's `.eq('assigned_to', agentUsername)` constrains the
+    // FOLLOW-UP row's owner, while `matchedLeadIds` below is filtered on
+    // the LEAD's owner (`r.owned`, derived from `lead.assigned_to`). Both
+    // gates are required — `pyra_sales_follow_ups.assigned_to` is
+    // independent of `pyra_sales_leads.assigned_to` (the CRM's lead-
+    // reassignment feature does not bulk-move follow-ups), so an agent can
+    // still hold an open follow-up on a lead reassigned away from them.
+    // Filtering only one of the two would let that case leak a colleague's
+    // follow-up id onto a lead the agent can't post an outcome against
+    // (the app already suppresses the outcome notification when
+    // `owned: false`, and the outcome POST 403s regardless).
     //
     // The `.in()` list is bounded by the batch size (100 calls, deduped to
-    // distinct leads), so it is nowhere near the URL-length class that killed
-    // the idle-check cron — no chunk() needed.
+    // distinct OWNED leads), so it is nowhere near the URL-length class that
+    // killed the idle-check cron — no chunk() needed.
     //
     // Best-effort: a failure here leaves the field absent, which the app reads
     // as "no follow-up attached". It must never fail a sync that already
     // persisted calls.
     const matchedLeadIds = Array.from(
-      new Set(results.map((r) => r.lead_id).filter((x): x is string => !!x)),
+      new Set(
+        results
+          .filter((r) => r.owned)
+          .map((r) => r.lead_id)
+          .filter((x): x is string => !!x),
+      ),
     );
     if (matchedLeadIds.length > 0) {
       const { data: openFollowUps, error: fuErr } = await supabase
@@ -322,7 +338,7 @@ export async function POST(request: NextRequest) {
         .select('id, lead_id, due_at')
         .eq('assigned_to', agentUsername)
         .in('lead_id', matchedLeadIds)
-        .in('status', ['pending', 'overdue'])
+        .in('status', [FOLLOW_UP_STATUS.PENDING, FOLLOW_UP_STATUS.OVERDUE])
         .order('due_at', { ascending: true });
       if (fuErr) {
         console.error('[calls/sync] open follow-up lookup failed:', fuErr.message);
@@ -336,7 +352,10 @@ export async function POST(request: NextRequest) {
           }
         }
         for (const r of results) {
-          if (r.lead_id) r.open_follow_up_id = earliestByLead.get(r.lead_id) ?? null;
+          // Mirrors the `owned` gate on matchedLeadIds above — an unowned
+          // match is never given the field at all, rather than being given
+          // `null`.
+          if (r.lead_id && r.owned) r.open_follow_up_id = earliestByLead.get(r.lead_id) ?? null;
         }
       }
     }
