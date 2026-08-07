@@ -155,6 +155,15 @@ export async function POST(request: NextRequest) {
       // lead, so the phone's notification can open the outcome sheet with the
       // follow-up already attached. An older app ignores unknown keys.
       open_follow_up_id?: string | null;
+      // Fix 1 (wave C audit): `open_follow_up_id` alone let the notification
+      // pre-check the sheet's "close this follow-up" switch while showing the
+      // rep nothing about WHAT it would close — a switch defaulted on over a
+      // blank card. These three ride along with the id (present exactly when
+      // `open_follow_up_id` is non-null) so the sheet can render the actual
+      // follow-up before the rep commits to closing it.
+      open_follow_up_title?: string | null;
+      open_follow_up_due_at?: string | null;
+      open_follow_up_overdue?: boolean;
     }
     const results: SyncResultOut[] = [];
     for (const call of calls) {
@@ -333,9 +342,15 @@ export async function POST(request: NextRequest) {
       ),
     );
     if (matchedLeadIds.length > 0) {
+      // `title` + `status` added for Fix 1 (wave C audit) — see the
+      // SyncResultOut field comments above for why. Everything else about
+      // this query is unchanged: one query for the whole batch, the same
+      // `.eq('assigned_to', agentUsername)` scoping the FOLLOW-UP row's
+      // owner (independent of the LEAD-owner `owned` gate — see the doc
+      // comment above this block), and the same due_at ASC ordering.
       const { data: openFollowUps, error: fuErr } = await supabase
         .from('pyra_sales_follow_ups')
-        .select('id, lead_id, due_at')
+        .select('id, lead_id, due_at, title, status')
         .eq('assigned_to', agentUsername)
         .in('lead_id', matchedLeadIds)
         .in('status', [FOLLOW_UP_STATUS.PENDING, FOLLOW_UP_STATUS.OVERDUE])
@@ -344,18 +359,37 @@ export async function POST(request: NextRequest) {
         console.error('[calls/sync] open follow-up lookup failed:', fuErr.message);
       } else {
         // Ordered due_at ASC, so the FIRST row seen per lead is the earliest.
-        const earliestByLead = new Map<string, string>();
+        interface EarliestFollowUp {
+          id: string;
+          title: string | null;
+          dueAt: string;
+          overdue: boolean;
+        }
+        const earliestByLead = new Map<string, EarliestFollowUp>();
         for (const fu of openFollowUps ?? []) {
           const leadId = fu.lead_id as string | null;
           if (leadId && !earliestByLead.has(leadId)) {
-            earliestByLead.set(leadId, fu.id as string);
+            earliestByLead.set(leadId, {
+              id: fu.id as string,
+              title: (fu.title as string | null) ?? null,
+              dueAt: fu.due_at as string,
+              overdue: fu.status === FOLLOW_UP_STATUS.OVERDUE,
+            });
           }
         }
         for (const r of results) {
           // Mirrors the `owned` gate on matchedLeadIds above — an unowned
           // match is never given the field at all, rather than being given
           // `null`.
-          if (r.lead_id && r.owned) r.open_follow_up_id = earliestByLead.get(r.lead_id) ?? null;
+          if (r.lead_id && r.owned) {
+            const fu = earliestByLead.get(r.lead_id);
+            r.open_follow_up_id = fu?.id ?? null;
+            if (fu) {
+              r.open_follow_up_title = fu.title;
+              r.open_follow_up_due_at = fu.dueAt;
+              r.open_follow_up_overdue = fu.overdue;
+            }
+          }
         }
       }
     }

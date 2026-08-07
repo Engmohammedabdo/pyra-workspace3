@@ -24,6 +24,15 @@ export const NOTE_MAX_LENGTH = 2000;
 /** Same floor as the web's `MIN_LOST_REASON` in move-stage-confirm-modal.tsx. */
 export const MIN_NOT_INTERESTED_REASON = 5;
 
+/**
+ * Fix 6 (wave C audit): `not_interested_reason` had a floor but no ceiling —
+ * unlike `note`, it is written TWICE (`pyra_sales_leads.lost_reason`, an
+ * unbounded text column, AND the `stage_change` activity's jsonb metadata).
+ * A reason is a sentence, not an essay, so this is capped well below
+ * `NOTE_MAX_LENGTH`.
+ */
+export const REASON_MAX_LENGTH = 500;
+
 export interface ValidatedOutcome {
   leadId: string;
   outcome: Outcome;
@@ -85,6 +94,12 @@ export function validateOutcomeRequest(body: unknown): OutcomeValidation {
       return {
         ok: false,
         message: `سبب عدم الاهتمام مطلوب (${MIN_NOT_INTERESTED_REASON} حروف على الأقل)`,
+      };
+    }
+    if (reason.length > REASON_MAX_LENGTH) {
+      return {
+        ok: false,
+        message: `سبب عدم الاهتمام طويل جدًا (الحد الأقصى ${REASON_MAX_LENGTH} حرف)`,
       };
     }
     notInterestedReason = reason;

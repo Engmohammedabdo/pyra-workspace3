@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateId } from '@/lib/utils/id';
-import { STAGE_NOT_INTERESTED } from '@/lib/constants/statuses';
+import { STAGE_NOT_INTERESTED, PIPELINE_STAGE_IDS } from '@/lib/constants/statuses';
 import { resolveStageLabelForActivity } from '@/lib/crm/pipeline-stages';
 
 /**
@@ -50,7 +50,34 @@ export function buildStageChangeMetadata(args: {
 
 export type MarkNotInterestedResult =
   | { ok: true; previousStage: string | null; changed: boolean }
-  | { ok: false; reason: 'not_found' | 'stage_missing' | 'db_error' };
+  | { ok: false; reason: 'not_found' | 'stage_missing' | 'db_error' | 'terminal_won' };
+
+/**
+ * A lead the business has already WON is not eligible for this transition.
+ *
+ * Mirrors the reopen guard on `POST /api/crm/leads/[id]/move-stage` (any move
+ * OUT of `stg_closed_won` requires `leads.manage` + a `reopen_reason`, and
+ * clears `is_converted`/`win_probability_overridden`) — but REFUSES instead
+ * of gating, because a device key carries no RBAC scope and reopening a
+ * closed-won deal is an admin decision, not something a call outcome should
+ * make. `is_converted` is checked in addition to `stage_id` because it is
+ * possible (and is exactly the pre-fix bug this closes) for a lead to carry
+ * `is_converted: true` while sitting in a stage other than `stg_closed_won` —
+ * checking `stage_id` alone would miss that half-state.
+ *
+ * Exported so `POST /api/mobile/call-outcome` can run this SAME check on the
+ * lead row it already fetches for the ownership re-check, before any write —
+ * `markNotInterested` itself only runs in that route's Step 4, well after the
+ * note activity, the `last_contact_at` bump and the optional follow-up insert
+ * have already landed, so validating only here would already be too late
+ * (see the route's own comment for the full ordering rationale).
+ */
+export function isTerminalWonLead(lead: {
+  stage_id: string | null;
+  is_converted: boolean | null;
+}): boolean {
+  return lead.stage_id === PIPELINE_STAGE_IDS.CLOSED_WON || lead.is_converted === true;
+}
 
 /**
  * Move a lead to «غير مهتم» with a reason.
@@ -74,7 +101,7 @@ export async function markNotInterested(
 
   const { data: lead, error: leadErr } = await supabase
     .from('pyra_sales_leads')
-    .select('id, stage_id, win_probability_overridden')
+    .select('id, stage_id, win_probability_overridden, is_converted')
     .eq('id', leadId)
     .maybeSingle();
   if (leadErr) {
@@ -86,6 +113,14 @@ export async function markNotInterested(
   const fromStage = (lead.stage_id as string | null) ?? null;
   if (fromStage === STAGE_NOT_INTERESTED) {
     return { ok: true, previousStage: fromStage, changed: false };
+  }
+
+  // Terminal-won guard (Fix 2, wave C audit) — see isTerminalWonLead() above.
+  // Checked AFTER the idempotent already-there shortcut (a lead already in
+  // «غير مهتم» cannot simultaneously be closed_won, so ordering the two
+  // relative to each other doesn't matter) but BEFORE any read/write below.
+  if (isTerminalWonLead({ stage_id: fromStage, is_converted: (lead.is_converted as boolean | null) ?? null })) {
+    return { ok: false, reason: 'terminal_won' };
   }
 
   // Read the stage's own name_ar rather than hardcoding the label, so a rename

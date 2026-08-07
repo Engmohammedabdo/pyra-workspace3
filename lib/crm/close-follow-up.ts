@@ -88,6 +88,21 @@ export async function loadFollowUpForClose(
  *
  * `source` is OMITTED from the activity metadata when not supplied, so the
  * web's write stays byte-identical to what it was before this extraction.
+ *
+ * **Fix 5 (wave C audit) — the single writer of `leads.next_follow_up` when
+ * a close is happening.** `POST /api/mobile/call-outcome` has its OWN,
+ * separate `next_follow_up` recompute for its optional "schedule a new
+ * follow-up" step, and that step now deliberately SKIPS its write whenever
+ * this function is also about to run (`followUpToClose` set) — because write
+ * 3 below runs LAST and reads BOTH rows (the one just closed here, and any
+ * newly-created one) in their FINAL state. The other site's read happens
+ * BEFORE step 1 closes the old row, so racing the two un-awaited writes
+ * against each other let whichever landed second decide the column — on the
+ * common "close an overdue follow-up while scheduling the next one" flow,
+ * that meant the stale/past due_at from the OLD follow-up could overwrite
+ * the correct new one about half the time. Do not remove this function's
+ * ownership of that recompute without removing the skip on the other side
+ * too — see that route's comment for the full failure sequence.
  */
 export async function closeFollowUp(
   supabase: SupabaseClient,
@@ -137,22 +152,37 @@ export async function closeFollowUp(
 
   // Recalculate the parent lead's next_follow_up to the earliest remaining
   // open one — null when none is left.
-  const { data: nextPending } = await supabase
+  //
+  // Fix 4 (wave C audit): the `error` here used to be discarded, so a
+  // TRANSIENT lookup failure fell through to the update below with
+  // `nextPending` still `null` — writing `next_follow_up: null` even when a
+  // later follow-up (e.g. a `fu_2` due in 10 days) is still open. Nothing
+  // ever repairs that: `fu_2` stays open, so no future close recomputes this
+  // column again. A stale non-null value is strictly better than a wrong
+  // null, so a lookup failure now skips the write entirely — this code was
+  // extracted verbatim from the web route (see the file-level doc comment),
+  // so the bug was pre-existing there too, but it now runs on three call
+  // sites instead of one and the mobile ones fire far more often.
+  const { data: nextPending, error: nextPendingErr } = await supabase
     .from('pyra_sales_follow_ups')
     .select('due_at')
     .eq('lead_id', followUp.lead_id)
     .in('status', ['pending', 'overdue'])
     .order('due_at', { ascending: true })
     .limit(1);
-  void supabase
-    .from('pyra_sales_leads')
-    .update({
-      next_follow_up: nextPending && nextPending.length > 0 ? nextPending[0].due_at : null,
-    })
-    .eq('id', followUp.lead_id)
-    .then(({ error: e }) => {
-      if (e) console.error('[lead next_follow_up update] failed:', e.message);
-    });
+  if (nextPendingErr) {
+    console.error('[closeFollowUp] next_follow_up lookup failed, skipping recompute:', nextPendingErr.message);
+  } else {
+    void supabase
+      .from('pyra_sales_leads')
+      .update({
+        next_follow_up: nextPending && nextPending.length > 0 ? nextPending[0].due_at : null,
+      })
+      .eq('id', followUp.lead_id)
+      .then(({ error: e }) => {
+        if (e) console.error('[lead next_follow_up update] failed:', e.message);
+      });
+  }
 
   return { ok: true, row: updated as Record<string, unknown> };
 }

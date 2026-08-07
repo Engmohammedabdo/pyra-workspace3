@@ -6,7 +6,7 @@ import { generateId } from '@/lib/utils/id';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 import { logError } from '@/lib/observability/log-error';
 import { validateOutcomeRequest, OUTCOME_LABELS } from '@/lib/mobile/outcome-validation';
-import { markNotInterested } from '@/lib/crm/mark-not-interested';
+import { markNotInterested, isTerminalWonLead } from '@/lib/crm/mark-not-interested';
 import { loadFollowUpForClose, closeFollowUp, classifyCloseAccess, type OpenFollowUp } from '@/lib/crm/close-follow-up';
 
 /**
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
     // doesn't own it).
     const { data: lead, error: leadErr } = await supabase
       .from('pyra_sales_leads')
-      .select('assigned_to')
+      .select('assigned_to, stage_id, is_converted')
       .eq('id', leadId)
       .maybeSingle();
     if (leadErr) {
@@ -120,6 +120,30 @@ export async function POST(request: NextRequest) {
     }
     if (!lead || lead.assigned_to !== agentUsername) {
       return apiForbidden('لا تملك صلاحية الوصول لهذا الليد');
+    }
+
+    // ── Terminal-won guard — BEFORE any write ────────────────────────────
+    // Fix 2 (wave C audit). `stage_id` + `is_converted` are pulled onto the
+    // SAME lead fetch used for the ownership re-check above — no extra round
+    // trip — specifically so this can run here, before the 60s dedup lookup
+    // and the note insert. `markNotInterested()` (called in Step 4, far
+    // below) carries the identical check as a defense-in-depth backstop for
+    // any other caller and for the narrow same-request race where an admin
+    // approves this exact lead to closed-won between this check and Step 4 —
+    // but relying on Step 4 alone would already be too late for the common
+    // case this fix exists for: a lead that was ALREADY closed-won before
+    // the call even started. Only relevant when the request is actually
+    // asking for a not-interested stage move.
+    if (
+      notInterestedReason &&
+      isTerminalWonLead({
+        stage_id: (lead.stage_id as string | null) ?? null,
+        is_converted: (lead.is_converted as boolean | null) ?? null,
+      })
+    ) {
+      return apiValidationError(
+        'هذا الليد أصبح عميلاً بالفعل (تم الفوز بالصفقة) — لا يمكن تحويله لغير مهتم من هنا، لازم الإدارة تعيد فتح الصفقة أولاً',
+      );
     }
 
     // ── Follow-up pre-check — BEFORE any write ───────────────────────────
@@ -305,24 +329,43 @@ export async function POST(request: NextRequest) {
 
           // Sync leads.next_follow_up to the earliest pending/overdue due_at —
           // fire-and-forget, mirrors the CRM follow-ups route.
-          const { data: pending, error: pendingErr } = await supabase
-            .from('pyra_sales_follow_ups')
-            .select('due_at')
-            .eq('lead_id', leadId)
-            .in('status', ['pending', 'overdue'])
-            .order('due_at', { ascending: true })
-            .limit(1);
-          if (pendingErr) {
-            // Fire-and-forget sync — log, don't escalate to a 500.
-            console.error('[mobile/call-outcome] pending follow-ups lookup failed:', pendingErr.message);
-          } else if (pending && pending.length > 0) {
-            void supabase
-              .from('pyra_sales_leads')
-              .update({ next_follow_up: pending[0].due_at })
-              .eq('id', leadId)
-              .then(({ error: e }) => {
-                if (e) console.error('[lead next_follow_up update] failed:', e.message);
-              });
+          //
+          // SKIPPED when a close is about to happen (`followUpToClose` set) —
+          // Fix 5 (wave C audit). Both this block and `closeFollowUp()`
+          // (Step 5, far below) recompute the SAME column from separate,
+          // un-awaited round trips with no guaranteed order. This read runs
+          // BEFORE the old follow-up is closed, so on the wave's single most
+          // common flow — reopening an overdue follow-up, picking
+          // "call again" + a new date, leaving the close switch on — this
+          // query still sees the OLD (soon-to-close) follow-up as the
+          // earliest-pending and can write ITS due_at (already in the past)
+          // over the correct value, landing after `closeFollowUp`'s own
+          // write if it loses the race. `closeFollowUp` runs LAST and reads
+          // both rows in their FINAL state (old one excluded, new one
+          // included), so it is made the single writer whenever a close is
+          // going to happen. Do not re-add this — the coupling is
+          // intentional; see the comment on `closeFollowUp()` in
+          // lib/crm/close-follow-up.ts for the other half.
+          if (!followUpToClose) {
+            const { data: pending, error: pendingErr } = await supabase
+              .from('pyra_sales_follow_ups')
+              .select('due_at')
+              .eq('lead_id', leadId)
+              .in('status', ['pending', 'overdue'])
+              .order('due_at', { ascending: true })
+              .limit(1);
+            if (pendingErr) {
+              // Fire-and-forget sync — log, don't escalate to a 500.
+              console.error('[mobile/call-outcome] pending follow-ups lookup failed:', pendingErr.message);
+            } else if (pending && pending.length > 0) {
+              void supabase
+                .from('pyra_sales_leads')
+                .update({ next_follow_up: pending[0].due_at })
+                .eq('id', leadId)
+                .then(({ error: e }) => {
+                  if (e) console.error('[lead next_follow_up update] failed:', e.message);
+                });
+            }
           }
         }
       }
@@ -341,6 +384,44 @@ export async function POST(request: NextRequest) {
         reason: notInterestedReason,
       });
       if (!moved.ok) {
+        // Structural failures (Fix 2 + Fix 3, wave C audit) fail LOUD —
+        // never silently continue as if the move were merely delayed. Both
+        // branches below short-circuit the request; only `db_error` (and
+        // `not_found`) fall through to the warn-don't-fail `stageError` flag,
+        // because those two are TRANSIENT and self-repairing on retry, which
+        // neither of the branches above is.
+        if (moved.reason === 'terminal_won') {
+          // Reachable here only via the narrow same-request race the early
+          // guard above cannot close (see that guard's comment) — the early
+          // guard already stops the common case. Still must fail loud: the
+          // rep must find out the move did NOT happen, not see a 200.
+          logError({
+            error: 'markNotInterested failed: terminal_won',
+            request,
+            metadata: { action: 'mobile_call_outcome_stage_move', agentUsername, leadId, failure: moved.reason },
+          });
+          return apiValidationError(
+            'هذا الليد أصبح عميلاً بالفعل (تم الفوز بالصفقة) — لا يمكن تحويله لغير مهتم من هنا، لازم الإدارة تعيد فتح الصفقة أولاً',
+          );
+        }
+        if (moved.reason === 'stage_missing') {
+          // «غير مهتم» itself is unresolvable — STAGE_NOT_INTERESTED is
+          // pinned by value (lib/constants/statuses.ts) and pipeline stages
+          // are editable from settings, so deleting + recreating the stage
+          // mints a new id this constant no longer matches. This is
+          // STRUCTURAL, not transient: it will NOT self-repair on retry the
+          // way `db_error` might, so warn-don't-fail here would silently
+          // record note-only outcomes forever — every not-interested tap
+          // would keep returning 200 while moving nothing, with nothing
+          // surfacing but logError rows (the wave C concrete failure this
+          // closes).
+          logError({
+            error: 'markNotInterested failed: stage_missing',
+            request,
+            metadata: { action: 'mobile_call_outcome_stage_move', agentUsername, leadId, failure: moved.reason },
+          });
+          return apiServerError('حدث خطأ أثناء تحويل حالة الليد — تواصل مع الدعم الفني');
+        }
         stageError = true;
         logError({
           error: `markNotInterested failed: ${moved.reason}`,

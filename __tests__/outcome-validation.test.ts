@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateOutcomeRequest } from '@/lib/mobile/outcome-validation';
+import { validateOutcomeRequest, REASON_MAX_LENGTH } from '@/lib/mobile/outcome-validation';
 
 const base = { lead_id: 'sl_abc', outcome: 'interested' };
 
@@ -54,6 +54,21 @@ describe('validateOutcomeRequest', () => {
   it('trims the reason before measuring it', () => {
     const r = validateOutcomeRequest({
       ...base, outcome: 'not_interested', not_interested_reason: '   12   ',
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it('accepts a reason exactly at REASON_MAX_LENGTH', () => {
+    const r = validateOutcomeRequest({
+      ...base, outcome: 'not_interested', not_interested_reason: 'x'.repeat(REASON_MAX_LENGTH),
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.notInterestedReason?.length).toBe(REASON_MAX_LENGTH);
+  });
+
+  it('rejects a reason one character over REASON_MAX_LENGTH', () => {
+    const r = validateOutcomeRequest({
+      ...base, outcome: 'not_interested', not_interested_reason: 'x'.repeat(REASON_MAX_LENGTH + 1),
     });
     expect(r.ok).toBe(false);
   });
