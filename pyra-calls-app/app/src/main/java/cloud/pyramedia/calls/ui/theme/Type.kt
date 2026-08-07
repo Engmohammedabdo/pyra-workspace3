@@ -41,8 +41,11 @@ private fun pyra(
 )
 
 val PyraTypography = Typography(
+    displayLarge = pyra(44, 54, FontWeight.SemiBold, tabularNums = true),
+    displayMedium = pyra(38, 47, FontWeight.SemiBold, tabularNums = true),
     // Hero numbers — 109 / 331
     displaySmall = pyra(32, 40, FontWeight.SemiBold, tabularNums = true),
+    headlineLarge = pyra(28, 38, FontWeight.SemiBold),
     // Stat-tile numbers — 49 / 31
     headlineMedium = pyra(26, 34, FontWeight.SemiBold, tabularNums = true),
     // Screen titles
