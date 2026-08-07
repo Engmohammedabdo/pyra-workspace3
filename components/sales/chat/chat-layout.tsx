@@ -422,6 +422,15 @@ export function ChatLayout() {
           <div className={cn('h-full min-h-0 overflow-hidden flex flex-col bg-background md:block', mobileView === 'list' ? 'hidden' : 'block')}>
             {selectedConversation ? (
               <ChatPanel
+                // Remount per conversation. ChatPanel seeds currentLeadId,
+                // conversationStatus and isMuted with useState(prop), which
+                // only reads the prop on first mount — without this key React
+                // reuses the instance across conversation switches and the
+                // panel keeps the FIRST conversation's values. Live symptom:
+                // opening a lead-less thread first made every lead-linked
+                // conversation after it render the deal banner's no-lead
+                // fallback, hiding the stage steps entirely.
+                key={selectedConversation.id || selectedConversation.remote_jid}
                 remoteJid={selectedConversation.remote_jid}
                 instanceName={selectedConversation.instance_name || 'pyraai'}
                 contactName={selectedConversation.contact_name}
