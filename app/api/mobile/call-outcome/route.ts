@@ -5,23 +5,9 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 import { logError } from '@/lib/observability/log-error';
-
-const NOTE_MAX_LENGTH = 2000;
-
-const OUTCOMES = ['interested', 'not_interested', 'call_again'] as const;
-type Outcome = (typeof OUTCOMES)[number];
-
-// Persisted lead-timeline / follow-up content — stays Arabic per the codebase
-// convention (CLAUDE.md i18n rules: DB-data strings are exempt until Phase 8).
-const OUTCOME_LABELS: Record<Outcome, string> = {
-  interested: 'مهتم', // i18n-exempt: persisted lead-activity content (Phase 8)
-  not_interested: 'غير مهتم', // i18n-exempt: persisted lead-activity content (Phase 8)
-  call_again: 'يحتاج إعادة اتصال', // i18n-exempt: persisted lead-activity content (Phase 8)
-};
-
-function isOutcome(value: unknown): value is Outcome {
-  return typeof value === 'string' && (OUTCOMES as readonly string[]).includes(value);
-}
+import { validateOutcomeRequest, OUTCOME_LABELS } from '@/lib/mobile/outcome-validation';
+import { markNotInterested } from '@/lib/crm/mark-not-interested';
+import { loadFollowUpForClose, closeFollowUp } from '@/lib/crm/close-follow-up';
 
 /**
  * POST /api/mobile/call-outcome
@@ -45,6 +31,10 @@ function isOutcome(value: unknown): value is Outcome {
  *   - If `next_follow_up_at` is present: INSERT pyra_sales_follow_ups +
  *     a `follow_up_created` timeline activity + sync leads.next_follow_up,
  *     mirroring `POST /api/crm/follow-ups` field-for-field.
+ *   - If `not_interested_reason` is present: markNotInterested() moves the
+ *     lead to «غير مهتم» and writes a web-identical `stage_change` activity.
+ *   - If `complete_follow_up_id` is present: closeFollowUp() completes it and
+ *     recomputes leads.next_follow_up.
  *   - logActivity() audit row (`lead_update`, metadata.source =
  *     'mobile_call_outcome').
  *
@@ -78,6 +68,12 @@ function isOutcome(value: unknown): value is Outcome {
  * OPEN: a lookup error is logged and treated as "no duplicate" so a
  * transient DB blip never swallows a real outcome the agent just recorded.
  *
+ * **Dedup change (wave C).** A duplicate within 60s still skips the note and
+ * the last_contact_at bump, but NO LONGER skips the stage move and the
+ * follow-up close. Both are idempotent, so replaying them is free — and it
+ * means a first attempt that wrote the note but failed the move repairs
+ * itself on retry instead of stranding the agent.
+ *
  * See docs/CALL-TRACKING.md for the full contract and response shapes.
  */
 export async function POST(request: NextRequest) {
@@ -86,25 +82,12 @@ export async function POST(request: NextRequest) {
     if (auth instanceof NextResponse) return auth;
     const { agentUsername } = auth;
 
-    const body = await request.json().catch(() => null);
-    const leadId = typeof body?.lead_id === 'string' ? body.lead_id.trim() : '';
-    const outcome = body?.outcome;
-    const noteRaw = typeof body?.note === 'string' ? body.note.trim() : '';
-    const nextFollowUpAtRaw = typeof body?.next_follow_up_at === 'string' ? body.next_follow_up_at : '';
-
-    if (!leadId) return apiValidationError('lead_id مطلوب');
-    if (!isOutcome(outcome)) {
-      return apiValidationError('outcome غير صالح — القيم المسموحة: interested, not_interested, call_again');
-    }
-    if (noteRaw.length > NOTE_MAX_LENGTH) {
-      return apiValidationError(`الملاحظة طويلة جدًا (الحد الأقصى ${NOTE_MAX_LENGTH} حرف)`);
-    }
-    let nextFollowUpAtIso: string | null = null;
-    if (nextFollowUpAtRaw) {
-      const parsed = new Date(nextFollowUpAtRaw);
-      if (isNaN(parsed.getTime())) return apiValidationError('next_follow_up_at غير صالح');
-      nextFollowUpAtIso = parsed.toISOString();
-    }
+    const parsed = validateOutcomeRequest(await request.json().catch(() => null));
+    if (!parsed.ok) return apiValidationError(parsed.message);
+    const {
+      leadId, outcome, note: noteRaw, nextFollowUpAtIso,
+      notInterestedReason, completeFollowUpId,
+    } = parsed.value;
 
     const supabase = createServiceRoleClient();
 
@@ -125,6 +108,27 @@ export async function POST(request: NextRequest) {
     }
     if (!lead || lead.assigned_to !== agentUsername) {
       return apiForbidden('لا تملك صلاحية الوصول لهذا الليد');
+    }
+
+    // ── Follow-up pre-check — BEFORE any write ───────────────────────────
+    // Must belong to the SAME lead and be assigned to the calling agent. A
+    // missing follow-up, someone else's follow-up and an already-closed one
+    // all resolve to the same 403 — never leak which.
+    //
+    // This runs before the note insert on purpose: rejecting after we had
+    // already written the outcome would leave the lead with a note and an
+    // untouched follow-up, and the agent with no way to tell.
+    let followUpToClose: Awaited<ReturnType<typeof loadFollowUpForClose>> | null = null;
+    if (completeFollowUpId) {
+      followUpToClose = await loadFollowUpForClose(supabase, completeFollowUpId);
+      if (!followUpToClose.ok) {
+        if (followUpToClose.reason === 'db_error') return apiServerError();
+        return apiForbidden('لا تملك صلاحية إغلاق هذه المتابعة');
+      }
+      const fu = followUpToClose.followUp;
+      if (fu.lead_id !== leadId || fu.assigned_to !== agentUsername) {
+        return apiForbidden('لا تملك صلاحية إغلاق هذه المتابعة');
+      }
     }
 
     const nowIso = new Date().toISOString();
@@ -291,16 +295,82 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ── 4. Stage move (not_interested only) ───────────────────────────────
+    // Runs on the dedup path too, and that is the point: the move is
+    // idempotent, so a retry after a half-succeeded first attempt REPAIRS
+    // itself instead of leaving the agent stuck. Before this, a duplicate
+    // request skipped every side effect.
+    let stageError = false;
+    if (notInterestedReason) {
+      const moved = await markNotInterested(supabase, {
+        leadId,
+        actor: agentUsername,
+        reason: notInterestedReason,
+      });
+      if (!moved.ok) {
+        stageError = true;
+        logError({
+          error: `markNotInterested failed: ${moved.reason}`,
+          request,
+          metadata: {
+            action: 'mobile_call_outcome_stage_move',
+            agentUsername, leadId, failure: moved.reason,
+          },
+        });
+      }
+    }
+
+    // ── 5. Close the follow-up the call was against ───────────────────────
+    // Also idempotent — the compare-and-swap inside closeFollowUp matches 0
+    // rows on a second attempt and reports `already_closed`, which on a retry
+    // is a success from the agent's point of view, not a failure.
+    let completeError = false;
+    if (followUpToClose?.ok) {
+      const closed = await closeFollowUp(supabase, {
+        followUp: followUpToClose.followUp,
+        actor: agentUsername,
+        // i18n-exempt: persisted lead-activity content (Phase 8)
+        note: `أُقفلت مع تسجيل نتيجة المكالمة: ${OUTCOME_LABELS[outcome]}`,
+        source: 'mobile_call_outcome',
+      });
+      if (!closed.ok && closed.reason !== 'already_closed') {
+        completeError = true;
+        logError({
+          error: `closeFollowUp failed: ${closed.reason}`,
+          request,
+          metadata: {
+            action: 'mobile_call_outcome_complete_follow_up',
+            agentUsername, leadId, followUpId: followUpToClose.followUp.id,
+          },
+        });
+      }
+    }
+
     logActivity(
       agentUsername,
       auth.displayName,
       `${ENTITY_TYPES.LEAD}_${ACTIVITY_ACTIONS.UPDATE}`,
       `/dashboard/crm/leads/${leadId}`,
-      { lead_id: leadId, outcome, follow_up_id: followUpId, follow_up_error: followUpError, deduplicated, source: 'mobile_call_outcome' },
+      {
+        lead_id: leadId, outcome, follow_up_id: followUpId,
+        follow_up_error: followUpError, deduplicated,
+        stage_moved: !!notInterestedReason && !stageError,
+        stage_error: stageError,
+        completed_follow_up_id: followUpToClose?.ok ? followUpToClose.followUp.id : null,
+        complete_error: completeError,
+        source: 'mobile_call_outcome',
+      },
       request.headers.get('x-forwarded-for') || undefined,
     );
 
-    return apiSuccess({ activity_id: activityId, follow_up_id: followUpId, follow_up_error: followUpError, deduplicated });
+    return apiSuccess({
+      activity_id: activityId,
+      follow_up_id: followUpId,
+      follow_up_error: followUpError,
+      deduplicated,
+      stage_error: stageError,
+      complete_error: completeError,
+    });
   } catch (err) {
     logError({ error: err, request, metadata: { action: 'mobile_call_outcome' } });
     return apiServerError();
