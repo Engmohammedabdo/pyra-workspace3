@@ -137,10 +137,11 @@ export function MessageList({ messages, notes, leadId, isGroup, onReply, onReact
           <p className="text-[13px] mt-1">ابدأ المحادثة بإرسال رسالة</p>
         </div>
       ) : (
-        // mt-auto (inside this flex-col scroll container) pushes a short
-        // thread down to the bottom instead of leaving it stranded under
-        // the header with a big empty gap below.
-        <div className="mt-auto space-y-1">
+        // mt-auto pushes a short thread to the bottom; the centred max-width
+        // is what stops the thread reading as a WhatsApp window stretched
+        // across a 2560px monitor — messages stay in one readable column with
+        // the two sides close enough to scan as a conversation.
+        <div className="mt-auto w-full max-w-[900px] mx-auto space-y-1.5">
           {groupedItems.map((group, gi) => (
             <div key={group.date || gi}>
               {/* Date separator — pill style */}

@@ -359,7 +359,7 @@ export function ChatInput({
 
       {/* Recording UI */}
       {isRecording && (
-        <div className="px-4 pt-3 flex items-center gap-3">
+        <div className="mx-auto w-full max-w-[900px] px-4 pt-3 flex items-center gap-3">
           <div className="flex items-center gap-2 flex-1 bg-card rounded-lg px-4 py-2.5">
             <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
             <span className="text-[15px] font-medium text-red-500 tabular-nums">
@@ -388,7 +388,7 @@ export function ChatInput({
 
       {/* Attachment Preview */}
       {attachmentFile && (
-        <div className="px-4 pt-3 flex items-start gap-3">
+        <div className="mx-auto w-full max-w-[900px] px-4 pt-3 flex items-start gap-3">
           <div className={cn(
             'relative rounded-lg overflow-hidden border border-border',
             attachmentPreview ? 'w-20 h-20' : 'flex items-center gap-2 px-3 py-2 bg-card'

@@ -95,7 +95,7 @@ export function DealBanner({
   return (
     <div className="border-b border-border bg-card">
       {/* Row 1 — identity + KPIs + drawer toggle */}
-      <div className="flex items-center gap-3 px-4 py-2.5">
+      <div className="mx-auto flex w-full max-w-[900px] items-center gap-3 px-4 py-2.5">
         <div className="h-10 w-10 shrink-0 rounded-full border border-border overflow-hidden">
           {conversation.is_group ? (
             conversation.group_picture_url ? (
@@ -150,7 +150,7 @@ export function DealBanner({
       {hasLead ? (
         <>
           {/* Row 2 — stage steps, or a muted "closed-lost" chip */}
-          <div className="border-t border-border/60 px-4 py-1.5">
+          <div className="mx-auto w-full max-w-[900px] border-t border-border/60 px-4 py-1.5">
             {!lead ? (
               <Skeleton className="h-5 w-40 rounded-full" />
             ) : isLost ? (
@@ -163,7 +163,7 @@ export function DealBanner({
           </div>
 
           {/* Row 3 — sales actions, always visible + open-follow-up chip */}
-          <div className="flex items-center gap-1.5 overflow-x-auto border-t border-border/60 px-4 py-1.5 scrollbar-none">
+          <div className="mx-auto flex w-full max-w-[900px] items-center gap-1.5 overflow-x-auto border-t border-border/60 px-4 py-1.5 scrollbar-none">
             <ActionButton
               icon={Plus}
               label="عرض سعر"
@@ -207,7 +207,7 @@ export function DealBanner({
         // No linked lead — "كارت العميل" joins "إنشاء عميل" in one
         // end-aligned action group instead of floating alone up in row 1
         // (there are no KPIs here to visually anchor it to).
-        <div className="flex items-center justify-end gap-2 border-t border-border/60 px-4 py-2">
+        <div className="mx-auto flex w-full max-w-[900px] items-center justify-end gap-2 border-t border-border/60 px-4 py-2">
           <button
             type="button"
             onClick={() => onOpenDialog('lead')}

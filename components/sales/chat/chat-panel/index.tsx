@@ -472,7 +472,7 @@ export function ChatPanel({
 
         {/* Input Mode Segmented Toggle (رد/ملاحظة) + Input */}
         {conversationId && (
-          <div className="px-3 pt-1">
+          <div className="mx-auto w-full max-w-[900px] px-3 pt-1">
             <div className="inline-flex items-center gap-0.5 rounded-full bg-muted p-0.5">
               <button
                 onClick={() => setInputMode('message')}

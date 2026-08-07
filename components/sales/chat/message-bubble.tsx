@@ -175,10 +175,14 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
 
         <div
           className={cn(
-            'max-w-[65%] rounded-lg px-2 py-1 space-y-0.5 relative shadow-sm border',
+            // Sized as a CRM record, not a WhatsApp chat: a readable column
+            // with real padding instead of the 65%-of-viewport, 4px-padded
+            // bubble the clone used (which collapsed to a chip on a wide
+            // screen and sprawled on a narrow one).
+            'max-w-[min(560px,78%)] rounded-xl px-3.5 py-2.5 space-y-1 relative border',
             isOutgoing
-              ? 'bg-orange-500/10 dark:bg-orange-400/[0.14] border-orange-500/20 dark:border-orange-400/30 text-foreground rounded-ee-none'
-              : 'bg-card border-border text-foreground rounded-es-none'
+              ? 'bg-orange-500/10 dark:bg-orange-400/[0.14] border-orange-500/25 dark:border-orange-400/30 text-foreground rounded-ee-sm'
+              : 'bg-card border-border text-foreground rounded-es-sm'
           )}
         >
           {/* ── Quoted Reply Preview ── */}
