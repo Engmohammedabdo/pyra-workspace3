@@ -27,7 +27,12 @@ export interface OpenFollowUp {
 
 export type LoadFollowUpResult =
   | { ok: true; followUp: OpenFollowUp }
-  | { ok: false; reason: 'not_found' | 'already_closed' | 'db_error' };
+  // `already_closed` carries the row too: a caller that needs to distinguish
+  // "not yours" from "yours, and already done" must be able to check ownership
+  // before choosing a response. Without the row, an idempotent retry of a
+  // SUCCESSFUL close is indistinguishable from an access violation.
+  | { ok: false; reason: 'already_closed'; followUp: OpenFollowUp }
+  | { ok: false; reason: 'not_found' | 'db_error' };
 
 export type CloseFollowUpResult =
   | { ok: true; row: Record<string, unknown> }
@@ -57,7 +62,7 @@ export async function loadFollowUpForClose(
   }
   if (!data) return { ok: false, reason: 'not_found' };
   if (data.status !== 'pending' && data.status !== 'overdue') {
-    return { ok: false, reason: 'already_closed' };
+    return { ok: false, reason: 'already_closed', followUp: data as OpenFollowUp };
   }
   return { ok: true, followUp: data as OpenFollowUp };
 }

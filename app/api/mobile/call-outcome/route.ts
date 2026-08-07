@@ -7,7 +7,7 @@ import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity'
 import { logError } from '@/lib/observability/log-error';
 import { validateOutcomeRequest, OUTCOME_LABELS } from '@/lib/mobile/outcome-validation';
 import { markNotInterested } from '@/lib/crm/mark-not-interested';
-import { loadFollowUpForClose, closeFollowUp } from '@/lib/crm/close-follow-up';
+import { loadFollowUpForClose, closeFollowUp, type OpenFollowUp } from '@/lib/crm/close-follow-up';
 
 /**
  * POST /api/mobile/call-outcome
@@ -74,6 +74,18 @@ import { loadFollowUpForClose, closeFollowUp } from '@/lib/crm/close-follow-up';
  * means a first attempt that wrote the note but failed the move repairs
  * itself on retry instead of stranding the agent.
  *
+ * **Retry-of-a-full-success on `complete_follow_up_id` (fix round 1).** The
+ * 60s note dedup window and the >60s-later retry case are different beasts:
+ * a retry arriving AFTER the note dedup window still needs to see its
+ * `complete_follow_up_id` as already handled. The Step-3 pre-check tells
+ * these apart from an access violation by ownership, not by dedup timing: if
+ * the follow-up is already `completed` AND still belongs to this agent on
+ * this lead, that is a successful retry, not an error — the request
+ * continues normally, the close step is skipped, and the response reports
+ * `complete_error: false` exactly as a fresh success would. Only a missing
+ * follow-up or one that is someone else's / a different lead's (open or
+ * closed) 403s.
+ *
  * See docs/CALL-TRACKING.md for the full contract and response shapes.
  */
 export async function POST(request: NextRequest) {
@@ -112,22 +124,47 @@ export async function POST(request: NextRequest) {
 
     // ── Follow-up pre-check — BEFORE any write ───────────────────────────
     // Must belong to the SAME lead and be assigned to the calling agent. A
-    // missing follow-up, someone else's follow-up and an already-closed one
-    // all resolve to the same 403 — never leak which.
+    // missing follow-up and someone else's follow-up (open OR already
+    // closed) all resolve to the same 403 — never leak which.
+    //
+    // Already-closed-and-OWNED is the one case that is NOT an error: it is
+    // what a lost-response retry of a fully successful request looks like on
+    // its second attempt (note deduped by the 60s window, follow-up already
+    // completed by the first attempt). `loadFollowUpForClose` carries the row
+    // back on its `already_closed` branch specifically so ownership can be
+    // checked here before deciding which of these two very different
+    // responses applies.
     //
     // This runs before the note insert on purpose: rejecting after we had
     // already written the outcome would leave the lead with a note and an
     // untouched follow-up, and the agent with no way to tell.
-    let followUpToClose: Awaited<ReturnType<typeof loadFollowUpForClose>> | null = null;
+    let followUpToClose: OpenFollowUp | null = null;
+    // Already closed AND owned by the caller on this lead — genuinely done,
+    // just not by this request. Skip the close step below; the response
+    // still reports success.
+    let followUpAlreadyDone: OpenFollowUp | null = null;
     if (completeFollowUpId) {
-      followUpToClose = await loadFollowUpForClose(supabase, completeFollowUpId);
-      if (!followUpToClose.ok) {
-        if (followUpToClose.reason === 'db_error') return apiServerError();
+      const loaded = await loadFollowUpForClose(supabase, completeFollowUpId);
+      if (!loaded.ok && loaded.reason === 'db_error') return apiServerError();
+      if (!loaded.ok && loaded.reason === 'not_found') {
         return apiForbidden('لا تملك صلاحية إغلاق هذه المتابعة');
       }
-      const fu = followUpToClose.followUp;
+      // Both remaining shapes — open-and-found (`ok: true`) and
+      // already_closed — carry a `followUp` row (TS can't eliminate the
+      // `reason: 'not_found' | 'db_error'` member by literal comparison
+      // alone since it isn't a singleton discriminant, so narrow by
+      // property presence instead). Same ownership predicate applies to
+      // either before the response is decided.
+      if (!('followUp' in loaded)) return apiServerError();
+      const fu = loaded.followUp;
+      const alreadyClosed = !loaded.ok;
       if (fu.lead_id !== leadId || fu.assigned_to !== agentUsername) {
         return apiForbidden('لا تملك صلاحية إغلاق هذه المتابعة');
+      }
+      if (alreadyClosed) {
+        followUpAlreadyDone = fu;
+      } else {
+        followUpToClose = fu;
       }
     }
 
@@ -324,23 +361,38 @@ export async function POST(request: NextRequest) {
     // Also idempotent — the compare-and-swap inside closeFollowUp matches 0
     // rows on a second attempt and reports `already_closed`, which on a retry
     // is a success from the agent's point of view, not a failure.
+    //
+    // `completedFollowUpId` (Defect 2 fix) is set ONLY when the follow-up is
+    // actually closed by the time this request returns — never merely
+    // "we attempted a close". That covers three cases: the already-closed-
+    // and-owned retry (Defect 1 — genuinely closed, just not by this call),
+    // a fresh close that succeeds here, and the rare race where a concurrent
+    // request closes it between the Step-3 pre-check and this write (also
+    // genuinely closed). It stays null when a close was attempted and failed
+    // with a real `db_error`, so the audit row never claims a close that did
+    // not happen.
     let completeError = false;
-    if (followUpToClose?.ok) {
+    let completedFollowUpId: string | null = null;
+    if (followUpAlreadyDone) {
+      completedFollowUpId = followUpAlreadyDone.id;
+    } else if (followUpToClose) {
       const closed = await closeFollowUp(supabase, {
-        followUp: followUpToClose.followUp,
+        followUp: followUpToClose,
         actor: agentUsername,
         // i18n-exempt: persisted lead-activity content (Phase 8)
         note: `أُقفلت مع تسجيل نتيجة المكالمة: ${OUTCOME_LABELS[outcome]}`,
         source: 'mobile_call_outcome',
       });
-      if (!closed.ok && closed.reason !== 'already_closed') {
+      if (closed.ok || closed.reason === 'already_closed') {
+        completedFollowUpId = followUpToClose.id;
+      } else {
         completeError = true;
         logError({
           error: `closeFollowUp failed: ${closed.reason}`,
           request,
           metadata: {
             action: 'mobile_call_outcome_complete_follow_up',
-            agentUsername, leadId, followUpId: followUpToClose.followUp.id,
+            agentUsername, leadId, followUpId: followUpToClose.id,
           },
         });
       }
@@ -356,7 +408,7 @@ export async function POST(request: NextRequest) {
         follow_up_error: followUpError, deduplicated,
         stage_moved: !!notInterestedReason && !stageError,
         stage_error: stageError,
-        completed_follow_up_id: followUpToClose?.ok ? followUpToClose.followUp.id : null,
+        completed_follow_up_id: completedFollowUpId,
         complete_error: completeError,
         source: 'mobile_call_outcome',
       },
