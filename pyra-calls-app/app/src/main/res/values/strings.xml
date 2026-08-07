@@ -118,6 +118,18 @@
     <string name="co_saving">جارٍ الحفظ…</string>
     <string name="co_saved">تم تسجيل نتيجة المكالمة</string>
     <string name="co_follow_up_error">تم تسجيل نتيجة المكالمة، لكن تعذر جدولة المتابعة — حاول لاحقًا من لوحة الـ CRM</string>
+    <string name="co_reason_heading">ليه مش مهتم؟</string>
+    <string name="co_reason_label">السبب</string>
+    <string name="co_reason_min">%1$d / %2$d حرف على الأقل</string>
+    <string name="co_reason_price">السعر مش مناسب</string>
+    <string name="co_reason_competitor">فاز عليه منافس</string>
+    <string name="co_reason_other">غير ذلك</string>
+    <string name="co_close_follow_up_heading">المتابعة المرتبطة</string>
+    <string name="co_close_follow_up_switch">اقفل المتابعة دي</string>
+    <string name="co_close_follow_up_overdue">متأخرة عن %1$s</string>
+    <string name="co_close_follow_up_due">مستحقة: %1$s</string>
+    <string name="co_stage_error">تم تسجيل النتيجة، لكن تعذّر نقل الليد لمرحلة «غير مهتم» — بلّغ الأدمن</string>
+    <string name="co_complete_error">تم تسجيل النتيجة، لكن تعذّر إقفال المتابعة — بلّغ الأدمن</string>
     <string name="cd_back">رجوع</string>
     <string name="cd_call">اتصال بـ %1$s</string>
 

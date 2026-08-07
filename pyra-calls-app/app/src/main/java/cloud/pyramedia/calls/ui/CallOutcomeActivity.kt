@@ -1,12 +1,14 @@
 package cloud.pyramedia.calls.ui
 
 import android.os.Bundle
+import android.text.format.DateFormat
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -14,6 +16,7 @@ import cloud.pyramedia.calls.BuildConfig
 import cloud.pyramedia.calls.R
 import cloud.pyramedia.calls.core.CallOutcomeRequest
 import cloud.pyramedia.calls.core.DubaiTime
+import cloud.pyramedia.calls.core.OutcomeForm
 import cloud.pyramedia.calls.data.ApiClient
 import cloud.pyramedia.calls.data.ApiResult
 import cloud.pyramedia.calls.data.AppPrefs
@@ -26,14 +29,16 @@ import cloud.pyramedia.calls.ui.theme.PyraTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.util.Date
 
 // Mirrors the 3 outcomes app/api/mobile/call-outcome/route.ts's OUTCOMES
-// tuple accepts verbatim (route.ts:11) — the server is the single source of
-// truth for the allowed values; this list only supplies the button labels.
+// tuple accepts verbatim — the server is the single source of truth for the
+// allowed values; this list only supplies the button labels.
 private data class OutcomeOption(val value: String, val labelRes: Int)
 private val OUTCOME_OPTIONS = listOf(
     OutcomeOption("interested", R.string.co_outcome_interested),
-    OutcomeOption("not_interested", R.string.co_outcome_not_interested),
+    OutcomeOption(OutcomeForm.OUTCOME_NOT_INTERESTED, R.string.co_outcome_not_interested),
     OutcomeOption("call_again", R.string.co_outcome_call_again),
 )
 
@@ -49,11 +54,25 @@ private val FOLLOW_UP_PRESETS = listOf(
     FollowUpPreset(7, R.string.co_preset_next_week),
 )
 
+// Taken from the web's LOST_REASON_CHIP_KEYS (components/crm/pipeline/
+// move-stage-confirm-modal.tsx) rather than invented here — MINUS
+// «تأجل القرار», which is not "not interested" at all, it is "call again".
+// Leaving it in the list would invite the wrong classification.
+private val REASON_CHIPS = listOf(
+    R.string.co_reason_price,
+    R.string.co_reason_competitor,
+    R.string.co_reason_other,
+)
+
 /**
  * Post-call outcome capture — launched from [Notifier.showMatched]'s content
- * intent with extras `lead_id` + `lead_name`. Same structure as
- * [QuickAddActivity]: RTL wrapper, single Compose screen, submit/error
- * handling via [ApiClient.callOutcome].
+ * intent with extras `lead_id` + `lead_name`, and OPTIONALLY `follow_up_id` /
+ * `follow_up_title` / `follow_up_due_at` / `follow_up_overdue` when the call
+ * answered a scheduled follow-up.
+ *
+ * Wave C: one save now carries up to three CRM writes — the outcome note, a
+ * stage move to «غير مهتم», and closing the follow-up — so the rep never
+ * opens a list to finish the job.
  */
 class CallOutcomeActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -61,6 +80,10 @@ class CallOutcomeActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val leadId = intent.getStringExtra("lead_id").orEmpty()
         val leadName = intent.getStringExtra("lead_name").orEmpty()
+        val followUpId = intent.getStringExtra("follow_up_id")?.takeIf { it.isNotBlank() }
+        val followUpTitle = intent.getStringExtra("follow_up_title").orEmpty()
+        val followUpDueAt = intent.getStringExtra("follow_up_due_at").orEmpty()
+        val followUpOverdue = intent.getBooleanExtra("follow_up_overdue", false)
         if (leadId.isEmpty()) { finish(); return }
         val prefs = AppPrefs(this)
         val api = ApiClient(BuildConfig.BASE_URL) { prefs.deviceKey }
@@ -69,70 +92,100 @@ class CallOutcomeActivity : ComponentActivity() {
             PyraTheme {
                 var outcomeIndex by remember { mutableStateOf<Int?>(null) }
                 var note by remember { mutableStateOf("") }
+                var reason by remember { mutableStateOf("") }
                 var presetDays by remember { mutableStateOf<Int?>(null) }
+                var closeFollowUp by remember { mutableStateOf(followUpId != null) }
                 var saving by remember { mutableStateOf(false) }
                 var error by remember { mutableStateOf<String?>(null) }
                 val scope = rememberCoroutineScope()
+                val context = this@CallOutcomeActivity
+
+                val selectedOutcome = outcomeIndex?.let { OUTCOME_OPTIONS[it].value }
+                val needsReason = OutcomeForm.requiresReason(selectedOutcome)
+                val showPresets = OutcomeForm.allowsFollowUp(selectedOutcome)
+                val reasonOk = OutcomeForm.reasonSatisfied(selectedOutcome, reason)
+
                 val unknownLead = stringResource(R.string.my_day_unknown_lead)
                 val outcomeRequired = stringResource(R.string.co_outcome_required)
                 val netError = stringResource(R.string.net_error)
                 val saved = stringResource(R.string.co_saved)
                 val followUpErrorMsg = stringResource(R.string.co_follow_up_error)
+                val stageErrorMsg = stringResource(R.string.co_stage_error)
+                val completeErrorMsg = stringResource(R.string.co_complete_error)
 
                 PyraScreen(
                     title = stringResource(R.string.co_title),
                     bottomBar = {
                         Column {
-                        error?.let {
-                            Text(it, color = MaterialTheme.colorScheme.error)
-                            Spacer(Modifier.height(8.dp))
-                        }
-                        Button(
-                            enabled = !saving,
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = {
-                                error = null
-                                val idx = outcomeIndex
-                                if (idx == null) { error = outcomeRequired; return@Button }
-                                saving = true
-                                scope.launch {
-                                    val nextFollowUpAtIso = presetDays?.let { days ->
-                                        DubaiTime.isoUtc(DubaiTime.followUpPresetMillis(System.currentTimeMillis(), days))
-                                    }
-                                    val req = CallOutcomeRequest(
-                                        lead_id = leadId,
-                                        outcome = OUTCOME_OPTIONS[idx].value,
-                                        note = note.trim().ifBlank { null },
-                                        next_follow_up_at = nextFollowUpAtIso,
-                                    )
-                                    val res = withContext(Dispatchers.IO) { api.callOutcome(req) }
-                                    saving = false
-                                    when (res) {
-                                        is ApiResult.Ok -> {
-                                            // Success covers BOTH the plain-success and
-                                            // deduplicated=true cases (a 60s retry match is
-                                            // not an error — route.ts:67-79). follow_up_error
-                                            // still means the outcome itself was saved, so
-                                            // this is still an ApiResult.Ok, just with a
-                                            // different toast — never treated as a failure.
-                                            Notifier.cancel(this@CallOutcomeActivity, leadId.hashCode())
-                                            val msg = if (res.data.follow_up_error) followUpErrorMsg else saved
-                                            Toast.makeText(this@CallOutcomeActivity, msg, Toast.LENGTH_LONG).show()
-                                            finish()
-                                        }
-                                        is ApiResult.Err -> {
-                                            ErrorQueue(this@CallOutcomeActivity).enqueue(
-                                                message = "HTTP ${res.code}: ${res.message}",
-                                                source = "call_outcome_failed",
-                                                severity = "warning",
+                            error?.let {
+                                Text(it, color = MaterialTheme.colorScheme.error)
+                                Spacer(Modifier.height(8.dp))
+                            }
+                            Button(
+                                // Locked only on the reason rule — an unpicked
+                                // outcome falls through to the inline error
+                                // below, which explains itself.
+                                enabled = !saving && reasonOk,
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = {
+                                    error = null
+                                    val idx = outcomeIndex
+                                    if (idx == null) { error = outcomeRequired; return@Button }
+                                    saving = true
+                                    scope.launch {
+                                        val outcomeValue = OUTCOME_OPTIONS[idx].value
+                                        // Belt and braces: the presets are hidden for
+                                        // not_interested, but a stale selection made
+                                        // BEFORE the rep changed their mind would
+                                        // otherwise still be sent.
+                                        val days = OutcomeForm.effectiveFollowUpDays(outcomeValue, presetDays)
+                                        val nextFollowUpAtIso = days?.let {
+                                            DubaiTime.isoUtc(
+                                                DubaiTime.followUpPresetMillis(System.currentTimeMillis(), it),
                                             )
-                                            error = res.message
                                         }
-                                        ApiResult.NetworkError -> error = netError
+                                        val req = CallOutcomeRequest(
+                                            lead_id = leadId,
+                                            outcome = outcomeValue,
+                                            note = note.trim().ifBlank { null },
+                                            next_follow_up_at = nextFollowUpAtIso,
+                                            not_interested_reason =
+                                                if (OutcomeForm.requiresReason(outcomeValue)) reason.trim() else null,
+                                            complete_follow_up_id =
+                                                if (closeFollowUp) followUpId else null,
+                                        )
+                                        val res = withContext(Dispatchers.IO) { api.callOutcome(req) }
+                                        saving = false
+                                        when (res) {
+                                            is ApiResult.Ok -> {
+                                                // Ok covers plain success AND deduplicated
+                                                // (a 60s retry match is not an error). The
+                                                // three *_error flags mean the outcome WAS
+                                                // saved but a side effect did not land —
+                                                // still a success, just a different toast.
+                                                Notifier.cancel(context, leadId.hashCode())
+                                                val msg = when {
+                                                    res.data.stage_error -> stageErrorMsg
+                                                    res.data.complete_error -> completeErrorMsg
+                                                    res.data.follow_up_error -> followUpErrorMsg
+                                                    else -> saved
+                                                }
+                                                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                                finish()
+                                            }
+                                            is ApiResult.Err -> {
+                                                ErrorQueue(context).enqueue(
+                                                    message = "HTTP ${res.code}: ${res.message}",
+                                                    source = "call_outcome_failed",
+                                                    severity = "warning",
+                                                )
+                                                error = res.message
+                                            }
+                                            ApiResult.NetworkError -> error = netError
+                                        }
                                     }
-                                }
-                            },
-                        ) { Text(stringResource(if (saving) R.string.co_saving else R.string.co_save)) }
+                                },
+                            ) { Text(stringResource(if (saving) R.string.co_saving else R.string.co_save)) }
                         }
                     },
                 ) {
@@ -167,7 +220,47 @@ class CallOutcomeActivity : ComponentActivity() {
                             PyraChip(
                                 label = stringResource(opt.labelRes),
                                 selected = outcomeIndex == index,
-                                onClick = { outcomeIndex = index },
+                                onClick = {
+                                    outcomeIndex = index
+                                    // Clear a date picked before the rep changed
+                                    // their mind — the presets are about to
+                                    // disappear and a hidden-but-set control is
+                                    // exactly how wrong data gets sent.
+                                    if (!OutcomeForm.allowsFollowUp(opt.value)) presetDays = null
+                                },
+                            )
+                        }
+                    }
+
+                    if (needsReason) {
+                        Text(
+                            stringResource(R.string.co_reason_heading),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            REASON_CHIPS.forEach { chipRes ->
+                                val chip = stringResource(chipRes)
+                                PyraChip(
+                                    label = chip,
+                                    selected = reason.trim() == chip,
+                                    onClick = { reason = if (reason.trim() == chip) "" else chip },
+                                )
+                            }
+                        }
+                        OutlinedTextField(
+                            value = reason, onValueChange = { reason = it },
+                            label = { Text(stringResource(R.string.co_reason_label)) },
+                            modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 4,
+                            isError = !reasonOk,
+                        )
+                        if (!reasonOk) {
+                            Text(
+                                stringResource(
+                                    R.string.co_reason_min,
+                                    reason.trim().length, OutcomeForm.MIN_REASON_LENGTH,
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
                             )
                         }
                     }
@@ -178,23 +271,75 @@ class CallOutcomeActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 4,
                     )
 
-                    Text(
-                        stringResource(R.string.co_follow_up_label),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FOLLOW_UP_PRESETS.forEach { preset ->
-                            PyraChip(
-                                label = stringResource(preset.labelRes),
-                                selected = presetDays == preset.days,
-                                onClick = {
-                                    presetDays = if (presetDays == preset.days) null else preset.days
-                                },
-                            )
+                    if (followUpId != null) {
+                        Text(
+                            stringResource(R.string.co_close_follow_up_heading),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        Card(
+                            Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                            ),
+                        ) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        followUpTitle.ifBlank {
+                                            stringResource(R.string.co_close_follow_up_switch)
+                                        },
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                    if (followUpDueAt.isNotBlank()) {
+                                        val dueLabel = remember(followUpDueAt) {
+                                            formatIsoToLocalDateTime(context, followUpDueAt)
+                                        }
+                                        Text(
+                                            stringResource(
+                                                if (followUpOverdue) R.string.co_close_follow_up_overdue
+                                                else R.string.co_close_follow_up_due,
+                                                dueLabel,
+                                            ),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (followUpOverdue) LocalPyraColors.current.danger
+                                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                Switch(checked = closeFollowUp, onCheckedChange = { closeFollowUp = it })
+                            }
+                        }
+                    }
+
+                    if (showPresets) {
+                        Text(
+                            stringResource(R.string.co_follow_up_label),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FOLLOW_UP_PRESETS.forEach { preset ->
+                                PyraChip(
+                                    label = stringResource(preset.labelRes),
+                                    selected = presetDays == preset.days,
+                                    onClick = {
+                                        presetDays = if (presetDays == preset.days) null else preset.days
+                                    },
+                                )
+                            }
                         }
                     }
                 }
             }
         }
     }
+}
+
+private fun formatIsoToLocalDateTime(context: android.content.Context, iso: String): String {
+    val millis = runCatching { Instant.parse(iso).toEpochMilli() }.getOrNull() ?: return iso
+    val date = Date(millis)
+    return "${DateFormat.getDateFormat(context).format(date)} ${DateFormat.getTimeFormat(context).format(date)}"
 }
