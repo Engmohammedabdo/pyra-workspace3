@@ -9,11 +9,19 @@ import { generateId } from '@/lib/utils/id';
  * lookalike. If these ever diverge, the next fix to `next_follow_up`
  * recomputation lands in one path and silently leaves the other wrong.
  *
- * **Ownership is NOT checked here — deliberately.** The two callers have
- * different rules: the CRM route allows the assignee OR an admin (via
- * `canAccessLead`'s admin shortcut); the mobile route allows the assignee
- * only, because a device key carries no RBAC scope. This module owns the
- * state transition; authorization stays with the caller.
+ * **The ownership PREDICATE is not defined here — deliberately.** The callers
+ * have different rules: the CRM route allows the assignee OR an admin (via
+ * `canAccessLead`'s admin shortcut); the mobile routes allow the assignee only,
+ * because a device key carries no RBAC scope, and `call-outcome` additionally
+ * requires the follow-up to belong to the lead in the request.
+ *
+ * **The ORDER in which that predicate is applied IS defined here**, in
+ * [classifyCloseAccess] at the bottom of this file. Ownership must be tested
+ * before the open/already-closed split, or an "already closed" success turns
+ * into an oracle revealing which follow-up ids exist. That ordering was gotten
+ * wrong once already, so it lives in one tested place rather than in each
+ * route. So: the caller supplies WHO counts as the owner; this module owns both
+ * the state transition and WHEN that question is asked.
  */
 
 export interface OpenFollowUp {
