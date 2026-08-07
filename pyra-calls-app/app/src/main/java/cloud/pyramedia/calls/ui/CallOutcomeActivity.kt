@@ -82,6 +82,11 @@ class CallOutcomeActivity : ComponentActivity() {
                 PyraScreen(
                     title = stringResource(R.string.co_title),
                     bottomBar = {
+                        Column {
+                        error?.let {
+                            Text(it, color = MaterialTheme.colorScheme.error)
+                            Spacer(Modifier.height(8.dp))
+                        }
                         Button(
                             enabled = !saving,
                             modifier = Modifier.fillMaxWidth(),
@@ -128,6 +133,7 @@ class CallOutcomeActivity : ComponentActivity() {
                                 }
                             },
                         ) { Text(stringResource(if (saving) R.string.co_saving else R.string.co_save)) }
+                        }
                     },
                 ) {
                     Card(
@@ -150,7 +156,7 @@ class CallOutcomeActivity : ComponentActivity() {
                     }
 
                     Text(
-                        stringResource(R.string.co_outcome_required),
+                        stringResource(R.string.co_outcome_heading),
                         style = MaterialTheme.typography.labelLarge,
                     )
                     // FlowRow, not Row — three chips in a plain Row clipped
@@ -186,10 +192,6 @@ class CallOutcomeActivity : ComponentActivity() {
                                 },
                             )
                         }
-                    }
-
-                    error?.let {
-                        Text(it, color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
