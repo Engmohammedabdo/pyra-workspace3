@@ -146,9 +146,38 @@ export async function markNotInterested(
   };
   if (!lead.win_probability_overridden) updates.win_probability = 0;
 
-  const { data: updatedRow, error: updErr } = await supabase
+  // ── The compare-and-swap, and why it takes this exact shape ─────────────
+  //
+  // `count: 'exact'` with NO `.select()` is load-bearing. Three shapes were
+  // tried against the live API on this very row; only this one works:
+  //
+  //   .or(…) + .select('id')            → 400, 42703 "column
+  //                                        pyra_sales_leads.stage_id does not
+  //                                        exist" — on a column that exists.
+  //   .or(…) + .select('id, stage_id')  → 200, but returns []. The filter is
+  //                                        re-applied to the RETURNING row,
+  //                                        which by then already holds the NEW
+  //                                        stage_id and so fails `neq`. The
+  //                                        UPDATE commits; the caller sees no
+  //                                        row and concludes it lost a race.
+  //   .or(…) + count, no .select()      → 204, Content-Range 0-0/1. Correct.
+  //
+  // The rule underneath: on a mutation carrying a `select=` projection,
+  // PostgREST resolves an `or=` filter against that projection instead of
+  // leaving it in the mutation's WHERE. Drop the projection and it lands
+  // where it belongs. Plain `.eq()` filters are unaffected — see
+  // `app/api/mobile/calls/ignore/route.ts`, which has filtered
+  // `.update().select('id')` on columns it does not project and is fine in
+  // production. Do NOT "fix" that one to match this.
+  //
+  // Cost of getting it wrong: the route treats a stage-move failure as
+  // warn-don't-fail, so shape 1 made every «غير مهتم» from a phone write its
+  // note and close its follow-up on an HTTP 200 while the lead never moved —
+  // silently. Shape 2 was worse: the lead moved with no `stage_change` row.
+  // All 1092 tests passed against both. Only the device test caught it.
+  const { count: updatedCount, error: updErr } = await supabase
     .from('pyra_sales_leads')
-    .update(updates)
+    .update(updates, { count: 'exact' })
     .eq('id', leadId)
     // Compare-and-swap: only move a lead that is not ALREADY in the stage. The
     // early return above handles the sequential retry; this handles the
@@ -164,32 +193,12 @@ export async function markNotInterested(
     // Interpolating STAGE_NOT_INTERESTED into the filter string is safe: it is
     // a code constant of the form ps_[A-Za-z0-9_-]+, never user input, so
     // there is no PostgREST-filter-injection surface (Phase 14.3 #3).
-    .or(`stage_id.is.null,stage_id.neq.${STAGE_NOT_INTERESTED}`)
-    // `stage_id` MUST stay in this select even though no caller reads it.
-    //
-    // On a MUTATION carrying a `select=` projection, PostgREST resolves an
-    // `or=` filter against the PROJECTED columns rather than the table, so
-    // `.select('id')` made the `.or()` above fail with
-    //   42703  column pyra_sales_leads.stage_id does not exist
-    // on a column that plainly does exist. Bisected against the live API:
-    // same `or=` with `select=id,stage_id` → 200; with `select=id` → 400.
-    //
-    // This is specific to `or=`. Plain `.eq()` filters go into the mutation's
-    // own WHERE and need no projection — `app/api/mobile/calls/ignore/route.ts`
-    // has filtered `.update().select('id')` on columns it does not project and
-    // works fine in production. Do not "fix" that one to match this.
-    //
-    // Cost of the bug: the route treats a stage-move failure as warn-don't-fail,
-    // so every «غير مهتم» from a phone wrote its note and closed its follow-up
-    // while the lead never moved — silently, on an HTTP 200. All 1092 tests
-    // passed. Only the device test caught it.
-    .select('id, stage_id')
-    .maybeSingle();
+    .or(`stage_id.is.null,stage_id.neq.${STAGE_NOT_INTERESTED}`);
   if (updErr) {
     console.error('[markNotInterested] lead update failed:', updErr.message);
     return { ok: false, reason: 'db_error' };
   }
-  if (!updatedRow) {
+  if (updatedCount === 0) {
     // A concurrent caller moved it first. The lead IS in the target stage,
     // which is what this function was asked for — success, no second activity.
     return { ok: true, previousStage: fromStage, changed: false };
