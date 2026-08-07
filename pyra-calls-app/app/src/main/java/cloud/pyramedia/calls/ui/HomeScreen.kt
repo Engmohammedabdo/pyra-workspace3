@@ -17,8 +17,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import cloud.pyramedia.calls.BuildConfig
 import cloud.pyramedia.calls.R
@@ -267,15 +265,12 @@ private fun SyncStatus(synced: Boolean) {
 @Composable
 private fun WorkCard(state: WorkState, onOpen: () -> Unit, onRetry: () -> Unit) {
     val shape = MaterialTheme.shapes.large
-    val openDescription = stringResource(R.string.cd_open_my_day)
     Surface(
         onClick = if (state is WorkState.Failed) onRetry else onOpen,
         shape = shape,
         color = MaterialTheme.colorScheme.primary,
         contentColor = Color.White,
-        modifier = Modifier
-            .fillMaxWidth()
-            .semantics { contentDescription = openDescription },
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(20.dp)) {
             Text(
