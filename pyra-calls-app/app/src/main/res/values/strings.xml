@@ -46,8 +46,6 @@
     <string name="home_hello">أهلًا، %1$s</string>
     <string name="home_synced">متزامن</string>
     <string name="home_not_synced">غير متزامن</string>
-    <string name="home_today">مكالمات اليوم</string>
-    <string name="home_month">الشهر</string>
     <string name="home_last_sync">آخر مزامنة: %1$s</string>
     <string name="home_last_sync_never">لم تتم مزامنة بعد</string>
     <string name="home_sync_now">مزامنة الآن</string>
@@ -78,7 +76,6 @@
     <string name="update_version_label">الإصدار %1$s</string>
     <string name="update_size_label">حجم التحميل %1$s</string>
     <string name="update_notes_label">إيه الجديد</string>
-    <string name="update_close">لاحقًا</string>
     <string name="cd_app_logo">شعار بيراميديا</string>
 
     <string name="home_update_banner_title">تحديث جديد متاح</string>
@@ -90,9 +87,7 @@
     <string name="update_required_button">تحديث الآن</string>
     <string name="update_required_contact_admin">لو التحديث مش راضي يكتمل، تواصل مع الأدمن للمساعدة.</string>
 
-    <string name="my_day_open_button">شغل النهاردة</string>
     <string name="my_day_title">شغل النهاردة</string>
-    <string name="my_day_back">رجوع</string>
     <string name="my_day_retry">إعادة المحاولة</string>
     <string name="my_day_section_follow_ups">متابعات مستحقة</string>
     <string name="my_day_section_going_cold">عملاء برد</string>
@@ -100,17 +95,16 @@
     <string name="my_day_unknown_lead">عميل بدون اسم</string>
     <string name="my_day_overdue_at">متأخرة عن %1$s</string>
     <string name="my_day_due_at">مستحقة: %1$s</string>
-    <string name="my_day_call">اتصال</string>
     <string name="my_day_cold_days">بدون تواصل منذ %1$d يوم</string>
-    <string name="my_day_empty_follow_ups">لا توجد متابعات متأخرة أو مستحقة النهاردة — شوف قائمة العملاء البرد تحت وابدأ اتصال</string>
+    <string name="my_day_empty_follow_ups">لا توجد متابعات متأخرة أو مستحقة النهاردة — شوف قائمة العملاء البرد في تبويب «عملاء برد» وابدأ اتصال</string>
     <string name="my_day_empty_going_cold">كل عملاءك متابَعين بانتظام — مفيش عميل برد دلوقتي</string>
     <string name="my_day_tab_follow_ups">متابعات</string>
     <string name="my_day_tab_cold">عملاء برد</string>
     <string name="my_day_refresh">تحديث</string>
 
     <string name="co_title">تسجيل نتيجة المكالمة</string>
-    <string name="co_lead_label">العميل: %1$s</string>
     <string name="co_lead_eyebrow">خلّصت مكالمة مع</string>
+    <string name="co_outcome_heading">إيه اللي حصل؟</string>
     <string name="co_outcome_required">اختر نتيجة المكالمة</string>
     <string name="co_outcome_interested">مهتم</string>
     <string name="co_outcome_not_interested">غير مهتم</string>
