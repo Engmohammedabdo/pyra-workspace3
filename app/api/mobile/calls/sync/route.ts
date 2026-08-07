@@ -4,7 +4,7 @@ import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { phoneMatchKey } from '@/lib/utils/phone';
-import { buildLeadPhoneIndex, matchLeadByPhone, isConnectedCall } from '@/lib/calls/match';
+import { buildLeadPhoneIndex, matchLeadByPhone, isConnectedCall, isOwnedByAgent } from '@/lib/calls/match';
 import { logError } from '@/lib/observability/log-error';
 import { FOLLOW_UP_STATUS } from '@/lib/constants/statuses';
 
@@ -53,8 +53,8 @@ function parseCalls(raw: unknown): IncomingCall[] | null {
  *   - 'duplicate' — device_call_key already synced for this agent (seen in
  *     the pre-check SELECT, repeated within the SAME batch, or caught via
  *     the unique-constraint race on insert — double-sync safe either way)
- *   - 'matched'   — phone matched an existing lead. If the call was
- *     CONNECTED (`isConnectedCall`: direction != 'missed' AND
+ *   - 'matched'   — phone matched an existing lead the calling agent OWNS.
+ *     If the call was CONNECTED (`isConnectedCall`: direction != 'missed' AND
  *     duration_seconds > 0) this ALSO writes a `call_logged`
  *     pyra_lead_activities row + bumps the lead's last_contact_at. A
  *     matched but UNANSWERED dial (direction != 'missed' AND
@@ -65,18 +65,43 @@ function parseCalls(raw: unknown): IncomingCall[] | null {
  *     excludes activity_type='call_attempt' so an unanswered dial can never
  *     look like contact. Missed calls get NO timeline activity and NO
  *     last_contact_at bump at all (design lock — see call-tracking spec).
+ *     A match on a lead the agent does NOT own writes neither (see below).
  *   - 'ignored'   — phone matched a row in this agent's pyra_ignored_numbers
  *   - 'unmatched' — no lead, not ignored
  *   - 'error'     — the pyra_agent_calls insert failed for a NON-unique-
  *     violation reason (DB hiccup). Nothing was persisted for this call;
  *     the phone keeps it queued locally and retries on the next sync.
  *
- * A 'matched' result also carries `owned: boolean` (whole-wave review Gap 2,
- * 2026-07-25). The lead index above is system-wide (no assigned_to filter,
- * first-match wins), so a call to a COLLEAGUE's lead still returns
- * 'matched' + that lead's name — `owned` tells the caller whether the
- * calling agent is actually `assigned_to` that lead. Additive field: a
- * pre-v1.4 phone decodes with ignoreUnknownKeys and never sees it.
+ * OWNERSHIP GATE. The lead index is system-wide by design (a rep really can
+ * dial a number that belongs to a colleague's lead), so a call to a
+ * COLLEAGUE's lead still resolves to status 'matched'. What it must NOT do is
+ * act on that match. Every 'matched' result carries `owned: boolean` (whole-
+ * wave review Gap 2, 2026-07-25 — additive; a pre-v1.4 phone decodes with
+ * ignoreUnknownKeys and never sees it), and as of the Gap-2 close `owned`
+ * GATES three things server-side rather than merely being reported:
+ *   - the `call_logged` / `call_attempt` pyra_lead_activities write,
+ *   - the `last_contact_at` bump,
+ *   - `lead_id` + `lead_name` in the response (an unowned match returns
+ *     `owned: false` alone — see the response comment for why the key itself
+ *     must still be sent and why `status` must stay 'matched').
+ *
+ * THE TWO TIMELINE WRITES AND THE BUMP MOVE AS ONE. Gating only the
+ * `last_contact_at` bump would not fix anything: `lead-idle-check`
+ * (app/api/cron/lead-idle-check/route.ts) computes `lastTouched` as
+ * max(latest activity created_at EXCLUDING activity_type='call_attempt',
+ * last_contact_at) with NO `created_by` filter — so a surviving `call_logged`
+ * row written by a non-owner keeps suppressing the real owner's going-cold
+ * nudge, and the one measured harm outlives the "fix". Never split them.
+ *
+ * `pyra_agent_calls.lead_id` is deliberately STILL SET on an unowned match.
+ * Nulling it would hand the row to `retroLinkCalls` (selects unlinked calls by
+ * phone_normalized with no agent filter) on the next quick-add, which would
+ * re-write exactly the activities this gate just suppressed; and
+ * /api/mobile/calls/ignore guards only on `if (call.lead_id) return 409`, so a
+ * null link would let the caller mark a colleague's customer number as
+ * ignored — dropping those rows out of every bucket in lib/calls/report.ts
+ * and erasing the caller's own workload. Keeping the link is what makes the
+ * gate hold.
  *
  * Persistence ordering: the pyra_agent_calls row is inserted FIRST (with
  * activity_id null); the call_logged/call_attempt activity (+ last_contact_at
@@ -108,16 +133,39 @@ export async function POST(request: NextRequest) {
 
     // 2. lead index + ignore list
     // `assigned_to` is selected so each matched result can carry an `owned`
-    // flag — this index is system-wide (no assigned_to filter, first-match
-    // wins), so a call to a COLLEAGUE's lead still matches; the app needs
-    // ownership to decide whether it's safe to offer the outcome-logging
-    // action (see the `owned` field docs below).
+    // flag — this index stays system-wide ON PURPOSE (no assigned_to filter),
+    // so a call to a COLLEAGUE's lead still matches; `owned` then gates what
+    // that match is allowed to DO (see the ownership gate below). Filtering
+    // the index by agent instead would return 'unmatched', which fires the
+    // app's «رقم غير مسجل» quick-add prompt → POST /api/mobile/leads builds
+    // its OWN unfiltered index, hands back the colleague's lead id, name and
+    // dashboard URL and calls retroLinkCalls() — a louder leak plus more
+    // duplicate-lead pressure.
+    //
+    // `.order('created_at')` + `.range()` + the `agentUsername` preference are
+    // three separate fixes to the same read:
+    //  - the PREFERENCE breaks a duplicate-key tie toward the caller's own
+    //    lead row. Duplicate lead cards for one business on one number are
+    //    real (18 phone keys in prod carry >1 lead), and without this an
+    //    ownership gate would silently erase 14 of 25 real cross-agent
+    //    conversations whose caller in fact owned their own row on that number.
+    //  - the ORDER makes it reproducible: without an ORDER BY, WHICH duplicate
+    //    wins — and therefore the value of `owned` itself — differs between
+    //    two syncs of the same number. `owned` now gates writes, so a
+    //    non-deterministic read is a non-deterministic security decision.
+    //  - the RANGE lifts PostgREST's silent 1,000-row default cap (1,245
+    //    phone-bearing leads today). A truncated index degrades real leads to
+    //    'unmatched' → quick-add prompt → MORE duplicate leads, i.e. it feeds
+    //    the exact failure this change exists to reduce. 8+ other routes in
+    //    this repo carry the same explicit range for this reason.
     const { data: leads, error: leadsErr } = await supabase
       .from('pyra_sales_leads')
       .select('id, name, phone, assigned_to')
-      .not('phone', 'is', null);
+      .not('phone', 'is', null)
+      .order('created_at', { ascending: true })
+      .range(0, 99999);
     if (leadsErr) throw leadsErr;
-    const index = buildLeadPhoneIndex(leads ?? []);
+    const index = buildLeadPhoneIndex(leads ?? [], agentUsername);
 
     // `agent_username = '*'` is a FLEET-WIDE ignore (the company's own lines,
     // the owner's mobile) — same wildcard convention the cron scopes use. Any
@@ -187,6 +235,13 @@ export async function POST(request: NextRequest) {
       const lead = isIgnored ? null : matchLeadByPhone(index, call.phone);
       const matchStatus = isIgnored ? 'ignored' : lead ? 'matched' : 'unmatched';
 
+      // OWNERSHIP GATE — both timeline writes AND the last_contact_at bump
+      // below require it, and they MUST move together (see the doc comment at
+      // the top of this route for why). `isOwnedByAgent` is
+      // `lead.assigned_to === agentUsername`, byte-identical to the gate in
+      // /api/mobile/call-outcome, so a lead with assigned_to NULL fails closed.
+      const owned = isOwnedByAgent(lead, agentUsername);
+
       // Persist the call row FIRST (activity_id back-filled below) so a
       // failed insert never leaves an orphan activity / phantom
       // last_contact_at bump behind.
@@ -223,8 +278,8 @@ export async function POST(request: NextRequest) {
       }
 
       // Side effects AFTER the call row is durable: timeline activity +
-      // last_contact_at bump (matched CONNECTED calls only).
-      if (lead && connected) {
+      // last_contact_at bump (matched CONNECTED calls the agent OWNS only).
+      if (lead && owned && connected) {
         const activityId = generateId('la');
         const { error: actErr } = await supabase.from('pyra_lead_activities').insert({
           id: activityId,
@@ -260,7 +315,7 @@ export async function POST(request: NextRequest) {
             console.error('[calls/sync] last_contact_at bump failed:', bumpErr.message);
           }
         }
-      } else if (lead && call.direction !== 'missed') {
+      } else if (lead && owned && call.direction !== 'missed') {
         // Matched but unanswered (0-second outgoing/incoming dial): visible on
         // the timeline as effort, but NOT contact — no last_contact_at bump,
         // and every "last touched" consumer excludes activity_type=call_attempt
@@ -299,15 +354,31 @@ export async function POST(request: NextRequest) {
       results.push({
         device_call_key: call.device_call_key,
         status: matchStatus,
-        // `owned` is additive (v1.4+) — a pre-v1.4 phone (its JSON decoder
-        // uses ignoreUnknownKeys) simply never sees the field. Only
-        // meaningful when a lead matched: true = the calling agent is this
-        // lead's assigned_to, false = the call matched a COLLEAGUE's lead
-        // (the system-wide index has no assigned_to filter, first-match
-        // wins). The app uses this to skip the outcome-logging notification
-        // action for a lead it doesn't own — that POST would 403 every time
-        // (the ownership gate on /api/mobile/call-outcome).
-        ...(lead ? { lead_id: lead.id, lead_name: lead.name, owned: lead.assigned_to === agentUsername } : {}),
+        // An UNOWNED match returns `owned: false` and NOTHING ELSE — the
+        // colleague's lead id and name are withheld, because the calling
+        // agent has no business learning either from a wrong-number dial.
+        //
+        // Three things here are load-bearing, all verified against both live
+        // app versions:
+        //  1. `owned: false` MUST still be sent. Both live versions compute
+        //     `val owned = r.owned != false`, i.e. absent/null means OWNED by
+        //     design (so an older server can't silence a legitimate
+        //     notification). Dropping the key while omitting the identity
+        //     would make v7/v8 START notifying for a colleague's lead.
+        //  2. `status` stays 'matched'. Downgrading to 'unmatched' fires the
+        //     «رقم غير مسجل» quick-add prompt, and POST /api/mobile/leads
+        //     builds its own UNFILTERED index, returns the colleague's lead
+        //     id + name + dashboard URL with already_existed:true and calls
+        //     retroLinkCalls — a louder leak than the one being closed.
+        //  3. Omitting the fields is a no-op on both live versions:
+        //     SyncWorker.kt gates its matched branch on
+        //     `status == "matched" && lead_id != null && lead_name != null`,
+        //     which short-circuits before `owned` is read. The phone shows
+        //     exactly what it shows today for an unowned match: nothing.
+        //
+        // `owned` itself is additive (v1.4+) — a pre-v1.4 phone's decoder uses
+        // ignoreUnknownKeys and never sees it.
+        ...(lead ? (owned ? { lead_id: lead.id, lead_name: lead.name, owned: true } : { owned: false }) : {}),
       });
     }
 
