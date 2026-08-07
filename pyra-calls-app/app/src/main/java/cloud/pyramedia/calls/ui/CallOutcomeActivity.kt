@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -92,11 +93,32 @@ class CallOutcomeActivity : ComponentActivity() {
 
         setContent {
             PyraTheme {
-                var outcomeIndex by remember { mutableStateOf<Int?>(null) }
-                var note by remember { mutableStateOf("") }
-                var reason by remember { mutableStateOf("") }
-                var presetDays by remember { mutableStateOf<Int?>(null) }
-                var closeFollowUp by remember { mutableStateOf(followUpId != null) }
+                // Fix 4 (rotation wipes the form): all five are the sheet's
+                // typed/picked state, so a config change (rotation — this
+                // screen is NOT orientation-locked, landscape is supported)
+                // must not silently reset them. All are primitives or
+                // nullable primitives, which rememberSaveable's default
+                // Saver already supports — including the null case for the
+                // two Int? fields — so no custom Saver is needed.
+                var outcomeIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+                var note by rememberSaveable { mutableStateOf("") }
+                var reason by rememberSaveable { mutableStateOf("") }
+                var presetDays by rememberSaveable { mutableStateOf<Int?>(null) }
+                // Fix 1c safety net: pre-check the switch ONLY when the rep
+                // can actually SEE which follow-up this is (a title or a due
+                // date rendered below) — never from followUpId alone. Before
+                // the server sent the identity fields, this defaulted to
+                // `followUpId != null` and could silently complete a
+                // follow-up the rep never saw (e.g. a September renewal
+                // reminder closed by a call about something unrelated). Do
+                // NOT "simplify" this back to `followUpId != null` — a switch
+                // that would silently complete something the rep cannot see
+                // must never start on.
+                var closeFollowUp by rememberSaveable {
+                    mutableStateOf(
+                        followUpId != null && (followUpTitle.isNotBlank() || followUpDueAt.isNotBlank()),
+                    )
+                }
                 var saving by remember { mutableStateOf(false) }
                 var error by remember { mutableStateOf<String?>(null) }
                 val scope = rememberCoroutineScope()
@@ -242,6 +264,16 @@ class CallOutcomeActivity : ComponentActivity() {
                             Text(
                                 leadName.ifBlank { unknownLead },
                                 style = MaterialTheme.typography.titleLarge,
+                                // Fix 2 (audit): explicit colour, matching the
+                                // eyebrow above and NoticeCard's own pattern of
+                                // colouring EVERY child Text on a
+                                // noticeContainer background. Leaving this to
+                                // whatever CardDefaults derives for a
+                                // non-scheme container is the same class of
+                                // defect that once left black text on a dark
+                                // background — and the lead's name is the one
+                                // piece of context that matters on this screen.
+                                color = LocalPyraColors.current.onNoticeContainer,
                             )
                         }
                     }

@@ -187,4 +187,35 @@ class PayloadsTest {
         assertEquals("fu_1", d.follow_up_id)
         assertTrue(d.closed)
     }
+
+    // Wave C audit Fix 1 — SyncResult.open_follow_up_title/due_at/overdue ALL
+    // DEFAULT correctly WHEN ABSENT (older server, OR the lead genuinely has
+    // no open follow-up — open_follow_up_id is also absent in that case).
+    // Regression risk: a wrong default here defeats CallOutcomeActivity's
+    // Fix 1c safety net (the close switch only pre-checks when the title or
+    // due date is actually shown) — if title/due ever silently decoded to a
+    // non-blank placeholder instead of null, a follow-up the rep can't see
+    // could get pre-checked again.
+    @Test fun decodesSyncEnvelopeFollowUpIdentityDefaultsWhenAbsent() {
+        val body = """{"data":{"results":[{"device_call_key":"d:1","status":"matched","lead_id":"sl_1","lead_name":"Ahmed"}]},"error":null,"meta":null}"""
+        val env = PyraJson.decodeFromString<Envelope<SyncData>>(body)
+        val r = env.data!!.results[0]
+        assertEquals(null, r.open_follow_up_id)
+        assertEquals(null, r.open_follow_up_title)
+        assertEquals(null, r.open_follow_up_due_at)
+        assertTrue(!r.open_follow_up_overdue)
+    }
+
+    // Same shape, all four follow-up fields present — pins that a real
+    // identity decodes through untouched (title/date carry Arabic text and an
+    // ISO timestamptz; overdue is a real boolean, not just the false default).
+    @Test fun decodesSyncEnvelopeFollowUpIdentityPresent() {
+        val body = """{"data":{"results":[{"device_call_key":"d:1","status":"matched","lead_id":"sl_1","lead_name":"Ahmed","open_follow_up_id":"fu_1","open_follow_up_title":"مكالمة تجديد العقد","open_follow_up_due_at":"2026-09-15T10:00:00.000Z","open_follow_up_overdue":false}]},"error":null,"meta":null}"""
+        val env = PyraJson.decodeFromString<Envelope<SyncData>>(body)
+        val r = env.data!!.results[0]
+        assertEquals("fu_1", r.open_follow_up_id)
+        assertEquals("مكالمة تجديد العقد", r.open_follow_up_title)
+        assertEquals("2026-09-15T10:00:00.000Z", r.open_follow_up_due_at)
+        assertTrue(!r.open_follow_up_overdue)
+    }
 }

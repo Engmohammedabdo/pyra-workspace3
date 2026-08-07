@@ -29,6 +29,15 @@ val PyraJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
     // Null both when the server is older (field absent) and when the lead
     // genuinely has no open follow-up — the app treats both the same way.
     val open_follow_up_id: String? = null,
+    // Wave C audit Fix 1 — the follow-up's IDENTITY, so the outcome sheet can
+    // actually show the rep what it is about to close instead of a bare
+    // switch with no title or date. All three are present iff
+    // open_follow_up_id is non-null; each still needs its own default
+    // because PyraJson's explicitNulls=false means an older server (field
+    // absent) must decode cleanly instead of throwing.
+    val open_follow_up_title: String? = null,
+    val open_follow_up_due_at: String? = null, // ISO timestamptz
+    val open_follow_up_overdue: Boolean = false,
 )
 @Serializable data class SyncData(val results: List<SyncResult>)
 @Serializable data class QuickAddRequest(

@@ -195,6 +195,23 @@ fun HomeScreen(
                         Button(
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = LocalPyraColors.current.danger,
+                                // Fix 3 (audit): explicit contentColor — this
+                                // was the only custom-coloured container in
+                                // the app that omitted it. A single fixed
+                                // colour can't work here: LocalPyraColors
+                                // .current.danger IS MaterialTheme.colorScheme
+                                // .error (same values in both schemes), so
+                                // colorScheme.onError is the color M3 already
+                                // computed to pair with it — white in light
+                                // mode (~4.83:1), near-black #1C1917 in dark
+                                // mode (~9.21:1). Color.White alone (what
+                                // WorkCard/WorkCell/PyraChip use on the
+                                // ORANGE primary surface) would pass in light
+                                // mode but drop to ~1.9:1 on dark mode's danger
+                                // (#FCA5A5, a light salmon) — both floors
+                                // matter on the banner whose entire purpose is
+                                // urgency.
+                                contentColor = MaterialTheme.colorScheme.onError,
                             ),
                             onClick = onLogout,
                         ) { Text(stringResource(R.string.home_session_dead_button)) }

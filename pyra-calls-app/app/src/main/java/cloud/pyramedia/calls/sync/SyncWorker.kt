@@ -76,6 +76,8 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                             if (connected && owned) {
                                 Notifier.showMatched(
                                     applicationContext, r.lead_name, r.lead_id, r.open_follow_up_id,
+                                    r.open_follow_up_title, r.open_follow_up_due_at,
+                                    r.open_follow_up_overdue,
                                 )
                             }
                         }

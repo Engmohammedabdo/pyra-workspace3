@@ -152,6 +152,18 @@ object Notifier {
         // what makes the whole loop — call, notification, sheet, outcome +
         // stage + close — happen without the rep ever opening a list.
         followUpId: String? = null,
+        // Wave C audit Fix 1: the follow-up's IDENTITY. Defaulted so this
+        // stays backward-compatible — without these, CallOutcomeActivity
+        // renders a nameless card with no due date and (before Fix 1c) still
+        // pre-checked the close switch, silently completing a follow-up the
+        // rep never saw. Keys below MUST match CallOutcomeActivity's
+        // intent.getStringExtra("follow_up_title") /
+        // ("follow_up_due_at") / getBooleanExtra("follow_up_overdue")
+        // byte for byte — a typo here produces a card that never appears and
+        // nothing fails loudly.
+        followUpTitle: String? = null,
+        followUpDueAt: String? = null,
+        followUpOverdue: Boolean = false,
     ) {
         val openOutcome = PendingIntent.getActivity(
             context, leadId.hashCode(),
@@ -159,6 +171,9 @@ object Notifier {
                 .putExtra("lead_id", leadId)
                 .putExtra("lead_name", leadName)
                 .putExtra("follow_up_id", followUpId)
+                .putExtra("follow_up_title", followUpTitle)
+                .putExtra("follow_up_due_at", followUpDueAt)
+                .putExtra("follow_up_overdue", followUpOverdue)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
