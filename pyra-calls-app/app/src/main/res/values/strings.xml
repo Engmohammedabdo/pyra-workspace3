@@ -98,6 +98,9 @@
     <string name="my_day_cold_days">بدون تواصل منذ %1$d يوم</string>
     <string name="my_day_empty_follow_ups">لا توجد متابعات متأخرة أو مستحقة النهاردة — شوف قائمة العملاء البرد تحت وابدأ اتصال</string>
     <string name="my_day_empty_going_cold">كل عملاءك متابَعين بانتظام — مفيش عميل برد دلوقتي</string>
+    <string name="my_day_tab_follow_ups">متابعات</string>
+    <string name="my_day_tab_cold">عملاء برد</string>
+    <string name="my_day_refresh">تحديث</string>
 
     <string name="co_title">تسجيل نتيجة المكالمة</string>
     <string name="co_lead_label">العميل: %1$s</string>
