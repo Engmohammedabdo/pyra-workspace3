@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -40,6 +41,11 @@ fun LeadRow(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     onCall: (() -> Unit)? = null,
+    // Optional action strip rendered BELOW the content, full width. Not on the
+    // content row: that row already carries name + subtitle + chip + a 40dp
+    // call button, and two more controls beside them clip at font_scale 1.5 on
+    // a 384dp screen — the same failure as B-02 and I-1.
+    footer: (@Composable () -> Unit)? = null,
 ) {
     val pyra = LocalPyraColors.current
     val toneColor = when (tone) {
@@ -54,59 +60,62 @@ fun LeadRow(
     ) {
         // IntrinsicSize.Min is what lets the 4dp edge stripe below stretch to
         // the card's own height instead of collapsing to zero.
-        Row(
-            Modifier.height(IntrinsicSize.Min),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        Row(Modifier.height(IntrinsicSize.Min)) {
             Box(
                 Modifier
                     .width(4.dp)
                     .fillMaxHeight()
                     .background(toneColor),
             )
-            Row(
-                Modifier.padding(horizontal = 13.dp, vertical = 13.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        name,
-                        style = MaterialTheme.typography.titleSmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (subtitle != null) {
+            Column(Modifier.weight(1f)) {
+                Row(
+                    Modifier.padding(horizontal = 13.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
                         Text(
-                            subtitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            name,
+                            style = MaterialTheme.typography.titleSmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        chipText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = toneColor,
-                    )
-                }
-                if (onCall != null) {
-                    Spacer(Modifier.width(8.dp))
-                    Surface(
-                        onClick = onCall,
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(40.dp),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_call),
-                                contentDescription = stringResource(R.string.cd_call, name),
-                                tint = Color.White,
+                        if (subtitle != null) {
+                            Text(
+                                subtitle,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            chipText,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = toneColor,
+                        )
                     }
+                    if (onCall != null) {
+                        Spacer(Modifier.width(8.dp))
+                        Surface(
+                            onClick = onCall,
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(40.dp),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_call),
+                                    contentDescription = stringResource(R.string.cd_call, name),
+                                    tint = Color.White,
+                                )
+                            }
+                        }
+                    }
+                }
+                if (footer != null) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    footer()
                 }
             }
         }
