@@ -125,14 +125,20 @@ fun UpdateRequiredScreen(
     }
 
     PyraScreen(onBack = null) {
+        // fillMaxWidth is what makes textAlign mean anything: a Text sizes to
+        // its own content, and PyraScreen's content Column aligns Start (the
+        // bare Column this replaced set CenterHorizontally itself). Without
+        // it, textAlign = Center is a no-op and the text hugs the start edge.
         Text(
             stringResource(R.string.update_required_title),
+            modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(12.dp))
         Text(
             stringResource(R.string.update_required_body, versionName),
+            modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
         )
@@ -146,6 +152,7 @@ fun UpdateRequiredScreen(
         Spacer(Modifier.height(16.dp))
         Text(
             stringResource(R.string.update_required_contact_admin),
+            modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.bodySmall,
             textAlign = TextAlign.Center,
         )
