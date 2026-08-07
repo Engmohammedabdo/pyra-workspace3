@@ -315,7 +315,7 @@ app/api/cron/task-deadline-reminders/    → Daily pipeline-task deadline remind
 app/api/cron/attendance-checkin-reminder/ → Check-in reminder for users with personal work schedules (15-min grace)
 lib/production/metrics.ts    → Pure journey/summary metrics (unit-tested in __tests__/production-metrics.test.ts)
 lib/production/report.ts     → computeProductivity() server aggregation (boards → tasks → stage history → attendance)
-lib/notifications/whatsapp.ts → sendWhatsAppToUser() — user-level WA: profile phone by default, agent_whatsapp_settings row as admin override
+lib/notifications/whatsapp.ts → sendWhatsAppToUser() — user-level WA: profile phone by default, agent_whatsapp_settings row as admin override. Sends FROM the line flagged `pyra_whatsapp_instances.is_notification_line` (migration 058) — pure `pickSenderInstance()`, unit-tested; recency is only the fallback. NEVER make the sender a recency race again (2026-08-06 outage: a new sales line silently hijacked every employee notification). Every give-up path logs to `pyra_error_logs`
 lib/utils/notification-sound.ts → Web Audio chime + mute persistence (dashboard bell)
 hooks/useProductivity.ts     → useProductivityReport(month) + useMyProductivity()
 app/api/mobile/*             → Android call-tracking app (device x-api-key auth via getExternalAuth + 'calls:device'; login/calls/sync/leads/calls/ignore/my-day/call-outcome/app-version/app-download/log-error/ping — see docs/CALL-TRACKING.md)

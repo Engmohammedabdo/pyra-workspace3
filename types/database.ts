@@ -1739,6 +1739,9 @@ export interface PyraWhatsAppInstance {
   phone_number: string | null;
   status: 'connected' | 'disconnected' | 'pending';
   api_key: string | null;
+  /** The line internal employee notifications are sent FROM (migration 058). */
+  is_notification_line: boolean;
+  last_connected_at: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

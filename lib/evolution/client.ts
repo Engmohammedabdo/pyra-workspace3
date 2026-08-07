@@ -37,13 +37,17 @@ class EvolutionClient {
     method: string,
     path: string,
     body?: unknown,
+    apiKey?: string,
   ): Promise<T> {
     const url = `${this.baseUrl}${path}`;
     const res = await fetch(url, {
       method,
       headers: {
         'Content-Type': 'application/json',
-        apikey: this.apiKey,
+        // Evolution tokens are instance-scoped: a key minted for one instance
+        // is rejected (401) on another. Callers that know the target line's
+        // own token pass it here; everything else uses the configured key.
+        apikey: apiKey || this.apiKey,
       },
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -134,10 +138,16 @@ class EvolutionClient {
 
   // ─── Messaging ────────────────────────────────────────────
 
-  /** Send a text message */
+  /**
+   * Send a text message.
+   *
+   * `apiKey` overrides the configured key for this call — pass the target
+   * instance's own token when the DB holds one (see pyra_whatsapp_instances).
+   */
   async sendText(
     instanceName: string,
     payload: EvoSendTextPayload,
+    apiKey?: string,
   ): Promise<EvoSendResponse> {
     return this.request<EvoSendResponse>(
       'POST',
@@ -146,6 +156,7 @@ class EvolutionClient {
         number: payload.number,
         text: payload.text,
       },
+      apiKey,
     );
   }
 
