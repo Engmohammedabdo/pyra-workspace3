@@ -449,6 +449,33 @@ export const PIPELINE_FINAL_STAGES: PipelineStageId[] = [
   'stg_closed_lost',
 ];
 
+/**
+ * «غير مهتم» — a CUSTOM stage created through the pipeline-settings UI, NOT
+ * one of the migration-007 seeded `stg_*` rows. Its id is generated, so it
+ * cannot be derived from anything: it is pinned here by value.
+ *
+ * Owner decision (2026-08-07): pin the id in code rather than add an
+ * `is_terminal` column. `pyra_sales_pipeline_stages` has NO column that marks
+ * a stage terminal — `is_default` is the only flag it carries — so **any
+ * future terminal stage must be added to the list below BY HAND**. The only
+ * guard on that is `__tests__/pipeline-terminal-stages.test.ts`.
+ *
+ * Deliberately NOT terminal: `ps_e-w41Um9opZvPTPf` («لا يرد») — a lead that
+ * did not answer still needs chasing and must keep appearing in the
+ * going-cold feed.
+ */
+export const STAGE_NOT_INTERESTED = 'ps_zT_9mNvS8qxMq-7d';
+
+/**
+ * Stages a lead is DONE in — excluded from "going cold" nudges. Typed
+ * `string[]`, not `PipelineStageId[]`: the custom stage above is not a member
+ * of the seeded union.
+ */
+export const PIPELINE_TERMINAL_STAGE_IDS: string[] = [
+  ...PIPELINE_FINAL_STAGES,
+  STAGE_NOT_INTERESTED,
+];
+
 // ── CRM Lead Type ──
 export const LEAD_TYPE = {
   B2B: 'b2b',
