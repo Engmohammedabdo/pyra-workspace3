@@ -121,6 +121,7 @@
     <string name="co_reason_heading">ليه مش مهتم؟</string>
     <string name="co_reason_label">السبب</string>
     <string name="co_reason_min">%1$d / %2$d حرف على الأقل</string>
+    <string name="co_reason_required_hint">اكتب سبب %1$d أحرف على الأقل عشان تقدر تحفظ</string>
     <string name="co_reason_price">السعر مش مناسب</string>
     <string name="co_reason_competitor">فاز عليه منافس</string>
     <string name="co_reason_other">غير ذلك</string>

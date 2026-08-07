@@ -104,12 +104,13 @@ class CallOutcomeActivity : ComponentActivity() {
 
                 // A transient validation/network message must never outlive the
                 // state it described. This screen can disable Save (reasonOk),
-                // so without this, picking «غير مهتم» after an empty-outcome
-                // Save tap left "اختر نتيجة المكالمة" pinned above a dead
-                // button forever — the visible explanation told the rep to do
-                // the thing they'd already done, while the real blocker (an
-                // empty reason) was a small counter further up the screen.
-                LaunchedEffect(outcomeIndex) { error = null }
+                // so an uncleanable message becomes a dead end — e.g. a
+                // network error shown while the reason was valid must not
+                // stay pinned once the rep edits the reason back below the
+                // floor, describing a blocker that is no longer the real one.
+                // Both outcomeIndex AND reason are watched: any input change
+                // makes a previous validation-or-network message stale.
+                LaunchedEffect(outcomeIndex, reason) { error = null }
 
                 val selectedOutcome = outcomeIndex?.let { OUTCOME_OPTIONS[it].value }
                 val needsReason = OutcomeForm.requiresReason(selectedOutcome)
@@ -123,13 +124,28 @@ class CallOutcomeActivity : ComponentActivity() {
                 val followUpErrorMsg = stringResource(R.string.co_follow_up_error)
                 val stageErrorMsg = stringResource(R.string.co_stage_error)
                 val completeErrorMsg = stringResource(R.string.co_complete_error)
+                val reasonRequiredHint = stringResource(
+                    R.string.co_reason_required_hint, OutcomeForm.MIN_REASON_LENGTH,
+                )
 
                 PyraScreen(
                     title = stringResource(R.string.co_title),
                     bottomBar = {
                         Column {
-                            error?.let {
-                                Text(it, color = MaterialTheme.colorScheme.error)
+                            // Precedence: a real error always wins. Otherwise,
+                            // if Save is disabled because the reason is too
+                            // short, say so HERE — the only other explanation
+                            // (the muted counter near the reason field) lives
+                            // inside the scroll area and can scroll out of
+                            // view at large font scales, leaving a greyed-out
+                            // button with no visible reason anywhere.
+                            val bottomBarMessage = error ?: reasonRequiredHint.takeIf { !reasonOk }
+                            bottomBarMessage?.let {
+                                Text(
+                                    it,
+                                    color = if (error != null) MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                                 Spacer(Modifier.height(8.dp))
                             }
                             Button(
@@ -180,10 +196,16 @@ class CallOutcomeActivity : ComponentActivity() {
                                                 // close both fail). Reporting only the first
                                                 // would let the rep assume the other side
                                                 // effect landed when it didn't.
-                                                val warnings = buildList {
-                                                    if (res.data.stage_error) add(stageErrorMsg)
-                                                    if (res.data.complete_error) add(completeErrorMsg)
-                                                    if (res.data.follow_up_error) add(followUpErrorMsg)
+                                                val warnings = OutcomeForm.outcomeWarnings(
+                                                    stageError = res.data.stage_error,
+                                                    completeError = res.data.complete_error,
+                                                    followUpError = res.data.follow_up_error,
+                                                ).map { warning ->
+                                                    when (warning) {
+                                                        OutcomeForm.OutcomeWarning.STAGE -> stageErrorMsg
+                                                        OutcomeForm.OutcomeWarning.CLOSE -> completeErrorMsg
+                                                        OutcomeForm.OutcomeWarning.FOLLOW_UP -> followUpErrorMsg
+                                                    }
                                                 }
                                                 val msg = if (warnings.isEmpty()) saved else warnings.joinToString("\n")
                                                 Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
@@ -246,6 +268,18 @@ class CallOutcomeActivity : ComponentActivity() {
                                     // disappear and a hidden-but-set control is
                                     // exactly how wrong data gets sent.
                                     if (!OutcomeForm.allowsFollowUp(opt.value)) presetDays = null
+                                    // `reason`, unlike presetDays above, is
+                                    // DELIBERATELY left alone here — this
+                                    // asymmetry is intentional, not a miss.
+                                    // Keeping typed text is the same principle
+                                    // as note surviving a mis-tap: a rep who
+                                    // taps the wrong chip and comes back should
+                                    // find their words still there. presetDays
+                                    // is cleared instead because sending a
+                                    // follow-up date together with
+                                    // not_interested is a contradiction the
+                                    // server would accept — it must be made
+                                    // impossible to send, not just hidden.
                                 },
                             )
                         }
@@ -278,6 +312,9 @@ class CallOutcomeActivity : ComponentActivity() {
                             value = reason, onValueChange = { reason = it },
                             label = { Text(stringResource(R.string.co_reason_label)) },
                             modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 4,
+                            // A request already in flight must not be edited
+                            // out from under itself.
+                            enabled = !saving,
                         )
                         if (!reasonOk) {
                             // Muted, not error-coloured: an untouched field right
@@ -301,6 +338,9 @@ class CallOutcomeActivity : ComponentActivity() {
                         value = note, onValueChange = { note = it },
                         label = { Text(stringResource(R.string.co_note_label)) },
                         modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 4,
+                        // A request already in flight must not be edited out
+                        // from under itself.
+                        enabled = !saving,
                     )
 
                     if (followUpId != null) {

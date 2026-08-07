@@ -77,4 +77,52 @@ class OutcomeFormTest {
     @Test fun followUpDaysNullStaysNull() {
         assertNull(OutcomeForm.effectiveFollowUpDays("call_again", null))
     }
+
+    // --- outcomeWarnings ---
+
+    @Test fun outcomeWarningsEmptyWhenNoFlagsSet() {
+        assertEquals(
+            emptyList<OutcomeForm.OutcomeWarning>(),
+            OutcomeForm.outcomeWarnings(stageError = false, completeError = false, followUpError = false),
+        )
+    }
+
+    @Test fun outcomeWarningsStageAlone() {
+        assertEquals(
+            listOf(OutcomeForm.OutcomeWarning.STAGE),
+            OutcomeForm.outcomeWarnings(stageError = true, completeError = false, followUpError = false),
+        )
+    }
+
+    @Test fun outcomeWarningsCloseAlone() {
+        assertEquals(
+            listOf(OutcomeForm.OutcomeWarning.CLOSE),
+            OutcomeForm.outcomeWarnings(stageError = false, completeError = true, followUpError = false),
+        )
+    }
+
+    @Test fun outcomeWarningsFollowUpAlone() {
+        assertEquals(
+            listOf(OutcomeForm.OutcomeWarning.FOLLOW_UP),
+            OutcomeForm.outcomeWarnings(stageError = false, completeError = false, followUpError = true),
+        )
+    }
+
+    @Test fun outcomeWarningsTwoTogetherKeepStageCloseFollowUpOrder() {
+        assertEquals(
+            listOf(OutcomeForm.OutcomeWarning.STAGE, OutcomeForm.OutcomeWarning.FOLLOW_UP),
+            OutcomeForm.outcomeWarnings(stageError = true, completeError = false, followUpError = true),
+        )
+    }
+
+    @Test fun outcomeWarningsAllThreeInOrder() {
+        assertEquals(
+            listOf(
+                OutcomeForm.OutcomeWarning.STAGE,
+                OutcomeForm.OutcomeWarning.CLOSE,
+                OutcomeForm.OutcomeWarning.FOLLOW_UP,
+            ),
+            OutcomeForm.outcomeWarnings(stageError = true, completeError = true, followUpError = true),
+        )
+    }
 }

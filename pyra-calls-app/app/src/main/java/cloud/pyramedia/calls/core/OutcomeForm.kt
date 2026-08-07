@@ -42,4 +42,28 @@ object OutcomeForm {
 
     fun effectiveFollowUpDays(outcome: String?, presetDays: Int?): Int? =
         if (allowsFollowUp(outcome)) presetDays else null
+
+    /** Which side-effect warnings a saved outcome came back with, in display order. */
+    enum class OutcomeWarning { STAGE, CLOSE, FOLLOW_UP }
+
+    /**
+     * The warnings to show for a SAVED outcome, in display order.
+     *
+     * All three flags mean the same thing: the outcome itself was recorded, but a
+     * side effect did not land. None is a failure — the caller shows them as a
+     * message on a success, never as an error. Empty list = clean save.
+     *
+     * Returns ALL applicable warnings, not the first: two side effects can fail
+     * independently, and telling the rep about only one lets them reasonably
+     * conclude the other worked.
+     */
+    fun outcomeWarnings(
+        stageError: Boolean,
+        completeError: Boolean,
+        followUpError: Boolean,
+    ): List<OutcomeWarning> = buildList {
+        if (stageError) add(OutcomeWarning.STAGE)
+        if (completeError) add(OutcomeWarning.CLOSE)
+        if (followUpError) add(OutcomeWarning.FOLLOW_UP)
+    }
 }
