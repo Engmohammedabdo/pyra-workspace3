@@ -23,6 +23,12 @@ val PyraJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
     // false` gate). Defaults null so an OLD server response (field absent)
     // never gets misread as "not owned".
     val owned: Boolean? = null,
+    // Additive (wave C). The agent's earliest OPEN follow-up on the matched
+    // lead, so the "مكالمة مع…" notification can hand it straight to
+    // CallOutcomeActivity and the rep closes the loop without opening a list.
+    // Null both when the server is older (field absent) and when the lead
+    // genuinely has no open follow-up — the app treats both the same way.
+    val open_follow_up_id: String? = null,
 )
 @Serializable data class SyncData(val results: List<SyncResult>)
 @Serializable data class QuickAddRequest(
@@ -85,6 +91,15 @@ val PyraJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
 @Serializable data class CallOutcomeRequest(
     val lead_id: String, val outcome: String,
     val note: String? = null, val next_follow_up_at: String? = null,
+    // Wave C. REQUIRED by the server when outcome == "not_interested" (≥5
+    // chars after trim) and REJECTED with a 422 alongside any other outcome —
+    // so this must be null unless the rep picked «غير مهتم».
+    // PyraJson's explicitNulls=false omits the key entirely when null, which
+    // is what keeps the "rejected with other outcomes" rule satisfiable.
+    val not_interested_reason: String? = null,
+    // Wave C. The follow-up this call answers. Server checks it belongs to the
+    // SAME lead and to the calling agent, else 403.
+    val complete_follow_up_id: String? = null,
 )
 @Serializable data class CallOutcomeData(
     val activity_id: String, val follow_up_id: String? = null,
@@ -95,7 +110,16 @@ val PyraJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
     // also NOT an error — both booleans default false for forward-compat if
     // a future response ever omits them.
     val follow_up_error: Boolean = false, val deduplicated: Boolean = false,
+    // Wave C warn-don't-fail flags: the outcome WAS saved, but the stage move
+    // and/or the follow-up close did not land. Default false so an older
+    // server (fields absent) never reads as a failure.
+    val stage_error: Boolean = false, val complete_error: Boolean = false,
 )
+
+// POST /api/mobile/follow-ups/complete — close a follow-up with no call.
+// `reason` is a closed server-side set: "duplicate" | "wrong_number".
+@Serializable data class CompleteFollowUpRequest(val follow_up_id: String, val reason: String)
+@Serializable data class CompleteFollowUpData(val follow_up_id: String, val closed: Boolean = true)
 
 // GET /api/mobile/my-day — field names mirror app/api/mobile/my-day/route.ts's
 // followUpItems/goingCold/counts mapping EXACTLY (cross-checked against the
@@ -110,7 +134,13 @@ val PyraJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
     val lead_id: String, val lead_name: String, val phone: String? = null,
     val company: String? = null, val days_since_contact: Int,
 )
-@Serializable data class MyDayCounts(val follow_ups: Int, val going_cold: Int)
+@Serializable data class MyDayCounts(
+    val follow_ups: Int, val going_cold: Int,
+    // Wave C, nullable BY CONTRACT: the server reports null when its count
+    // query failed rather than taking the whole screen down. Null means "I
+    // don't know" — the screen falls back to two tabs, never to zero.
+    val overdue: Int? = null,
+)
 @Serializable data class MyDayData(
     val follow_ups: List<MyDayFollowUp>, val going_cold: List<MyDayColdLead>,
     val counts: MyDayCounts,

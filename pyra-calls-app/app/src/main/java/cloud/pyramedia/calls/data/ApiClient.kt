@@ -53,6 +53,10 @@ class ApiClient(
         post("/api/mobile/call-outcome", req,
             CallOutcomeRequest.serializer(), CallOutcomeData.serializer(), withKey = true)
 
+    fun completeFollowUp(req: CompleteFollowUpRequest): ApiResult<CompleteFollowUpData> =
+        post("/api/mobile/follow-ups/complete", req,
+            CompleteFollowUpRequest.serializer(), CompleteFollowUpData.serializer(), withKey = true)
+
     fun logErrors(events: List<ErrorEvent>): ApiResult<LogErrorData> =
         post("/api/mobile/log-error", LogErrorRequest(events),
             LogErrorRequest.serializer(), LogErrorData.serializer(), withKey = true)
