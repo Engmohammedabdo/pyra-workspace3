@@ -345,7 +345,7 @@ private fun WeekStrip(days: List<Int>) {
             }
             Spacer(Modifier.height(12.dp))
             Row(
-                Modifier.fillMaxWidth().height(56.dp),
+                Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(7.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
@@ -356,12 +356,17 @@ private fun WeekStrip(days: List<Int>) {
                         verticalArrangement = Arrangement.Bottom,
                     ) {
                         Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .height((44f * n / max).dp.coerceAtLeast(3.dp))
-                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                .background(LocalPyraColors.current.brandAccent),
-                        )
+                            Modifier.height(44.dp).fillMaxWidth(),
+                            contentAlignment = Alignment.BottomCenter,
+                        ) {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height((44f * n / max).dp.coerceAtLeast(3.dp))
+                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                    .background(LocalPyraColors.current.brandAccent),
+                            )
+                        }
                         Spacer(Modifier.height(5.dp))
                         Text(
                             "$n",
