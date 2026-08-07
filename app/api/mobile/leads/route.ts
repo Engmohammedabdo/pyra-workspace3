@@ -29,6 +29,46 @@ function resolveLeadSource(raw: unknown): MobileLeadSource {
 }
 
 /**
+ * "The number is already registered — but NOT to you."
+ *
+ * The read-side twin of /api/mobile/calls/sync's ownership gate: this route
+ * must never hand the caller a lead they don't own (id, name, or dashboard
+ * URL). What it CAN'T do is drop the keys, and that is a hard constraint set by
+ * the two live handsets, not a style choice:
+ *
+ *   `QuickAddData` (pyra-calls-app/.../core/Payloads.kt) declares
+ *   `lead_id: String`, `lead_name: String`, `lead_url: String` — NON-nullable,
+ *   with NO default values. kotlinx.serialization throws MissingFieldException
+ *   on an absent required field and (no `coerceInputValues` on `PyraJson`)
+ *   also throws on an explicit `null` for a non-nullable one; `ignoreUnknownKeys`
+ *   only forgives EXTRA keys and `explicitNulls = false` only affects ENCODING.
+ *   ApiClient wraps the decode in `runCatching{}.getOrNull()`, so the failure
+ *   is not a crash — it degrades to `ApiResult.Err(200, "خطأ غير متوقع (200)")`,
+ *   which on BOTH live versions (versionCode 7 and 8) shows the rep a red
+ *   error, enqueues a `quick_add_failed` warning, and skips
+ *   `Notifier.cancel(...)` so the «رقم غير مسجل» notification stays and the rep
+ *   retries a request that already succeeded, forever.
+ *
+ * Empty strings decode cleanly and are inert: QuickAddActivity reads
+ * `lead_name`/`lead_id` ONLY in the `already_existed == false` branch, and
+ * `lead_url` is not read anywhere in the app. With `already_existed: true` the
+ * rep gets the existing «الرقم مسجل بالفعل — تم ربط المكالمة» toast, which is
+ * true (the call was linked at sync time — `pyra_agent_calls.lead_id` stays
+ * set on an unowned match by design) and reveals nothing.
+ *
+ * Do NOT "clean this up" by making the Kotlin fields nullable: the live fleet
+ * is what decodes this response, and a future build being tolerant does not
+ * make v7/v8 tolerant. The non-nullable declaration is also load-bearing on the
+ * lead-CREATED path, where a missing id SHOULD fail loudly.
+ */
+const WITHHELD_EXISTING_LEAD = {
+  lead_id: '',
+  lead_name: '',
+  lead_url: '',
+  already_existed: true,
+} as const;
+
+/**
  * Retro-link every unlinked call for this number to the lead + write
  * `call_logged` activities for connected ones and `call_attempt` activities
  * for matched-but-unanswered ones (mirrors /api/mobile/calls/sync). A
@@ -191,23 +231,77 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     if (!call) return apiError('المكالمة غير موجودة', 404);
 
-    // race guard: number may have been registered since the sync
+    // Race guard: the number may have been registered since the sync — OR the
+    // sync may have linked this call to a COLLEAGUE's lead. "This
+    // device_call_key is mine and its row carries a lead_id" is NOT evidence
+    // the caller owns that lead: /api/mobile/calls/sync deliberately KEEPS
+    // `pyra_agent_calls.lead_id` set on an unowned match (nulling it would hand
+    // the row back to retroLinkCalls and to calls/ignore — see that route's doc
+    // comment), so without the ownership check below an agent could POST the
+    // key of a wrong-number dial and receive the colleague's lead id, name and
+    // dashboard URL in a 200 — the exact datum the sync gate withholds.
+    //
+    // `assigned_to === agentUsername` is the same predicate as
+    // `isOwnedByAgent` and /api/mobile/call-outcome's gate, so an unassigned
+    // lead fails closed.
     if (call.lead_id) {
-      const { data: l } = await supabase.from('pyra_sales_leads').select('id, name').eq('id', call.lead_id).single();
-      return apiSuccess({ lead_id: l!.id, lead_name: l!.name, lead_url: `/dashboard/crm/leads/${l!.id}`, already_existed: true });
+      // maybeSingle, not single: a dangling lead_id (lead deleted since the
+      // sync) used to reach `l!.id` and throw → 500. It is not an ownership
+      // match either, so it takes the withheld branch.
+      const { data: l } = await supabase
+        .from('pyra_sales_leads')
+        .select('id, name, assigned_to')
+        .eq('id', call.lead_id)
+        .maybeSingle();
+      const ownedLead = l && l.assigned_to === agentUsername ? l : null;
+      return apiSuccess(
+        ownedLead
+          ? {
+              lead_id: ownedLead.id,
+              lead_name: ownedLead.name,
+              lead_url: `/dashboard/crm/leads/${ownedLead.id}`,
+              already_existed: true,
+            }
+          : WITHHELD_EXISTING_LEAD,
+      );
     }
     // A failed SELECT here MUST abort (throw → logError + 500 → phone
     // retries): building the index from an empty set would make
     // matchLeadByPhone return null and create a DUPLICATE lead.
+    //
+    // `assigned_to` is selected + passed as the duplicate-key PREFERENCE for
+    // the same two reasons the sync route does it: this branch is the SECOND
+    // way this route can hand back a lead the caller doesn't own (a colleague
+    // registered the number between the sync and this quick-add), and where a
+    // number carries duplicate lead cards (18 such phone keys in prod) the
+    // caller's OWN card must win the tie — otherwise an agent who does own a
+    // lead on that number gets the withheld "already registered" toast because
+    // an arbitrary colleague's duplicate won an unordered read.
     const { data: leads, error: leadsErr } = await supabase
       .from('pyra_sales_leads')
-      .select('id, name, phone')
+      .select('id, name, phone, assigned_to')
       .not('phone', 'is', null);
     if (leadsErr) throw leadsErr;
-    const match = matchLeadByPhone(buildLeadPhoneIndex(leads ?? []), call.phone_raw);
+    const match = matchLeadByPhone(
+      buildLeadPhoneIndex(leads ?? [], agentUsername),
+      call.phone_raw,
+    );
     if (match) {
+      // retroLinkCalls still runs for an unowned match: the calls ARE on that
+      // lead's number, and leaving them unlinked would re-fire the app's «رقم
+      // غير مسجل» prompt on every future call to it. Only the IDENTITY is
+      // withheld — see WITHHELD_EXISTING_LEAD.
       await retroLinkCalls(supabase, match.id, call.phone_normalized);
-      return apiSuccess({ lead_id: match.id, lead_name: match.name, lead_url: `/dashboard/crm/leads/${match.id}`, already_existed: true });
+      return apiSuccess(
+        match.assigned_to === agentUsername
+          ? {
+              lead_id: match.id,
+              lead_name: match.name,
+              lead_url: `/dashboard/crm/leads/${match.id}`,
+              already_existed: true,
+            }
+          : WITHHELD_EXISTING_LEAD,
+      );
     }
 
     // create the lead — mirrors /api/crm/leads POST defaults

@@ -43,6 +43,23 @@ function dubaiMonthBounds(month: string): { start: string; end: string } {
  * agent_username rows — a non-team_view caller's `agent` param is IGNORED
  * (never client-controlled scope).
  *
+ * LEAD-IDENTITY GATE (read side of the calls/sync ownership gate). Row scope
+ * alone is NOT enough here: the sync route's lead index is system-wide on
+ * purpose, so an agent's OWN call row can legitimately carry the `lead_id` of
+ * a COLLEAGUE's lead (11 such rows in prod). `/api/mobile/calls/sync` already
+ * withholds `lead_id`/`lead_name` for an unowned match, but this route used to
+ * hand the same datum straight back one click later: it enriched every row from
+ * pyra_sales_leads keyed only on `c.lead_id`, and CallsTable rendered that name
+ * as a link to the colleague's lead page. So `lead_id` + `lead_name` are now
+ * resolved ONLY when the caller may see that lead — `seeAll` (the same
+ * crm_reports.team_view decision used for row scope; admins hold '*' so
+ * hasPermission covers them) OR `lead.assigned_to === caller`, the predicate
+ * byte-identical to `isOwnedByAgent` and to /api/mobile/call-outcome's gate.
+ * A withheld lead returns BOTH fields null, which CallsTable already renders
+ * as the same «—» it shows for an unmatched row (its link is gated on
+ * `call.lead_id`) — `match_status` stays 'matched' because the call really did
+ * match, exactly as the sync route keeps it.
+ *
  * pyra_agent_calls is service-role-only (Gap #3 doctrine) — gate THEN
  * service-role client, never a session client on this table.
  */
@@ -106,27 +123,40 @@ export async function GET(request: NextRequest) {
       : { data: [] as Array<{ username: string; display_name: string }> };
     const nameMap = new Map((users ?? []).map((u) => [u.username, u.display_name]));
 
+    // `assigned_to` is selected purely to drive the lead-identity gate (see
+    // the doc comment above) — it is never returned.
     const leadIds = Array.from(
       new Set(calls.map((c) => c.lead_id).filter((id): id is string => !!id)),
     );
     const { data: leads } = leadIds.length
-      ? await supabase.from('pyra_sales_leads').select('id, name').in('id', leadIds)
-      : { data: [] as Array<{ id: string; name: string }> };
-    const leadMap = new Map((leads ?? []).map((l) => [l.id, l.name]));
+      ? await supabase.from('pyra_sales_leads').select('id, name, assigned_to').in('id', leadIds)
+      : { data: [] as Array<{ id: string; name: string; assigned_to: string | null }> };
+    const leadMap = new Map((leads ?? []).map((l) => [l.id, l]));
 
     return apiSuccess({
-      calls: calls.map((c) => ({
-        id: c.id,
-        agent_username: c.agent_username,
-        agent_display_name: nameMap.get(c.agent_username) ?? c.agent_username,
-        phone: c.phone_raw,
-        direction: c.direction,
-        duration_seconds: c.duration_seconds,
-        called_at: c.called_at,
-        match_status: c.match_status,
-        lead_id: c.lead_id,
-        lead_name: c.lead_id ? leadMap.get(c.lead_id) ?? null : null,
-      })),
+      calls: calls.map((c) => {
+        // A lead row that no longer exists (deleted since the call synced)
+        // also lands here as "not visible" — better a «—» than a link to a
+        // 404, and it cannot leak a name it never resolved.
+        const lead = c.lead_id ? leadMap.get(c.lead_id) ?? null : null;
+        const visibleLead = lead && (seeAll || lead.assigned_to === auth.pyraUser.username)
+          ? lead
+          : null;
+        return {
+          id: c.id,
+          agent_username: c.agent_username,
+          agent_display_name: nameMap.get(c.agent_username) ?? c.agent_username,
+          phone: c.phone_raw,
+          direction: c.direction,
+          duration_seconds: c.duration_seconds,
+          called_at: c.called_at,
+          match_status: c.match_status,
+          // Both null together, always — handing back `lead_id` alone would
+          // still be the colleague's lead id, and CallsTable links on it.
+          lead_id: visibleLead ? c.lead_id : null,
+          lead_name: visibleLead ? visibleLead.name : null,
+        };
+      }),
       page,
       page_size: PAGE_SIZE,
       total: count ?? 0,

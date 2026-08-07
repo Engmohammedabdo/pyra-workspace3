@@ -140,11 +140,20 @@ interface PoisonedLeadRow {
 // of one of the lead's own 0-second, non-missed calls. Selected by the RULE
 // only — no date cutoff on the lead itself, so any older straggler created
 // by the same buggy code path is caught too.
+//
+// OWNERSHIP: every pyra_agent_calls join here — and the correlated max() that
+// computes the replacement value — carries `c.agent_username = l.assigned_to`.
+// `pyra_agent_calls.lead_id` is set even when the dialling agent does NOT own
+// the matched lead (a deliberate lock in /api/mobile/calls/sync: nulling it
+// would hand the row to retroLinkCalls and to calls/ignore), so an unfiltered
+// join lets a COLLEAGUE's dial source a lead's last_contact_at — the exact
+// write the sync route's ownership gate refuses. Without this filter a re-run
+// of `--apply` would re-open that hole from the other side.
 const SQL_POISONED_LEADS = `
   WITH poisoned_leads AS (
     SELECT DISTINCT l.id AS lead_id
     FROM pyra_sales_leads l
-    JOIN pyra_agent_calls c ON c.lead_id = l.id
+    JOIN pyra_agent_calls c ON c.lead_id = l.id AND c.agent_username = l.assigned_to
     WHERE c.duration_seconds = 0 AND c.direction <> 'missed'
       AND l.last_contact_at IS NOT NULL
       AND date_trunc('minute', l.last_contact_at) = date_trunc('minute', c.called_at)
@@ -156,7 +165,8 @@ const SQL_POISONED_LEADS = `
     (
       SELECT max(c2.called_at)
       FROM pyra_agent_calls c2
-      WHERE c2.lead_id = l.id AND c2.duration_seconds > 0 AND c2.direction <> 'missed'
+      WHERE c2.lead_id = l.id AND c2.agent_username = l.assigned_to
+        AND c2.duration_seconds > 0 AND c2.direction <> 'missed'
     ) AS genuine_max
   FROM pyra_sales_leads l
   JOIN poisoned_leads p ON p.lead_id = l.id
@@ -166,7 +176,7 @@ const SQL_POISONED_LEADS = `
 const SQL_MEASURE_POISONED_LEADS = `
   SELECT count(DISTINCT l.id) AS poisoned_leads
   FROM pyra_sales_leads l
-  JOIN pyra_agent_calls c ON c.lead_id = l.id
+  JOIN pyra_agent_calls c ON c.lead_id = l.id AND c.agent_username = l.assigned_to
   WHERE c.duration_seconds = 0 AND c.direction <> 'missed'
     AND l.last_contact_at IS NOT NULL
     AND date_trunc('minute', l.last_contact_at) = date_trunc('minute', c.called_at)

@@ -153,16 +153,30 @@ export async function POST(request: NextRequest) {
     //    wins — and therefore the value of `owned` itself — differs between
     //    two syncs of the same number. `owned` now gates writes, so a
     //    non-deterministic read is a non-deterministic security decision.
-    //  - the RANGE lifts PostgREST's silent 1,000-row default cap (1,245
-    //    phone-bearing leads today). A truncated index degrades real leads to
-    //    'unmatched' → quick-add prompt → MORE duplicate leads, i.e. it feeds
-    //    the exact failure this change exists to reduce. 8+ other routes in
-    //    this repo carry the same explicit range for this reason.
+    //    `created_at` alone is not total: 3 of the 18 duplicate phone keys in
+    //    prod carry rows whose created_at is identical to the microsecond, so
+    //    `id` follows as a TIEBREAKER for those — it is not a preference for
+    //    lower ids, it exists purely to make the winner reproducible. (All 3
+    //    are single-owner, so no `owned` decision ever flipped on this; what
+    //    did vary is WHICH of one owner's two duplicate cards received the
+    //    activity and the last_contact_at bump, splitting one number's history
+    //    across both cards.)
+    //  - the RANGE is DEFENSIVE, not corrective: measured directly against
+    //    prod (2026-08-07) this instance returned `Content-Range: 0-1244/1245`
+    //    for the un-ranged select — all 1,245 phone-bearing leads, NO cap. It
+    //    is self-hosted Supabase with no `db-max-rows` configured, so nothing
+    //    was being truncated. Kept deliberately: if `db-max-rows` is ever set,
+    //    a silently truncated index would degrade real leads to 'unmatched' →
+    //    quick-add prompt → MORE duplicate leads, i.e. it would feed the exact
+    //    failure this route exists to reduce. The ceiling it installs is
+    //    100,000 rows (offsets 0-99,999) — well past the current 1,245, but it
+    //    IS a ceiling, so revisit it before the lead table approaches it.
     const { data: leads, error: leadsErr } = await supabase
       .from('pyra_sales_leads')
       .select('id, name, phone, assigned_to')
       .not('phone', 'is', null)
       .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
       .range(0, 99999);
     if (leadsErr) throw leadsErr;
     const index = buildLeadPhoneIndex(leads ?? [], agentUsername);
