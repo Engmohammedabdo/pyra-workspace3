@@ -134,13 +134,17 @@ export function DealBanner({
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={onToggleDrawer}
-          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-foreground px-2.5 py-1.5 text-[11px] font-medium text-background transition-colors hover:bg-foreground/90"
-        >
-          👤 كارت العميل
-        </button>
+        {/* No-lead conversations render this button below, grouped with
+            "إنشاء عميل" instead of alone up here — see the no-lead branch. */}
+        {hasLead && (
+          <button
+            type="button"
+            onClick={onToggleDrawer}
+            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-foreground px-2.5 py-1.5 text-[11px] font-medium text-background transition-colors hover:bg-foreground/90"
+          >
+            👤 كارت العميل
+          </button>
+        )}
       </div>
 
       {hasLead ? (
@@ -200,7 +204,10 @@ export function DealBanner({
           </div>
         </>
       ) : (
-        <div className="flex items-center border-t border-border/60 px-4 py-2">
+        // No linked lead — "كارت العميل" joins "إنشاء عميل" in one
+        // end-aligned action group instead of floating alone up in row 1
+        // (there are no KPIs here to visually anchor it to).
+        <div className="flex items-center justify-end gap-2 border-t border-border/60 px-4 py-2">
           <button
             type="button"
             onClick={() => onOpenDialog('lead')}
@@ -208,6 +215,13 @@ export function DealBanner({
           >
             <UserPlus className="h-3.5 w-3.5" />
             إنشاء عميل
+          </button>
+          <button
+            type="button"
+            onClick={onToggleDrawer}
+            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-foreground px-2.5 py-1.5 text-[11px] font-medium text-background transition-colors hover:bg-foreground/90"
+          >
+            👤 كارت العميل
           </button>
         </div>
       )}

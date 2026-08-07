@@ -3,8 +3,13 @@
 import { useEffect, useMemo, useRef, useCallback, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Wifi, Inbox, User, MessageCircle, Clock, CheckCircle2, AlarmClock, RefreshCw } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Wifi, RefreshCw, MoreVertical } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { motion } from 'framer-motion';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -27,15 +32,6 @@ import {
   showDesktopNotification,
   requestDesktopPermission,
 } from '@/lib/whatsapp/notifications';
-
-const TAB_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  Inbox,
-  User,
-  MessageCircle,
-  Clock,
-  CheckCircle2,
-  AlarmClock,
-};
 
 export function ChatLayout() {
   const { data: currentUser } = useCurrentUser();
@@ -284,7 +280,7 @@ export function ChatLayout() {
       <div className="space-y-4">
         <Skeleton className="h-10 w-56" />
         <Skeleton className="h-10 w-full" />
-        <div className="grid grid-cols-1 md:grid-cols-[340px_1fr] border border-border rounded-lg overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
+        <div className="grid grid-cols-1 md:grid-cols-[340px_1fr] border border-border rounded-lg overflow-hidden" style={{ height: 'calc(100vh - 170px)' }}>
           <div className="border-e border-border p-3 space-y-2 hidden md:block">
             {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
           </div>
@@ -294,15 +290,15 @@ export function ChatLayout() {
     );
   }
 
-  return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="crm-theme space-y-3">
-      <CrmThemeScope />
-
-      {/* Top bar (CR-T3): title + counter-chip quick filters + line switcher + Ctrl+K */}
-      <TopBar counts={counts} isAdmin={isAdmin} />
-
-      {/* Tabs -- WhatsApp-style underline tabs */}
-      <div role="tablist" aria-label="تصفية المحادثات" className="flex bg-muted rounded-lg overflow-x-auto">
+  // CR-T9 — the tabs + type/tools controls now render INSIDE the
+  // conversation-list column (under its search box), not as separate
+  // full-width rows at the page level. State/handlers all still live here;
+  // this node is just handed down as a slot so ConversationList doesn't need
+  // its own copy of any of this.
+  const toolbarNode = (
+    <div className="border-b border-border bg-card">
+      {/* Compact status tabs -- small horizontally-scrollable pills */}
+      <div role="tablist" aria-label="تصفية المحادثات" className="flex items-center gap-1 overflow-x-auto px-2 pt-2 pb-1 scrollbar-none">
         {visibleTabs.map(tab => {
           const count = tab.key === 'unassigned' ? counts.unassigned
             : tab.key === 'pending' ? counts.pending
@@ -310,7 +306,6 @@ export function ChatLayout() {
             : tab.key === 'snoozed' ? counts.snoozed
             : tab.key === 'all' ? counts.open
             : undefined;
-          const Icon = TAB_ICONS[tab.iconName];
           return (
             <button
               key={tab.key}
@@ -318,16 +313,15 @@ export function ChatLayout() {
               aria-selected={activeTab === tab.key}
               onClick={() => { setActiveTab(tab.key); setSelectedConversation(null); }}
               className={cn(
-                'flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-all whitespace-nowrap border-b-2',
+                'flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors',
                 activeTab === tab.key
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
+                  ? 'bg-orange-500/10 text-orange-700 dark:text-orange-300 font-semibold'
+                  : 'text-muted-foreground hover:bg-muted'
               )}
             >
-              {Icon && <Icon className="h-3.5 w-3.5" />}
               {tab.label}
               {count !== undefined && count > 0 && (
-                <Badge variant="secondary" className="h-4 min-w-[16px] text-[10px] px-1">
+                <Badge variant="secondary" className="h-3.5 min-w-[14px] px-1 text-[9px] leading-none">
                   {count}
                 </Badge>
               )}
@@ -336,18 +330,18 @@ export function ChatLayout() {
         })}
       </div>
 
-      {/* Conversation Type Filter + Toolbar -- compact bar */}
-      <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-1.5">
+      {/* Conversation-type filter + tools -- compact second line */}
+      <div className="flex flex-wrap items-center gap-1.5 px-2 pb-2">
         <div className="flex items-center gap-1">
           {(['all', 'individual', 'group'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setConversationType(t)}
               className={cn(
-                'px-3 py-1 text-xs rounded-full transition-colors',
+                'shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] transition-colors',
                 conversationType === t
                   ? 'bg-primary text-primary-foreground'
-                  : 'bg-card/60 text-muted-foreground hover:bg-card'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/70'
               )}
             >
               {t === 'all' ? 'الكل' : t === 'individual' ? 'فردي' : 'مجموعات'}
@@ -356,43 +350,51 @@ export function ChatLayout() {
           ))}
         </div>
 
-        <div className="flex-1" />
-
         {isAdmin && (
-          <>
+          <div className="flex items-center gap-1 ms-auto">
             <FilterBar />
             <SortSelector value={sortBy} onChange={setSortBy} />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 text-xs gap-1 text-muted-foreground hover:bg-card/60"
-              onClick={() => syncGroupsMutation.mutate()}
-              disabled={syncGroupsMutation.isPending}
-            >
-              <RefreshCw className={cn('h-3 w-3', syncGroupsMutation.isPending && 'animate-spin')} />
-              مزامنة
-            </Button>
-            <Button
-              variant={bulkMode ? 'outline' : 'ghost'}
-              size="sm"
-              className={cn(
-                'h-7 text-xs',
-                bulkMode
-                  ? 'border-primary text-primary'
-                  : 'text-muted-foreground hover:bg-card/60'
-              )}
-              onClick={() => setBulkMode(!bulkMode)}
-            >
-              {bulkMode ? 'إلغاء التحديد' : 'تحديد متعدد'}
-            </Button>
-          </>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted"
+                  aria-label="خيارات إضافية"
+                >
+                  <MoreVertical className="h-3.5 w-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuItem
+                  onClick={() => syncGroupsMutation.mutate()}
+                  disabled={syncGroupsMutation.isPending}
+                  className="gap-2 text-xs"
+                >
+                  <RefreshCw className={cn('h-3.5 w-3.5', syncGroupsMutation.isPending && 'animate-spin')} />
+                  مزامنة
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setBulkMode(!bulkMode)} className="gap-2 text-xs">
+                  {bulkMode ? 'إلغاء التحديد' : 'تحديد متعدد'}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         )}
       </div>
+    </div>
+  );
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="crm-theme space-y-3">
+      <CrmThemeScope />
+
+      {/* Top bar (CR-T3): title + counter-chip quick filters + line switcher + Ctrl+K */}
+      <TopBar counts={counts} isAdmin={isAdmin} />
 
       {/* Main Chat Container */}
       <div
         className="border border-border overflow-hidden bg-card rounded-lg"
-        style={{ height: isAdmin ? 'calc(100vh - 250px)' : 'calc(100vh - 210px)' }}
+        style={{ height: 'calc(100vh - 170px)' }}
       >
         <div className="grid grid-cols-1 md:grid-cols-[340px_1fr] h-full">
           {/* Conversation List */}
@@ -412,6 +414,7 @@ export function ChatLayout() {
               isAdmin={isAdmin}
               onQuickAssign={handleQuickAssign}
               onQuickResolve={handleQuickResolve}
+              toolbar={toolbarNode}
             />
           </div>
 

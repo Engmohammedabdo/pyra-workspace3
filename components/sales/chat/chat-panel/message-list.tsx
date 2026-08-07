@@ -126,7 +126,7 @@ export function MessageList({ messages, notes, leadId, isGroup, onReply, onReact
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className="flex-1 overflow-y-auto px-4 py-3 relative bg-background"
+      className="flex-1 overflow-y-auto px-4 py-3 relative bg-background flex flex-col"
     >
       {timeline.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
@@ -137,7 +137,10 @@ export function MessageList({ messages, notes, leadId, isGroup, onReply, onReact
           <p className="text-[13px] mt-1">ابدأ المحادثة بإرسال رسالة</p>
         </div>
       ) : (
-        <div className="space-y-1">
+        // mt-auto (inside this flex-col scroll container) pushes a short
+        // thread down to the bottom instead of leaving it stranded under
+        // the header with a big empty gap below.
+        <div className="mt-auto space-y-1">
           {groupedItems.map((group, gi) => (
             <div key={group.date || gi}>
               {/* Date separator — pill style */}
@@ -146,7 +149,7 @@ export function MessageList({ messages, notes, leadId, isGroup, onReply, onReact
                   {group.date}
                 </span>
               </div>
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2.5">
                 {group.items.map(item => {
                   if (item.type === 'message') {
                     const msg = item.data;

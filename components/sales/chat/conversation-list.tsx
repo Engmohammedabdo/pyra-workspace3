@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils/cn';
 import { Search, MessageCircle } from 'lucide-react';
 import type { Conversation } from '@/hooks/useWhatsApp';
@@ -34,6 +35,11 @@ interface ConversationListProps {
   isAdmin?: boolean;
   onQuickAssign?: (conv: Conversation) => void;
   onQuickResolve?: (conv: Conversation) => void;
+  // CR-T9 — status tabs + type/tools controls, rendered by the caller
+  // (chat-layout.tsx keeps all the state/handlers) directly beneath the
+  // search box so they read as part of this column, not a separate
+  // full-width row at the page level.
+  toolbar?: ReactNode;
 }
 
 export function ConversationList({
@@ -51,6 +57,7 @@ export function ConversationList({
   isAdmin,
   onQuickAssign,
   onQuickResolve,
+  toolbar,
 }: ConversationListProps) {
   // Slicing allocates two new ARRAYS, never new per-row objects — every row
   // keeps its exact reference from the caller's memo, so ConversationItem's
@@ -114,6 +121,9 @@ export function ConversationList({
           </div>
         )}
       </div>
+
+      {/* Status tabs + type/tools -- CR-T9, moved here from the page level */}
+      {toolbar}
 
       {/* List */}
       <div className="flex-1 overflow-y-auto">

@@ -177,7 +177,7 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
           className={cn(
             'max-w-[65%] rounded-lg px-2 py-1 space-y-0.5 relative shadow-sm border',
             isOutgoing
-              ? 'bg-orange-500/10 border-orange-500/20 text-foreground rounded-ee-none'
+              ? 'bg-orange-500/10 dark:bg-orange-400/[0.14] border-orange-500/20 dark:border-orange-400/30 text-foreground rounded-ee-none'
               : 'bg-card border-border text-foreground rounded-es-none'
           )}
         >
@@ -464,7 +464,7 @@ export function NoteBubble({ content, authorName, timestamp }: NoteBubbleProps) 
   });
   return (
     <div className="flex justify-center px-4 py-0.5">
-      <div className="max-w-[80%] rounded-lg border border-dashed border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5">
+      <div className="max-w-[80%] rounded-lg border border-dashed border-amber-500/40 dark:border-amber-400/30 bg-amber-500/10 dark:bg-amber-400/[0.14] px-2.5 py-1.5">
         <div className="flex items-center gap-1 mb-0.5">
           <span className="text-[10px]">🔒</span>
           <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400">ملاحظة داخلية</span>
