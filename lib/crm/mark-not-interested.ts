@@ -165,7 +165,25 @@ export async function markNotInterested(
     // a code constant of the form ps_[A-Za-z0-9_-]+, never user input, so
     // there is no PostgREST-filter-injection surface (Phase 14.3 #3).
     .or(`stage_id.is.null,stage_id.neq.${STAGE_NOT_INTERESTED}`)
-    .select('id')
+    // `stage_id` MUST stay in this select even though no caller reads it.
+    //
+    // On a MUTATION carrying a `select=` projection, PostgREST resolves an
+    // `or=` filter against the PROJECTED columns rather than the table, so
+    // `.select('id')` made the `.or()` above fail with
+    //   42703  column pyra_sales_leads.stage_id does not exist
+    // on a column that plainly does exist. Bisected against the live API:
+    // same `or=` with `select=id,stage_id` → 200; with `select=id` → 400.
+    //
+    // This is specific to `or=`. Plain `.eq()` filters go into the mutation's
+    // own WHERE and need no projection — `app/api/mobile/calls/ignore/route.ts`
+    // has filtered `.update().select('id')` on columns it does not project and
+    // works fine in production. Do not "fix" that one to match this.
+    //
+    // Cost of the bug: the route treats a stage-move failure as warn-don't-fail,
+    // so every «غير مهتم» from a phone wrote its note and closed its follow-up
+    // while the lead never moved — silently, on an HTTP 200. All 1092 tests
+    // passed. Only the device test caught it.
+    .select('id, stage_id')
     .maybeSingle();
   if (updErr) {
     console.error('[markNotInterested] lead update failed:', updErr.message);
