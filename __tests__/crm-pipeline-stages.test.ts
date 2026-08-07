@@ -3,6 +3,7 @@ import {
   getStageDefaultWinProbability,
   isCrmPipelineStageId,
   isStaticPipelineStageId,
+  resolveStageLabelForActivity,
 } from '@/lib/crm/pipeline-stages';
 
 describe('CRM pipeline stage helpers', () => {
@@ -20,5 +21,19 @@ describe('CRM pipeline stage helpers', () => {
   it('does not invent a win-probability default for custom stages', () => {
     expect(getStageDefaultWinProbability('stg_negotiation')).toBe(72);
     expect(getStageDefaultWinProbability('ps_zT_9mNvS8qxMq-7d')).toBeNull();
+  });
+});
+
+describe('resolveStageLabelForActivity', () => {
+  it('resolves a seeded stage id to its Arabic label', () => {
+    expect(resolveStageLabelForActivity('stg_discovery_call')).toBe('مكالمة استكشافية');
+  });
+
+  it('falls back to the raw id for a custom ps_* stage', () => {
+    expect(resolveStageLabelForActivity('ps_zT_9mNvS8qxMq-7d')).toBe('ps_zT_9mNvS8qxMq-7d');
+  });
+
+  it('returns null unchanged for a lead with no previous stage', () => {
+    expect(resolveStageLabelForActivity(null)).toBeNull();
   });
 });

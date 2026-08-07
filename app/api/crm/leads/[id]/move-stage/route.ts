@@ -24,6 +24,7 @@ import {
   getStageDefaultWinProbability,
   isCrmPipelineStageId,
   isStaticPipelineStageId,
+  resolveStageLabelForActivity,
 } from '@/lib/crm/pipeline-stages';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -270,9 +271,7 @@ export async function POST(
     // source. The UI side already reads labels via useStatusLabels('pipelineStage');
     // do NOT migrate PIPELINE_STAGE_LABELS_AR out of lib/constants without
     // preserving this write path, or this route breaks.
-    const fromLabel = fromStage && isStaticPipelineStageId(fromStage)
-      ? PIPELINE_STAGE_LABELS_AR[fromStage]
-      : fromStage;
+    const fromLabel = resolveStageLabelForActivity(fromStage);
     const toLabel = isStaticPipelineStageId(toStageId)
       ? PIPELINE_STAGE_LABELS_AR[toStageId]
       : (targetStage.name_ar ?? toStageId);

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateId } from '@/lib/utils/id';
-import { PIPELINE_STAGE_LABELS_AR, STAGE_NOT_INTERESTED } from '@/lib/constants/statuses';
-import { isStaticPipelineStageId } from '@/lib/crm/pipeline-stages';
+import { STAGE_NOT_INTERESTED } from '@/lib/constants/statuses';
+import { resolveStageLabelForActivity } from '@/lib/crm/pipeline-stages';
 
 /**
  * The one lead → «غير مهتم» transition.
@@ -111,23 +111,43 @@ export async function markNotInterested(
   };
   if (!lead.win_probability_overridden) updates.win_probability = 0;
 
-  const { error: updErr } = await supabase
+  const { data: updatedRow, error: updErr } = await supabase
     .from('pyra_sales_leads')
     .update(updates)
-    .eq('id', leadId);
+    .eq('id', leadId)
+    // Compare-and-swap: only move a lead that is not ALREADY in the stage. The
+    // early return above handles the sequential retry; this handles the
+    // genuinely concurrent one, where both callers read the old stage before
+    // either wrote. Without it both would insert a stage_change activity and
+    // double the timeline.
+    //
+    // NULL-safe on purpose. A plain .neq() compiles to `stage_id <> '…'`,
+    // which evaluates to NULL for a lead with no stage and excludes the row —
+    // so a stage-less lead could never be moved at all. `stage_id` is
+    // nullable (0 such rows measured 2026-08-07, but the column permits them).
+    //
+    // Interpolating STAGE_NOT_INTERESTED into the filter string is safe: it is
+    // a code constant of the form ps_[A-Za-z0-9_-]+, never user input, so
+    // there is no PostgREST-filter-injection surface (Phase 14.3 #3).
+    .or(`stage_id.is.null,stage_id.neq.${STAGE_NOT_INTERESTED}`)
+    .select('id')
+    .maybeSingle();
   if (updErr) {
     console.error('[markNotInterested] lead update failed:', updErr.message);
     return { ok: false, reason: 'db_error' };
+  }
+  if (!updatedRow) {
+    // A concurrent caller moved it first. The lead IS in the target stage,
+    // which is what this function was asked for — success, no second activity.
+    return { ok: true, previousStage: fromStage, changed: false };
   }
 
   // from_stage_label: move-stage resolves a STATIC stage through
   // PIPELINE_STAGE_LABELS_AR and falls back to the raw id for a custom one.
   // Replicated exactly — including the fallback — so both writers produce the
-  // same string for the same lead.
-  const fromLabel =
-    fromStage && isStaticPipelineStageId(fromStage)
-      ? PIPELINE_STAGE_LABELS_AR[fromStage]
-      : fromStage;
+  // same string for the same lead. Shared with move-stage via
+  // resolveStageLabelForActivity() so the two writers cannot drift apart.
+  const fromLabel = resolveStageLabelForActivity(fromStage);
 
   void supabase
     .from('pyra_lead_activities')
