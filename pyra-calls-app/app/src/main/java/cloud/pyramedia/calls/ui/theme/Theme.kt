@@ -50,6 +50,14 @@ private val LightScheme = lightColorScheme(
     outlineVariant = LightOutline,
     error = LightDanger,
     onError = Color.White,
+    // Warm stone neutrals — Material 3's baseline surfaceContainer* roles are
+    // otherwise purple-tinted (derived from #6750A4) and leak through on any
+    // Card/menu/progress-track with no explicit containerColor.
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF8F7F5),
+    surfaceContainer = Color(0xFFF5F3F1),
+    surfaceContainerHigh = Color(0xFFF2F0ED),
+    surfaceContainerHighest = Color(0xFFF0EEEC),
 )
 
 private val DarkScheme = darkColorScheme(
@@ -67,6 +75,13 @@ private val DarkScheme = darkColorScheme(
     outlineVariant = DarkOutline,
     error = DarkDanger,
     onError = Color(0xFF1C1917),
+    // Warm stone neutrals — same purple-baseline fix as LightScheme, mirrored
+    // into the dark ramp (darkest → lightest as the role name climbs).
+    surfaceContainerLowest = Color(0xFF1A1918),
+    surfaceContainerLow = Color(0xFF201E1D),
+    surfaceContainer = Color(0xFF242220),
+    surfaceContainerHigh = Color(0xFF282523),
+    surfaceContainerHighest = Color(0xFF2C2927),
 )
 
 private val PyraShapes = Shapes(

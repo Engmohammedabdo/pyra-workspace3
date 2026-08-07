@@ -157,7 +157,10 @@ fun MyDayScreen(api: ApiClient, onBack: () -> Unit) {
 
 @Composable
 private fun EmptySectionCard(message: String) {
-    Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+    Card(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
         Text(message, Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
     }
 }
