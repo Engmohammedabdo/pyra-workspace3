@@ -144,7 +144,18 @@ export async function POST(request: NextRequest) {
     // twice within one batch, so this can't happen in practice — accepted
     // for v1.
     const processedKeys = new Set(existingKeys);
-    const results: Array<Record<string, unknown>> = [];
+    interface SyncResultOut {
+      device_call_key: string;
+      status: string;
+      lead_id?: string;
+      lead_name?: string;
+      owned?: boolean;
+      // Additive (wave C): the agent's earliest OPEN follow-up on the matched
+      // lead, so the phone's notification can open the outcome sheet with the
+      // follow-up already attached. An older app ignores unknown keys.
+      open_follow_up_id?: string | null;
+    }
+    const results: SyncResultOut[] = [];
     for (const call of calls) {
       if (processedKeys.has(call.device_call_key)) {
         results.push({ device_call_key: call.device_call_key, status: 'duplicate' });
@@ -288,6 +299,46 @@ export async function POST(request: NextRequest) {
         // (the ownership gate on /api/mobile/call-outcome).
         ...(lead ? { lead_id: lead.id, lead_name: lead.name, owned: lead.assigned_to === agentUsername } : {}),
       });
+    }
+
+    // ── Attach each matched lead's earliest OPEN follow-up ────────────────
+    // ONE query for the whole batch, not one per call. Only leads the calling
+    // agent OWNS are queried (`assigned_to`), so this can never surface a
+    // colleague's follow-up id to a device.
+    //
+    // The `.in()` list is bounded by the batch size (100 calls, deduped to
+    // distinct leads), so it is nowhere near the URL-length class that killed
+    // the idle-check cron — no chunk() needed.
+    //
+    // Best-effort: a failure here leaves the field absent, which the app reads
+    // as "no follow-up attached". It must never fail a sync that already
+    // persisted calls.
+    const matchedLeadIds = Array.from(
+      new Set(results.map((r) => r.lead_id).filter((x): x is string => !!x)),
+    );
+    if (matchedLeadIds.length > 0) {
+      const { data: openFollowUps, error: fuErr } = await supabase
+        .from('pyra_sales_follow_ups')
+        .select('id, lead_id, due_at')
+        .eq('assigned_to', agentUsername)
+        .in('lead_id', matchedLeadIds)
+        .in('status', ['pending', 'overdue'])
+        .order('due_at', { ascending: true });
+      if (fuErr) {
+        console.error('[calls/sync] open follow-up lookup failed:', fuErr.message);
+      } else {
+        // Ordered due_at ASC, so the FIRST row seen per lead is the earliest.
+        const earliestByLead = new Map<string, string>();
+        for (const fu of openFollowUps ?? []) {
+          const leadId = fu.lead_id as string | null;
+          if (leadId && !earliestByLead.has(leadId)) {
+            earliestByLead.set(leadId, fu.id as string);
+          }
+        }
+        for (const r of results) {
+          if (r.lead_id) r.open_follow_up_id = earliestByLead.get(r.lead_id) ?? null;
+        }
+      }
     }
 
     return apiSuccess({ results });
