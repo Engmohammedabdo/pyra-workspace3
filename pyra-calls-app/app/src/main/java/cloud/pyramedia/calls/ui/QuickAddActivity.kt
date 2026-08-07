@@ -72,6 +72,11 @@ class QuickAddActivity : ComponentActivity() {
                 PyraScreen(
                     title = stringResource(R.string.qa_title),
                     bottomBar = {
+                        Column {
+                        error?.let {
+                            Text(it, color = MaterialTheme.colorScheme.error)
+                            Spacer(Modifier.height(8.dp))
+                        }
                         Button(
                             enabled = !saving,
                             modifier = Modifier.fillMaxWidth(),
@@ -113,6 +118,7 @@ class QuickAddActivity : ComponentActivity() {
                                 }
                             },
                         ) { Text(stringResource(if (saving) R.string.qa_saving else R.string.qa_save)) }
+                        }
                     },
                 ) {
                     Text("${stringResource(R.string.qa_phone_label)}: $phone")
@@ -168,10 +174,6 @@ class QuickAddActivity : ComponentActivity() {
                                 )
                             }
                         }
-                    }
-
-                    error?.let {
-                        Text(it, color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
