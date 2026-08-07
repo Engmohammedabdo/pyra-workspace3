@@ -318,12 +318,16 @@ lib/production/report.ts     → computeProductivity() server aggregation (board
 lib/notifications/whatsapp.ts → sendWhatsAppToUser() — user-level WA: profile phone by default, agent_whatsapp_settings row as admin override. Sends FROM the line flagged `pyra_whatsapp_instances.is_notification_line` (migration 058) — pure `pickSenderInstance()`, unit-tested; recency is only the fallback. NEVER make the sender a recency race again (2026-08-06 outage: a new sales line silently hijacked every employee notification). Every give-up path logs to `pyra_error_logs`
 lib/utils/notification-sound.ts → Web Audio chime + mute persistence (dashboard bell)
 hooks/useProductivity.ts     → useProductivityReport(month) + useMyProductivity()
-app/api/mobile/*             → Android call-tracking app (device x-api-key auth via getExternalAuth + 'calls:device'; login/calls/sync/leads/calls/ignore/my-day/call-outcome/app-version/app-download/log-error/ping — see docs/CALL-TRACKING.md)
+app/api/mobile/*             → Android call-tracking app (device x-api-key auth via getExternalAuth + 'calls:device'; login/calls/sync/leads/calls/ignore/my-day/call-outcome/follow-ups/complete/app-version/app-download/log-error/ping — see docs/CALL-TRACKING.md)
+app/api/mobile/follow-ups/complete/ → Close a follow-up from the phone with no call attached (duplicate | wrong_number only; assignee-only, no admin override — shares closeFollowUp() with call-outcome and the web)
 app/api/crm/calls/report/    → Per-agent calls report (calls.view gate; scope 'own' unless crm_reports.team_view)
 app/dashboard/crm/calls/     → Calls report page (admin: all agents; sales agent: own)
 app/api/cron/error-digest/   → Daily admin digest of new/unresolved pyra_error_logs (silent on a clean day; Dubai-day dedup)
 lib/calls/match.ts           → buildLeadPhoneIndex() + matchLeadByPhone() + isConnectedCall() — the ONE contact predicate (see the calls locked decisions)
 lib/calls/report.ts          → computeCallsReport() — pure per-agent/per-day aggregation; answered-only average + answer_rate
+lib/crm/close-follow-up.ts   → loadFollowUpForClose() + closeFollowUp() + classifyCloseAccess() — the ONE follow-up-close state machine; ownership predicate stays with each caller, but the state transition and the ordering (ownership checked BEFORE open/already-closed) live here
+lib/crm/mark-not-interested.ts → markNotInterested() — the ONE lead → «غير مهتم» stage transition; writes a stage_change activity byte-identical to move-stage's own metadata shape
+lib/mobile/outcome-validation.ts → validateOutcomeRequest() — pure request validation for POST /api/mobile/call-outcome (outcome whitelist, note/reason length caps, not_interested_reason required-with/rejected-without)
 lib/utils/chunk.ts           → chunk() — batch unbounded .in() lists (150/batch) so PostgREST never 414s
 pyra_agent_calls / pyra_ignored_numbers → Call-tracking tables (migration 037; service-role-only, Gap #3 doctrine)
 pyra_app_releases            → Android release channel (migration 039 + 056 is_mandatory); publish via pnpm app:publish

@@ -166,6 +166,40 @@ outcome-logging action for a lead it doesn't own (that POST 403s). Additive
 — omitted from the example above only because it predates the field; a
 pre-v1.4 phone's `ignoreUnknownKeys` decoder never sees it either way.
 
+**⚠️ The lead index and the write path are NOT gated on `owned` — see the
+backlog item B-12 in `docs/CALL-TRACKING-BACKLOG.md`.** The index query above
+has no `assigned_to` filter and the `call_logged`/`call_attempt` activity
+insert + `last_contact_at` bump below run for ANY matched+connected call
+regardless of ownership. `owned` only controls what the RESPONSE exposes
+(the app-level decision to offer the outcome action) — it does not stop the
+server from writing to a colleague's lead. Pre-existing, not introduced by
+wave C; the 30-day measurement showing 11 of 846 matched calls landing on a
+lead the caller doesn't own (Finding 2, "Whole-wave review fix bundle"
+section below) only ever fixed the READ side — the `owned` field that stops
+the app from OFFERING the outcome action. The underlying index and write
+path were never gated. Still open — see `docs/CALL-TRACKING-BACKLOG.md`
+B-12/B-13.
+
+**`open_follow_up_id` / `open_follow_up_title` / `open_follow_up_due_at` /
+`open_follow_up_overdue` (wave C, Task CA-C-ج8 + audit Fix 1):** every
+`'matched'` result for a lead the calling agent **owns** additionally carries
+the agent's earliest OPEN follow-up on that lead (`status IN ('pending',
+'overdue')`, ordered `due_at ASC`) — `open_follow_up_id: string | null` plus
+`open_follow_up_title`/`open_follow_up_due_at`/`open_follow_up_overdue`,
+present exactly when `open_follow_up_id` is non-null. This lets the phone's
+«مكالمة مع %1$s» notification open the outcome sheet with the follow-up
+already attached and its "close this follow-up" switch pre-checked, instead
+of showing the switch over a blank card. Computed with ONE extra query for
+the whole batch (`.in('lead_id', matchedLeadIds)`, `matchedLeadIds` = the
+distinct OWNED matched leads in this request — bounded by the 100-call batch
+cap, nowhere near the URL-length class that killed the idle-check cron) —
+never one query per call. `pyra_sales_follow_ups.assigned_to` is scoped
+separately from the lead's own `assigned_to` (a rep can still hold an open
+follow-up on a lead reassigned away from them), so both gates are applied.
+Best-effort: a failure here leaves the fields absent (read by the app as "no
+follow-up attached") and never fails a sync that already persisted calls.
+Additive — a pre-wave-C phone's decoder never sees these keys.
+
 **Verified live — missed call, later ignored** (see endpoint 4 below for the
 same call's ignore response):
 
@@ -505,11 +539,21 @@ free) — every query in this route filters by the authenticated device's
 to any device.
 
 Response: `{ follow_ups: FollowUpItem[], going_cold: ColdLeadItem[], counts:
-{ follow_ups: number, going_cold: number } }` where
+{ follow_ups: number, going_cold: number, overdue: number | null } }` where
 
 - `FollowUpItem = { id, lead_id, lead_name, phone, title, due_at, status }`
   — `status` is `'overdue' | 'pending'`.
 - `ColdLeadItem = { lead_id, lead_name, phone, company, days_since_contact }`.
+
+**`counts.overdue` (wave C) — nullable by contract, not by accident.** It is
+a separate `count: 'exact', head: true` query (`status = 'overdue'`, no
+`due_at` bound needed — an `overdue` row is by definition already past due,
+so it is always a subset of `follow_ups`, which is what lets the app derive
+"due today" by subtraction) so the app's third tab («متأخرة») can show a
+TRUE total instead of the merged `counts.follow_ups` number. It fails SOFT:
+on a query error this field is `null` and the rest of the response still
+ships — the app reads `null` as "fall back to two tabs" rather than render a
+wrong badge. Never take the whole screen down for this one count.
 
 **Scope rules, both server-enforced:**
 
@@ -570,7 +614,20 @@ Response: `{ follow_ups: FollowUpItem[], going_cold: ColdLeadItem[], counts:
 of the 20-row response cap) — the app can render "20 من 34" without a
 second call.
 
-**Verified 2026-07-25 — twice.** (1) Live on the emulator with a real device
+**Terminal-stage exclusion (wave C).** `going_cold` additionally drops any
+lead whose `stage_id ∈ PIPELINE_TERMINAL_STAGE_IDS` (`stg_closed_won`,
+`stg_closed_lost`, and the custom «غير مهتم» stage — `lib/constants/statuses.ts`)
+— a lead the rep already marked not-interested (or already won/lost) must
+never come back as "you haven't called this person." Applied in JS against
+the same fetched candidate pool as the open-follow-up exclusion above, NOT
+as a DB-side `stage_id NOT IN (...)` filter, for the same NULL-safety reason:
+`NOT IN` evaluates to NULL (and silently drops the row) for a NULL
+`stage_id`, and `stage_id` is nullable — a stage-less lead is the opposite of
+finished and must stay in the feed. `counts.going_cold` reflects the
+post-exclusion count, same as the open-follow-up exclusion.
+
+**Verified 2026-07-25 — twice** (pre-dates the wave C terminal-stage
+exclusion above; the numbers below are the open-follow-up exclusion only). (1) Live on the emulator with a real device
 key, against the disposable agent `e2e.upgrade` — both sections rendered and
 `counts` matched a `db:query` replay of the same scope exactly (see "Verified
 this task (2026-07-25 — W2 agent-app E2E)" near the end of this doc).
@@ -637,37 +694,110 @@ specifically.
 
 Auth: device key (`calls:device`) via `requireDeviceAuth`. Lets a sales
 agent log the result of a call from the app: interested / not_interested /
-call_again, with an optional note and an optional next-follow-up date.
+call_again, with an optional note, an optional next-follow-up date, and (as
+of wave C) a way to move the lead to «غير مهتم» and/or close the follow-up
+the call was against — all in the same round trip.
 
 Body: `{ lead_id, outcome: 'interested'|'not_interested'|'call_again', note?,
-next_follow_up_at? }`. `outcome` is validated against the 3-value whitelist
-(422 on anything else); `note` capped at 2000 chars (422 over); if
-`next_follow_up_at` is present it must parse as a valid date (422 if not).
+next_follow_up_at?, not_interested_reason?, complete_follow_up_id? }`
+(`lib/mobile/outcome-validation.ts`, pure and unit-tested — the route calls
+it FIRST and writes nothing until it returns `ok`). `outcome` is validated
+against the 3-value whitelist (422 on anything else); `note` capped at 2000
+chars (422 over); if `next_follow_up_at` is present it must parse as a valid
+date (422 if not).
+
+**`not_interested_reason` (wave C) — required with `not_interested`, rejected
+with anything else.** Minimum 5 chars (`MIN_NOT_INTERESTED_REASON`, same
+floor as the web's `MIN_LOST_REASON`), maximum 500
+(`REASON_MAX_LENGTH` — well below `note`'s 2000, since it is written TWICE:
+`pyra_sales_leads.lost_reason`, an unbounded text column, AND the
+`stage_change` activity's jsonb metadata). Supplying it with `outcome !==
+'not_interested'` is a 422, not a silently-dropped field — a client bug
+becomes visible instead of losing data quietly.
+
+**`complete_follow_up_id` (wave C) — optional, any outcome.** The id of the
+follow-up the call was against; when present the route closes it (see Step 5
+below) via the same `closeFollowUp()` the web's
+`POST /api/crm/follow-ups/[id]/complete` uses.
 
 **Ownership re-check is mandatory** (`app/api/mobile/call-outcome/route.ts:104`):
 `requireDeviceAuth` returns an agent, not a scope — no `canAccessLead`
 equivalent is applied for free on this auth path. The route loads the lead
-(`SELECT assigned_to`) and rejects with `403` unless
-`lead.assigned_to === agentUsername`. A missing lead and a not-owned lead
-both resolve to the same generic 403 message — never leaks whether a given
-`lead_id` exists to a caller who doesn't own it.
+(`SELECT assigned_to, stage_id, is_converted` — the latter two added in wave
+C for the terminal-won guard below, on the SAME round trip) and rejects with
+`403` unless `lead.assigned_to === agentUsername`. A missing lead and a
+not-owned lead both resolve to the same generic 403 message — never leaks
+whether a given `lead_id` exists to a caller who doesn't own it.
 
-Response: `{ activity_id, follow_up_id, follow_up_error, deduplicated }`.
-`follow_up_id` is `null` when no follow-up was requested OR when the
-follow-up insert failed OR (on a deduplicated retry) when no matching
-follow-up could be found. `follow_up_error` is `true` whenever a
-follow-up was requested but the response cannot confirm one exists.
-`deduplicated` is `true` when this request matched a note already logged
-in the last 60 seconds (see "Retry dedup" below). Three concrete shapes:
+**Terminal-won guard (wave C) — hard `422`, before any write.** If
+`not_interested_reason` is present and the lead is already
+`stage_id === 'stg_closed_won'` OR `is_converted === true`
+(`isTerminalWonLead()`, `lib/crm/mark-not-interested.ts`), the request is
+rejected: a deal the business already WON is not eligible for this
+transition from a call outcome — reopening a closed-won deal is an admin
+decision. Checked here (before the 60s dedup lookup and the note insert) as
+the common case, with `markNotInterested()` itself carrying the identical
+check as a same-request-race backstop (Step 4 below).
+
+**Follow-up pre-check (wave C) — before any write, when
+`complete_follow_up_id` is present.** Uses the shared
+`classifyCloseAccess()` (`lib/crm/close-follow-up.ts`) with ownership defined
+as "belongs to THIS lead AND `assigned_to === agentUsername`" — stricter than
+`POST /api/mobile/follow-ups/complete` below, which only checks
+`assigned_to`. A missing follow-up and someone else's (open OR already
+closed) all resolve to the same `403` — never leaks which. An
+already-closed-and-owned follow-up is NOT an error: it is what a
+lost-response retry of a fully successful request looks like on its second
+attempt, and the response reports it as closed exactly as a fresh close
+would.
+
+Response: `{ activity_id, follow_up_id, follow_up_error, deduplicated,
+stage_error, complete_error }`. `follow_up_id` is `null` when no follow-up
+was requested OR when the follow-up insert failed OR (on a deduplicated
+retry) when no matching follow-up could be found. `follow_up_error` is
+`true` whenever a follow-up was requested but the response cannot confirm
+one exists. `deduplicated` is `true` when this request matched a note
+already logged in the last 60 seconds (see "Retry dedup" below).
+`stage_error` (wave C) is `true` when `not_interested_reason` was supplied
+but `markNotInterested()` hit a TRANSIENT failure (`db_error`/`not_found` —
+warn-don't-fail; see the two hard-failure codes below for the STRUCTURAL
+cases, which never set this flag because they short-circuit the whole
+request instead). `complete_error` (wave C) is `true` when
+`complete_follow_up_id` was supplied but the close attempt failed with a
+real `db_error`. Concrete shapes:
 
 - Normal success, no follow-up requested:
-  `{ activity_id: 'la_x', follow_up_id: null, follow_up_error: false, deduplicated: false }`
+  `{ activity_id: 'la_x', follow_up_id: null, follow_up_error: false, deduplicated: false, stage_error: false, complete_error: false }`
 - Normal success, follow-up requested and scheduled:
-  `{ activity_id: 'la_x', follow_up_id: 'fu_y', follow_up_error: false, deduplicated: false }`
+  `{ activity_id: 'la_x', follow_up_id: 'fu_y', follow_up_error: false, deduplicated: false, stage_error: false, complete_error: false }`
 - Follow-up insert failed (flip-and-warn — still `200`):
-  `{ activity_id: 'la_x', follow_up_id: null, follow_up_error: true, deduplicated: false }`
+  `{ activity_id: 'la_x', follow_up_id: null, follow_up_error: true, deduplicated: false, stage_error: false, complete_error: false }`
 - Deduplicated retry (note already existed within 60s):
-  `{ activity_id: 'la_x' /* the ORIGINAL row */, follow_up_id: 'fu_y' | null, follow_up_error: false | true, deduplicated: true }`
+  `{ activity_id: 'la_x' /* the ORIGINAL row */, follow_up_id: 'fu_y' | null, follow_up_error: false | true, deduplicated: true, stage_error: false, complete_error: false }`
+- `not_interested` with a reason, stage move succeeded, a follow-up was also closed:
+  `{ activity_id: 'la_x', follow_up_id: null, follow_up_error: false, deduplicated: false, stage_error: false, complete_error: false }`
+  — the lead is now `stage_id: STAGE_NOT_INTERESTED`, and (if
+  `complete_follow_up_id` was supplied) that follow-up is `completed`. Neither
+  outcome is visible in this response body itself — check the DB, or trust
+  the flags being `false`.
+
+**New hard-failure status codes (wave C), both from Step 4 (stage move) and
+both short-circuiting the whole request — no note/bump/follow-up side effect
+survives either:**
+
+| Code | When | Body |
+|---|---|---|
+| `422` | The lead is already a closed-won/converted customer (terminal-won guard above, or the narrow same-request race the early guard can't close) | `"هذا الليد أصبح عميلاً بالفعل (تم الفوز بالصفقة) — لا يمكن تحويله لغير مهتم من هنا، لازم الإدارة تعيد فتح الصفقة أولاً"` |
+| `500` | `STAGE_NOT_INTERESTED` (`lib/constants/statuses.ts`) cannot be resolved against `pyra_sales_pipeline_stages` — the custom stage was deleted/recreated and the pinned id no longer matches | `"حدث خطأ أثناء تحويل حالة الليد — تواصل مع الدعم الفني"` |
+
+These are STRUCTURAL failures, not transient ones — retrying does not fix
+either, so they fail loud instead of the warn-don't-fail treatment
+`db_error`/`not_found` get (`stageError` flag, request still `200`).
+Warn-don't-fail here would have silently recorded note-only outcomes
+forever: every «غير مهتم» tap would keep returning `200` while moving
+nothing, with nothing surfacing but a `logError()` row — the exact wave C
+concrete failure this closes (see the PostgREST gotcha section below for how
+it was found).
 
 **Side effects:**
 
@@ -690,10 +820,43 @@ in the last 60 seconds (see "Retry dedup" below). Three concrete shapes:
    calling agent (the mobile app only ever schedules follow-ups for itself)
    — the CRM route's `leads.assign`-gated "assign to someone else" branch
    has no mobile equivalent by design, so it was deliberately NOT mirrored.
-4. Writes an audit row via `logActivity()` —
+   **Skips its own `next_follow_up` recompute when `complete_follow_up_id`
+   is also present** (wave C audit Fix 5) — see Step 5 below for why.
+4. **(wave C) If `not_interested_reason` is present:** calls
+   `markNotInterested()` (`lib/crm/mark-not-interested.ts`) — moves the lead
+   to `STAGE_NOT_INTERESTED`, sets `lost_reason`, and zeroes
+   `win_probability` (unless `win_probability_overridden`), then writes a
+   `stage_change` activity whose metadata is byte-identical in shape to
+   `POST /api/crm/leads/[id]/move-stage`'s own write (`from_stage`,
+   `from_stage_label`, `to_stage`, `to_stage_label`, `changed_by`,
+   `lost_reason`) via the shared `buildStageChangeMetadata()`/
+   `resolveStageLabelForActivity()` helpers — a stage move made from the
+   phone is indistinguishable on the timeline from one made on the web.
+   Idempotent: a lead already in the stage returns success with no second
+   write. Runs even on a deduplicated (dedup-window) retry — see "Dedup
+   change" below.
+5. **(wave C) If `complete_follow_up_id` is present and the follow-up isn't
+   already closed-and-owned:** calls `closeFollowUp()`
+   (`lib/crm/close-follow-up.ts`) — compare-and-swaps the follow-up to
+   `completed`, writes a `follow_up_completed` activity, and recomputes
+   `leads.next_follow_up` to the earliest remaining open follow-up (or
+   `null`). This function is the SINGLE writer of `next_follow_up` whenever a
+   close is happening — it runs LAST and reads both the just-closed row and
+   any newly-scheduled one (Step 3) in their FINAL state, which is why Step
+   3 skips its own recompute in this case (racing the two un-awaited writes
+   against each other let whichever landed second decide the column, and on
+   the common "close an overdue follow-up while scheduling the next one"
+   flow that meant the stale due_at from the OLD follow-up could overwrite
+   the correct new one about half the time). Idempotent: a concurrent close
+   matches 0 rows and reports `already_closed`, which is a success from the
+   caller's point of view, not a failure. Also idempotent across retries: an
+   already-closed-and-owned follow-up (Step-3-pre-check `already_done`) sets
+   `completedFollowUpId` without calling `closeFollowUp()` again.
+6. Writes an audit row via `logActivity()` —
    `` `${ENTITY_TYPES.LEAD}_${ACTIVITY_ACTIONS.UPDATE}` `` +
    `metadata.source = 'mobile_call_outcome'` (locked project convention),
-   including `follow_up_error` and `deduplicated`.
+   including `follow_up_error`, `deduplicated`, and (wave C) `stage_moved`,
+   `stage_error`, `completed_follow_up_id`, `complete_error`.
 
 **No `notify()` call.** The CRM follow-ups route only notifies when
 `assignedTo !== caller` — here `assigned_to` is always the calling agent, so
@@ -735,6 +898,14 @@ treated as "no duplicate found," falling through to the normal insert path
 — a transient DB blip on the dedup check must never swallow a real outcome
 the agent just recorded.
 
+**Dedup change (wave C).** A duplicate within the 60s window still skips the
+note insert and the `last_contact_at` bump (Steps 1–2 — already current from
+the original request), but no longer skips the stage move (Step 4) or the
+follow-up close (Step 5). Both are idempotent, so replaying them is free —
+and it means a first attempt that wrote the note but failed the stage move
+repairs itself on the very next retry instead of leaving the agent stuck with
+a note-only, unmoved lead.
+
 **Verified 2026-07-25 — live E2E on the emulator.** All three outcomes were
 submitted against a real device key (disposable agent `e2e.upgrade`, never
 youssef/cosette): each wrote exactly one `note` activity carrying
@@ -748,6 +919,66 @@ task (2026-07-25 — W2 agent-app E2E)" near the end of this doc.
 `pyra_lead_activities.activity_type='note'` and `pyra_sales_follow_ups`'s
 column set were also confirmed against `information_schema.columns` before
 the route was written.
+
+**Verified 2026-08-07 — live E2E on a real device against production
+(cosette's Galaxy A15, not an emulator), before the v1.7.0 publish.** Both
+new paths, checked against the DB after each: (1) «تم» opened the outcome
+sheet with the follow-up pre-attached → «غير مهتم» + a reason → save wrote a
+`note`, a `stage_change` (all six web-identical metadata keys), and a
+`follow_up_completed` row, moved `stage_id` to `STAGE_NOT_INTERESTED`,
+stored `lost_reason` in clean (non-mojibake) Arabic, and zeroed
+`win_probability`; (2) «⋯» → «اقفل من غير مكالمة» → «متابعة مكررة» wrote a
+`follow_up_completed` row with `metadata.source = 'mobile_follow_up_complete'`
+via `POST /api/mobile/follow-ups/complete` (endpoint 11 below). The three
+«شغل النهاردة» tabs rendered real counts and the closed lead disappeared
+from «برد» on the next fetch. All test fixtures were deleted and the
+deletion confirmed afterwards. See `docs/CALL-TRACKING-BACKLOG.md`'s wave-ج
+banner for the spec/plan paths.
+
+### 11. `POST /api/mobile/follow-ups/complete`
+
+Auth: device key (`calls:device`) via `requireDeviceAuth`. Closes an
+administrative follow-up straight from the app with **no call attached** —
+the «⋯» → «اقفل من غير مكالمة» action on a «شغل النهاردة» row (wave C).
+
+Body: `{ follow_up_id: string, reason: 'duplicate' | 'wrong_number' }`.
+`reason` is deliberately a closed 2-value whitelist, not extensible from the
+client (owner decision, 2026-08-07): «اتواصلنا خارج النظام» does not exist as
+a concept here (every conversation runs through a company line), and
+«العميل مش مهتم» is not a close reason at all — it is the stage move above
+(`not_interested_reason` on `call-outcome`), so a not-interested lead
+actually leaves the pipeline instead of just losing its reminder quietly.
+Missing/invalid `follow_up_id` or an out-of-whitelist `reason` → `422`.
+
+**Ownership: the assignee ONLY — no admin override.** Unlike the CRM's
+`POST /api/crm/follow-ups/[id]/complete`, there is nothing to grant an
+override FROM: a device key carries no RBAC scope. A follow-up that does not
+exist and one that belongs to someone else (open OR already closed) all
+return the identical `403` (`"لا تملك صلاحية إغلاق هذه المتابعة"`) — the
+endpoint cannot be used to probe which follow-up ids exist or what state
+they're in. Uses the same shared `classifyCloseAccess()` /
+`loadFollowUpForClose()` / `closeFollowUp()` trio as `call-outcome`'s Step 5
+and the web's own complete route (`lib/crm/close-follow-up.ts`) — one state
+machine, three callers.
+
+Response: `{ follow_up_id, closed: true }` on every success path, including:
+
+- A fresh close.
+- **Retry-of-a-success**: the caller owns a follow-up that is ALREADY
+  `completed` — this is what a lost-response retry looks like on its second
+  attempt, and it returns the SAME `200` shape a fresh close would, not an
+  error.
+- A concurrent close won the race between this request's load and its write
+  (`closeFollowUp()` returns `already_closed`) — from the phone's point of
+  view the follow-up IS closed, which is what it asked for.
+
+Side effects on a fresh close: `closeFollowUp()`'s usual three writes
+(compare-and-swap to `completed`, a `follow_up_completed` timeline activity
+with `metadata.source = 'mobile_follow_up_complete'` and a description
+naming the reason, and a `leads.next_follow_up` recompute), plus a
+`logActivity()` audit row (`lead_update`, `metadata = { lead_id,
+follow_up_id, action: 'completed', close_reason, source:
+'mobile_follow_up_complete' }`).
 
 ## Sync semantics summary
 
@@ -779,6 +1010,58 @@ the route was written.
 - **`'error'` semantics**: the phone must keep that call queued and retry
   it on a later sync — an `'error'` result means nothing was persisted
   server-side for that call.
+
+## PostgREST gotcha — an `or=` filter loses to a `select=` projection on a mutation
+
+Found in wave C's `markNotInterested()` (`lib/crm/mark-not-interested.ts`),
+but the mechanism is generic to every mutation this codebase sends through
+`supabase-js`, not specific to calls — recorded here because this is the
+file whose endpoint contracts are most likely to be extended by hand next,
+and because 1092 passing tests did not catch it; only a real device did.
+
+**The rule:** on an `UPDATE ... WHERE ...` sent through PostgREST, adding a
+`.select()` projection changes what an `.or()` filter is checked AGAINST.
+Without `.select()`, the `or=` filter is evaluated in the mutation's `WHERE`
+clause, against the OLD row — as intended for a compare-and-swap. WITH
+`.select()`, PostgREST re-applies the filter to the RETURNING row instead —
+which by then already holds the NEW values, so a `neq` condition meant to
+guard against a stale write instead evaluates against the write's OWN
+result and (often) fails.
+
+**Three shapes were tried against the live API on the same compare-and-swap**
+(move a lead to «غير مهتم» only if it isn't there already —
+`.update(...).eq('id', leadId).or('stage_id.is.null,stage_id.neq.<target>')`):
+
+| Shape | Result |
+|---|---|
+| `.or(...) + .select('id')` | `400`, `42703: column pyra_sales_leads.stage_id does not exist` — on a column that plainly exists. |
+| `.or(...) + .select('id, stage_id')` | `200` but returns `[]`. The filter is re-applied to the RETURNING row, which already holds the NEW `stage_id` and so fails `neq`. **The UPDATE commits** — the lead really did move — but the caller sees zero rows back and wrongly concludes it lost a race. |
+| `.or(...) + count: 'exact'`, **no** `.select()` | `204`, `Content-Range: 0-0/1`. Correct — the filter stays in the `WHERE`, against the OLD row. |
+
+**Cost of getting it wrong, concretely:** the route treats a stage-move
+failure as warn-don't-fail (transient DB errors are meant to be
+self-repairing on retry), so shape 1's `400` made every «غير مهتم» tap from
+a phone write its note and close its follow-up on an HTTP `200` while the
+lead's stage silently never moved. Shape 2 was worse in a different way: the
+lead DID move, correctly, with no error — but with no `stage_change`
+activity, because the route read "0 rows returned" as "someone else already
+moved it" and skipped writing the timeline row it should have written for
+its own successful update. **All 1092 tests passed against both shapes** —
+none of them exercise the real PostgREST HTTP layer. Only the device test,
+which does, caught it. The fix shipped as shape 3: `count: 'exact'` with no
+`.select()` at all, reading `count === 0` (not `data.length === 0`) as "lost
+the race."
+
+**This is NOT a general "avoid `.or()` on mutations" lesson.** Plain
+`.eq()` filters are unaffected — `app/api/mobile/calls/ignore/route.ts` has
+a filtered `.update().select('id')` on columns it does not project, and has
+been fine in production. **Do not "fix" that one to match this** — there is
+nothing to fix. The trap is specifically an `.or()` (or, presumably, any
+filter PostgREST can choose to re-target) combined with a `.select()`
+projection on the same mutation. When you need both a compare-and-swap
+`.or()`/similar filter AND to know whether the write happened, use
+`count: 'exact'` with no `.select()` and branch on `count`, not on the
+`data` array's length.
 
 ## Agent-facing app surfaces (v1.4)
 
@@ -1257,6 +1540,8 @@ fleet (which polls `pyra-calls`) can never see a test build. NEVER pass
 | 1.3.0 | 4 | 2026-07-20 | Lead **source** picker in quick-add | First self-serve fleet update |
 | 1.4.0 | 5 | — | Caller identity, «شغل النهاردة», outcome capture — **never published alone**, folded into 1.5.0 | — |
 | 1.5.0 | 6 | 2026-07-29 | Update banner + mandatory-block support (+ all of 1.4.0) | Self-serve; **whole fleet on 6 by 2026-07-30** |
+| 1.6.0 | 7 | 2026-08-07 | Visual/UX foundation rewrite — orange/dark theme, redesigned Home, two-tab «شغل النهاردة», app icon, save-button-clipped-by-large-font fix (wave أ+ب, 19 backlog items closed) | Self-serve |
+| 1.7.0 | 8 | 2026-08-07 (night) | Close-the-follow-up-loop (wave ج) — «غير مهتم» stage move with a mandatory reason, follow-up close with/without a call, three «شغل النهاردة» tabs with server-sourced counts, dead-session banner, real notification-action icons (11 backlog items closed — see `docs/CALL-TRACKING-BACKLOG.md`) | Self-serve |
 
 v1.5.0: SHA-256 `CD95E8325A0644A98DB35F6A155214BBC945FCA9BCD326B9C6E0C6AB73B864A3`,
 7.87 MB, published **`is_mandatory: false`** on purpose — the block is reserved
@@ -1265,6 +1550,17 @@ for a release with a real reason.
 **Fleet state verified 2026-07-30:** both active device keys
 (`device:youssef:…`, `device:cosette:…`) report `app_version_code = 6` and are
 syncing; zero `pyra_error_logs` rows from `pyra-calls-app` since the release.
+
+v1.6.0: SHA-256 `4DB6487A852329D5C0D0E08F690A586AF6D446602BCC7F9B7B7C2E1B39AC68B1`,
+8.13 MB, published `is_mandatory: false`.
+
+v1.7.0: SHA-256 `5DA47314C28BD6BCBF7751ECE041A0647710E93CD6010786CA444A1DA46AD2FE`,
+8.16 MB, published `is_mandatory: false` on purpose — same reasoning as
+v1.5.0, plus habituating reps to a block destroys the escape hatch's value
+for the one release that actually needs it. Server (`origin/main`) deployed
+before the publish, per the shipping rules below. Verified E2E against
+production on a real device before this publish — see the "Verified
+2026-08-07" note under endpoint 10 above.
 
 ### Post-deploy verification queries
 
