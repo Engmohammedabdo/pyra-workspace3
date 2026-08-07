@@ -87,6 +87,24 @@ object Notifier {
     // browser, which drops the rep out of the app and asks them to log in to
     // the web. It now opens the same in-app outcome sheet the matched-call
     // notification uses — the action being asked for is identical.
+    //
+    // Notification-id aliasing (fix round 1, documented not fixed): this and
+    // [showMatched] now post to the SAME notification id (`leadId.hashCode()`)
+    // on the SAME channel, AND build a PendingIntent with the same request
+    // code (`leadId.hashCode()`) wrapping an Intent that `filterEquals`
+    // treats as identical to showMatched's (extras are ignored by that
+    // comparison). They are therefore the same PendingIntent, and whichever
+    // of the two calls runs last replaces the other's extras — in
+    // particular showMatched's `follow_up_id`. Safe TODAY only because
+    // showFeedback fires exclusively for a lead that was just quick-added,
+    // so the ordering that would let it clobber a live follow_up_id set by a
+    // prior showMatched call cannot occur. Before this task the two used
+    // different ids and different intents; this aliasing is new. It becomes
+    // unsafe the moment showFeedback can fire for a lead that also has a
+    // pending showMatched notification (e.g. quick-add feedback arriving
+    // after a matched-call notification for the same lead) — that would
+    // silently drop follow_up_id and CallOutcomeActivity would lose its
+    // "close this follow-up too" behavior.
     fun showFeedback(context: Context, leadName: String, leadId: String) {
         val open = PendingIntent.getActivity(
             context, leadId.hashCode(),
@@ -117,6 +135,14 @@ object Notifier {
     // the web deep link — the primary action is capturing the outcome, not
     // just viewing the lead. The web deep link survives as a secondary
     // action button for agents who still want the full CRM lead page.
+    //
+    // Notification-id aliasing (fix round 1, documented not fixed): see the
+    // matching note on [showFeedback] above — the two share notification id,
+    // channel and (via Intent.filterEquals ignoring extras) PendingIntent
+    // identity, so a later showFeedback call for the SAME lead would replace
+    // this notification's PendingIntent and drop `followUpId`. Currently
+    // unreachable because showFeedback only fires for a just-quick-added
+    // lead.
     fun showMatched(
         context: Context,
         leadName: String,

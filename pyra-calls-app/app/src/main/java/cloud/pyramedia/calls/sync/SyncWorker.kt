@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import cloud.pyramedia.calls.BuildConfig
-import cloud.pyramedia.calls.core.SessionHealth
 import cloud.pyramedia.calls.core.SyncPlanner
 import cloud.pyramedia.calls.core.UpdatePolicy
 import cloud.pyramedia.calls.data.ApiClient
@@ -22,14 +21,6 @@ class SyncWorker(context: Context, params: WorkerParameters) :
         if (!prefs.isLoggedIn()) return Result.success()
         val api = ApiClient(BuildConfig.BASE_URL) { prefs.deviceKey }
 
-        fun noteAuthOutcome(ok: Boolean, errorCode: Int?) {
-            val next = SessionHealth.next(
-                SessionHealth.State(prefs.authFailureStreak, prefs.sessionDead), ok, errorCode,
-            )
-            prefs.authFailureStreak = next.streak
-            prefs.sessionDead = next.dead
-        }
-
         while (true) {
             val batch = CallLogReader.readBatch(applicationContext, prefs)
             if (batch.calls.isEmpty()) {
@@ -46,12 +37,12 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                 // so it still has to feed the dead-session tracker or a
                 // revoked device key on a quiet phone would never trip it.
                 val pong = api.ping()
-                noteAuthOutcome(pong is ApiResult.Ok, (pong as? ApiResult.Err)?.code)
+                prefs.recordAuthOutcome(pong is ApiResult.Ok, (pong as? ApiResult.Err)?.code)
                 break
             }
             when (val res = api.sync(batch.calls.map { it.entry })) {
                 is ApiResult.Ok -> {
-                    noteAuthOutcome(true, null)
+                    prefs.recordAuthOutcome(true, null)
                     val byKey = batch.calls.associateBy { it.entry.device_call_key }
                     for (r in res.data.results) {
                         if (r.status == "unmatched") {
@@ -101,7 +92,7 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                     // everything else (e.g. 422 validation) is a lower-severity warning.
                     val severity =
                         if (res.code >= 500 || res.code == 401 || res.code == 403) "error" else "warning"
-                    noteAuthOutcome(false, res.code)
+                    prefs.recordAuthOutcome(false, res.code)
                     ErrorQueue(applicationContext).enqueue(
                         message = "HTTP ${res.code}: ${res.message}",
                         source = "sync_failed",
@@ -119,8 +110,10 @@ class SyncWorker(context: Context, params: WorkerParameters) :
         // no retry escalation, no new Result semantics.
         val queue = ErrorQueue(applicationContext)
         val pending = queue.snapshot()
-        if (pending.isNotEmpty() && api.logErrors(pending) is ApiResult.Ok) {
-            queue.removeShipped(pending.size)
+        if (pending.isNotEmpty()) {
+            val logRes = api.logErrors(pending)
+            prefs.recordAuthOutcome(logRes is ApiResult.Ok, (logRes as? ApiResult.Err)?.code)
+            if (logRes is ApiResult.Ok) queue.removeShipped(pending.size)
         }
 
         // Self-update check — throttled to once per 6h (UpdatePolicy). Wrapped
@@ -132,6 +125,11 @@ class SyncWorker(context: Context, params: WorkerParameters) :
             if (UpdatePolicy.shouldCheck(now, prefs.lastUpdateCheckAtMillis)) {
                 prefs.lastUpdateCheckAtMillis = now
                 val v = api.appVersion()
+                // Reported inside this runCatching on purpose (Fix 2): a
+                // throw anywhere in this block — including from this call —
+                // must never fail the sync cycle, and that guarantee has to
+                // cover the auth-outcome write too.
+                prefs.recordAuthOutcome(v is ApiResult.Ok, (v as? ApiResult.Err)?.code)
                 if (v is ApiResult.Ok) {
                     val latest = v.data.latest
                     // Cache what THIS poll found so Home's banner and

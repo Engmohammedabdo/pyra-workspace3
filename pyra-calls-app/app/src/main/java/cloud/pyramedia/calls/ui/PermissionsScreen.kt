@@ -128,15 +128,39 @@ fun rememberPendingUpdate(prefs: AppPrefs): PendingUpdateState {
 }
 
 /**
+ * Holder returned by [rememberSessionDead]: `.value` for the current
+ * snapshot, `.refresh()` to force an immediate re-read from [AppPrefs] — same
+ * shape as [PendingUpdateState] above, for the same reason. Fix round 1: the
+ * flag is no longer cleared ONLY on SyncWorker's up-to-15-minute (longer
+ * under doze) periodic run — HomeScreen's own authenticated `api.myDay()`
+ * call now writes an outcome on every load too, via
+ * `AppPrefs.recordAuthOutcome`. Without an exposed `refresh()`, Home would
+ * write the corrected flag into AppPrefs and keep rendering the stale banner
+ * until the next `ON_RESUME` — exactly the bug [rememberPendingUpdate] was
+ * built to avoid for the update banner.
+ */
+class SessionDeadState internal constructor(private val prefs: AppPrefs) {
+    private val state = mutableStateOf(prefs.sessionDead)
+    val value: Boolean get() = state.value
+
+    fun refresh() {
+        state.value = prefs.sessionDead
+    }
+}
+
+/**
  * Live mirror of [AppPrefs.sessionDead] — same idiom, same reason, as
  * [rememberPendingUpdate] directly above: a raw SharedPreferences read is not
- * Compose State, so a flag SyncWorker clears in the background would otherwise
- * leave a stale red banner on screen for the life of the process.
+ * Compose State, so a flag corrected in the background would otherwise leave
+ * a stale banner on screen for the life of the composition. Re-reads on
+ * `ON_RESUME`; callers that write a fresh outcome themselves (HomeScreen's
+ * `loadWork()`) call `.refresh()` directly afterward instead of waiting for
+ * the next resume.
  */
 @Composable
-fun rememberSessionDead(prefs: AppPrefs): State<Boolean> {
-    val state = remember { mutableStateOf(prefs.sessionDead) }
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { state.value = prefs.sessionDead }
+fun rememberSessionDead(prefs: AppPrefs): SessionDeadState {
+    val state = remember { SessionDeadState(prefs) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { state.refresh() }
     return state
 }
 

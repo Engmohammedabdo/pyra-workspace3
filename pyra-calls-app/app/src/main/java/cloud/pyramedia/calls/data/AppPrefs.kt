@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import cloud.pyramedia.calls.core.SessionHealth
 import java.io.File
 
 /**
@@ -216,18 +217,53 @@ class AppPrefs(context: Context) {
 
     // --- Session health (wave C) ---
     //
-    // Written ONLY by SyncWorker, via SessionHealth.next(). Same Compose
-    // caveat as the pending-update cache above: read it through
-    // `rememberSessionDead(prefs)` in ui/PermissionsScreen.kt, never directly
-    // from a Composable — a raw SharedPreferences read is not Compose State.
+    // Written by SyncWorker AND HomeScreen's own api.myDay() call (fix round
+    // 1 — Home's authenticated GET is the fast signal; SyncWorker's periodic
+    // run is only a fallback that can be hours away under doze), both via
+    // [recordAuthOutcome]. Same Compose caveat as the pending-update cache
+    // above: read it through `rememberSessionDead(prefs)` in
+    // ui/PermissionsScreen.kt, never directly from a Composable — a raw
+    // SharedPreferences read is not Compose State.
+    //
+    // Read-only here (fix round 1, Fix 3): the pair used to be two
+    // independent `var`s, each with its own `edit().apply()` setter, so a
+    // caller writing both (SyncWorker's old noteAuthOutcome) committed them
+    // as two separate, in-principle-divergeable writes — and cost two
+    // separate UseKtx lint sites for it. Every write now goes through
+    // [setSessionHealth]'s single batched `edit()`; the getters stay because
+    // the read side (recordAuthOutcome, rememberSessionDead) still needs them.
 
-    var authFailureStreak: Int
+    val authFailureStreak: Int
         get() = prefs.getInt("auth_failure_streak", 0)
-        set(v) = prefs.edit().putInt("auth_failure_streak", v).apply()
 
-    var sessionDead: Boolean
+    val sessionDead: Boolean
         get() = prefs.getBoolean("session_dead", false)
-        set(v) = prefs.edit().putBoolean("session_dead", v).apply()
+
+    /**
+     * One atomic write for the pair above. [authFailureStreak] and
+     * [sessionDead] are one logical value — writing them as two separate
+     * `edit().apply()` commits (the pre-fix-round-1 shape) let them, in
+     * principle, disagree. Single-process today so nothing has observed the
+     * split, but there is no reason to keep it.
+     */
+    fun setSessionHealth(state: SessionHealth.State) {
+        prefs.edit()
+            .putInt("auth_failure_streak", state.streak)
+            .putBoolean("session_dead", state.dead)
+            .apply()
+    }
+
+    /**
+     * The one "record an auth outcome" step, shared by SyncWorker and
+     * HomeScreen so neither hand-rolls its own
+     * `SessionHealth.State(prefs.authFailureStreak, prefs.sessionDead)`
+     * read-modify-write. Runs [SessionHealth.next] against the currently
+     * stored pair and writes the result back atomically via
+     * [setSessionHealth].
+     */
+    fun recordAuthOutcome(ok: Boolean, errorCode: Int?) {
+        setSessionHealth(SessionHealth.next(SessionHealth.State(authFailureStreak, sessionDead), ok, errorCode))
+    }
 
     /**
      * Call once per launch (MainActivity.onCreate, before reading the fields

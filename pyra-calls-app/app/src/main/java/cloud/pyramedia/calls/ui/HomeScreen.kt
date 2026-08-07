@@ -124,6 +124,21 @@ fun HomeScreen(
         work = WorkState.Loading
         scope.launch {
             val res = withContext(Dispatchers.IO) { api.myDay() }
+            // Fix round 1: this authenticated call is Home's own fast,
+            // authoritative session-health signal — it fires on every load,
+            // seconds apart, instead of waiting on SyncWorker's up-to-15-
+            // minute (longer under doze) periodic run. A network error says
+            // nothing about whether the device key is valid, so it is
+            // deliberately excluded — same rule SyncWorker's ping() follows.
+            when (res) {
+                is ApiResult.Ok -> prefs.recordAuthOutcome(true, null)
+                is ApiResult.Err -> prefs.recordAuthOutcome(false, res.code)
+                ApiResult.NetworkError -> {}
+            }
+            // The Compose mirror must be told explicitly — writing to
+            // AppPrefs alone would leave the banner rendered until the next
+            // ON_RESUME (see SessionDeadState).
+            sessionDead.refresh()
             work = when (res) {
                 is ApiResult.Ok -> WorkState.Loaded(
                     followUps = res.data.counts.follow_ups,
