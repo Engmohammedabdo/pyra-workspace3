@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Night override: same style name, only the status-bar pair flips to
-         match PyraTheme's dark background + light-on-dark icon contrast. -->
-    <style name="Theme.PyraCalls" parent="@android:style/Theme.DeviceDefault.DayNight">
+    <!-- Night override: same style name, parent is the plain (dark)
+         Theme.DeviceDefault — DayNight is avoided here too, see the comment
+         in values/themes.xml. The status-bar pair flips to match PyraTheme's
+         dark background + light-on-dark icon contrast, and windowBackground
+         is set explicitly to @color/status_bar_dark (== Compose's
+         DarkBackground in ui/theme/Color.kt) so there is still no white
+         flash before the first Compose frame in dark mode. -->
+    <style name="Theme.PyraCalls" parent="@android:style/Theme.DeviceDefault">
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:statusBarColor">@color/status_bar_dark</item>
         <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowBackground">@color/status_bar_dark</item>
     </style>
 </resources>

@@ -1,12 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Pre-Compose window theme only: Compose owns everything after
-         setContent. DayNight so the window background follows the system
-         instead of flashing white before the first frame in dark mode. -->
-    <style name="Theme.PyraCalls" parent="@android:style/Theme.DeviceDefault.DayNight">
+         setContent. Parent is Theme.DeviceDefault.Light (NOT ...DayNight —
+         that parent only exists from API 29, and minSdk is 26, so it would
+         fail to resolve on API 26-28 devices). Day/night is instead handled
+         by this file vs. values-night/themes.xml: android:windowBackground
+         is set explicitly here to @color/status_bar_light, which matches
+         Compose's LightBackground (ui/theme/Color.kt) exactly, so the window
+         background still tracks the system theme and there is no white
+         flash before the first Compose frame in dark mode. -->
+    <style name="Theme.PyraCalls" parent="@android:style/Theme.DeviceDefault.Light">
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:statusBarColor">@color/status_bar_light</item>
         <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowBackground">@color/status_bar_light</item>
     </style>
 </resources>
