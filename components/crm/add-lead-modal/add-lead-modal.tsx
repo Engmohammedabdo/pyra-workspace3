@@ -83,6 +83,16 @@ type DuplicateMatch =
     }
   | { visible: false };
 
+/**
+ * Shape of POST /api/crm/leads' `duplicate_warning` — same lead-ownership
+ * boundary as `DuplicateMatch` above, distinct field names because this is
+ * the post-create warning (existing_lead_id/name), not the pre-submit lookup.
+ * A withheld duplicate is `{ visible: false }` — discriminate on `visible`.
+ */
+type CreateDuplicateWarning =
+  | { visible: true; existing_lead_id: string; existing_lead_name: string }
+  | { visible: false };
+
 // Source + priority option VALUES (labels resolved via t()/accessor at render
 // time — Phase 3.4: was a local AR-labeled array, duplicated verbatim in
 // edit-lead-dialog; source labels live in crm.lead.sources.*, priority in the
@@ -264,11 +274,15 @@ export function AddLeadModal({ open, onOpenChange }: AddLeadModalProps) {
       const res = await create.mutateAsync(payload);
       const leadId = (res as unknown as { lead?: { id: string } })?.lead?.id;
       const dupWarn =
-        (res as unknown as { duplicate_warning?: { existing_lead_name: string } | null })
+        (res as unknown as { duplicate_warning?: CreateDuplicateWarning | null })
           ?.duplicate_warning ?? null;
 
-      if (dupWarn) {
+      if (dupWarn?.visible) {
         toast.warning(t('duplicateWarning', { name: dupWarn.existing_lead_name }));
+      } else if (dupWarn) {
+        // Withheld — the number belongs to a colleague's lead. Same box, same
+        // copy as the pre-submit lookup notice (lead-ownership boundary).
+        toast.warning(t('duplicateNotice.withheldOtherRep'));
       } else {
         toast.success(t('createSuccess'));
       }

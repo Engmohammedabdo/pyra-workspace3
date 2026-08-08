@@ -243,15 +243,32 @@ export async function GET(request: NextRequest) {
 //   next_follow_up?, follow_up_title?
 //
 // Per Q-API-001 we DO NOT block on phone duplicates — but we surface a
-// `duplicate_warning: { existing_lead_id, existing_lead_name }` when found
-// so the modal can render a "هذا الرقم موجود قبل كده" hint after insert. // i18n-exempt: doc comment
+// `duplicate_warning` when found so the modal can render a "هذا الرقم موجود قبل كده" hint after insert. // i18n-exempt: doc comment
 // (Same modal also calls /api/crm/leads/lookup on phone-blur for pre-submit
 // awareness — see Q-API-001 resolution.)
+//
+// LEAD-OWNERSHIP BOUNDARY (locked 2026-08-08): the duplicate the warning found
+// may belong to a COLLEAGUE. The warning must still fire — that's real
+// duplicate hygiene — but the identity is withheld exactly like
+// /api/crm/leads/lookup withholds it, using the SAME predicate (byte-
+// identical to that route and to /api/crm/calls): `crm_reports.team_view`
+// (admins hold '*', which hasPermission covers) OR the duplicate's
+// `assigned_to === caller`. A withheld warning is `{ visible: false }` and
+// NOTHING else — no id, no name, no assignee. Never invent a second notion of
+// this predicate here.
 //
 // Per Q-BIZ-001 the win_probability is auto-defaulted for fixed CRM stages.
 // Custom stages created from settings have no configured default, so they use
 // the caller's explicit win_probability or the DB-safe neutral fallback.
 // ────────────────────────────────────────────────────────────────────────────
+
+/** What the caller is allowed to see about the duplicate. A withheld warning
+ *  is the `visible: false` member alone — adding fields to it is how this
+ *  leak comes back (mirrors LookupMatch in lookup/route.ts). */
+type DuplicateWarning =
+  | { visible: true; existing_lead_id: string; existing_lead_name: string }
+  | { visible: false };
+
 export async function POST(request: NextRequest) {
   const t = await getTranslations('api');
   try {
@@ -418,18 +435,24 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // ── Phone duplicate post-warning (Q-API-001) ──
-    let duplicate_warning: { existing_lead_id: string; existing_lead_name: string } | null = null;
+    // ── Phone duplicate post-warning (Q-API-001) ── withheld per the
+    // lead-ownership boundary — see the doc comment above POST.
+    let duplicate_warning: DuplicateWarning | null = null;
     const key = phoneMatchKey(phone);
     if (key.length >= 6) {
       const { data: dups } = await supabase
         .from('pyra_sales_leads')
-        .select('id, name')
+        .select('id, name, assigned_to')
         .ilike('phone', `%${key}%`)
         .neq('id', insertId)
         .limit(1);
       if (dups && dups.length > 0) {
-        duplicate_warning = { existing_lead_id: dups[0].id, existing_lead_name: dups[0].name };
+        const dup = dups[0];
+        const seeAll = hasPermission(auth.pyraUser.rolePermissions, 'crm_reports.team_view');
+        duplicate_warning =
+          seeAll || dup.assigned_to === auth.pyraUser.username
+            ? { visible: true, existing_lead_id: dup.id, existing_lead_name: dup.name }
+            : { visible: false };
       }
     }
 
