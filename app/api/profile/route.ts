@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
 import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiUnauthorized, apiValidationError, apiServerError } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 import { LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE, isLocale } from '@/lib/i18n/config';
 
@@ -107,7 +107,11 @@ export async function PATCH(request: NextRequest) {
     // profile PATCH (discovered 2026-07-05 via the language switcher; the bug
     // predates i18n and silently broke Batch B self-service edits too).
 
-    const supabase = await createServerSupabaseClient();
+    // Service role for the write: pyra_users INSERT/UPDATE is REVOKEd from
+    // `authenticated` (audit 2026-08-08 — closes self-service salary/role
+    // tampering via the public API). Own-row scope stays enforced by
+    // .eq(username) — the caller can still only edit their own row.
+    const supabase = createServiceRoleClient();
 
     const { data, error } = await supabase
       .from('pyra_users')

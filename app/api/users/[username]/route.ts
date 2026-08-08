@@ -417,8 +417,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return apiValidationError(t('users.noDataToUpdate'));
     }
 
-    // Perform the update
-    const { data: updatedUser, error: updateError } = await supabase
+    // Perform the update. Service role: pyra_users INSERT/UPDATE/DELETE is
+    // REVOKEd from `authenticated` (audit 2026-08-08 — closes self-promotion
+    // and salary tampering via the public API). Gated above by users.manage.
+    const writeClient = createServiceRoleClient();
+    const { data: updatedUser, error: updateError } = await writeClient
       .from('pyra_users')
       .update(updateData)
       .eq('username', username)

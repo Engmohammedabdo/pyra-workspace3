@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiUnauthorized, apiValidationError, apiServerError } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 import { TOTP, NobleCryptoPlugin, ScureBase32Plugin, generateSecret } from 'otplib';
 import QRCode from 'qrcode';
 import { twoFactorLimiter, checkRateLimit } from '@/lib/utils/rate-limit';
@@ -38,8 +38,11 @@ export async function POST(request: NextRequest) {
     // Generate QR code as data URL
     const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
 
-    // Store temporary secret (not enabled yet until verified)
-    const supabase = await createServerSupabaseClient();
+    // Store temporary secret (not enabled yet until verified).
+    // Service role: pyra_users writes go through service role so INSERT/UPDATE
+    // can be REVOKEd from `authenticated` (audit 2026-08-08 — closes the
+    // self-promotion path). Own-row scope stays enforced by .eq(username).
+    const supabase = createServiceRoleClient();
     await supabase
       .from('pyra_users')
       .update({ two_factor_secret: secret })
@@ -77,7 +80,7 @@ export async function PATCH(request: NextRequest) {
       return apiValidationError('رمز التحقق مطلوب');
     }
 
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceRoleClient();
 
     // Get the stored secret
     const { data: user } = await supabase
@@ -131,7 +134,7 @@ export async function DELETE(request: NextRequest) {
       return apiValidationError('رمز التحقق مطلوب للتعطيل');
     }
 
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceRoleClient();
 
     // Get the stored secret
     const { data: user } = await supabase

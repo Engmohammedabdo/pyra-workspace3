@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getTranslations } from 'next-intl/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { hasPermission } from '@/lib/auth/rbac';
 import { logActivity } from '@/lib/api/activity';
@@ -167,8 +167,10 @@ export async function DELETE(
         );
       }
 
-      // Reassign users
-      const { error: reassignError } = await supabase
+      // Reassign users. Service role: pyra_users UPDATE is REVOKEd from
+      // `authenticated` (audit 2026-08-08). Gated above by roles.manage.
+      const serviceClient = createServiceRoleClient();
+      const { error: reassignError } = await serviceClient
         .from('pyra_users')
         .update({ role_id: fallbackRoleId })
         .eq('role_id', id);

@@ -1,6 +1,6 @@
 import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiUnauthorized, apiServerError, apiValidationError } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
@@ -47,7 +47,11 @@ export async function POST(req: Request) {
       .from(process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace')
       .getPublicUrl(path);
 
-    const { error: updateError } = await supabase
+    // Service role for the pyra_users write: INSERT/UPDATE is REVOKEd from
+    // `authenticated` (audit 2026-08-08). Storage upload above stays on the
+    // session client; only the DB write moves. Own-row scope via .eq(username).
+    const dbClient = createServiceRoleClient();
+    const { error: updateError } = await dbClient
       .from('pyra_users')
       .update({ avatar_url: publicUrl })
       .eq('username', auth.pyraUser.username);
