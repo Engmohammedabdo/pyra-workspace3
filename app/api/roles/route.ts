@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getTranslations } from 'next-intl/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { hasPermission } from '@/lib/auth/rbac';
 import { logActivity } from '@/lib/api/activity';
@@ -78,7 +78,11 @@ export async function POST(request: Request) {
       }
     }
 
-    const supabase = await createServerSupabaseClient();
+    // Service role: pyra_roles INSERT/UPDATE/DELETE is REVOKEd from `authenticated`
+    // (audit 2026-08-08 — a role row carrying '*' grants full control via
+    // rbac.ts:911, so table-wide write access was a one-request path to admin
+    // for any logged-in account). Gated above by roles.manage.
+    const supabase = createServiceRoleClient();
 
     const { data: role, error } = await supabase
       .from('pyra_roles')

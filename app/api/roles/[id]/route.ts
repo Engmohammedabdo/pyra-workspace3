@@ -92,7 +92,11 @@ export async function PATCH(
       }
     }
 
-    const { data: role, error } = await supabase
+    // Service role: pyra_roles writes are REVOKEd from `authenticated`
+    // (audit 2026-08-08 — permissions:['*'] on a role row = instant admin via
+    // rbac.ts:911). Gated above by roles.manage.
+    const roleWriteClient = createServiceRoleClient();
+    const { data: role, error } = await roleWriteClient
       .from('pyra_roles')
       .update(update)
       .eq('id', id)
@@ -133,6 +137,10 @@ export async function DELETE(
 
     const { id } = await params;
     const supabase = await createServerSupabaseClient();
+    // Writes below go through the service role: pyra_users and pyra_roles both
+    // have their write grants REVOKEd from `authenticated` (audit 2026-08-08).
+    // Gated above by roles.manage.
+    const serviceClient = createServiceRoleClient();
 
     // Check if system role
     const { data: role } = await supabase
@@ -167,9 +175,7 @@ export async function DELETE(
         );
       }
 
-      // Reassign users. Service role: pyra_users UPDATE is REVOKEd from
-      // `authenticated` (audit 2026-08-08). Gated above by roles.manage.
-      const serviceClient = createServiceRoleClient();
+      // Reassign users onto the fallback role before deleting this one.
       const { error: reassignError } = await serviceClient
         .from('pyra_users')
         .update({ role_id: fallbackRoleId })
@@ -180,7 +186,8 @@ export async function DELETE(
       }
     }
 
-    const { error } = await supabase
+    // Service role — see the roles.manage note on the reassign above.
+    const { error } = await serviceClient
       .from('pyra_roles')
       .delete()
       .eq('id', id);
