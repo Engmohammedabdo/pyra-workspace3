@@ -558,3 +558,160 @@ rotate as precaution. Rotation needs manual dashboard/mail-server work (Abdou):
 **Invariant for all remaining phases:** any `REVOKE`/RLS change on `authenticated`
 must be preceded by deploying the code that stops reading those tables as
 `authenticated` — never revoke against live code that still depends on the grant.
+
+---
+
+## Identity-table hardening — Locked Decisions (2026-08-08)
+
+Closes the `pyra_users` / `pyra_roles` cluster that Phase 2 FULL had deferred.
+Migrations **059**, **060**, **061**. Every claim below was proven live against
+production from a real non-admin session before and after each change.
+
+### The exposure, as measured (not estimated)
+
+`pyra_users`, `pyra_roles`, `pyra_auth_mapping` and `pyra_salary_history` all had
+**RLS off, zero policies, zero triggers**, and granted `authenticated` full DML.
+With no RLS the grant is the *only* database-level gate, so every logged-in
+account had unscoped reach via PostgREST — bypassing every permission check in
+the application.
+
+Proven from `test.sales` (a plain `sales_agent`, no admin rights):
+
+```
+GET   /rest/v1/pyra_users?select=username,role,salary   → 200, 15 rows with salaries
+PATCH /rest/v1/pyra_users?username=eq.test.sales        → 200, role became 'admin'
+PATCH /rest/v1/pyra_roles?id=eq.<Sales>                 → 200  (after 059 shipped)
+```
+
+Nothing lands in `pyra_activity_log` on any of these paths.
+
+The deferral above rated this MEDIUM on the stated basis of "~7 logged-in
+internal users". **That premise was incomplete**: three client-portal contacts
+also hold Supabase Auth accounts, so the population was never staff-only.
+
+### D-1. Revoking one table is not a fix — enumerate every table that reaches the same outcome
+
+**059 alone was insufficient, and was reported as complete.** Revoking writes on
+`pyra_users` closed "PATCH my own row, set `role='admin'`" — and left the
+identical escalation one table over. `lib/auth/rbac.ts:911` returns the `['*']`
+superuser set when a user's DB role row contains `'*'`, so a single PATCH on
+`pyra_roles` was still a password-free path to full admin. Worse: `youssef`,
+`cosette` and `test.sales` share **one** role row, so it promotes three accounts
+at once.
+
+The permission set, the identity mapping and the audit trail are each an
+escalation path in their own right. **060** therefore also closed
+`pyra_auth_mapping` (identity confusion) and `pyra_salary_history` (forging or
+erasing the evidence of a pay change — revoked `ALL`, since it has **zero read
+sites** anywhere in the codebase and holds old/new salary figures).
+
+### D-2. Column-level, not table-level, for the read side
+
+A full `REVOKE SELECT ON pyra_users` was measured at **~55 changes across ~30
+files**, 18 of them on paths that fail *silently* — a null row reads as "user not
+found", so a missed site looks like a mass logout rather than an error.
+
+Measured instead: **37 session-side reads, 29 of which only ask for a name or a
+status.** The outage risk came from **two functions**, not from breadth:
+`getApiAuth()` (every API request) and `loadUserWithRole()` (every page render),
+both `select('*')`.
+
+**061** withholds 9 columns and leaves 29 readable:
+
+> `password_hash`, `two_factor_secret`, `salary`, `salary_breakdown`,
+> `hourly_rate`, `commission_rate`, `bank_details`, `national_id`,
+> `date_of_birth`
+
+`salary_currency` is granted deliberately — it holds `'AED'`/`'EGP'`, carries no
+amount, and the payroll UI reads it for formatting.
+
+Cost: **6 code changes in 6 files** instead of ~55, touching **none** of the
+silent-failure paths.
+
+### D-3. ⚠️ A column REVOKE against a table-wide GRANT is a silent no-op
+
+```sql
+REVOKE SELECT (salary) ON pyra_users FROM authenticated;   -- ❌ DOES NOTHING
+```
+
+PostgreSQL accepts this, reports success, and changes nothing — a column-level
+revoke cannot subtract from a table-level grant. **Verified by running exactly
+that and still reading `salary_breakdown` back.** The correct order, which 061
+uses, is:
+
+```sql
+REVOKE SELECT ON public.pyra_users FROM authenticated;      -- drop the table grant
+GRANT  SELECT (<29 safe columns>) ON public.pyra_users TO authenticated;
+```
+
+Anyone "simplifying" this back to a single column revoke silently re-opens the
+leak. Do not.
+
+### D-4. Auth-path reads move to the service role — and stay scope-neutral
+
+`getApiAuth()` and `loadUserWithRole()` now read `pyra_users` via
+`createServiceRoleClient()`. This is **not** a widening: RLS is off and the grant
+was table-wide, so the session client already had unscoped reach. Both resolve
+their lookup key from the **verified JWT**, never from request input, so each
+still returns exactly one row — the caller's own.
+
+`getApiAuth()` keeps `supabase.auth.getUser()` on the *session* client: the
+identity check must remain the thing only a valid JWT can pass. Only the profile
+read moved. `loadUserWithRole()` lost its client parameter entirely, which also
+removed two `as any` casts.
+
+The other four migrated reads (`/api/profile` GET, `/api/users` GET,
+`/api/users/[username]` GET + PATCH-preload) were already behind
+`users.view` / `users.manage`; who can call them is unchanged.
+
+### D-5. Verified before shipping, so deliberately NOT changed
+
+- **`count(*)` works under column-only grants** — tested. The two
+  `select('*', { count: 'exact', head: true })` calls in `app/api/roles/[id]`
+  need no edit.
+- **No PostgREST embedded join anywhere selects a withheld column** — swept
+  `app/`, `lib/`, `components/`, `hooks/`. This was the highest-risk blind spot:
+  an embed like `.from('x').select('*, pyra_users(salary)')` contains no
+  `from('pyra_users')` and is invisible to a naive grep.
+- **`/api/auth/login`'s projection is entirely within the granted set** — login
+  is untouched. Dry-run in a rolled-back transaction confirmed the exact login
+  query succeeds while `salary` and `bank_details` are denied.
+
+### D-6. Test accounts, not real employees, prove security work
+
+`test.sales` and `test.admin` exist in production (`scripts/create-test-accounts.ts`,
+credentials in the gitignored `.env.test.local`). Signing in as a real sales agent
+rotates their device key and **kills the call-tracking app on their phone** — so
+non-admin verification had no safe path before these existed.
+
+Two reusable probes ship with this work:
+- `scripts/_exploit-probe.ts` — attempts the salary read and the self-promotion,
+  and reverts the role itself.
+- `scripts/_role-escalation-probe.ts` — writes the role's **existing colour back
+  to itself** and never touches `permissions`, then re-reads them to prove no
+  drift. A probe that could really promote someone is not an acceptable probe.
+
+### D-7. Ordering is not advisory
+
+Each migration ran **only after** its code was deployed and confirmed live via
+`built_at` in `GET /api/health`, and each was followed by a full before/after
+functional sweep (login · own profile · admin user list · admin user detail ·
+inbox · directory · page render) that had to match the baseline exactly.
+Reversing the order takes production down: without the code, 061 alone 401s every
+API request and loops every page back to `/login`.
+
+### Corrections to the record above
+
+- **Phase 2 FULL's "auth-path `pyra_users`/`pyra_roles` reads" blocker is now
+  cleared.** Remaining: **119 tables** still grant `authenticated`.
+- **Phase 3b's stated premise is factually wrong.** It defers the public bucket
+  on the grounds that "paths are unguessable nanoids". A sample of 45 stored
+  paths in `pyraai-workspace` returned **zero** random names — they are plain
+  client and project names (`shared/clients/etmam/…`, `projects/injazat/…`).
+  Three anonymous downloads with no key and no cookie returned HTTP 200,
+  including a **signed client contract** (314,640 bytes). 279 objects / 838 MB
+  are affected. Directory listing IS blocked, so it is not browsable — but it is
+  guessable, which the deferral assumed it was not. Re-rate accordingly.
+- Phase 3b's suspicion that `send-pdf` targets a non-existent `files` bucket is
+  **confirmed**: only `pyraai-workspace` and `pyra-private` exist, and none of
+  the 21 outgoing document messages came from that path.

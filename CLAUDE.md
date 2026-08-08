@@ -768,6 +768,26 @@ curl -X POST "https://pyraworkspacedb.pyramedia.cloud/pg/query" \
 ## Deployment
 Coolify (Docker) auto-deploy on push to `main` · **pnpm** (NEVER npm)
 Production URL: `https://workspace.pyramedia.cloud`
+Confirm a deploy actually landed via `built_at` in `GET /api/health` (~4–7 min).
+
+## Test Accounts — use these, never a real employee
+
+`test.sales` (sales_agent, mirrors youssef) and `test.admin` (admin) live in
+**production**. Credentials: `.env.test.local` (gitignored — never commit).
+Created by `scripts/create-test-accounts.ts`, which calls the app's own
+`createEmployeeUser()` so the rows are identical to real ones.
+
+**Why:** logging in as youssef or cosette rotates their device key and **kills
+the call-tracking app on their phone**. Auth/permission work still has to be
+proven from a non-admin session — these are that session.
+
+- Login via the app API needs an `Origin` header, or `middleware.ts`'s CSRF gate
+  returns 403 "missing origin".
+- Login is rate-limited to **10 attempts / 24h**; heavy probing locks the test
+  accounts out temporarily (real accounts are unaffected).
+- Reusable probes: `scripts/_exploit-probe.ts` (salary read + self-promotion),
+  `scripts/_role-escalation-probe.ts` (role-table write). Both self-clean and
+  neither can actually grant anyone privileges.
 
 ## Documentation (Read don't guess)
 | Doc | What it covers |
@@ -802,7 +822,8 @@ to forget once buried in an archive.
 |---|---|
 | `smtp_allow_insecure = true` | **Still `true` in prod (verified 2026-07-26)** — SMTP cert validation is OFF, ~8 weeks after the `mail.pyramedia.info` cert expired. Renew the cert, then flip to `false`. [Details](docs/decisions/finance.md#quote-system-gap-5-locked-decisions-2026-06-19) |
 | Gap #3 secret rotation | Stripe secret + webhook secret + SMTP password were DB-readable while the exposure was open. Rotation is still pending. [Details](docs/decisions/security.md#audit-gap-3-db-exposure-remediation-2026-06-19-p0-partially-closed) |
-| Gap #3 Phase 2 / 3b | ~107 tables still grant `authenticated`; `pyraai-workspace` bucket still public. **Never `REVOKE` before deploying code that stops reading as `authenticated`.** |
+| Gap #3 Phase 2 / 3b | **119 tables** still grant `authenticated` (the `pyra_users`/`pyra_roles` identity cluster is now closed — migrations 059–061). **Never `REVOKE` before deploying code that stops reading as `authenticated`.** |
+| `pyraai-workspace` bucket is PUBLIC | **279 objects / 838 MB downloadable with no login — verified 2026-08-08 with 3 anonymous fetches, one a signed client contract.** Phase 3b deferred this believing paths are "unguessable nanoids"; they are plain client/project names. Fix = move logos/avatars to a public assets bucket FIRST, then flip. [Details](docs/decisions/security.md#identity-table-hardening--locked-decisions-2026-08-08) |
 | `QUALITY_DEDUCTION_APPROVAL_ENABLED = false` | Quality-tier deduction money is gated off pending the owner's choice of measurement window. Warnings show; approvals fail closed. |
 
 ### CRM — [`docs/decisions/crm.md`](docs/decisions/crm.md)
@@ -854,6 +875,7 @@ to forget once buried in an archive.
 | [Phase 14.3 (audit + fixes)](docs/decisions/security.md#phase-143-locked-decisions-security-audit-fix-bundle) | `timingSafeEqual` for every secret compare, `.or()` injection escaping, `PASSWORD_MIN_LENGTH`, plain-text task descriptions |
 | [Audit Gap #4](docs/decisions/security.md#audit-gap-4-sales_leadsmanage-misleading-name-documented-rename-deferred) | `sales_leads.manage` is misnamed but safe — rename deferred, don't "fix" it ad hoc |
 | [Audit Gap #3](docs/decisions/security.md#audit-gap-3-db-exposure-remediation-2026-06-19-p0-partially-closed) | The P0 DB-exposure incident. **Still open: secret rotation + Phase 2/3b.** Read before any `REVOKE`/RLS change |
+| [Identity-table hardening](docs/decisions/security.md#identity-table-hardening--locked-decisions-2026-08-08) | Migrations 059–061 closed self-promotion + the salary leak. **Revoking one table is not a fix — enumerate every table reaching the same outcome** (`pyra_roles` kept the hole open after 059). A column `REVOKE` against a table-wide `GRANT` is a **silent no-op** — revoke the table, then grant the safe columns. Auth-path reads use the service role keyed off the verified JWT. Prove security work with `test.sales`/`test.admin`, never a real agent |
 
 ### Platform — [`docs/decisions/platform.md`](docs/decisions/platform.md)
 | Decision set | Governs |
