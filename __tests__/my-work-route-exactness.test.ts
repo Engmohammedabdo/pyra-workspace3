@@ -69,7 +69,10 @@ function createFakeSupabase() {
       state.head = options?.head === true;
       return builder;
     });
-    for (const method of ['eq', 'gt', 'gte', 'lte', 'not', 'in']) {
+    // 'is' is here for the leads section's `.is('archived_at', null)` — the
+    // fake builder must cover every filter the route calls or the chain throws
+    // and the whole aggregator 500s (which is how this test caught it).
+    for (const method of ['eq', 'gt', 'gte', 'lte', 'not', 'in', 'is']) {
       builder[method] = vi.fn((column: string, value: unknown, third?: unknown) => {
         state.filters.push({ method, column, value: third === undefined ? value : third });
         return builder;

@@ -568,7 +568,8 @@
         "duplicateNotice": {
           "prefix": "This number already exists — ",
           "assignedSuffix": " · with {name}",
-          "suffix": ". You can still create a new Lead if it's a separate deal."
+          "suffix": ". You can still create a new Lead if it's a separate deal.",
+          "withheldOtherRep": "This number is already registered to another rep. You can still create a new Lead if it's a separate deal."
         }
       },
       "quickDue": {

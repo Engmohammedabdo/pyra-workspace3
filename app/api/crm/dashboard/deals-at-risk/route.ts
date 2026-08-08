@@ -40,7 +40,13 @@ export async function GET(request: NextRequest) {
       // IS NOT TRUE catches both false and legacy NULL rows (migrations 010/011
       // treat NULL as not-converted; a bare .eq(false) drops NULLs → the deal
       // silently disappears from the at-risk surface).
-      .not('is_converted', 'is', true);
+      .not('is_converted', 'is', true)
+      // An archived lead is retired, not at risk. Every card here deep-links
+      // to the pipeline board, which DOES filter archived_at — so surfacing
+      // one sends the rep to a board that cannot show it. A duplicate merge
+      // also clears the loser's phone, so the row would render with a blank
+      // number on top of that.
+      .is('archived_at', null);
     if (scope) q = q.eq(scope.column, scope.value);
     const { data: leads, error } = await q;
     if (error) {

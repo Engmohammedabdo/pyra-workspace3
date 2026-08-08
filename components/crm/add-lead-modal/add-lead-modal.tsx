@@ -67,11 +67,21 @@ interface AddLeadModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-interface DuplicateMatch {
-  id: string;
-  name: string;
-  assigned_display_name: string | null;
-}
+/**
+ * Shape of /api/crm/leads/lookup's `match`. The lookup searches system-wide so
+ * the duplicate warning always fires, but WITHHOLDS the identity when the
+ * caller doesn't own the match (lead-ownership boundary, locked 2026-08-08) —
+ * a withheld match is `{ visible: false }` and carries nothing else. Discriminate
+ * on `visible`; never assume `id`/`name` are there.
+ */
+type DuplicateMatch =
+  | {
+      visible: true;
+      id: string;
+      name: string;
+      assigned_display_name: string | null;
+    }
+  | { visible: false };
 
 // Source + priority option VALUES (labels resolved via t()/accessor at render
 // time — Phase 3.4: was a local AR-labeled array, duplicated verbatim in
@@ -581,6 +591,17 @@ function Field({
 
 function DuplicateNotice({ match }: { match: DuplicateMatch }) {
   const t = useTranslations('crm.modals.addLead.duplicateNotice');
+  // Withheld match — the number IS taken, but by a lead this user may not see.
+  // Same amber warning box, no link and no names: the rep learns the number is
+  // registered, not who has it.
+  if (!match.visible) {
+    return (
+      <div className="flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-800/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+        <AlertCircle className="size-4 shrink-0 mt-0.5" aria-hidden />
+        <p className="leading-5">{t('withheldOtherRep')}</p>
+      </div>
+    );
+  }
   return (
     <div className="flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-800/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
       <AlertCircle className="size-4 shrink-0 mt-0.5" aria-hidden />

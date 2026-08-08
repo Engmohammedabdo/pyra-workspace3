@@ -307,6 +307,12 @@ export async function GET(request: NextRequest) {
       // IS NOT TRUE catches both false and legacy NULL rows (a bare .eq(false)
       // silently hides legacy leads that deals-at-risk/idle-check DO count).
       .not('is_converted', 'is', true)
+      // An archived lead is retired, not actionable — the inbox must not offer
+      // work on it. It would also DOMINATE this list: the sort is
+      // last_contact_at ascending nullsFirst, and a duplicate merge leaves the
+      // retired card with the stalest (or a null) contact date, so the five
+      // losers would take the top five of a ten-row inbox.
+      .is('archived_at', null)
       .order('last_contact_at', { ascending: true, nullsFirst: true })
       .limit(10);
 
@@ -324,7 +330,11 @@ export async function GET(request: NextRequest) {
       .from('pyra_sales_leads')
       .select('id', { count: 'exact', head: true })
       .eq('assigned_to', username)
-      .not('is_converted', 'is', true);
+      .not('is_converted', 'is', true)
+      // Must stay byte-identical to the list query above (see its comment) —
+      // a badge that counts retired cards the list no longer shows is a number
+      // the rep can never work down to zero.
+      .is('archived_at', null);
 
     // ─── FOLLOW-UPS — due today or overdue ─────────────────────
     // Schema note: pyra_sales_follow_ups column is `due_at` (not scheduled_for).

@@ -91,7 +91,17 @@ export async function POST(request: NextRequest) {
       // Exclude final stages but KEEP null-stage leads — a bare NOT IN(...)
       // evaluates to NULL (not TRUE) for stage_id IS NULL and drops the row.
       .or(`stage_id.is.null,stage_id.not.in.(${finalStagesList})`)
-      .not('assigned_to', 'is', null);
+      .not('assigned_to', 'is', null)
+      // An archived lead is NOT idle — it is retired. Warning about one sends
+      // the rep to /dashboard/crm/pipeline?filter=at_risk, a board that DOES
+      // filter archived_at, so the bell links to a page where the lead cannot
+      // appear. Worse, it repeats forever: the 7-day dedup keys on an
+      // idle_warning activity ON THAT LEAD ID, so a duplicate-merge that moves
+      // activities off the loser onto the survivor leaves the retired card
+      // dedup-clean while its last_contact_at stays past the cutoff. Nulling
+      // last_contact_at is no escape either — lastTouched === 0 is treated as
+      // idle below.
+      .is('archived_at', null);
 
     if (leadErr) {
       // Phase 14.1 Commit 2 — top-of-cron lead-SELECT failure means the

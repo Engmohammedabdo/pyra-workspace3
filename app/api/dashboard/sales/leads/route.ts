@@ -30,6 +30,13 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('pyra_sales_leads')
       .select(LEAD_FIELDS)
+      // Archived = retired. This route has no `archived` param, so there is no
+      // caller that wants them; /api/crm/leads (the CRM twin) already defaults
+      // to archived_at IS NULL and exposes ?archived=only for the admin view.
+      // Without this, a duplicate merge's losing cards keep showing up in the
+      // list AND in the count below — with a NULL phone, since clearing the
+      // phone is what removes them from the call matcher's index.
+      .is('archived_at', null)
       .order('created_at', { ascending: false });
 
     // Agent scoping: non-admin agents only see their own leads
@@ -93,7 +100,10 @@ export async function GET(request: NextRequest) {
     // by Reviewer during the fix-#2 sweep, filed to v1.1, now fixed.
     let countQuery = supabase
       .from('pyra_sales_leads')
-      .select('id', { count: 'exact', head: true });
+      .select('id', { count: 'exact', head: true })
+      // Same archived exclusion as the main query — the two MUST agree or the
+      // pagination total counts rows the page can never return.
+      .is('archived_at', null);
 
     // Apply same filters to count query — each `=` reassignment is
     // load-bearing per the comment above.

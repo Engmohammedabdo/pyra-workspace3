@@ -87,7 +87,12 @@ export async function GET() {
       .select('id, expected_value, last_contact_at', { count: 'exact' })
       // IS NOT TRUE catches both false and legacy NULL rows.
       .in('stage_id', PIPELINE_ACTIVE_STAGES as readonly string[])
-      .not('is_converted', 'is', true);
+      .not('is_converted', 'is', true)
+      // An archived lead is retired, not idle. Counting one inflates idleCount
+      // (and idleValue) on an insight whose whole job is to be a trustworthy
+      // number, and its link goes to the pipeline board, which DOES filter
+      // archived_at — the rep clicks through to deals that aren't there.
+      .is('archived_at', null);
     const idleQ = scope ? idleScopeQ.eq(scope.column, scope.value) : idleScopeQ;
     // Explicit .range so idleCount/idleValue below see every active lead — the
     // implicit PostgREST 1000-row default would under-count the idle-deals insight
