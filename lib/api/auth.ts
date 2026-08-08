@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import type { PyraUser } from '@/types/database';
 import { hasPermission, buildUserPermissions } from '@/lib/auth/rbac';
 import { NextResponse } from 'next/server';
@@ -20,7 +20,15 @@ export async function getApiAuth(): Promise<ApiAuthResult | null> {
 
     if (error || !user) return null;
 
-    const { data: pyraUser, error: pyraError } = await supabase
+    // The IDENTITY check above stays on the session client — only a valid JWT
+    // gets past it. The PROFILE read below moves to the service role: audit
+    // 2026-08-08 revokes SELECT on pyra_users' salary / bank_details /
+    // national_id / password_hash columns from `authenticated`, and this
+    // select('*') would fail on the withheld columns.
+    // Safe because the lookup key comes from the VERIFIED JWT, never from
+    // request input — so this still reads exactly one row: the caller's own.
+    const profileClient = createServiceRoleClient();
+    const { data: pyraUser, error: pyraError } = await profileClient
       .from('pyra_users')
       .select('*, pyra_roles!left(name, name_ar, permissions, color, icon)')
       .eq('username', user.user_metadata?.username || user.email)

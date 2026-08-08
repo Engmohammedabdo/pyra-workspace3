@@ -27,7 +27,11 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
     const role = searchParams.get('role') || '';
 
-    const supabase = await createServerSupabaseClient();
+    // Admin user list: service role. This projection includes salary,
+    // hourly_rate, national_id, date_of_birth and commission_rate, whose SELECT
+    // is withheld from `authenticated` (audit 2026-08-08). Already gated by
+    // users.view above — who can call this is unchanged.
+    const supabase = createServiceRoleClient();
 
     let query = supabase
       .from('pyra_users')

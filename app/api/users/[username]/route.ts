@@ -121,7 +121,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     const { username } = await params;
 
-    const supabase = await createServerSupabaseClient();
+    // Admin user detail: service role. This projection names salary,
+    // bank_details, national_id, date_of_birth and salary_breakdown, whose
+    // SELECT is withheld from `authenticated` (audit 2026-08-08). Already gated
+    // by users.view above — who can call this is unchanged.
+    const supabase = createServiceRoleClient();
     const { data: user, error } = await supabase
       .from('pyra_users')
       .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, avatar_url, status, created_at, manager_username, employment_type, work_location, payment_type, salary, salary_currency, hourly_rate, hire_date, date_of_birth, department, national_id, bank_details, commission_rate, work_schedule_id, salary_breakdown, onboarding_id, pyra_roles!left(name, name_ar, color, icon)')
@@ -155,8 +159,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const supabase = await createServerSupabaseClient();
 
-    // Verify user exists
-    const { data: existingUser, error: findError } = await supabase
+    // Verify user exists. Service role: this projection reads salary,
+    // hourly_rate and date_of_birth (the before-values that feed
+    // trackSalaryChange), whose SELECT is withheld from `authenticated`
+    // (audit 2026-08-08). Already gated by users.manage above.
+    const readClient = createServiceRoleClient();
+    const { data: existingUser, error: findError } = await readClient
       .from('pyra_users')
       .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, date_of_birth, department')
       .eq('username', username)

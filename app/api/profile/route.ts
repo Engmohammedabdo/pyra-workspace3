@@ -16,8 +16,12 @@ export async function GET() {
 
     const supabase = await createServerSupabaseClient();
 
-    // Get user with role join
-    const { data: user } = await supabase
+    // Own profile: service role. This select('*') includes bank_details, which
+    // the employee is entitled to see for THEMSELVES — but SELECT on it is
+    // withheld from `authenticated` (audit 2026-08-08), so the session client
+    // can no longer read it. Scope is still own-row via .eq(own username).
+    const profileClient = createServiceRoleClient();
+    const { data: user } = await profileClient
       .from('pyra_users')
       .select('*, pyra_roles!left(name, name_ar, color, icon)')
       .eq('username', auth.pyraUser.username)

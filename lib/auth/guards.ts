@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { hasPermission, buildUserPermissions } from '@/lib/auth/rbac';
 
 export interface AuthSession {
@@ -24,7 +24,18 @@ export interface AuthSession {
   };
 }
 
-async function loadUserWithRole(supabase: ReturnType<typeof import('@/lib/supabase/server').createServerSupabaseClient extends () => Promise<infer R> ? () => R : never>, username: string) {
+/**
+ * Load the pyra_users row + role for an ALREADY-AUTHENTICATED username.
+ *
+ * Uses the service role deliberately. Audit 2026-08-08 withholds SELECT on the
+ * sensitive pyra_users columns (salary, bank_details, national_id,
+ * password_hash…) from `authenticated`, and this `select('*')` would fail on
+ * them. The caller has already verified the JWT and passes the username derived
+ * from it — never from request input — so this still resolves exactly one row:
+ * the caller's own. Mirrors getApiAuth() in lib/api/auth.ts.
+ */
+async function loadUserWithRole(username: string) {
+  const supabase = createServiceRoleClient();
   const { data: pyraUser } = await supabase
     .from('pyra_users')
     .select('*, pyra_roles!left(name, name_ar, permissions, color, icon)')
@@ -74,11 +85,7 @@ export async function requireAuth(): Promise<AuthSession> {
     redirect('/login');
   }
 
-  const pyraUser = await loadUserWithRole(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase client type mismatch
-    supabase as any,
-    user.user_metadata?.username || user.email!
-  );
+  const pyraUser = await loadUserWithRole(user.user_metadata?.username || user.email!);
 
   if (!pyraUser) {
     redirect('/login');
@@ -120,11 +127,7 @@ export async function getOptionalAuth(): Promise<AuthSession | null> {
 
     if (!user) return null;
 
-    const pyraUser = await loadUserWithRole(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase client type mismatch
-    supabase as any,
-      user.user_metadata?.username || user.email!
-    );
+    const pyraUser = await loadUserWithRole(user.user_metadata?.username || user.email!);
 
     if (!pyraUser) return null;
 
