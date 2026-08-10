@@ -5,6 +5,8 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { phoneMatchKey } from '@/lib/utils/phone';
 import { buildLeadPhoneIndex, matchLeadByPhone, isConnectedCall, isOwnedByAgent } from '@/lib/calls/match';
+import { buildColleagueCallNotice } from '@/lib/calls/colleague-call-notice';
+import { notify } from '@/lib/notifications/notify';
 import { logError } from '@/lib/observability/log-error';
 import { FOLLOW_UP_STATUS } from '@/lib/constants/statuses';
 
@@ -114,7 +116,9 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await requireDeviceAuth(request);
     if (auth instanceof NextResponse) return auth;
-    const { agentUsername } = auth;
+    // displayName is used by the F-07 notice below — the lead's owner should
+    // read "كوزيت كلّمت عميلك", not a raw username.
+    const { agentUsername, displayName: agentDisplayName } = auth;
 
     const body = await request.json().catch(() => null);
     const calls = parseCalls(body?.calls);
@@ -363,6 +367,56 @@ export async function POST(request: NextRequest) {
             console.error('[calls/sync] call_attempt activity_id back-fill failed:', linkErr.message);
           }
         }
+      } else if (lead && !owned && connected && lead.assigned_to) {
+        // ── F-07: tell the lead's OWNER, since nothing else will ────────────
+        //
+        // This is the compensating change for the ownership boundary (B-12).
+        // The two branches above write to the lead; this one deliberately does
+        // not — `owned` is false, and writing here is exactly the hole B-12
+        // closed. So the notification is the ONLY signal the owner ever gets,
+        // and `buildColleagueCallNotice` is verbose for that reason.
+        //
+        // CONNECTED only. An unanswered dial at a colleague's customer is
+        // effort, not contact — the same predicate every other consumer uses
+        // (`isConnectedCall`), and the locked calls decision that `call_attempt`
+        // is never a touch. Notifying on those would turn a wrong number
+        // redialled three times into three alerts about nothing.
+        //
+        // Placed AFTER the call row is durable (the `continue` on insert
+        // failure above already skipped us), so the owner is never told about a
+        // call that was not recorded.
+        //
+        // The `lead.assigned_to` guard in the condition is NOT redundant with
+        // `!owned`. isOwnedByAgent fails CLOSED for a null assignee — an
+        // unassigned lead is owned by nobody — so such a lead reaches exactly
+        // this branch, and there is no one to notify. (0 of 1,245 phone-bearing
+        // leads are unassigned today, which is precisely why an unguarded
+        // `to: null` would have sat here undetected until the day someone
+        // unassigns one.)
+        //
+        // notify() — never a direct INSERT: it enforces the row shape, skips
+        // self-notification (impossible here, since !owned means assigned_to
+        // differs from the caller) and drops recipients whose account is not
+        // active, which a departed owner's lead would otherwise re-alert
+        // forever.
+        const notice = buildColleagueCallNotice({
+          leadId: lead.id,
+          leadName: lead.name,
+          callerDisplayName: agentDisplayName,
+          callerUsername: agentUsername,
+          direction: call.direction,
+          durationSeconds: call.duration_seconds,
+          calledAtIso: call.called_at,
+        });
+        await notify(supabase, {
+          to: lead.assigned_to as string,
+          type: 'lead_called_by_colleague',
+          title: notice.title,
+          message: notice.message,
+          link: notice.link,
+          entity: { type: 'lead', id: lead.id },
+          from: { username: agentUsername, displayName: agentDisplayName },
+        });
       }
 
       results.push({

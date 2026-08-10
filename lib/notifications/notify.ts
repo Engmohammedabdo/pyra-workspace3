@@ -71,6 +71,16 @@ export type NotificationType =
   // nudges the agent to log the call outcome right after auto-creating a
   // lead from an unmatched phone call.
   | 'call_feedback_required'
+  // F-07 (2026-08-10) — a DIFFERENT rep had a connected call with a lead this
+  // recipient owns. The lead-ownership boundary (B-12) deliberately writes
+  // nothing to the lead on an unowned match, so this notification is the
+  // owner's only signal; see lib/calls/colleague-call-notice.ts for why the
+  // body carries who/which/how-long/when rather than a one-liner.
+  //
+  // The name starts with `lead` on purpose: NotificationBell's typeVisual()
+  // resolves icons by PREFIX, so `lead*` lands in the CRM group and this type
+  // renders correctly with no UI change at all.
+  | 'lead_called_by_colleague'
   // Call tracking v1.1-C — a device API key has gone silent (no
   // authenticated request, including the empty-sync heartbeat ping, in the
   // last 25h). Admin-facing only — fired by
