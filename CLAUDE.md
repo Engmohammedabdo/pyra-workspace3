@@ -515,8 +515,23 @@ All three writers (`notify` / `notifyMany` / `notifyBatch`) drop recipients whos
 this, an open task assigned to a departed employee re-notified them every cron day,
 forever (confirmed live: `abdelrahman.morshedy`, departed 2026-07-14, still received
 `task_overdue` rows on 07-15). The gate also stops the web-push dispatch that follows
-each insert — it has no status filter of its own, so a departed employee's phone kept
-buzzing.
+each insert — it has no status filter of its own.
+
+**Correction (2026-08-10):** this section used to claim the departed employee's *phone
+kept buzzing* via web push. That never happened. Web Push shipped whole in `ffcafe8`
+(2026-07-07) but was never switched on: migration `036_push_subscriptions` was never
+applied and the VAPID keys were never set, so `sendWebPushToUsers()` returned at its
+config check and no subscription could ever be stored (`POST /api/push/subscriptions`
+would have 500'd on the missing table). The bell rows were real; the push was not.
+Both gaps were closed 2026-08-10 — so the gate's protection of the push path is now
+live rather than hypothetical.
+
+**Web Push depends on three Coolify env vars** — `VAPID_PUBLIC_KEY`,
+`VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`. They are read at request time, so a restart
+picks them up with no rebuild. If they ever go missing (fresh environment, wiped
+env), the feature dies **silently again**: the config check short-circuits before the
+table is touched, so nothing lands in `pyra_error_logs`. Verify with
+`GET /api/push/vapid-public-key` → `enabled: true`, never by watching for errors.
 
 Three properties are load-bearing — `selectUndeliverableRecipients()` in
 `lib/notifications/notify.ts` is pure and unit-tested (`__tests__/notify-recipients.test.ts`)
