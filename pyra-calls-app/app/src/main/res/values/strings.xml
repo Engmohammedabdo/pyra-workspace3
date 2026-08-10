@@ -86,6 +86,11 @@
     <string name="home_session_dead_body">التطبيق مش بيزامن المكالمات دلوقتي. غالبًا سجّلت دخول على تليفون تاني. سجّل دخول من هنا عشان يرجع يشتغل.</string>
     <string name="home_session_dead_button">تسجيل الدخول</string>
 
+    <!-- B-15: shown with home_session_dead_* on the dead-session + mandatory-update
+         screen. States the update as what comes NEXT, so signing in and landing on
+         the update screen is expected rather than a surprise. -->
+    <string name="session_dead_blocked_update_pending">وفيه كمان تحديث إلزامي للإصدار %1$s. سجّل دخول الأول، وبعدها التطبيق هيطلب منك التحديث.</string>
+
     <string name="update_required_title">تحديث إلزامي مطلوب</string>
     <string name="update_required_body">النسخة الحالية من التطبيق لم تعد مدعومة. حدّث إلى الإصدار %1$s للمتابعة.</string>
     <string name="update_required_button">تحديث الآن</string>

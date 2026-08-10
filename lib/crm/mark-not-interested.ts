@@ -49,8 +49,38 @@ export function buildStageChangeMetadata(args: {
 }
 
 export type MarkNotInterestedResult =
-  | { ok: true; previousStage: string | null; changed: boolean }
+  | { ok: true; previousStage: string | null; changed: boolean; reasonCorrected?: boolean }
   | { ok: false; reason: 'not_found' | 'stage_missing' | 'db_error' | 'terminal_won' };
+
+/**
+ * B-14. Should a reason arriving for a lead ALREADY in «غير مهتم» be recorded?
+ *
+ * Pure, and separated out because the two requirements here pull against each
+ * other and the balance point is the whole fix:
+ *
+ *  - The idempotent short-circuit is deliberate. A phone retrying the same
+ *    outcome (flaky network, user double-tap) must not double the timeline.
+ *  - But it also swallowed CORRECTIONS. A rep who re-sent «غالي» as
+ *    «غالي، بس رجع يسأل بعد ٣ شهور» had that detail dropped with no trace
+ *    anywhere — not the column, not the timeline.
+ *
+ * So: record only a reason that actually differs. Trimmed before comparing,
+ * because a resend that differs by a trailing newline is a retry, not a
+ * correction. Deliberately NOT case-folded or diacritic-normalised — these are
+ * sentences a human typed, and treating two spellings as one would discard the
+ * newer one on the assumption that the difference is noise.
+ *
+ * An empty incoming reason never records: there is nothing to preserve, and it
+ * must never erase a reason already on the lead.
+ */
+export function shouldRecordCorrectedReason(
+  storedReason: string | null | undefined,
+  incomingReason: string | null | undefined,
+): boolean {
+  const incoming = (incomingReason ?? '').trim();
+  if (!incoming) return false;
+  return incoming !== (storedReason ?? '').trim();
+}
 
 /**
  * A lead the business has already WON is not eligible for this transition.
@@ -82,8 +112,15 @@ export function isTerminalWonLead(lead: {
 /**
  * Move a lead to «غير مهتم» with a reason.
  *
- * Idempotent: a lead already in the stage returns `ok: true, changed: false`
- * with NO write, so a retry never doubles the timeline.
+ * Idempotent for a true retry: a lead already in the stage, re-sent the SAME
+ * reason, returns `ok: true, changed: false` with NO write, so a retry never
+ * doubles the timeline.
+ *
+ * One exception, and it is B-14: if the reason DIFFERS from the one stored, it
+ * is a correction rather than a retry, so `lost_reason` is updated and a `note`
+ * activity records both texts (`reasonCorrected: true`). `changed` still refers
+ * only to the STAGE, which did not move — callers keying off `changed` are
+ * unaffected. See `shouldRecordCorrectedReason` for where that line is drawn.
  *
  * `win_probability = 0` is written EXPLICITLY here, and this is a deliberate
  * deviation from `move-stage`. That route only applies a default when
@@ -101,7 +138,10 @@ export async function markNotInterested(
 
   const { data: lead, error: leadErr } = await supabase
     .from('pyra_sales_leads')
-    .select('id, stage_id, win_probability_overridden, is_converted')
+    // lost_reason is read for the B-14 correction path below — a lead already
+    // in the stage needs its CURRENT reason to know whether an incoming one is
+    // a correction or a retry.
+    .select('id, stage_id, win_probability_overridden, is_converted, lost_reason')
     .eq('id', leadId)
     .maybeSingle();
   if (leadErr) {
@@ -112,7 +152,61 @@ export async function markNotInterested(
 
   const fromStage = (lead.stage_id as string | null) ?? null;
   if (fromStage === STAGE_NOT_INTERESTED) {
-    return { ok: true, previousStage: fromStage, changed: false };
+    // ── B-14: the stage is already right, but the REASON may be new ─────────
+    // Before this, the function returned here with no write of any kind, so a
+    // rep correcting or expanding their reason lost it silently — the column
+    // kept the old text and the timeline gained nothing.
+    //
+    // The stage move itself is still skipped (it is already in the target
+    // stage, and re-running it would double the stage_change row this
+    // function's compare-and-swap exists to prevent), so `changed` stays
+    // false. `reasonCorrected` is what tells the caller a write happened.
+    if (!shouldRecordCorrectedReason(lead.lost_reason as string | null, reason)) {
+      return { ok: true, previousStage: fromStage, changed: false };
+    }
+
+    const previousReason = ((lead.lost_reason as string | null) ?? '').trim() || null;
+    const { error: reasonErr } = await supabase
+      .from('pyra_sales_leads')
+      .update({ lost_reason: reason, updated_at: new Date().toISOString() })
+      .eq('id', leadId);
+    if (reasonErr) {
+      console.error('[markNotInterested] lost_reason correction failed:', reasonErr.message);
+      return { ok: false, reason: 'db_error' };
+    }
+
+    // A `note`, NOT a second `stage_change`: nothing moved, and a stage_change
+    // with identical from/to would corrupt every consumer that reads the
+    // timeline as a stage history (the productivity report walks exactly these
+    // rows). The previous text is kept in metadata so the correction is
+    // auditable rather than just overwritten.
+    //
+    // created_by is the ACTOR here, unlike the system rows elsewhere in this
+    // codebase that use NULL — a human typed this correction and the timeline
+    // should say who.
+    void supabase
+      .from('pyra_lead_activities')
+      .insert({
+        id: generateId('la'),
+        lead_id: leadId,
+        activity_type: 'note',
+        // i18n-exempt: persisted timeline content, not a per-request response
+        // message — stays Arabic until Phase 8 (notification templates).
+        description: `تحديث سبب عدم الاهتمام: ${reason}`,
+        metadata: {
+          auto: true,
+          source: 'lost_reason_corrected',
+          previous_reason: previousReason,
+          new_reason: reason,
+          changed_by: actor,
+        },
+        created_by: actor,
+      })
+      .then(({ error: e }) => {
+        if (e) console.error('[lost_reason correction activity] insert failed:', e.message);
+      });
+
+    return { ok: true, previousStage: fromStage, changed: false, reasonCorrected: true };
   }
 
   // Terminal-won guard (Fix 2, wave C audit) — see isTerminalWonLead() above.

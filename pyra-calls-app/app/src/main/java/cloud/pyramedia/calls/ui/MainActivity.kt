@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
 import androidx.core.content.ContextCompat
 import cloud.pyramedia.calls.BuildConfig
+import cloud.pyramedia.calls.core.AppGate
 import cloud.pyramedia.calls.core.DubaiTime
 import cloud.pyramedia.calls.core.UpdatePolicy
 import cloud.pyramedia.calls.data.ApiClient
@@ -61,14 +62,17 @@ class MainActivity : ComponentActivity() {
             PyraTheme {
                 var granted by remember { mutableStateOf(allPermissionsGranted()) }
                 var loggedIn by remember { mutableStateOf(prefs.isLoggedIn()) }
-                // Per-release mandatory block (CA-C2). Deliberately
-                // placed AFTER the permissions/login branches below
-                // and BEFORE the normal Home branch: a logged-out
-                // user who is also behind a mandatory release must
-                // still see LoginScreen, not a screen with one
-                // action they have no session to complete anything
-                // from — trapping them here would be worse than not
-                // blocking at all.
+                // B-15 — hoisted to the gate because the dead-session verdict
+                // now decides WHICH screen shows, not just whether Home draws a
+                // banner. HomeScreen keeps its own instance: it refreshes that
+                // one straight after its own authenticated myDay() call, and
+                // both read the same AppPrefs value, so they cannot disagree
+                // about anything that matters here.
+                val sessionDead = rememberSessionDead(prefs)
+                // Per-release mandatory block (CA-C2). Where this sits relative
+                // to the login/permissions branches — and why — now lives in
+                // AppGate.decide's doc, next to the B-15 case that was missing
+                // from the same rule.
                 //
                 // CA-C2 fix round 1: `blocked` derives from
                 // rememberPendingUpdate's LIVE state, not a raw
@@ -84,9 +88,19 @@ class MainActivity : ComponentActivity() {
                 val blocked = UpdatePolicy.shouldBlock(
                     pendingUpdate.value.versionCode, BuildConfig.VERSION_CODE, pendingUpdate.value.mandatory,
                 )
-                when {
-                    !granted -> PermissionsScreen(onAllGranted = { granted = true })
-                    !loggedIn -> LoginScreen(api, prefs.deviceId) { data ->
+                // The branch ORDER lives in AppGate (pure, unit-tested against
+                // the full 16-case matrix) rather than in this `when`, because
+                // the order IS the fix: B-15 was a missing case in it, and a
+                // `when` inside an Activity cannot be tested.
+                val screen = AppGate.decide(
+                    granted = granted,
+                    loggedIn = loggedIn,
+                    sessionDead = sessionDead.value,
+                    blocked = blocked,
+                )
+                when (screen) {
+                    AppGate.Screen.PERMISSIONS -> PermissionsScreen(onAllGranted = { granted = true })
+                    AppGate.Screen.LOGIN -> LoginScreen(api, prefs.deviceId) { data ->
                         prefs.deviceKey = data.device_key
                         prefs.username = data.username
                         prefs.displayName = data.display_name
@@ -109,13 +123,37 @@ class MainActivity : ComponentActivity() {
                         SyncScheduler.syncNow(this@MainActivity)
                         loggedIn = true
                     }
-                    blocked -> UpdateRequiredScreen(
+                    AppGate.Screen.SESSION_DEAD_BLOCKED -> SessionDeadBlockedScreen(
+                        versionName = pendingUpdate.value.versionName ?: BuildConfig.VERSION_NAME,
+                        onRelogin = {
+                            // Identical to Home's logout, and for the identical
+                            // reason: flip the tripwire off FIRST so this
+                            // deliberate re-login is never reported as an
+                            // abnormal session loss on the next launch.
+                            // clearSession() also clears the auth-failure
+                            // streak and the session_dead flag, so a successful
+                            // sign-in leaves the phone genuinely healthy rather
+                            // than one poll away from this screen again.
+                            prefs.wasLoggedIn = false
+                            prefs.clearSession()
+                            loggedIn = false
+                        },
+                    )
+                    AppGate.Screen.UPDATE_REQUIRED -> UpdateRequiredScreen(
                         versionName = pendingUpdate.value.versionName ?: BuildConfig.VERSION_NAME,
                         api = api,
                         prefs = prefs,
-                        onRecheck = pendingUpdate::refresh,
+                        // Refreshes BOTH live flags: the poll inside that screen
+                        // now records its own auth outcome, so a key revoked
+                        // while the rep sits there flips `sessionDead` and this
+                        // is what carries it into the gate — otherwise the
+                        // escape screen would wait for the next app resume.
+                        onRecheck = {
+                            pendingUpdate.refresh()
+                            sessionDead.refresh()
+                        },
                     )
-                    else -> {
+                    AppGate.Screen.HOME -> {
                         // "شغل النهاردة" is a sub-screen of Home, not a new
                         // top-level `when` branch — same pattern as the
                         // granted/loggedIn flags above, just nested one level

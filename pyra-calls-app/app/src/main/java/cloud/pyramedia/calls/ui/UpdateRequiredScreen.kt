@@ -94,7 +94,30 @@ fun UpdateRequiredScreen(
     LaunchedEffect(Unit) {
         while (true) {
             delay(UpdatePolicy.BLOCKED_POLL_INTERVAL_MILLIS)
-            when (val res = api.appVersion()) {
+            val res = api.appVersion()
+
+            // B-15 — this poll is an AUTHENTICATED call, so its result is
+            // evidence about the device key and must be recorded like every
+            // other one (SyncWorker and HomeScreen already do this). Without
+            // it, a key revoked while the rep is parked on this exact screen
+            // is invisible here: the poll just logs 401 forever, `blocked`
+            // never clears, and the download button cannot work either — the
+            // dead end AppGate.Screen.SESSION_DEAD_BLOCKED exists to escape.
+            // Recording it means two consecutive 401/403s (~2 min at this
+            // interval) flip `sessionDead`, and `onRecheck` below re-reads it,
+            // so the way out appears on its own with no action from the rep.
+            //
+            // Every branch records, including NetworkError: SessionHealth
+            // ignores anything that is not 401/403, so a basement network
+            // error neither accumulates toward "dead" nor clears a real
+            // streak. Passing it through is what keeps that judgement in the
+            // one place that owns it.
+            prefs.recordAuthOutcome(
+                ok = res is ApiResult.Ok,
+                errorCode = (res as? ApiResult.Err)?.code,
+            )
+
+            when (res) {
                 is ApiResult.Ok -> {
                     val latest = res.data.latest
                     // Mirrors SyncWorker's own "Self-update check" mapping
@@ -112,15 +135,26 @@ fun UpdateRequiredScreen(
                         prefs.pendingUpdateVersionName = null
                         prefs.pendingUpdateMandatory = false
                     }
-                    onRecheck()
                 }
-                // Deliberately NOT clearing/touching prefs here — see the
-                // failure-handling note in this function's doc comment above.
+                // Deliberately NOT clearing/touching the PENDING-UPDATE cache
+                // here — see the failure-handling note in this function's doc
+                // comment above. (The session-health write above is a separate
+                // concern and deliberately happens on every branch.)
                 is ApiResult.Err ->
                     Log.w(TAG, "blocked-poll app-version check failed: ${res.code} ${res.message}")
                 ApiResult.NetworkError ->
                     Log.w(TAG, "blocked-poll app-version check: network error, will retry next tick")
             }
+
+            // Unconditional, and that is the B-15 half: on the Ok branch it
+            // publishes whatever the poll just wrote (as before), but on a 401
+            // it is the ONLY thing that lets the freshly-flipped `sessionDead`
+            // reach the gate. Leaving it inside the Ok branch would mean the
+            // escape screen never appears for the rep who is actually stuck,
+            // since a dead key can only ever produce the Err branch. Safe to
+            // call either way: it only re-reads AppPrefs, and on a failed poll
+            // the pending-update cache is unchanged, so that half is a no-op.
+            onRecheck()
         }
     }
 
