@@ -16,11 +16,15 @@
 --   5. dropped the dead COALESCE(…, '-infinity') weight and its cleanup
 --      statement — Postgres GREATEST already ignores NULLs.
 --
--- Rollback set captured BEFORE this ran (re-verified current 2026-08-08,
--- includes the rows today's 01:00 idle cron wrote):
---   backups/merge-duplicate-leads-leads-20260808.json      (all 10 lead rows, every column)
---   backups/merge-duplicate-leads-activities-20260808.json (46 activity rows on the losers)
---   backups/merge-duplicate-leads-calls-20260808.json      (16 call rows on the losers)
+-- Rollback set — USE THE 20260810 FILES:
+--   backups/merge-duplicate-leads-leads-20260810.json      (all 10 lead rows, every column)
+--   backups/merge-duplicate-leads-activities-20260810.json (47 activity rows on the losers)
+--   backups/merge-duplicate-leads-calls-20260810.json      (16 call rows on the losers)
+--
+-- The 20260808 files are STALE and must not be used: the 01:00 UTC idle cron
+-- added an activity row, so they hold 46 of what are now 47. A snapshot short
+-- of live means the merge moves a row that cannot be put back. Re-capture and
+-- re-verify the counts immediately before running — that is not optional.
 -- `backups/` is gitignored, so those three files are LOCAL to this machine.
 -- If this script is run from a fresh clone, re-capture them first — and
 -- re-verify the 46/16 counts, because every idle-cron day adds activity rows.
@@ -126,9 +130,13 @@ UPDATE pyra_sales_leads l SET
   archived_at = now(),
   archived_by = 'elharm',
   phone       = NULL,
+  -- The date is derived, not hardcoded: this script was written 2026-08-08 but
+  -- the merge waited for an evening when the reps were not mid-call, so a fixed
+  -- date would have put a false day on a permanent note.
   notes       = concat_ws(E'\n', l.notes,
                   concat('دُمج في ', m.survivor, ' — ', m.grp,
-                         ' (2026-08-08). الرقم اتشال من الكارت ده عشان يخرج من مطابقة المكالمات.')),
+                         ' (', to_char(now(), 'YYYY-MM-DD'), '). ',
+                         'الرقم اتشال من الكارت ده عشان يخرج من مطابقة المكالمات.')),
   updated_at  = now()
 FROM merge_map m WHERE l.id = m.loser;
 
