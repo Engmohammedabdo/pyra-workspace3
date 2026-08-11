@@ -2201,3 +2201,202 @@ deleting the activity rows falsifies the record.
 
 The correct remedy is a **human handoff** on that one lead plus **merging the
 duplicate cards** (backlog). **Fix the duplicate, not the timeline.**
+
+---
+
+## Calls — The Trapped Phone, the Frozen Sync, and the Owner's Notice (Locked, 2026-08-10)
+
+Wave د closed the last of the calls backlog: B-14, B-15, F-07 and T-01…T-05.
+Shipped as `af387f2` (B-14/B-15) · `35056af` (F-07) · `b289bb7` (T-01…T-05),
+plus release **v1.7.1 / versionCode 9**. Several of the decisions below read as
+mistakes until you know what they are avoiding.
+
+### 1. Never show a blocking screen to someone who cannot complete its action
+
+The rule already existed — CA-C2 put `blocked` after `loggedIn` so a logged-OUT
+rep is not stranded on a screen whose single action needs a session. **B-15 was
+that same rule with a case missing.** A revoked device key produces the exact
+condition in disguise: `AppPrefs.isLoggedIn()` is `true` (the key is stored, it
+is simply no longer accepted), so a phone both behind a mandatory release *and*
+holding a dead key fell through to `UpdateRequiredScreen` — and was
+**permanently stuck**, because BOTH escape hatches sit behind the dead key:
+
+| Escape hatch | Why it was closed |
+|---|---|
+| The 60s `app-version` poll that lifts a mistaken block | `requireDeviceAuth` → 401 forever, and the screen only writes to prefs on the SUCCESS branch |
+| The "update now" button | `app-download` needs the same key → cannot fetch the APK |
+| Home's session-dead banner and its re-login button | `blocked` had already replaced Home |
+
+Net effect: clear app data or uninstall. **`core/AppGate.kt` now owns the branch
+order** — pure, and unit-tested against the full 16-case matrix, because *the
+order is the fix* and a `when` inside an Activity cannot be tested. One test
+asserts the invariant directly: **no combination involving a dead session may
+ever reach the update screen.**
+
+- **`SESSION_DEAD_BLOCKED` is the INTERSECTION only.** A dead session on its own
+  still goes Home — the banner there explains the cause (usually "you signed in
+  on another handset") and the rep can still see their work. Taking the whole
+  screen away would be a downgrade.
+- **The screen deliberately has NO "update now" button.** It would 401, and a
+  button that cannot work is worse than no button: the rep taps it, nothing
+  happens, and they conclude the app is broken rather than that they must sign
+  in. Signing in is not merely the better first step — it is the only possible
+  one.
+- **`UpdateRequiredScreen`'s poll now records its own auth outcome**, and
+  `onRecheck` fires on EVERY branch, not only success. Without both, a key
+  revoked while the rep is parked on that screen stays invisible there until the
+  next app resume — the same "a safety valve that slow is not a safety valve"
+  reasoning CA-C3 applied to the block itself. Two consecutive 401s (~2 min) now
+  surface the way out unprompted.
+
+### 2. A bad row is dropped; `status: 'error'` is forbidden (T-02)
+
+`parseCalls` returned `null` — a 422 for the WHOLE batch — the moment any single
+row failed validation, and **the device cursor only advances on a 2xx**
+(`SyncPlanner.nextCursor`). One unparseable row therefore **froze that handset's
+sync permanently**, every later call piling up unseen while the phone looked
+healthy. The row need not be exotic: the payload is built from the SIM call log,
+where a withheld number can surface with a blank number field.
+
+Now in `lib/mobile/parse-calls.ts` (10 tests). Three parts are load-bearing:
+
+- **The envelope stays fatal, the rows do not.** Non-array / empty / over
+  `MAX_BATCH` is a client bug and still 422s. A bad row inside a valid envelope
+  is dropped.
+- **An all-invalid batch returns 2xx with an empty result list.** A 422 there
+  would rebuild the identical freeze one layer down; rows that can never be
+  persisted must not be re-sent forever.
+- **It must NEVER come back as `status: 'error'`.** That is the one value
+  `SyncPlanner` treats as "nothing persisted, do not advance" — using it for a
+  permanently-bad row is the freeze again in a different hat.
+
+Every dropped row is written to `pyra_error_logs`. Dropping is right; dropping
+*silently* would turn lost call data into an invisible hole.
+
+### 3. The device gate asks for a PERMISSION, never a role (T-03)
+
+Owner `status === 'active'` only asks whether the account exists. A rep moved
+off sales stays active, and their device key kept ingesting calls, writing lead
+activity and creating leads for a role with no business doing it. Deactivation
+was covered; **role change was not.**
+
+Gated on **`leads.view`** via `buildUserPermissions` — deliberately NOT
+`role === 'sales_agent'`:
+
+- Per-user `extra_permissions` exist precisely to grant a capability WITHOUT the
+  role. A role equality check would contradict the system's own design and lock
+  out a legitimately-granted user.
+- `leads.view` is **absent from `BASE_EMPLOYEE`**, which is what makes it a real
+  gate rather than a formality.
+- `buildUserPermissions` also handles the admin `'*'` wildcard, so an
+  admin-owned device still works.
+
+⚠️ **This gate runs on EVERY `/api/mobile/*` request, so verify it against
+production data BEFORE shipping.** Done here: all three real agents resolve
+through the DB "Sales" role, whose permissions include `leads.view`, and
+`e2e.upgrade` has no `role_id` so it falls back to the legacy mapping, which
+also includes it — both paths covered. Confirmed live afterwards with
+`test.sales` (`ping` + `my-day` → 200).
+
+`hasPermission` is imported **aliased** in `device-auth.ts`: the one already
+there checks an API KEY's scopes (`calls:device`), this one checks a USER's RBAC
+permissions. Two different questions with the same verb — unaliased, a future
+edit calls the wrong one and silently widens the gate.
+
+### 4. F-07's notice is verbose because the lead timeline is empty by design
+
+The ownership boundary writes NOTHING to the lead on an unowned match. That is
+the correct security answer, and it left the owner blind: before the gate they
+found out by accident, through a timeline row that falsely implied they had made
+the call themselves; after it, nothing at all.
+
+So this notification is the **only** record the owner ever sees, and
+`lib/calls/colleague-call-notice.ts` states who, which customer, which
+direction, how long, when — and **where the call actually lives** (the calls
+report), so nobody hunts through a timeline that is empty on purpose.
+
+- **Connected calls only.** An unanswered dial at a colleague's customer is
+  effort, not contact — the same `isConnectedCall` predicate every consumer
+  uses. Without it, a wrong number redialled three times is three alerts about
+  nothing.
+- **Direction flips the wording.** "Your colleague called your customer" and
+  "your customer called your colleague" call for different reactions.
+- **`lead_called_by_colleague` was added to the `NotificationType` union
+  properly.** `NotifyArgs.type` is `NotificationType | string`, so a bare-string
+  typo would have shipped silently. There is no CHECK constraint on the column,
+  so no migration was needed — and the name **starts with `lead` on purpose**,
+  because `NotificationBell`'s `typeVisual()` resolves icons by PREFIX, so it
+  renders in the CRM group with zero UI changes.
+- **The `lead.assigned_to` guard in the branch is NOT redundant with
+  `!owned`.** `isOwnedByAgent` fails CLOSED on a null assignee, so an unassigned
+  lead lands in exactly this branch with nobody to notify. Zero of 1,245
+  phone-bearing leads are unassigned today — which is precisely how an unguarded
+  `to: null` would have sat there undetected until someone unassigned one.
+
+### 5. B-14 — idempotent for a retry, recording for a correction
+
+`markNotInterested` returned early for a lead already in the stage with no write
+of any kind, so a rep correcting or expanding their reason lost it silently —
+not the column, not the timeline. The two requirements pull against each other,
+and `shouldRecordCorrectedReason` is where the line sits:
+
+- **Trimmed before comparing** — a resend differing by a newline is a retry, not
+  a correction, and writing a timeline row for it is the doubling the
+  short-circuit exists to prevent.
+- **Not case-folded, not diacritic-normalised.** These are sentences a human
+  typed; treating two spellings as one discards the newer on the assumption the
+  difference is noise.
+- **An empty incoming reason never records and never erases** what is there.
+- It writes a **`note`, not a second `stage_change`**: nothing moved, and a
+  `stage_change` with identical from/to would corrupt every consumer that reads
+  the timeline as stage history — the productivity report walks exactly those
+  rows.
+
+### 6. v1.7.1 shipped NON-mandatory, and the reason inverts
+
+**B-15 fixes a trap that only exists once a mandatory release is published.**
+Shipping v1.7.1 itself as mandatory would have dropped any phone holding a
+revoked key straight into that trap while still running the version *without*
+the fix — and the fix cannot rescue a phone that cannot download it. Once
+v1.7.1 is on the fleet, future mandatory releases are safe again.
+
+Related: the Arabic release notes were set through a UTF-8 file via
+`pnpm db:query`, **not** `pnpm app:publish --notes`. That text is rendered to
+the rep by `UpdateActivity`, and a Windows command line turns Arabic into
+literal `?` silently and unrecoverably.
+
+### 7. T-05's obvious fix would have been theatre
+
+`@Synchronized` / `synchronized(this)` on `recordAuthOutcome` **guards nothing
+here.** `AppPrefs` is constructed at **seven separate call sites** (SyncWorker,
+MainActivity, UpdateActivity, CallOutcomeActivity, QuickAddActivity,
+IgnoreReceiver, PyraCallsApp), so concurrent writers hold DIFFERENT objects
+while writing one SharedPreferences file — a lock that reads as protection and
+provides none. The monitor lives in a `companion object` instead. There are
+**three** writers now, not the two the note assumed: B-15 made
+`UpdateRequiredScreen`'s poll record its own auth outcome.
+
+### 8. T-01's precondition was verified, not assumed
+
+"Remove after a full fleet cycle" is only checkable against real fleet data, and
+`pyra_api_keys.app_version_code` is that data: the migration shipped
+**2026-07-16** (`9d0123c`) and both live handsets are on **code 8**, built
+2026-08-07. 75 lines and the Google-deprecated dependency removed. **The
+session-loss tripwire stays** — it detects a session vanishing for ANY reason,
+not just the encrypted store.
+
+### Measured in passing, not fixed
+
+- **The fleet is TWO phones, not one.** The backlog said one (youssef);
+  cosette's handset is live and synced the same evening. Two phones changes the
+  risk calculus of every release. Corrected in the backlog.
+- **`sayed`'s device key is still `is_active = true`** while the user has been
+  `inactive` since 2026-07-11. The status gate does stop it, but the key was
+  never revoked — that is `access-reconcile`'s job, and **that cron is still not
+  running** (its node exists only in the n8n draft).
+- **`phone_call` is the largest lead source in the CRM** — 777 of 1,260 (62%) —
+  and every one rendered as the unknown-value fallback until T-04. The label
+  already existed in `messages/`; only the icon entry was missing.
+  `pyra_sales_leads.source` has **no DB constraint**, so `SOURCE_MAP` is the only
+  thing between a new writer and a wall of question marks: add the entry in the
+  same change that starts writing a new value.

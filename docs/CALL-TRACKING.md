@@ -33,6 +33,18 @@ Two separate credential types exist in this feature — do not confuse them:
   (`signInWithPassword`, then immediately `signOut()` — no cookie session is
   ever created for the mobile flow), looks the user up in `pyra_users`, and
   requires `status='active'` and `role ∈ {sales_agent, admin}`.
+- **Every request re-checks the owner, twice over (T-03, 2026-08-10).**
+  `requireDeviceAuth` verifies the owner is still `status='active'` AND still
+  holds **`leads.view`** (built through `buildUserPermissions`, so
+  `BASE_EMPLOYEE` inheritance, DB roles, `extra_permissions` and the admin `'*'`
+  wildcard all resolve the same way they do for a dashboard request).
+  A rep moved off sales stays `active`, so before T-03 their phone kept
+  ingesting calls and writing lead data for a role with no business doing it.
+  Gated on the PERMISSION and not on `role === 'sales_agent'` because
+  `extra_permissions` are designed to grant a capability without the role — see
+  the locked decision. **This runs on every `/api/mobile/*` request: verify any
+  change to it against production data before deploying, or you take the fleet
+  offline.**
 - On success, a new `pyra_api_keys` row is minted: `name:
   device:{username}:{device_id}`, `permissions: ['calls:device']` (narrow —
   never `*`), `created_by: username`, `expires_at: null`. The raw key
@@ -130,6 +142,22 @@ Auth: `x-api-key: <device_key>` (`requireDeviceAuth`). Body:
 Batch capped at **100** calls per request (422 if empty/oversized).
 `direction ∈ {outgoing, incoming, missed}`.
 
+**A single bad ROW no longer fails the batch (T-02, 2026-08-10).** Rows that
+fail validation are **dropped** — the rest are processed normally — and every
+drop is written to `pyra_error_logs`
+(`action: 'mobile_calls_sync_dropped_rows'`, with the row index and reason).
+Only the **envelope** still 422s: not an array, empty, or over 100. A batch in
+which *every* row is invalid returns **200 with an empty `results` list**.
+
+Why it works this way, and the trap in the other direction: the device cursor
+only advances on a 2xx (`SyncPlanner.nextCursor`), so the old whole-batch 422
+**froze that handset's sync permanently** on one unparseable row — a withheld
+number arriving with a blank `phone` was enough. And a dropped row must **never**
+be echoed back as `status: 'error'`, because that is the one status the planner
+treats as "nothing persisted, do not advance" — it would rebuild the same freeze
+one layer down. Duplicate `device_call_key`s *within* one batch are also dropped
+after the first, so one pass cannot trip the unique index against itself.
+
 **Idempotency**: `device_call_key` should be `{device_id}:{CallLog._ID}` —
 unique per `(agent_username, device_call_key)`. Re-sending an already-synced
 key (a repeat cursor pass, or an in-flight retry) is a no-op that returns
@@ -175,7 +203,19 @@ route:
 - does **not** bump `last_contact_at`;
 - withholds `lead_id` and `lead_name` from the response;
 - but still **stores the call** in `pyra_agent_calls`, with its `lead_id`
-  **SET** and `match_status` still **`'matched'`**.
+  **SET** and `match_status` still **`'matched'`**;
+- and, since F-07 (2026-08-10), **notifies the lead's OWNER** — a
+  `lead_called_by_colleague` notification through `notify()`, fired only for a
+  CONNECTED call and only when the lead actually has an `assigned_to`.
+
+  That notice is the compensating half of this gate, and it is deliberately
+  wordy: because none of the writes above happen, it is the **only record the
+  owner will ever see**. It names the caller, the customer, the direction, the
+  duration and the Dubai-local time, then says the call lives in the calls
+  report — otherwise the owner goes hunting through a lead timeline that is
+  empty on purpose. Unanswered dials notify nobody (effort, not contact), so a
+  wrong number redialled three times is not three alerts. Text lives in
+  `lib/calls/colleague-call-notice.ts`.
 
 **Exact response shape for an unowned match** — `owned: false` and nothing
 else beside the two always-present keys:
