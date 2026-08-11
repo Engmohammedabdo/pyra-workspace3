@@ -55,6 +55,25 @@ vi.mock('@/lib/supabase/server', () => ({
 
 import { requireDeviceAuth } from '@/app/api/mobile/_lib/device-auth';
 
+/**
+ * A device owner as production actually stores one. `role` +
+ * `pyra_roles.permissions` are NOT optional decoration: since T-03 the gate
+ * asks whether the owner still HAS the capability, and both real agents carry a
+ * `role_id` pointing at the DB "Sales" role, so the DB permissions — not the
+ * legacy role mapping — are what buildUserPermissions actually reads for them.
+ */
+function salesAgent(over: Record<string, unknown> = {}) {
+  return {
+    username: 'cosette',
+    display_name: 'Cosette',
+    status: 'active',
+    role: 'sales_agent',
+    extra_permissions: [],
+    pyra_roles: { permissions: ['leads.view', 'leads.create', 'calls.view'] },
+    ...over,
+  };
+}
+
 function deviceRequest() {
   return new NextRequest('https://workspace.test/api/mobile/calls/sync', {
     method: 'POST',
@@ -86,7 +105,7 @@ describe('requireDeviceAuth — owner account-status gate', () => {
 
   it('lets an ACTIVE owner through and returns their identity', async () => {
     mocks.externalCtx = deviceKey('cosette');
-    mocks.userRow = { username: 'cosette', display_name: 'Cosette', status: 'active' };
+    mocks.userRow = salesAgent({ status: 'active' });
 
     const result = await requireDeviceAuth(deviceRequest());
 
@@ -96,7 +115,7 @@ describe('requireDeviceAuth — owner account-status gate', () => {
 
   it('REJECTS an inactive owner even though the key row is still is_active', async () => {
     mocks.externalCtx = deviceKey('cosette');
-    mocks.userRow = { username: 'cosette', display_name: 'Cosette', status: 'inactive' };
+    mocks.userRow = salesAgent({ status: 'inactive' });
 
     expect(await statusOf(await requireDeviceAuth(deviceRequest()))).toBe(403);
   });
@@ -104,7 +123,7 @@ describe('requireDeviceAuth — owner account-status gate', () => {
   it('fails CLOSED on any non-active status, including NULL', async () => {
     for (const status of ['suspended', null, '', 'ACTIVE']) {
       mocks.externalCtx = deviceKey('cosette');
-      mocks.userRow = { username: 'cosette', display_name: 'Cosette', status };
+      mocks.userRow = salesAgent({ status });
 
       expect(await statusOf(await requireDeviceAuth(deviceRequest()))).toBe(403);
     }
@@ -128,7 +147,7 @@ describe('requireDeviceAuth — owner account-status gate', () => {
         created_by: 'elharm',
       },
     };
-    mocks.userRow = { username: 'elharm', display_name: 'Elharm', status: 'inactive' };
+    mocks.userRow = salesAgent({ username: 'elharm', display_name: 'Elharm', status: 'inactive' });
 
     expect(await statusOf(await requireDeviceAuth(deviceRequest()))).toBe(403);
   });
@@ -137,6 +156,80 @@ describe('requireDeviceAuth — owner account-status gate', () => {
     mocks.externalCtx = null;
 
     expect(await statusOf(await requireDeviceAuth(deviceRequest()))).toBe(401);
+  });
+});
+
+/**
+ * T-03. The status gate above only asks whether the account EXISTS. A rep moved
+ * off sales stays `active`, and before this their device key kept ingesting
+ * calls and writing lead data for a role with no business doing it.
+ *
+ * Gated on `leads.view`, not on `role === 'sales_agent'`, because per-user
+ * `extra_permissions` are designed to grant a capability WITHOUT the role — a
+ * role equality check would lock out a legitimately-granted user. The two tests
+ * at the end are that distinction.
+ */
+describe('requireDeviceAuth — owner capability gate (T-03)', () => {
+  beforeEach(() => {
+    mocks.externalCtx = deviceKey('cosette');
+  });
+
+  it('REJECTS an active owner demoted to plain employee', async () => {
+    // BASE_EMPLOYEE deliberately excludes every leads.* permission, which is
+    // what makes this a real gate rather than a formality.
+    mocks.userRow = salesAgent({
+      role: 'employee',
+      pyra_roles: null,
+      extra_permissions: [],
+    });
+
+    expect(await statusOf(await requireDeviceAuth(deviceRequest()))).toBe(403);
+  });
+
+  it('REJECTS an owner whose DB role no longer carries leads.view', async () => {
+    // The live agents resolve through a DB role, so this is the path that
+    // actually runs in production — a permission edited off the "Sales" role
+    // must take their phone offline on the next request.
+    mocks.userRow = salesAgent({
+      pyra_roles: { permissions: ['timesheet.view', 'attendance.view'] },
+    });
+
+    expect(await statusOf(await requireDeviceAuth(deviceRequest()))).toBe(403);
+  });
+
+  it('accepts an admin, whose wildcard covers everything', async () => {
+    mocks.userRow = salesAgent({ username: 'elharm', role: 'admin', pyra_roles: null });
+
+    expect(await requireDeviceAuth(deviceRequest())).toEqual({
+      agentUsername: 'elharm',
+      displayName: 'Cosette',
+    });
+  });
+
+  it('accepts a NON-sales role granted leads.view via extra_permissions', async () => {
+    // The reason this is a permission check and not a role check. Rejecting
+    // this user would contradict the extra_permissions feature outright.
+    mocks.userRow = salesAgent({
+      role: 'employee',
+      pyra_roles: null,
+      extra_permissions: ['leads.view'],
+    });
+
+    expect(await requireDeviceAuth(deviceRequest())).toEqual({
+      agentUsername: 'cosette',
+      displayName: 'Cosette',
+    });
+  });
+
+  it('accepts an owner with no role_id, falling back to the legacy mapping', async () => {
+    // e2e.upgrade in production: role_id null, so buildUserPermissions uses the
+    // legacy sales_agent mapping, which includes leads.view.
+    mocks.userRow = salesAgent({ pyra_roles: null });
+
+    expect(await requireDeviceAuth(deviceRequest())).toEqual({
+      agentUsername: 'cosette',
+      displayName: 'Cosette',
+    });
   });
 });
 

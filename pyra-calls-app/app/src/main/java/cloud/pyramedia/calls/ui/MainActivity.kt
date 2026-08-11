@@ -30,17 +30,16 @@ class MainActivity : ComponentActivity() {
         prefs.clearPendingUpdateIfInstalled(BuildConfig.VERSION_CODE)
 
         // Session-loss tripwire: true iff the device was logged in on a prior
-        // run but isn't now, with no explicit logout in between — the exact
-        // signature of the EncryptedSharedPreferences keyset failure this
-        // migration exists to escape. consumeSessionLossEvent() resets the
-        // flag (fires once) and sets pendingSessionLossReport.
-        // A2: ErrorQueue reports pending_session_loss_report + pending_migration_loss_report
+        // run but isn't now, with no explicit logout in between. It was built
+        // for the EncryptedSharedPreferences keyset failure, and outlives that
+        // store (T-01) on purpose — a session vanishing for ANY reason is worth
+        // knowing. consumeSessionLossEvent() resets the flag (fires once) and
+        // sets pendingSessionLossReport.
+        // ErrorQueue reports pending_session_loss_report.
         prefs.consumeSessionLossEvent()
 
-        // Flag consumption (both flags follow the identical check → enqueue →
-        // clear pattern): pendingSessionLossReport was just set above (if the
-        // tripwire fired); pendingMigrationLossReport was set at AppPrefs
-        // init time if the old encrypted store existed but couldn't be read.
+        // Flag consumption (check → enqueue → clear). The sibling
+        // pendingMigrationLossReport went with the migration itself in T-01.
         if (prefs.pendingSessionLossReport) {
             ErrorQueue(this).enqueue(
                 message = "device session lost without explicit logout",
@@ -48,14 +47,6 @@ class MainActivity : ComponentActivity() {
                 severity = "error",
             )
             prefs.pendingSessionLossReport = false
-        }
-        if (prefs.pendingMigrationLossReport) {
-            ErrorQueue(this).enqueue(
-                message = "encrypted session store unreadable at migration",
-                source = "session_migration_failed",
-                severity = "error",
-            )
-            prefs.pendingMigrationLossReport = false
         }
 
         setContent {

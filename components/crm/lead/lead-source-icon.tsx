@@ -4,7 +4,12 @@
  * Render an icon for the lead's source. Supports the legacy enum
  * (whatsapp / website / referral / manual / ad / social) plus the v1
  * extensions in the PRD (whatsapp_direct / instagram_dm / cold_outreach
- * / events). Unknown values fall back to a neutral globe.
+ * / events) and `phone_call` from the call-tracking app. Unknown values fall
+ * back to a neutral question mark.
+ *
+ * `pyra_sales_leads.source` has NO database constraint, so this map is the only
+ * thing standing between a new writer and a wall of question marks — add the
+ * entry in the same change that starts writing a new value.
  */
 
 import { useTranslations } from 'next-intl';
@@ -18,6 +23,7 @@ import {
   Instagram,
   CalendarDays,
   PhoneOutgoing,
+  PhoneCall,
   HelpCircle,
 } from 'lucide-react';
 
@@ -36,6 +42,16 @@ const SOURCE_MAP: Record<string, { icon: IconType; tone: string }> = {
   ad:              { icon: Megaphone,     tone: 'text-orange-600 dark:text-orange-400' },
   events:          { icon: CalendarDays,  tone: 'text-indigo-600 dark:text-indigo-400' },
   cold_outreach:   { icon: PhoneOutgoing, tone: 'text-stone-600 dark:text-stone-400' },
+  // T-04 — and not a cosmetic gap: `phone_call` is the LARGEST source in the
+  // CRM at 777 of 1,260 leads (62%, measured 2026-08-10). Every one of them was
+  // rendering as the unknown-value fallback, so the most common origin in the
+  // pipeline showed a question mark. Written by the call-tracking app's
+  // quick-add flow when a rep turns an unmatched number into a lead.
+  //
+  // Distinct tone from cold_outreach despite sharing the phone metaphor: an
+  // inbound-driven call from the app is not an outbound cold dial, and they sit
+  // side by side on the same board.
+  phone_call:      { icon: PhoneCall,     tone: 'text-teal-600 dark:text-teal-400' },
 };
 
 export interface LeadSourceIconProps {

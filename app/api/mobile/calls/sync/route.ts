@@ -7,42 +7,15 @@ import { phoneMatchKey } from '@/lib/utils/phone';
 import { buildLeadPhoneIndex, matchLeadByPhone, isConnectedCall, isOwnedByAgent } from '@/lib/calls/match';
 import { buildColleagueCallNotice } from '@/lib/calls/colleague-call-notice';
 import { notify } from '@/lib/notifications/notify';
+import { parseCallsBatch, MAX_BATCH } from '@/lib/mobile/parse-calls';
 import { logError } from '@/lib/observability/log-error';
 import { FOLLOW_UP_STATUS } from '@/lib/constants/statuses';
 
-const MAX_BATCH = 100;
-const DIRECTIONS = new Set(['outgoing', 'incoming', 'missed']);
-
-interface IncomingCall {
-  device_call_key: string;
-  phone: string;
-  direction: 'outgoing' | 'incoming' | 'missed';
-  duration_seconds: number;
-  called_at: string;
-}
-
-function parseCalls(raw: unknown): IncomingCall[] | null {
-  if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_BATCH) return null;
-  const out: IncomingCall[] = [];
-  for (const item of raw) {
-    if (typeof item !== 'object' || item === null) return null;
-    const c = item as Record<string, unknown>;
-    if (typeof c.device_call_key !== 'string' || !c.device_call_key.trim()) return null;
-    if (typeof c.phone !== 'string' || !c.phone.trim()) return null;
-    if (typeof c.direction !== 'string' || !DIRECTIONS.has(c.direction)) return null;
-    const dur = Number(c.duration_seconds);
-    if (!Number.isFinite(dur) || dur < 0) return null;
-    if (typeof c.called_at !== 'string' || Number.isNaN(Date.parse(c.called_at))) return null;
-    out.push({
-      device_call_key: c.device_call_key.trim(),
-      phone: c.phone.trim(),
-      direction: c.direction as IncomingCall['direction'],
-      duration_seconds: Math.round(dur),
-      called_at: c.called_at,
-    });
-  }
-  return out;
-}
+// T-02 — parsing moved to lib/mobile/parse-calls.ts, where it is unit-tested and
+// where the reasoning lives. The behaviour change that matters: a single
+// unparseable row is now DROPPED rather than 422-ing the whole batch, because
+// the device cursor only advances on a 2xx and one bad row therefore used to
+// freeze that handset's sync permanently.
 
 /**
  * POST /api/mobile/calls/sync
@@ -121,8 +94,31 @@ export async function POST(request: NextRequest) {
     const { agentUsername, displayName: agentDisplayName } = auth;
 
     const body = await request.json().catch(() => null);
-    const calls = parseCalls(body?.calls);
-    if (!calls) return apiError(`calls مطلوبة (حد أقصى ${MAX_BATCH})`, 422);
+    const parsed = parseCallsBatch(body?.calls);
+    // null means the ENVELOPE is unusable (not an array / empty / oversized) —
+    // a client bug, so the device should hear about it. Bad ROWS inside a valid
+    // envelope no longer land here; they are dropped below.
+    if (!parsed) return apiError(`calls مطلوبة (حد أقصى ${MAX_BATCH})`, 422);
+    const { calls, dropped } = parsed;
+
+    if (dropped.length > 0) {
+      // Visible, not silent. Dropping a row is the right call — it can never be
+      // persisted, so re-sending it forever would freeze the cursor — but a
+      // dropped row is still lost call data, and the only thing standing between
+      // that and an invisible hole is this log. `device_call_key` may be null
+      // when the key itself was the invalid part; the index identifies it then.
+      logError({
+        error: `calls/sync dropped ${dropped.length} unparseable call row(s)`,
+        request,
+        metadata: { action: 'mobile_calls_sync_dropped_rows', agentUsername, dropped },
+      });
+    }
+
+    // Every row was unparseable. Answer 2xx with no results so the device's
+    // cursor advances past rows that can never be stored — a 422 here would
+    // recreate exactly the freeze T-02 removes. Returning early also keeps the
+    // queries below off an empty `.in()` list.
+    if (calls.length === 0) return apiSuccess({ results: [] });
 
     const supabase = createServiceRoleClient();
 

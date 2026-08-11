@@ -77,7 +77,9 @@ dependencies {
     implementation(libs.androidx.material.icons.core)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.work.runtime)
-    implementation(libs.androidx.security.crypto)
+    // androidx.security.crypto removed in T-01 — its only remaining user was the
+    // EncryptedSharedPreferences migration, itself removed once the fleet had
+    // cycled well past it. Google deprecated the library at 1.1.0-alpha06.
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit)

@@ -2,10 +2,7 @@ package cloud.pyramedia.calls.data
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 import cloud.pyramedia.calls.core.SessionHealth
-import java.io.File
 
 /**
  * Plain (unencrypted) app-sandboxed SharedPreferences.
@@ -18,87 +15,17 @@ import java.io.File
  * server-revocable, and the phone is company property — not worth trading
  * reliability for at-rest encryption of a revocable token.
  *
- * `init` runs a one-time best-effort migration from the old encrypted store
- * (see [migrateFromEncrypted]) so upgrading devices don't lose their session.
+ * The one-time migration off that old encrypted store was removed in T-01 once
+ * the fleet had cycled past it: it shipped 2026-07-16 and every live device has
+ * been running builds newer than that since 2026-08-07 (verified via
+ * `pyra_api_keys.app_version_code`), so the code could only ever run again on a
+ * handset that had somehow skipped four months of releases. The orphaned
+ * `migrated_from_encrypted` / `pending_migration_loss_report` keys are left in
+ * the store — harmless, and cheaper than a migration to delete them.
  */
 class AppPrefs(context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences("pyra_calls_prefs", Context.MODE_PRIVATE)
-
-    init { migrateFromEncrypted(context) }
-
-    /**
-     * Runs once per install (gated by `migrated_from_encrypted`). Reads the
-     * old `EncryptedSharedPreferences` store and copies over every key
-     * AppPrefs exposed at the time this migration was written. If the old
-     * store can't even be opened/read (the exact failure mode this migration
-     * exists to escape), nothing is carried over — but the loss is flagged
-     * via `pendingMigrationLossReport` so A2's ErrorQueue can report it once
-     * that queue exists, instead of silently vanishing a second time.
-     */
-    private fun migrateFromEncrypted(context: Context) {
-        if (prefs.getBoolean("migrated_from_encrypted", false)) return
-
-        // Fresh installs never had the old encrypted store — skip out before
-        // touching EncryptedSharedPreferences at all. Constructing it (and its
-        // Keystore-backed MasterKey) just to read a store that was never
-        // there is pure risk: a Keystore flake on a brand-new device would
-        // otherwise land in the catch below and false-positive
-        // pendingMigrationLossReport for a device that never lost anything.
-        val legacyStoreFile = File(context.dataDir, "shared_prefs/pyra_calls_secure.xml")
-        if (!legacyStoreFile.exists()) {
-            prefs.edit().putBoolean("migrated_from_encrypted", true).apply()
-            return
-        }
-
-        try {
-            val old = EncryptedSharedPreferences.create(
-                context, "pyra_calls_secure",
-                MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-            )
-            val e = prefs.edit()
-            old.getString("device_key", null)?.let { e.putString("device_key", it) }
-            old.getString("username", null)?.let { e.putString("username", it) }
-            old.getString("display_name", null)?.let { e.putString("display_name", it) }
-            old.getString("device_id", null)?.let { e.putString("device_id", it) }
-            old.getString("last_login_username", null)?.let { e.putString("last_login_username", it) }
-            if (old.contains("last_synced_call_log_id")) {
-                e.putLong("last_synced_call_log_id", old.getLong("last_synced_call_log_id", 0L))
-            }
-            if (old.contains("install_day_start_millis")) {
-                e.putLong("install_day_start_millis", old.getLong("install_day_start_millis", 0L))
-            }
-            if (old.contains("last_sync_at_millis")) {
-                e.putLong("last_sync_at_millis", old.getLong("last_sync_at_millis", 0L))
-            }
-            if (old.getString("device_key", null) != null) e.putBoolean("was_logged_in", true)
-            e.putBoolean("migrated_from_encrypted", true).apply()
-            // Isolated on purpose (A2 carryover fix): the copy above already
-            // succeeded by this point. A throw from the delete call alone must
-            // NOT fall into the outer catch below — that would overwrite the
-            // just-written migrated data with pendingMigrationLossReport=true,
-            // false-positiving a migration-loss report for a migration that
-            // actually worked.
-            try {
-                context.deleteSharedPreferences("pyra_calls_secure")
-            } catch (deleteFailure: Throwable) {
-                // Old store copied fine; failing to delete it is harmless
-                // (it just lingers, unread, until the OS reclaims it) — not
-                // worth its own error report.
-            }
-        } catch (t: Throwable) {
-            // Encrypted store unreadable — the exact failure mode we're
-            // escaping. Nothing to carry over; mark done so we never retry,
-            // and flag the loss so A2's ErrorQueue can report it once that
-            // queue exists.
-            prefs.edit()
-                .putBoolean("migrated_from_encrypted", true)
-                .putBoolean("pending_migration_loss_report", true)
-                .apply()
-        }
-    }
 
     var deviceKey: String?
         get() = prefs.getString("device_key", null)
@@ -145,25 +72,24 @@ class AppPrefs(context: Context) {
      * callback, before `clearSession()`). Survives `clearSession()`
      * intentionally — it's the tripwire: if a future launch finds
      * `isLoggedIn() == false` while this is still true, the session was lost
-     * abnormally (not via logout), which is the exact signature of the
-     * EncryptedSharedPreferences keyset failure this migration exists to
-     * escape. See [consumeSessionLossEvent].
+     * abnormally (not via logout) — the exact signature of the
+     * EncryptedSharedPreferences keyset failure that moving off that store was
+     * meant to escape. The tripwire outlives the migration (T-01) on purpose:
+     * it detects a session vanishing for ANY reason, which is still worth
+     * knowing. See [consumeSessionLossEvent].
      */
     var wasLoggedIn: Boolean
         get() = prefs.getBoolean("was_logged_in", false)
         set(v) = prefs.edit().putBoolean("was_logged_in", v).apply()
 
     /**
-     * Best-effort flags for A2's (not-yet-built) ErrorQueue to pick up and
-     * report on startup, then clear. `pendingMigrationLossReport` is set once,
-     * at migration time, if the old encrypted store existed but could not be
-     * read. `pendingSessionLossReport` is set by [consumeSessionLossEvent]
-     * when an abnormal session loss is detected on a later launch.
+     * Best-effort flag for ErrorQueue to pick up and report on startup, then
+     * clear. Set by [consumeSessionLossEvent] when an abnormal session loss is
+     * detected on a later launch.
+     *
+     * `pendingMigrationLossReport` used to live beside it; T-01 removed both it
+     * and the migration that was its only writer.
      */
-    var pendingMigrationLossReport: Boolean
-        get() = prefs.getBoolean("pending_migration_loss_report", false)
-        set(v) = prefs.edit().putBoolean("pending_migration_loss_report", v).apply()
-
     var pendingSessionLossReport: Boolean
         get() = prefs.getBoolean("pending_session_loss_report", false)
         set(v) = prefs.edit().putBoolean("pending_session_loss_report", v).apply()
@@ -246,7 +172,7 @@ class AppPrefs(context: Context) {
      * principle, disagree. Single-process today so nothing has observed the
      * split, but there is no reason to keep it.
      */
-    fun setSessionHealth(state: SessionHealth.State) {
+    fun setSessionHealth(state: SessionHealth.State) = synchronized(SESSION_HEALTH_LOCK) {
         prefs.edit()
             .putInt("auth_failure_streak", state.streak)
             .putBoolean("session_dead", state.dead)
@@ -261,7 +187,7 @@ class AppPrefs(context: Context) {
      * stored pair and writes the result back atomically via
      * [setSessionHealth].
      */
-    fun recordAuthOutcome(ok: Boolean, errorCode: Int?) {
+    fun recordAuthOutcome(ok: Boolean, errorCode: Int?) = synchronized(SESSION_HEALTH_LOCK) {
         setSessionHealth(SessionHealth.next(SessionHealth.State(authFailureStreak, sessionDead), ok, errorCode))
     }
 
@@ -308,5 +234,30 @@ class AppPrefs(context: Context) {
             // set would greet the next login with a stale red banner.
             .remove("auth_failure_streak").remove("session_dead")
             .apply()
+    }
+
+    companion object {
+        /**
+         * T-05 — the monitor guarding the [recordAuthOutcome] read-modify-write.
+         *
+         * It MUST be process-wide, not per-instance. `AppPrefs` is constructed
+         * at seven separate call sites (SyncWorker, MainActivity,
+         * UpdateActivity, CallOutcomeActivity, QuickAddActivity, IgnoreReceiver,
+         * PyraCallsApp), so `@Synchronized` or `synchronized(this)` would lock
+         * seven different objects while they all wrote the same
+         * SharedPreferences file — a lock that reads as protection and provides
+         * none. They share one file, so they share one monitor.
+         *
+         * The race it closes: three live writers now record auth outcomes —
+         * SyncWorker on a WorkManager thread, HomeScreen after its own myDay()
+         * call, and UpdateRequiredScreen's 60s poll (added with B-15). Two
+         * failures interleaving could both read streak=1, both compute 2, and
+         * both write 2, losing an increment and delaying the "session dead"
+         * verdict. Never torn — [setSessionHealth] was already one atomic
+         * `edit()` — just slower to reach the truth, which for a banner whose
+         * whole job is telling a rep their phone stopped syncing is worth
+         * closing.
+         */
+        private val SESSION_HEALTH_LOCK = Any()
     }
 }
