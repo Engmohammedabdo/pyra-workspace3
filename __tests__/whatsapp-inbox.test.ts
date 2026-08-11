@@ -141,7 +141,6 @@ describe('formatWaiting', () => {
 
 describe('splitInbox', () => {
   it('puts needs-reply conversations first, ordered by OLDEST customer message first', () => {
-    const nowMs = new Date('2026-08-06T12:00:00Z').getTime();
     const older = conv({
       id: 'needs_older',
       status: 'open',
@@ -154,12 +153,11 @@ describe('splitInbox', () => {
       last_customer_message_at: '2026-08-06T11:00:00Z',
       last_agent_message_at: null,
     });
-    const { needs } = splitInbox([newer, older], nowMs);
+    const { needs } = splitInbox([newer, older]);
     expect(needs.map((c) => c.id)).toEqual(['needs_older', 'needs_newer']);
   });
 
   it('puts everything else in rest, ordered by last_message_at DESC', () => {
-    const nowMs = new Date('2026-08-06T12:00:00Z').getTime();
     const resolvedOld = conv({
       id: 'rest_old',
       status: 'resolved',
@@ -170,12 +168,11 @@ describe('splitInbox', () => {
       status: 'resolved',
       last_message_at: '2026-08-06T10:00:00Z',
     });
-    const { rest } = splitInbox([resolvedOld, resolvedNew], nowMs);
+    const { rest } = splitInbox([resolvedOld, resolvedNew]);
     expect(rest.map((c) => c.id)).toEqual(['rest_new', 'rest_old']);
   });
 
   it('separates needs vs rest correctly on a mixed list', () => {
-    const nowMs = new Date('2026-08-06T12:00:00Z').getTime();
     const needsOne = conv({
       id: 'needs_1',
       status: 'open',
@@ -189,14 +186,13 @@ describe('splitInbox', () => {
       last_agent_message_at: '2026-08-06T09:30:00Z',
       last_message_at: '2026-08-06T09:30:00Z',
     });
-    const { needs, rest } = splitInbox([needsOne, restOne], nowMs);
+    const { needs, rest } = splitInbox([needsOne, restOne]);
     expect(needs.map((c) => c.id)).toEqual(['needs_1']);
     expect(rest.map((c) => c.id)).toEqual(['rest_1']);
   });
 
   it('returns empty needs/rest arrays for an empty list', () => {
-    const nowMs = new Date('2026-08-06T12:00:00Z').getTime();
-    expect(splitInbox([], nowMs)).toEqual({ needs: [], rest: [] });
+    expect(splitInbox([])).toEqual({ needs: [], rest: [] });
   });
 });
 

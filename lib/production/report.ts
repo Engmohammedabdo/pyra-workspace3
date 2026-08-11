@@ -86,7 +86,7 @@ interface ProductionTaskRow {
   pyra_task_assignees: Array<{ username: string }> | null;
 }
 
-interface ReviewDecisionRow extends TaskReviewDecisionQualityInput {}
+type ReviewDecisionRow = TaskReviewDecisionQualityInput;
 
 interface WorkScheduleRow {
   id: string;

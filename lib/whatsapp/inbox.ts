@@ -71,12 +71,16 @@ function parseOrZero(value: string | null): number {
  * Splits the inbox into conversations that need our reply (oldest customer
  * message first — the longest-waiting customer surfaces at the top) and
  * everything else (most recently active first).
+ *
+ * Deliberately takes NO "now": neither the split predicate nor either sort
+ * reads the clock. Ordering the needs section by longest wait is exactly
+ * ordering it by oldest customer message — for a single now, sorting on
+ * `now - customerAt` descending and on `customerAt` ascending produce the
+ * same sequence, so a nowMs parameter could not change the result. Callers
+ * that also render waiting badges pass their own now to waitingMinutes().
  */
 export function splitInbox<T extends InboxConversationLike>(
   list: T[],
-  // Reserved for callers pairing this split with waitingMinutes/waitingSeverity
-  // for the same "now" — the split/sort rule itself is time-independent.
-  nowMs: number,
 ): { needs: T[]; rest: T[] } {
   const needs: T[] = [];
   const rest: T[] = [];

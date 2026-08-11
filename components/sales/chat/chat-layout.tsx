@@ -159,7 +159,7 @@ export function ChatLayout() {
     if (!sectioned) {
       return { displayConversations: sectionable, needsCount: 0 };
     }
-    const { needs, rest } = splitInbox(sectionable, Date.now());
+    const { needs, rest } = splitInbox(sectionable);
     return { displayConversations: [...needs, ...rest], needsCount: needs.length };
   }, [searchedConversations, sectioned]);
 
