@@ -29,6 +29,25 @@ object OutcomeForm {
     fun allowsFollowUp(outcome: String?): Boolean = outcome != OUTCOME_NOT_INTERESTED
 
     /**
+     * Wave د+ #01 — a connected call must leave a scheduled next step.
+     *
+     * Measured 2026-08-12: of 998 connected calls in 30 days, 477 moved a stage
+     * and 511 wrote a note, but only 123 (12%) scheduled a follow-up. The
+     * customer then leaves the radar entirely, which is why 1,141 of 1,258 live
+     * leads sit in one stage.
+     *
+     * Two deliberate `true`s, both matching [reasonSatisfied]'s reasoning:
+     *  - `not_interested` IS the decision, so it needs no date.
+     *  - A null outcome keeps the sheet's own «اختر نتيجة المكالمة» error, which
+     *    tells the rep what to do — a Save button that is merely dead does not.
+     */
+    fun nextStepSatisfied(outcome: String?, presetDays: Int?): Boolean {
+        if (outcome == null) return true
+        if (!allowsFollowUp(outcome)) return true
+        return presetDays != null
+    }
+
+    /**
      * True when the reason requirement is met, or does not apply.
      *
      * Returns true for a null [outcome] ON PURPOSE: an unpicked outcome keeps
