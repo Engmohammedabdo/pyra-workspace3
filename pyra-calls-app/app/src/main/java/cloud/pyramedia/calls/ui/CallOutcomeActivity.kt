@@ -138,6 +138,7 @@ class CallOutcomeActivity : ComponentActivity() {
                 val needsReason = OutcomeForm.requiresReason(selectedOutcome)
                 val showPresets = OutcomeForm.allowsFollowUp(selectedOutcome)
                 val reasonOk = OutcomeForm.reasonSatisfied(selectedOutcome, reason)
+                val nextStepOk = OutcomeForm.nextStepSatisfied(selectedOutcome, presetDays)
 
                 val unknownLead = stringResource(R.string.my_day_unknown_lead)
                 val outcomeRequired = stringResource(R.string.co_outcome_required)
@@ -170,11 +171,25 @@ class CallOutcomeActivity : ComponentActivity() {
                                 )
                                 Spacer(Modifier.height(8.dp))
                             }
+                            // Wave د+ #01 — a picked outcome with no next step
+                            // blocks Save; this is the ONLY place that says
+                            // why. Same lesson as reasonRequiredHint above: a
+                            // silently dead button teaches reps the app is
+                            // broken (wave-ج audit, round 3).
+                            if (selectedOutcome != null && !nextStepOk) {
+                                Text(
+                                    text = stringResource(R.string.next_step_required),
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                                Spacer(Modifier.height(8.dp))
+                            }
                             Button(
-                                // Locked only on the reason rule — an unpicked
-                                // outcome falls through to the inline error
+                                // Locked on the reason rule AND the next-step
+                                // rule (Wave د+ #01) — an unpicked outcome
+                                // still falls through to the inline error
                                 // below, which explains itself.
-                                enabled = !saving && reasonOk,
+                                enabled = !saving && reasonOk && nextStepOk,
                                 modifier = Modifier.fillMaxWidth(),
                                 onClick = {
                                     error = null
@@ -445,6 +460,17 @@ class CallOutcomeActivity : ComponentActivity() {
                             stringResource(R.string.co_follow_up_label),
                             style = MaterialTheme.typography.labelLarge,
                         )
+                        // Wave د+ #01 — visually required when nothing is
+                        // picked yet, shown ABOVE the chips rather than only
+                        // after a failed tap (same reasoning as the bottom
+                        // bar message: never let the block be silent).
+                        if (presetDays == null) {
+                            Text(
+                                stringResource(R.string.next_step_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
