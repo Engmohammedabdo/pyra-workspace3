@@ -2517,11 +2517,46 @@ hand-written list would let the two tabs drift into contradicting each other.
 
 ### 6. The two lists sort in opposite directions, deliberately
 
-`going_cold` is least-recently-nudged first (rotation, see #2).
-`never_contacted` is **oldest first**. Different reasoning, not an inconsistency:
-an untouched lead only decays, so the one that has waited longest is closest to
-being wasted, whereas a stale conversation is a re-prospecting job rather than a
-nudge.
+> **Correction, 2026-08-12 (same day, wave-2 research).** The paragraph below,
+> as originally written, was **wrong about `going_cold`** and is kept here
+> verbatim because the error is the instructive part — it conflated two
+> different modules that this very document treats as separate:
+>
+> ~~"`going_cold` is least-recently-nudged first (rotation, see #2).
+> `never_contacted` is **oldest first**. Different reasoning, not an
+> inconsistency: an untouched lead only decays, so the one that has waited
+> longest is closest to being wasted, whereas a stale conversation is a
+> re-prospecting job rather than a nudge."~~
+>
+> Least-recently-**nudged** first is `selectIdleNudges` in
+> `lib/crm/idle-eligibility.ts` — the **cron**. `my-day`'s `going_cold` sorts
+> on `effectiveMs = max(last_contact_at, created_at)` **ascending**
+> (`app/api/mobile/my-day/route.ts:338-342`), i.e. least-recently-**contacted**
+> first; the string `idle_warning` does not appear in that file at all. Two
+> modules, two sort keys, one wrong sentence.
+>
+> And the error hid a live defect. `going_cold` does **not** exclude
+> `last_contact_at IS NULL`, and its DB order is explicitly
+> `last_contact_at ASC NULLS FIRST` — so never-contacted leads are its
+> **leading** rows. Measured on production the same day: of cosette's 269
+> never-contacted leads, **269 of 269** also sit in her `going_cold` pool, and
+> for a NULL `last_contact_at` the JS key collapses to `created_at` — the exact
+> key `never_contacted` uses. Her two tabs therefore render the **same leads in
+> the same order**, and her **518** genuinely-cooled conversations (youssef:
+> **262**) are buried behind them, invisible in the one tab built to surface
+> them. The fourth tab did not duplicate the third; it exposed that the third
+> had never once shown a cooled conversation.
+>
+> The real decision, restated: **the two lists sort by the same key for the
+> population they share**, which is why that population must belong to exactly
+> one of them. `going_cold` requiring `last_contact_at IS NOT NULL` is the
+> one-line server fix, and it is wave 2's first task. See
+> [wave 2](#calls--wave-د-2-the-tab-that-never-showed-what-it-promised) when it
+> lands.
+
+`never_contacted` is **oldest first**, and that half was right: an untouched
+lead only decays, so the one that has waited longest is closest to being
+wasted.
 
 `never_contacted_count` is `Int?` where **null means "could not be counted", not
 zero**, and a null produces no tab. Collapsing a failed query to `0` would tell
