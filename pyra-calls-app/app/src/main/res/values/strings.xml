@@ -125,6 +125,14 @@
     <string name="my_day_closed">تم إقفال المتابعة</string>
     <string name="my_day_closing">جارٍ الإقفال…</string>
 
+    <!-- Wave د+ #06b — fourth tab. Owner decision 2026-08-12: simplified
+         STANDARD Arabic only, never dialect (the strings above this line are
+         Egyptian dialect and are a separate, untouched cleanup). -->
+    <string name="my_day_tab_never_contacted">لم يتم الاتصال بهم</string>
+    <string name="my_day_section_never_contacted">عملاء لم يتم الاتصال بهم</string>
+    <string name="my_day_empty_never_contacted">لا يوجد حاليًا أي عملاء لم يتم الاتصال بهم</string>
+    <string name="my_day_never_contacted_added_on">تمت الإضافة في %1$s</string>
+
     <string name="co_title">تسجيل نتيجة المكالمة</string>
     <string name="co_lead_eyebrow">خلّصت مكالمة مع</string>
     <string name="co_outcome_heading">إيه اللي حصل؟</string>

@@ -28,6 +28,7 @@ import cloud.pyramedia.calls.core.CompleteFollowUpRequest
 import cloud.pyramedia.calls.core.MyDayColdLead
 import cloud.pyramedia.calls.core.MyDayData
 import cloud.pyramedia.calls.core.MyDayFollowUp
+import cloud.pyramedia.calls.core.MyDayLead
 import cloud.pyramedia.calls.core.myDayFollowUpSelection
 import cloud.pyramedia.calls.core.myDayTabs
 import cloud.pyramedia.calls.data.ApiClient
@@ -187,10 +188,17 @@ fun MyDayScreen(api: ApiClient, onBack: () -> Unit) {
             }
             is MyDayState.Loaded -> {
                 val d = s.data
+                // never_contacted_count arrives as a TOP-LEVEL sibling of
+                // `counts` (see Payloads.kt's MyDayData/MyDayCounts comments),
+                // NOT inside it, so it does not auto-populate on decode — it
+                // must be copied in by hand here, or MyDayCounts.neverContacted
+                // stays null forever, fourTabs is always false, and this tab
+                // never appears with no error anywhere.
+                val counts = d.counts.copy(neverContacted = d.never_contacted_count)
                 // See MyDayView.kt (core/) for the derivation + its unit tests
                 // — pulled out so "null means unknown, not zero" is locked by
                 // a test, not just a comment.
-                val tabs = myDayTabs(d.counts)
+                val tabs = myDayTabs(counts)
                 val threeTabs = tabs.threeTabs
                 val overdueCount = tabs.overdueCount
                 val todayCount = tabs.todayCount
@@ -225,6 +233,16 @@ fun MyDayScreen(api: ApiClient, onBack: () -> Unit) {
                             label = "${stringResource(R.string.my_day_tab_cold)} ${d.counts.going_cold}",
                             selected = tab == 2, onClick = { tab = 2 },
                         )
+                        // Wave د+ #06b. fourTabs is already the "can we stand
+                        // behind this count" gate (see myDayTabs) — never
+                        // recompute the condition here.
+                        if (tabs.fourTabs) {
+                            PyraChip(
+                                label = "${stringResource(R.string.my_day_tab_never_contacted)} " +
+                                    "${tabs.neverContactedCount}",
+                                selected = tab == 3, onClick = { tab = 3 },
+                            )
+                        }
                     }
                 }
 
@@ -240,6 +258,31 @@ fun MyDayScreen(api: ApiClient, onBack: () -> Unit) {
                             item { EmptySectionCard(stringResource(R.string.my_day_empty_going_cold)) }
                         } else {
                             items(d.going_cold, key = { it.lead_id }) { ColdLeadRow(it, onCall) }
+                        }
+                    }
+                    tab == 3 -> {
+                        // The server already returns `never_contacted` oldest
+                        // first ON PURPOSE (an untouched lead only decays, so
+                        // the longest-waiting one is closest to being wasted)
+                        // — do NOT re-sort it here.
+                        item {
+                            SectionHeader(
+                                stringResource(R.string.my_day_section_never_contacted),
+                                // `never_contacted` is capped server-side, so
+                                // its size can be smaller than the true total
+                                // — same "shown of total" idiom as the other
+                                // tabs. tabs.neverContactedCount is non-null
+                                // whenever tabs.fourTabs is true (see
+                                // myDayTabs); the `?: rows.size` fallback is
+                                // dead code, kept only so this branch never
+                                // needs a non-null assertion.
+                                d.never_contacted.size, tabs.neverContactedCount ?: d.never_contacted.size,
+                            )
+                        }
+                        if (d.never_contacted.isEmpty()) {
+                            item { EmptySectionCard(stringResource(R.string.my_day_empty_never_contacted)) }
+                        } else {
+                            items(d.never_contacted, key = { it.id }) { NeverContactedRow(it, onCall) }
                         }
                     }
                     else -> {
@@ -446,6 +489,18 @@ private fun ColdLeadRow(item: MyDayColdLead, onCall: (String) -> Unit) {
         subtitle = item.company,
         chipText = stringResource(R.string.my_day_cold_days, item.days_since_contact),
         tone = LeadTone.Cold,
+        onCall = item.phone?.let { p -> { onCall(p) } },
+    )
+}
+
+@Composable
+private fun NeverContactedRow(item: MyDayLead, onCall: (String) -> Unit) {
+    val context = LocalContext.current
+    val addedLabel = remember(item.created_at) { formatIsoToLocal(context, item.created_at) }
+    LeadRow(
+        name = item.name,
+        chipText = stringResource(R.string.my_day_never_contacted_added_on, addedLabel),
+        tone = LeadTone.Neutral,
         onCall = item.phone?.let { p -> { onCall(p) } },
     )
 }
