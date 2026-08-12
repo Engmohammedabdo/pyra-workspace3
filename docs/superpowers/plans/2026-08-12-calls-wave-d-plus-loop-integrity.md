@@ -991,6 +991,40 @@ MSG
 
 ---
 
+### Task 6b: Render the fourth tab (ADDED mid-execution)
+
+**Why this task exists.** The File Structure at the top of this plan lists
+`ui/MyDayScreen.kt` as modified, but **no task touched it** — my own self-review
+missed that, and Task 6's implementer surfaced it. Without this task the wave ships
+the never-contacted data and the pure tab logic with nothing rendering them, so the
+350 invisible leads stay invisible: the feature's entire purpose, unshipped.
+
+**Files:**
+- Modify: `pyra-calls-app/app/src/main/java/cloud/pyramedia/calls/ui/MyDayScreen.kt`
+- Modify: `pyra-calls-app/app/src/main/res/values/strings.xml`
+
+**Interfaces:**
+- Consumes: `myDayTabs(counts): MyDayTabs` with `fourTabs: Boolean` and
+  `neverContactedCount: Int?` (Task 6); `MyDayData.never_contacted: List<MyDayLead>`
+  and `MyDayData.never_contacted_count: Int?` (Task 6).
+- **The seam Task 6 flagged:** `never_contacted_count` arrives as a TOP-LEVEL
+  response field, not inside `counts`, so `MyDayCounts.neverContacted` does NOT
+  auto-populate on decode. This task must set it by hand when building the counts,
+  e.g. `counts.copy(neverContacted = data.never_contacted_count)`. Miss this and
+  `fourTabs` is always false and the tab silently never appears.
+- `never_contacted_count` is `Int?` where **null means "unknown" (the query
+  failed), not zero** — `fourTabs` already treats both as "no tab", which is the
+  correct behaviour: never advertise a tab whose contents we could not count.
+
+**Steps:** read the existing three-tab implementation first and follow it exactly —
+the same tab component, the same row component, the same empty state, the same
+`LazyColumn`. Add the label to `strings.xml` in **simplified standard Arabic**
+(«لم يتم الاتصال بهم», never dialect). The list is already ordered oldest-first by
+the server; do not re-sort it on the device. Run
+`cd pyra-calls-app && ./gradlew testDebugUnitTest lintDebug`.
+
+---
+
 ### Task 7: The attempt cadence — 4 over 10 days, at different hours
 
 **Files:**
