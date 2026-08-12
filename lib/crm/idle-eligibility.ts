@@ -18,24 +18,41 @@ export const IDLE_DAILY_CAP_PER_AGENT = 10;
 export interface IdleCandidate {
   leadId: string;
   agentUsername: string;
-  /** max(latest non-attempt activity, last_contact_at) in ms — the cron's own `lastTouched`. */
-  lastTouchedMs: number;
+  /**
+   * Epoch ms of this lead's most recent `idle_warning` activity — with NO
+   * time window — or `null` if it has never been nudged. This is the
+   * rotation key, and it is deliberately NOT "how long since a human
+   * touched this lead" (that signal lives in the route's own `lastTouched`
+   * computation, which must exclude `idle_warning` for exactly this reason).
+   */
+  lastNudgedMs: number | null;
   /** Has this lead ever had a call that was answered? `isConnectedCall` semantics. */
   hasConnectedCall: boolean;
 }
 
 /**
- * Sorted most-recently-spoken-to FIRST, then capped per agent.
+ * Sorted LEAST-recently-nudged FIRST, then capped per agent.
  *
- * The sort direction is a deliberate reversal of the obvious one. Oldest-first
- * would hand each rep the ten deadest leads in their book every morning, for
- * ever, and they would stop reading the list within a week. A conversation eight
- * days old is recoverable; one from ninety days ago is a re-prospecting job, not
- * a nudge.
+ * This is a deliberate reversal of the original sort (most-recent-touch
+ * first), because that sort was a feedback loop the cron fed itself. The
+ * cron WRITES the `idle_warning` activity row that `lastTouched` later reads
+ * back as "last touched" — so a nudged lead's sort key resets to today the
+ * moment the row lands. The instant its 7-day dedup expires, it re-enters
+ * the pool carrying the freshest timestamp any idle lead can hold, and wins
+ * the daily cap again. Forever. Measured 2026-08-12: on 619 of 772 (80%) of
+ * eligible leads, the newest non-`call_attempt` activity IS an
+ * `idle_warning` — the "recently touched" signal was mostly the cron's own
+ * handwriting, not a human conversation. Steady state pinned ~70 leads per
+ * agent and permanently starved the other ~529 of 669.
  *
- * `leadId` breaks ties so the same input always produces the same list — an
- * unordered read makes the daily nudge shuffle for no reason and makes a bug
- * report impossible to reproduce.
+ * Rotation fixes this by construction: every eligible lead gets a turn.
+ * Never-nudged leads (`lastNudgedMs === null`) sort first — nothing is more
+ * overdue than "never" — then oldest-nudge-first among the rest. Do NOT
+ * "restore" most-recent-first; that IS the bug this sort exists to prevent.
+ *
+ * `leadId` breaks every tie so the same input always produces the same list —
+ * an unordered read makes the daily nudge shuffle for no reason and makes a
+ * bug report impossible to reproduce.
  */
 export function selectIdleNudges(
   candidates: IdleCandidate[],
@@ -52,9 +69,14 @@ export function selectIdleNudges(
 
   const out: IdleCandidate[] = [];
   for (const list of byAgent.values()) {
-    list.sort((a, b) =>
-      b.lastTouchedMs - a.lastTouchedMs || a.leadId.localeCompare(b.leadId),
-    );
+    list.sort((a, b) => {
+      if (a.lastNudgedMs === null && b.lastNudgedMs === null) {
+        return a.leadId.localeCompare(b.leadId);
+      }
+      if (a.lastNudgedMs === null) return -1;
+      if (b.lastNudgedMs === null) return 1;
+      return a.lastNudgedMs - b.lastNudgedMs || a.leadId.localeCompare(b.leadId);
+    });
     out.push(...list.slice(0, capPerAgent));
   }
   return out;

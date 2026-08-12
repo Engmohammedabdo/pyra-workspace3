@@ -8,7 +8,7 @@ import {
 const lead = (over: Partial<IdleCandidate> = {}): IdleCandidate => ({
   leadId: 'sl_1',
   agentUsername: 'youssef',
-  lastTouchedMs: 1_000,
+  lastNudgedMs: null,
   hasConnectedCall: true,
   ...over,
 });
@@ -27,10 +27,10 @@ describe('selectIdleNudges', () => {
 
   it('caps each agent independently', () => {
     const many = Array.from({ length: 25 }, (_, i) =>
-      lead({ leadId: `sl_y${i}`, agentUsername: 'youssef', lastTouchedMs: i }),
+      lead({ leadId: `sl_y${i}`, agentUsername: 'youssef', lastNudgedMs: i }),
     ).concat(
       Array.from({ length: 25 }, (_, i) =>
-        lead({ leadId: `sl_c${i}`, agentUsername: 'cosette', lastTouchedMs: i }),
+        lead({ leadId: `sl_c${i}`, agentUsername: 'cosette', lastNudgedMs: i }),
       ),
     );
     const out = selectIdleNudges(many, 10);
@@ -38,32 +38,64 @@ describe('selectIdleNudges', () => {
     expect(out.filter((c) => c.agentUsername === 'cosette')).toHaveLength(10);
   });
 
-  it('prefers the MOST recently spoken-to lead, not the oldest', () => {
-    // A conversation 8 days ago is recoverable; one from 90 days ago is a
-    // different job. Sorting oldest-first would fill the daily cap with the
-    // least recoverable leads in the book, every single day.
+  it('puts never-nudged leads before any ever-nudged lead', () => {
+    // Nothing is more overdue than "never". A lead nudged even a long time
+    // ago has still had its turn; a never-nudged lead has not.
     const out = selectIdleNudges(
       [
-        lead({ leadId: 'sl_ancient', lastTouchedMs: 100 }),
-        lead({ leadId: 'sl_recent', lastTouchedMs: 900 }),
-        lead({ leadId: 'sl_mid', lastTouchedMs: 500 }),
+        lead({ leadId: 'sl_nudged_long_ago', lastNudgedMs: 100 }),
+        lead({ leadId: 'sl_never_nudged', lastNudgedMs: null }),
       ],
       2,
     );
-    expect(out.map((c) => c.leadId)).toEqual(['sl_recent', 'sl_mid']);
+    expect(out.map((c) => c.leadId)).toEqual(['sl_never_nudged', 'sl_nudged_long_ago']);
   });
 
-  it('is deterministic when two leads share a timestamp', () => {
+  it('prefers the OLDER nudge over the newer one — rotation, not recency', () => {
+    // Locked 2026-08-12: recency-of-touch is the bug. The cron writes its own
+    // idle_warning as the newest activity, so "most recently touched" is
+    // mostly "most recently nudged by us" (619 of 772 eligible leads, 80%,
+    // measured live). Rotation gives every lead a turn instead of re-picking
+    // the same ~70-lead pool forever.
+    const out = selectIdleNudges(
+      [
+        lead({ leadId: 'sl_recent_nudge', lastNudgedMs: 900 }),
+        lead({ leadId: 'sl_old_nudge', lastNudgedMs: 100 }),
+        lead({ leadId: 'sl_mid_nudge', lastNudgedMs: 500 }),
+      ],
+      2,
+    );
+    expect(out.map((c) => c.leadId)).toEqual(['sl_old_nudge', 'sl_mid_nudge']);
+  });
+
+  it('is deterministic when two leads share a nudge timestamp', () => {
     // Same reasoning as the calls duplicate-key tiebreak: an unordered read
     // makes the daily list shuffle for no reason and makes bugs unreproducible.
-    const a = lead({ leadId: 'sl_a', lastTouchedMs: 500 });
-    const b = lead({ leadId: 'sl_b', lastTouchedMs: 500 });
+    const a = lead({ leadId: 'sl_a', lastNudgedMs: 500 });
+    const b = lead({ leadId: 'sl_b', lastNudgedMs: 500 });
     expect(selectIdleNudges([a, b], 1)).toEqual(selectIdleNudges([b, a], 1));
+  });
+
+  it('is deterministic when two leads are both never-nudged', () => {
+    const a = lead({ leadId: 'sl_a', lastNudgedMs: null });
+    const b = lead({ leadId: 'sl_b', lastNudgedMs: null });
+    expect(selectIdleNudges([a, b], 1)).toEqual(selectIdleNudges([b, a], 1));
+  });
+
+  it('anti-starvation: with a cap of 1, the long-ago nudge wins over the recent one', () => {
+    // This is the property the whole rewrite exists to guarantee: a lead
+    // nudged 40 days ago must outrank one nudged 8 days ago, every time,
+    // so the tail of the book eventually gets a turn instead of the same
+    // handful of leads winning the cap forever.
+    const recentlyNudged = lead({ leadId: 'sl_recent', lastNudgedMs: Date.now() - 8 * 86_400_000 });
+    const longAgoNudged = lead({ leadId: 'sl_long_ago', lastNudgedMs: Date.now() - 40 * 86_400_000 });
+    const out = selectIdleNudges([recentlyNudged, longAgoNudged], 1);
+    expect(out.map((c) => c.leadId)).toEqual(['sl_long_ago']);
   });
 
   it('defaults to the agreed cap', () => {
     expect(IDLE_DAILY_CAP_PER_AGENT).toBe(10);
-    const many = Array.from({ length: 40 }, (_, i) => lead({ leadId: `sl_${i}`, lastTouchedMs: i }));
+    const many = Array.from({ length: 40 }, (_, i) => lead({ leadId: `sl_${i}`, lastNudgedMs: i }));
     expect(selectIdleNudges(many)).toHaveLength(10);
   });
 

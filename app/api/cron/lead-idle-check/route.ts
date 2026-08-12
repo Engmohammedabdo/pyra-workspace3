@@ -148,6 +148,8 @@ export async function POST(request: NextRequest) {
         leads_idle: 0,
         activities_inserted: 0,
         activities_skipped_recent: 0,
+        leads_dropped_no_connected_call: 0,
+        leads_dropped_capped: 0,
         agents_notified: 0,
         agents_already_notified_today: 0,
       });
@@ -172,6 +174,13 @@ export async function POST(request: NextRequest) {
         // counting it here would suppress the idle warning for a lead the agent
         // has been unable to reach, which is exactly the lead that needs one.
         .neq('activity_type', 'call_attempt')
+        // The cron's OWN idle_warning row must not count as "touched" either —
+        // it is not a human conversation. Before this exclusion, a nudged lead's
+        // lastTouched reset to the nudge date the instant the row landed, so the
+        // lead re-entered the pool the moment its 7-day dedup expired carrying
+        // the freshest timestamp any idle lead could hold. See the rotation
+        // rewrite in lib/crm/idle-eligibility.ts for the full mechanism.
+        .neq('activity_type', 'idle_warning')
         .order('created_at', { ascending: false });
       if (actErr) {
         // A swallowed error here would leave lastActivityByLead empty, so leads
@@ -199,7 +208,6 @@ export async function POST(request: NextRequest) {
 
     // ── Filter to truly idle leads ──
     const idleLeads: LeadRow[] = [];
-    const lastTouchedByLead = new Map<string, number>();
     for (const lead of allLeads) {
       const lastActivity = lastActivityByLead.get(lead.id);
       const lastTouched = Math.max(
@@ -209,7 +217,6 @@ export async function POST(request: NextRequest) {
       // lastTouched=0 means both signals are null → never touched → idle
       if (lastTouched === 0 || lastTouched < idleCutoff) {
         idleLeads.push(lead);
-        lastTouchedByLead.set(lead.id, lastTouched);
       }
     }
     const leadsIdle = idleLeads.length;
@@ -220,6 +227,8 @@ export async function POST(request: NextRequest) {
         leads_idle: 0,
         activities_inserted: 0,
         activities_skipped_recent: 0,
+        leads_dropped_no_connected_call: 0,
+        leads_dropped_capped: 0,
         agents_notified: 0,
         agents_already_notified_today: 0,
       });
@@ -286,24 +295,63 @@ export async function POST(request: NextRequest) {
         if (row.lead_id) connectedLeadIds.add(row.lead_id);
       }
     }
+    const leadsDroppedNoConnectedCall = newlyIdleLeads.filter(
+      (l) => !connectedLeadIds.has(l.id),
+    ).length;
+
+    // ── When was each candidate last nudged, with NO time window? Unlike the
+    // Q3 dedup query above (bounded to the last IDLE_DEDUP_WINDOW_DAYS days),
+    // this needs the FULL history — a lead nudged 40 days ago must still
+    // outrank one nudged 8 days ago in the rotation sort below. Chunked for
+    // the same 414 reason as every other .in() on a lead-id list in this file.
+    const lastNudgedByLead = new Map<string, number>();
+    for (const batch of chunk(candidateLeadIds, LEAD_ID_BATCH)) {
+      const { data: nudgeRows, error: nudgeErr } = await supabase
+        .from('pyra_lead_activities')
+        .select('lead_id, created_at')
+        .in('lead_id', batch)
+        .eq('activity_type', 'idle_warning')
+        .order('created_at', { ascending: false });
+      if (nudgeErr) {
+        // Fail CLOSED per batch, same posture as the connected-call lookup
+        // above: these leads are simply treated as never-nudged for today's
+        // run (worst case they rank too early, never too late) and the query
+        // is retried fresh tomorrow.
+        logError({
+          error: nudgeErr,
+          request,
+          metadata: { source: 'cron', job: 'lead-idle-check', stage: 'last_nudged_select' },
+        });
+        console.error('[cron/lead-idle-check] last-nudged lookup failed:', nudgeErr.message);
+        continue;
+      }
+      for (const row of (nudgeRows ?? []) as Array<{ lead_id: string; created_at: string }>) {
+        const ms = new Date(row.created_at).getTime();
+        const prev = lastNudgedByLead.get(row.lead_id);
+        if (prev === undefined || ms > prev) lastNudgedByLead.set(row.lead_id, ms);
+      }
+    }
 
     // ── Narrow to leads that were ever actually spoken to, capped per agent
     // per day (owner decision 2026-08-12 — see lib/crm/idle-eligibility.ts).
-    // Sorted most-recently-spoken-to FIRST inside selectIdleNudges: a
-    // conversation 8 days old is recoverable, one from 90 days ago is a
-    // re-prospecting job, not a nudge. Only the SELECTED leads get an
-    // idle_warning activity below — an unselected lead stays un-deduped and
-    // is re-considered (and can win the cap) tomorrow.
+    // Sorted LEAST-recently-nudged FIRST inside selectIdleNudges (rotation,
+    // not recency — the recency sort was a feedback loop the cron fed
+    // itself; see that file's doc comment for the full mechanism and the
+    // 619-of-772 measurement behind the reversal). Only the SELECTED leads
+    // get an idle_warning activity below — an unselected lead stays
+    // un-deduped and is re-considered (and can win the cap) tomorrow.
     const selected = selectIdleNudges(
       newlyIdleLeads.map<IdleCandidate>((l) => ({
         leadId: l.id,
         agentUsername: l.assigned_to,
-        lastTouchedMs: lastTouchedByLead.get(l.id) ?? 0,
+        lastNudgedMs: lastNudgedByLead.get(l.id) ?? null,
         hasConnectedCall: connectedLeadIds.has(l.id),
       })),
     );
     const selectedIds = new Set(selected.map((c) => c.leadId));
     const selectedLeads = newlyIdleLeads.filter((l) => selectedIds.has(l.id));
+    const leadsDroppedCapped =
+      newlyIdleLeads.length - leadsDroppedNoConnectedCall - selectedLeads.length;
 
     // ── INSERT idle_warning activities for the leads actually nudged today ──
     let activitiesInserted = 0;
@@ -431,6 +479,10 @@ export async function POST(request: NextRequest) {
       leads_idle: leadsIdle,
       activities_inserted: activitiesInserted,
       activities_skipped_recent: activitiesSkippedRecent,
+      // Operator visibility: a healthy activities_inserted count alone hides
+      // how much of the book went untouched today. These two numbers show it.
+      leads_dropped_no_connected_call: leadsDroppedNoConnectedCall,
+      leads_dropped_capped: leadsDroppedCapped,
       agents_notified: agentsNotified,
       agents_already_notified_today: agentsAlreadyNotifiedToday,
     });
