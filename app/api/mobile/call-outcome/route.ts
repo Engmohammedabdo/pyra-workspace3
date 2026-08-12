@@ -6,6 +6,7 @@ import { generateId } from '@/lib/utils/id';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 import { logError } from '@/lib/observability/log-error';
 import { validateOutcomeRequest, OUTCOME_LABELS } from '@/lib/mobile/outcome-validation';
+import { shouldRequireNextStep } from '@/lib/mobile/next-step-gate';
 import { markNotInterested, isTerminalWonLead } from '@/lib/crm/mark-not-interested';
 import { loadFollowUpForClose, closeFollowUp, classifyCloseAccess, type OpenFollowUp } from '@/lib/crm/close-follow-up';
 
@@ -94,7 +95,9 @@ export async function POST(request: NextRequest) {
     if (auth instanceof NextResponse) return auth;
     const { agentUsername } = auth;
 
-    const parsed = validateOutcomeRequest(await request.json().catch(() => null));
+    const parsed = validateOutcomeRequest(await request.json().catch(() => null), {
+      requireNextStep: shouldRequireNextStep(request.headers.get('x-app-version')),
+    });
     if (!parsed.ok) return apiValidationError(parsed.message);
     const {
       leadId, outcome, note: noteRaw, nextFollowUpAtIso,
