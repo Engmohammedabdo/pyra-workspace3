@@ -43,6 +43,12 @@ Kotlin/Compose + JUnit · WorkManager.
 - **Arabic strings persisted to the DB stay Arabic** with a `// i18n-exempt:` note
   (Phase 8 rule). UI strings go through `messages/`.
 - **RTL logical properties only** (`ms-`/`me-`/`ps-`/`pe-`/`start-`/`end-`).
+- **UI copy is simplified standard Arabic — NOT Egyptian dialect** (owner
+  decision, 2026-08-12, applies to the app AND the system). Write «حدّد الخطوة
+  التالية», never «اختار الخطوة الجاية»; «متى» not «امتى»; «انتهت» not «خلصت»;
+  «سجّل» not «علّم». Two reps read this today and neither is the only audience the
+  product will ever have. Copy already written in dialect elsewhere in the app is
+  a separate cleanup — do not widen a task to chase it.
 - Gates before any push: `pnpm run check` + `pnpm build` + `pnpm test`, and for the
   app `./gradlew testDebugUnitTest lintDebug`.
 - **Never log in as `youssef` or `cosette`** — it revokes the device key on a real
@@ -1213,7 +1219,7 @@ add `attempts_made: Int = 0` to the app's cold-lead payload class in
 ```xml
     <!-- Wave د+ #04 -->
     <string name="attempts_of">محاولة %1$d من %2$d</string>
-    <string name="attempts_spent">خلصت المحاولات — علّمه «لا يرد»</string>
+    <string name="attempts_spent">انتهت المحاولات — سجّله «لا يرد»</string>
 ```
 
 - [ ] **Step 3: Render it on the row**

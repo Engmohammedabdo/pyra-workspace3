@@ -138,8 +138,8 @@
     <string name="co_preset_in_3_days">بعد 3 أيام</string>
     <string name="co_preset_next_week">الأسبوع القادم</string>
     <!-- Wave د+ #01 — the next step is required, so the sheet must say why. -->
-    <string name="next_step_required">اختار الخطوة الجاية</string>
-    <string name="next_step_hint">كل مكالمة لازم تنتهي بخطوة — امتى نكلمه تاني؟</string>
+    <string name="next_step_required">حدّد الخطوة التالية</string>
+    <string name="next_step_hint">كل مكالمة تنتهي بخطوة — متى نتصل به مرة أخرى؟</string>
     <string name="co_save">حفظ</string>
     <string name="co_saving">جارٍ الحفظ…</string>
     <string name="co_saved">تم تسجيل نتيجة المكالمة</string>

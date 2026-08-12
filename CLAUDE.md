@@ -730,6 +730,14 @@ Safe (no dark: needed): `bg-{c}-500/10`, `text-{c}-500`, CSS vars (`bg-muted`, `
 - Error observability → `logError({ error, request, user?, metadata? })` from `@/lib/observability/log-error` in catch blocks of long-lived routes (cron, webhooks, state-change). Server-side only — Client Component error boundaries POST to `/api/observability/log-client-error` instead. `apiServerError(message?, err?, request?)` auto-logs when `err` is passed (Phase 14.1). PII-redacted (email/phone/headers) before insert into `pyra_error_logs`.
 - No transactions → backup-rollback pattern (see `docs/ARCHITECTURE.md`)
 - Code: English · UI: Arabic · `'use client'` for interactive components
+- **Arabic UI copy is simplified STANDARD Arabic, never Egyptian dialect** (owner
+  decision 2026-08-12, applies to the dashboard, the portal AND the Android app).
+  «حدّد الخطوة التالية» not «اختار الخطوة الجاية» · «متى» not «امتى» · «انتهت» not
+  «خلصت» · «سجّل» not «علّم» · «الآن» not «دلوقتي». Applies to every new string in
+  `messages/{ar,en}/*.json`, `res/values/strings.xml`, and persisted Arabic content
+  (notification titles, activity descriptions, release notes). ~24 of the Android
+  app's 160 strings predate this rule — a bounded cleanup, not a licence to widen
+  an unrelated task
 - `cn()` from `@/lib/utils/cn` · `formatDate()`/`formatCurrency()` from `@/lib/utils/format`
 - Icons: `lucide-react` · Components: `shadcn/ui` base
 - Pages: `page.tsx` · Client wrappers: `[feature]-client.tsx` · API: `route.ts`
