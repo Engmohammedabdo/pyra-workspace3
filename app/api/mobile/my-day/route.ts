@@ -358,9 +358,17 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: true })
       .limit(NEVER_CONTACTED_LIMIT);
     if (neverContactedErr) {
-      // Best-effort, like the overdue count above: the app falls back to
-      // fewer tabs. Never take the screen down for one list.
-      console.error('[my-day] never-contacted lookup failed:', neverContactedErr.message);
+      // Fails SOFT: on error this reports null and the response still ships,
+      // matching the overdueCount idiom (lines 170-177). The app falls back to
+      // fewer tabs. Never take the screen down for one list. Null distinguishes
+      // "unknown" from "confirmed zero" — the difference between "we couldn't
+      // count" and "there are genuinely none".
+      logError({
+        severity: 'warning',
+        error: neverContactedErr,
+        request,
+        metadata: { action: 'mobile_my_day_never_contacted', agentUsername },
+      });
     }
     const neverContactedItems = ((neverContactedRows ?? []) as NeverContactedRow[]).map((r) => ({
       id: r.id,
@@ -368,11 +376,14 @@ export async function GET(request: NextRequest) {
       phone: r.phone,
       created_at: r.created_at,
     }));
-    // 0 on error (not null) — the field's declared type is a plain `number`,
-    // and reporting 0 rather than omitting/nulling it is what makes the app
-    // fall back to three tabs instead of inventing an empty fourth one.
-    const neverContactedCount: number = neverContactedErr
-      ? 0
+    // null on error (not 0) — the distinction between "unknown" and
+    // "confirmed zero" is load-bearing for this count. Null means the query
+    // failed; matching the overdueCount pattern (line 178). The app's
+    // fourTabs logic (MyDayView.kt line 35) treats null the same as 0 for
+    // tab visibility, but the semantic is different: null is "I don't know",
+    // not "everyone has been called".
+    const neverContactedCount: number | null = neverContactedErr
+      ? null
       : (neverContactedTotal ?? neverContactedItems.length);
 
     // ── Enrich follow-ups with lead name/phone via ONE batched query ──

@@ -169,5 +169,8 @@ val PyraJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
     // Additive (wave د+ #06). Defaulted so an older server response — or a
     // rollback — decodes fine and simply shows no fourth tab.
     val never_contacted: List<MyDayLead> = emptyList(),
-    val never_contacted_count: Int = 0,
+    // Wave د+ #07 — nullable to distinguish "unknown" (null on query error)
+    // from "confirmed zero" (0 when count succeeds). Defaults null so an
+    // older server response decodes fine and the app shows no fourth tab.
+    val never_contacted_count: Int? = null,
 )
