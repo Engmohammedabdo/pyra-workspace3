@@ -124,7 +124,7 @@ describe('validateOutcomeRequest — required next step (wave د+ #01)', () => {
   it('rejects a missing next step when enforcement is ON', () => {
     const out = validateOutcomeRequest(base, { requireNextStep: true });
     expect(out.ok).toBe(false);
-    if (!out.ok) expect(out.message).toContain('الخطوة الجاية');
+    if (!out.ok) expect(out.message).toContain('الخطوة التالية');
   });
 
   it('accepts a present next step when enforcement is ON', () => {

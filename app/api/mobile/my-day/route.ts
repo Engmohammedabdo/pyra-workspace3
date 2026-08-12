@@ -15,6 +15,16 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // Hoisted: a Set built once per module, not per request.
 const TERMINAL_STAGE_SET = new Set(PIPELINE_TERMINAL_STAGE_IDS);
 
+// Same PIPELINE_TERMINAL_STAGE_IDS source as TERMINAL_STAGE_SET above,
+// reshaped into a PostgREST `in.(...)` literal for the never_contacted query
+// below — one constant, two consumers, so going_cold and never_contacted can
+// never disagree on what "terminal" means. Construction mirrors the proven
+// NULL-safe idiom in app/api/cron/lead-idle-check/route.ts's `finalStagesList`
+// (`stage_id.not.in.(...)` combined with `stage_id.is.null` via `.or()` — a
+// bare NOT IN(...) evaluates to NULL, not TRUE, for a NULL stage_id and
+// silently drops the row).
+const TERMINAL_STAGES_FILTER_LIST = PIPELINE_TERMINAL_STAGE_IDS.map((s) => `"${s}"`).join(',');
+
 // Generous fetch cap for the going-cold CANDIDATE set fetched from the DB,
 // distinct from GOING_COLD_LIMIT (the response cap). Supabase's query
 // builder can only `.order()` by a real column, but this feed's spec sorts
@@ -101,9 +111,15 @@ interface NeverContactedRow {
 //                 as "you haven't called this person".
 //   - never_contacted: assigned_to = me AND archived_at IS NULL AND
 //                 last_contact_at IS NULL AND is_converted IS NOT TRUE
-//                 (NULL-safe) AND phone IS NOT NULL, ordered created_at ASC
-//                 (OLDEST first — the opposite of going_cold's ordering, and
-//                 for the opposite reason: an untouched lead only decays, so
+//                 (NULL-safe) AND phone IS NOT NULL AND stage_id NOT IN
+//                 PIPELINE_TERMINAL_STAGE_IDS (NULL-safe, same constant
+//                 going_cold excludes below — moving a lead to «غير مهتم» or
+//                 a closed stage never sets last_contact_at, so without this
+//                 a lead someone already dispositioned as dead would still
+//                 tell the rep "nobody has called this — call it"), ordered
+//                 created_at ASC (OLDEST first — the opposite of going_cold's
+//                 ordering, and for the opposite reason: an untouched lead
+//                 only decays, so
 //                 the one that has waited longest is closest to being
 //                 wasted, while a stale conversation is a re-prospecting
 //                 job), capped 50. Measured 2026-08-12: 350 live leads have
@@ -400,6 +416,17 @@ export async function GET(request: NextRequest) {
       .is('last_contact_at', null)
       .not('is_converted', 'is', true)
       .not('phone', 'is', null)
+      // Terminal-stage exclusion (PIPELINE_TERMINAL_STAGE_IDS — the SAME
+      // constant going_cold excludes above, so the two tabs can never
+      // disagree on what "dead" means). Moving a lead to a terminal stage
+      // never sets last_contact_at, so without this filter a lead someone
+      // already marked «غير مهتم»/closed — but never called — kept showing
+      // up here telling the rep to call a dead lead. NULL-safe via `.or()`,
+      // same construction as lead-idle-check's `finalStagesList` filter: a
+      // bare `stage_id NOT IN (...)` evaluates to NULL (not TRUE) for a NULL
+      // stage_id and would silently drop the row, so a lead with no stage
+      // must stay reachable via the explicit `.is.null` branch.
+      .or(`stage_id.is.null,stage_id.not.in.(${TERMINAL_STAGES_FILTER_LIST})`)
       .order('created_at', { ascending: true })
       .limit(NEVER_CONTACTED_LIMIT);
     if (neverContactedErr) {

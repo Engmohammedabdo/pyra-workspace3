@@ -102,8 +102,10 @@ export function validateOutcomeRequest(
   // Wave د+ #01 — placed AFTER the parse above on purpose: a rep who picked a
   // broken date should hear that, not "pick a next step".
   if (options.requireNextStep && outcome !== 'not_interested' && !nextFollowUpAtIso) {
-    // i18n-exempt: API response message, `api` namespace migration is Phase 8
-    return { ok: false, message: 'لازم تحدد الخطوة الجاية قبل الحفظ' };
+    // i18n-exempt: API response message, `api` namespace migration is Phase 8.
+    // Standard Arabic (owner decision 2026-08-12) — matches the app's own
+    // "next_step_required" string («حدّد الخطوة التالية», strings.xml).
+    return { ok: false, message: 'حدّد الخطوة التالية قبل الحفظ' };
   }
 
   // The reason is REQUIRED with not_interested and REJECTED with anything
