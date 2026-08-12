@@ -133,7 +133,7 @@
     <string name="co_outcome_not_interested">غير مهتم</string>
     <string name="co_outcome_call_again">يحتاج إعادة اتصال</string>
     <string name="co_note_label">ملاحظة (اختياري)</string>
-    <string name="co_follow_up_label">اتصل مرة أخرى في… (اختياري)</string>
+    <string name="co_follow_up_label">اتصل مرة أخرى في…</string>
     <string name="co_preset_tomorrow">غدًا</string>
     <string name="co_preset_in_3_days">بعد 3 أيام</string>
     <string name="co_preset_next_week">الأسبوع القادم</string>
