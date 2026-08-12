@@ -46,6 +46,18 @@ export type OutcomeValidation =
   | { ok: true; value: ValidatedOutcome }
   | { ok: false; message: string };
 
+export interface OutcomeValidationOptions {
+  /**
+   * Require a scheduled next step for any outcome other than `not_interested`.
+   *
+   * OFF by default, and that default is load-bearing: the caller turns it on
+   * from the device's reported `x-app-version`, because a fleet running an older
+   * build physically cannot send `next_follow_up_at` and would take a 422 on
+   * every saved outcome. See NEXT_STEP_ENFORCED_FROM_VERSION in the route.
+   */
+  requireNextStep?: boolean;
+}
+
 function isOutcome(value: unknown): value is Outcome {
   return typeof value === 'string' && (OUTCOMES as readonly string[]).includes(value);
 }
@@ -54,7 +66,10 @@ function str(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-export function validateOutcomeRequest(body: unknown): OutcomeValidation {
+export function validateOutcomeRequest(
+  body: unknown,
+  options: OutcomeValidationOptions = {},
+): OutcomeValidation {
   if (!body || typeof body !== 'object') {
     return { ok: false, message: 'جسم الطلب مطلوب' };
   }
@@ -82,6 +97,13 @@ export function validateOutcomeRequest(body: unknown): OutcomeValidation {
     const parsed = new Date(rawNext);
     if (isNaN(parsed.getTime())) return { ok: false, message: 'next_follow_up_at غير صالح' };
     nextFollowUpAtIso = parsed.toISOString();
+  }
+
+  // Wave د+ #01 — placed AFTER the parse above on purpose: a rep who picked a
+  // broken date should hear that, not "pick a next step".
+  if (options.requireNextStep && outcome !== 'not_interested' && !nextFollowUpAtIso) {
+    // i18n-exempt: API response message, `api` namespace migration is Phase 8
+    return { ok: false, message: 'لازم تحدد الخطوة الجاية قبل الحفظ' };
   }
 
   // The reason is REQUIRED with not_interested and REJECTED with anything

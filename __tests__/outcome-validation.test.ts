@@ -110,3 +110,50 @@ describe('validateOutcomeRequest', () => {
     expect(validateOutcomeRequest(null).ok).toBe(false);
   });
 });
+
+describe('validateOutcomeRequest — required next step (wave د+ #01)', () => {
+  const base = { lead_id: 'sl_1', outcome: 'interested', note: 'كلمته' };
+
+  it('accepts a missing next step when enforcement is OFF (the live fleet)', () => {
+    // versionCode 10 is in the field and cannot send this field. Enforcing for
+    // it would 422 every outcome the two real phones save.
+    const out = validateOutcomeRequest(base);
+    expect(out.ok).toBe(true);
+  });
+
+  it('rejects a missing next step when enforcement is ON', () => {
+    const out = validateOutcomeRequest(base, { requireNextStep: true });
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.message).toContain('الخطوة الجاية');
+  });
+
+  it('accepts a present next step when enforcement is ON', () => {
+    const out = validateOutcomeRequest(
+      { ...base, next_follow_up_at: '2026-08-15T09:00:00.000Z' },
+      { requireNextStep: true },
+    );
+    expect(out.ok).toBe(true);
+    if (out.ok) expect(out.value.nextFollowUpAtIso).toBe('2026-08-15T09:00:00.000Z');
+  });
+
+  it('exempts not_interested even when enforcement is ON', () => {
+    // The decision IS the next step. Demanding a callback date for someone who
+    // just said no would be a contradiction the app cannot even express.
+    const out = validateOutcomeRequest(
+      { lead_id: 'sl_1', outcome: 'not_interested', not_interested_reason: 'السعر عالي' },
+      { requireNextStep: true },
+    );
+    expect(out.ok).toBe(true);
+  });
+
+  it('reports the INVALID date, not the missing step, when both are wrong', () => {
+    // Order matters: telling a rep "pick a next step" when they picked a broken
+    // one sends them looking in the wrong place.
+    const out = validateOutcomeRequest(
+      { ...base, next_follow_up_at: 'بكرة' },
+      { requireNextStep: true },
+    );
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.message).toContain('next_follow_up_at');
+  });
+});
