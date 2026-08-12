@@ -985,6 +985,8 @@ import {
 } from '@/lib/calls/attempt-cadence';
 
 const DAY = 24 * 60 * 60 * 1000;
+const HOUR = 60 * 60 * 1000;
+// 09:00 UTC = 13:00 Dubai — a normal hour for a first call.
 const first = Date.parse('2026-08-12T09:00:00.000Z');
 
 describe('attempt cadence', () => {
@@ -994,10 +996,24 @@ describe('attempt cadence', () => {
     expect(CADENCE_DAY_OFFSETS.length).toBe(MAX_ATTEMPTS);
   });
 
-  it('schedules each next attempt on its cadence day', () => {
-    expect(nextAttemptAt(first, 1)).toBe(first + 2 * DAY);
-    expect(nextAttemptAt(first, 2)).toBe(first + 5 * DAY);
-    expect(nextAttemptAt(first, 3)).toBe(first + 10 * DAY);
+  it('schedules each next attempt on its cadence day, hour shift included', () => {
+    // The hour shift is part of the answer, so it is asserted here rather than
+    // left to the separate distinct-hours test — an exact-equality assertion
+    // that ignored the shift would contradict the implementation and fail.
+    expect(nextAttemptAt(first, 1)).toBe(first + 2 * DAY + 2 * HOUR);
+    expect(nextAttemptAt(first, 2)).toBe(first + 5 * DAY - 2 * HOUR);
+    expect(nextAttemptAt(first, 3)).toBe(first + 10 * DAY + 3 * HOUR);
+  });
+
+  it('keeps every attempt within 3 hours of the first, so none leaves the working day', () => {
+    // The shifts move across the working day; they must not push a call into
+    // the evening. Targeting the measured-best hours (15:00 Dubai answers 65%
+    // vs 51% at 10:00) is wave 3's job — this only stops four identical calls.
+    for (const n of [1, 2, 3]) {
+      const drift = Math.abs(nextAttemptAt(first, n)! - first) % DAY;
+      const hours = Math.min(drift, DAY - drift) / HOUR;
+      expect(hours).toBeLessThanOrEqual(3);
+    }
   });
 
   it('returns null once the attempts are spent', () => {
@@ -1071,10 +1087,15 @@ export const CADENCE_DAY_OFFSETS = [0, 2, 5, 10] as const;
 
 /**
  * Hour shift applied per attempt so consecutive tries never land at the same
- * time of day. Values are deliberately small: the point is to move across the
- * working day, not to push a call outside it.
+ * time of day. Deliberately within ±3 hours, in both directions: a first call
+ * placed at a sane hour keeps all four inside the working day, which a larger
+ * drift would not. From 13:00 Dubai the four land at 13:00, 15:00, 11:00, 16:00.
+ *
+ * This only stops four identical calls. Actively TARGETING the measured-best
+ * hour (15:00 Dubai answers 65% against 51% at 10:00) is wave 3 feature #09 —
+ * doing it here would need the per-agent aggregate that wave builds.
  */
-const CADENCE_HOUR_SHIFTS = [0, 4, -2, 5] as const;
+const CADENCE_HOUR_SHIFTS = [0, 2, -2, 3] as const;
 
 /**
  * @param firstAttemptMs epoch ms of attempt #1
@@ -1142,9 +1163,42 @@ MSG
 
 - [ ] **Step 1: Return the count**
 
-In `my-day`, count attempts per candidate lead from `pyra_agent_calls` (chunked
-`.in()`, same shape as Task 5's lookup) and attach `attempts_made` to each
-going-cold row.
+In `app/api/mobile/my-day/route.ts`, after the going-cold rows are built and
+before the response is assembled, count every dial per cold lead. Chunked for the
+same reason Task 5's lookup is — an unbounded `.in()` list once 414'd a cron here:
+
+```ts
+import { chunk } from '@/lib/utils/chunk';
+import { MAX_ATTEMPTS } from '@/lib/calls/attempt-cadence';
+```
+
+```ts
+    // Attempts per cold lead. EVERY dial counts, answered or not: the cadence is
+    // about how many times we have tried this number, and an unanswered dial is
+    // precisely the kind of try a rep forgets they already made.
+    const attemptsByLead = new Map<string, number>();
+    const coldLeadIds = coldRows.map((r) => r.id);
+    for (const batch of chunk(coldLeadIds, 150)) {
+      const { data, error } = await supabase
+        .from('pyra_agent_calls')
+        .select('lead_id')
+        .in('lead_id', batch);
+      if (error) {
+        // Best-effort like every other section here: a missing count renders as
+        // no chip, which is the pre-wave behaviour. Never take the screen down.
+        console.error('[my-day] attempt count failed:', error.message);
+        break;
+      }
+      for (const row of data ?? []) {
+        if (!row.lead_id) continue;
+        attemptsByLead.set(row.lead_id, (attemptsByLead.get(row.lead_id) ?? 0) + 1);
+      }
+    }
+```
+
+Attach it to each cold row as `attempts_made: attemptsByLead.get(r.id) ?? 0`, and
+add `attempts_made: Int = 0` to the app's cold-lead payload class in
+`core/Payloads.kt` (defaulted, so an older server simply shows no chip).
 
 - [ ] **Step 2: Add the strings**
 
@@ -1156,10 +1210,37 @@ going-cold row.
 
 - [ ] **Step 3: Render it on the row**
 
-In `LeadRow.kt`, when `attemptsMade > 0`, show `attempts_of`. When
-`attemptsMade >= MAX_ATTEMPTS`, show `attempts_spent` in the warning tone. Use a
-`FlowRow` if this makes three or more chips on the row — a plain `Row` clipped
-chips at large font sizes, which is exactly bug B-02.
+First read the row's current chip layout so the addition matches it:
+
+```bash
+grep -n "PyraChip\|FlowRow\|Row(\|stringResource" pyra-calls-app/app/src/main/java/cloud/pyramedia/calls/ui/components/LeadRow.kt
+```
+
+Then add one chip, driven by the count:
+
+```kotlin
+if (attemptsMade > 0) {
+    val spent = attemptsMade >= MAX_ATTEMPTS
+    PyraChip(
+        text = if (spent) stringResource(R.string.attempts_spent)
+               else stringResource(R.string.attempts_of, attemptsMade, MAX_ATTEMPTS),
+        tone = if (spent) PyraChipTone.WARNING else PyraChipTone.NEUTRAL,
+    )
+}
+```
+
+`MAX_ATTEMPTS` is `4` and must come from a single Kotlin constant — add
+`const val MAX_ATTEMPTS = 4` to `core/OutcomeForm.kt`'s companion area or a new
+`core/AttemptPolicy.kt`, and reference it here. Do NOT inline `4` at the call
+site: the number is an owner decision recorded in Global Constraints, and the
+server has its own copy in `lib/calls/attempt-cadence.ts`.
+
+**If this pushes the row to three or more chips, convert the container to
+`FlowRow`.** A plain `Row` clipped chips at large font sizes — that was bug B-02,
+found on a real handset after the build and tests were both green.
+
+Match `PyraChip`'s real parameter names and tone enum to whatever the grep shows;
+the names above are the expected shape, not a licence to skip reading the file.
 
 - [ ] **Step 4: Build, test, lint**
 
