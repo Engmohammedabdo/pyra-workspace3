@@ -62,4 +62,21 @@ describe('attempt cadence', () => {
     expect(attemptsExhausted(4)).toBe(true);
     expect(attemptsExhausted(5)).toBe(true);
   });
+
+  it('never returns NaN, even if MAX_ATTEMPTS is extended without hour-shift coverage', () => {
+    // Guard against silently emitting NaN timestamps when CADENCE_HOUR_SHIFTS
+    // is not extended in sync with MAX_ATTEMPTS. Every reachable attemptsMade
+    // must yield a finite number — accessing an undefined shift must be caught.
+    for (let n = 0; n < MAX_ATTEMPTS; n++) {
+      const result = nextAttemptAt(first, n);
+      expect(Number.isFinite(result)).toBe(true);
+    }
+  });
+
+  it('rejects negative attemptsMade as a caller error', () => {
+    // A negative count is an off-by-one bug, not "reschedule the current attempt
+    // anyway". Returning null (same as exhausted) surfaces the defect loud.
+    expect(nextAttemptAt(first, -1)).toBeNull();
+    expect(nextAttemptAt(first, -100)).toBeNull();
+  });
 });

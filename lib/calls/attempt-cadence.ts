@@ -44,10 +44,16 @@ const CADENCE_HOUR_SHIFTS = [0, 2, -2, 3] as const;
  * @param attemptsMade how many attempts have already happened
  * @returns epoch ms for the next attempt, or `null` when they are spent —
  *   which the caller turns into «لا يرد», never into another invisible slot.
+ *
+ * Negative `attemptsMade` returns `null`, treating it as a caller error.
+ * Off-by-one mistakes must surface loud, not silently reschedule the current
+ * attempt — the cost of masking the defect (a missed call rescheduled as-is)
+ * is higher than the cost of failing the caller.
  */
 export function nextAttemptAt(firstAttemptMs: number, attemptsMade: number): number | null {
+  if (attemptsMade < 0) return null;
   if (attemptsMade >= MAX_ATTEMPTS) return null;
-  const index = Math.max(0, attemptsMade);
+  const index = attemptsMade;
   return (
     firstAttemptMs +
     CADENCE_DAY_OFFSETS[index] * DAY_MS +
