@@ -24,4 +24,20 @@ describe('shouldRequireNextStep', () => {
     expect(shouldRequireNextStep('abc')).toBe(false);
     expect(shouldRequireNextStep('-1')).toBe(false);
   });
+
+  it('fails OPEN on corrupted headers with numeric prefixes', () => {
+    // parseInt is lenient: '11abc' -> 11, '11.5' -> 11, '+11' -> 11.
+    // These must fail open, not enforce. A corrupted header that starts
+    // with a digit >= 11 should NOT flip enforcement on.
+    expect(shouldRequireNextStep('11abc')).toBe(false);
+    expect(shouldRequireNextStep('11.5')).toBe(false);
+    expect(shouldRequireNextStep('+11')).toBe(false);
+    expect(shouldRequireNextStep('1e2')).toBe(false);
+  });
+
+  it('accepts surrounding whitespace', () => {
+    // Trim before validation so well-formed headers with accidental spaces work.
+    expect(shouldRequireNextStep(' 11 ')).toBe(true);
+    expect(shouldRequireNextStep(' 10 ')).toBe(false);
+  });
 });

@@ -8,10 +8,16 @@
 export const NEXT_STEP_ENFORCED_FROM_VERSION = 11;
 
 export function shouldRequireNextStep(headerValue: string | null): boolean {
-  const code = parseInt(headerValue ?? '', 10);
-  // Fails OPEN: an unknown client is treated as old. The blocking UI in the app
-  // is the primary control; this is the backstop that stops a NEW app from
-  // silently regressing, not a gate worth rejecting real work over.
-  if (!Number.isInteger(code) || code <= 0) return false;
+  // Parse strictly: accept only strings that are entirely ASCII digits (after
+  // trimming). parseInt is too lenient — '11abc', '11.5', '+11', '1e2' all
+  // parse successfully but should fail open, not enforce. A corrupted or
+  // truncated header that happens to start with a digit >= 11 would flip
+  // enforcement ON for a device that cannot satisfy the requirement, losing
+  // work after a real call. Strict parse + fail-open together prevent this.
+  const trimmed = (headerValue ?? '').trim();
+  if (!trimmed || !/^\d+$/.test(trimmed)) return false;
+
+  const code = parseInt(trimmed, 10);
+  if (code <= 0) return false;
   return code >= NEXT_STEP_ENFORCED_FROM_VERSION;
 }
