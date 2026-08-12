@@ -25,8 +25,16 @@ Kotlin/Compose + JUnit · WorkManager.
   on **versionCode 10** — enforcing unconditionally takes both phones offline.
 - **Attempt policy (owner decision, 2026-08-12): 4 attempts over 10 days**, at
   day offsets `[0, 2, 5, 10]` from the first attempt, each at a **different hour**.
-- **Idle nudge policy (owner decision, 2026-08-12):** eligible only if the lead
-  has had a **prior connected call**, capped at **10 per agent per day**.
+- **Idle nudge policy (owner decisions, 2026-08-12):** eligible only if the lead
+  has had a **prior connected call**, capped at **10 per agent per day**, and
+  ordered **least-recently-nudged first** so every eligible lead gets a turn.
+  **REVISED mid-execution** — the original text here said *most-recently-spoken-to
+  first*, and the Task 5 review proved that starves 85% of the pool for ever: the
+  cron writes its own `idle_warning` row, that row is the newest activity on **619
+  of 772 (80%)** eligible leads, and `lastTouched` counted it — so a nudged lead
+  came back after the 7-day dedup holding the freshest possible timestamp and
+  re-won the cap indefinitely. `lastTouched` must therefore EXCLUDE `idle_warning`
+  exactly as it excludes `call_attempt`, so the signal stays human.
 - **A dropped/blocked row is never `status: 'error'`** on any mobile response —
   that value freezes the device cursor (`SyncPlanner.nextCursor`).
 - **Never `INSERT INTO pyra_notifications` directly** — always `notify()`.
