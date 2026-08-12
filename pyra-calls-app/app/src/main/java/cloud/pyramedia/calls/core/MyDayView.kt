@@ -4,7 +4,16 @@ package cloud.pyramedia.calls.core
 // out of the composable so the tab math can be unit-tested without Compose.
 
 /** Tab layout derived from the server's counts. */
-data class MyDayTabs(val threeTabs: Boolean, val overdueCount: Int?, val todayCount: Int)
+data class MyDayTabs(
+    val threeTabs: Boolean,
+    val overdueCount: Int?,
+    val todayCount: Int,
+    // Wave د+ #06: a fourth tab for leads with no last_contact_at at all
+    // ("لم يتم الاتصال بهم"). See `myDayTabs` below for the null-vs-zero
+    // handling, which is deliberately the OPPOSITE of `overdueCount`'s.
+    val fourTabs: Boolean,
+    val neverContactedCount: Int?,
+)
 
 /**
  * `counts.overdue == null` means the server's own count query failed, NOT
@@ -15,8 +24,23 @@ data class MyDayTabs(val threeTabs: Boolean, val overdueCount: Int?, val todayCo
  */
 fun myDayTabs(counts: MyDayCounts): MyDayTabs {
     val overdueCount = counts.overdue
+    // Unlike `overdueCount` above, `neverContacted` collapses null AND a
+    // confirmed zero to the same outcome (`?: 0`) — on purpose, and for the
+    // opposite reason. A missing third tab with the wrong badge would be a
+    // visible lie ("٠" instead of "unknown"), but a missing FOURTH tab is
+    // simply invisible: there is no badge to get wrong, only a tab to show
+    // or not. So "the count query failed" and "the count is genuinely zero"
+    // are indistinguishable here, and both correctly mean "don't show it".
+    val neverContactedCount = counts.neverContacted
+    val fourTabs = (neverContactedCount ?: 0) > 0
     return if (overdueCount == null) {
-        MyDayTabs(threeTabs = false, overdueCount = null, todayCount = counts.follow_ups)
+        MyDayTabs(
+            threeTabs = false,
+            overdueCount = null,
+            todayCount = counts.follow_ups,
+            fourTabs = fourTabs,
+            neverContactedCount = neverContactedCount,
+        )
     } else {
         // overdue ⊆ follow_ups by construction (an overdue row is past due,
         // so it always satisfies the follow-ups query's due_at <= now+1d
@@ -26,6 +50,8 @@ fun myDayTabs(counts: MyDayCounts): MyDayTabs {
             threeTabs = true,
             overdueCount = overdueCount,
             todayCount = (counts.follow_ups - overdueCount).coerceAtLeast(0),
+            fourTabs = fourTabs,
+            neverContactedCount = neverContactedCount,
         )
     }
 }

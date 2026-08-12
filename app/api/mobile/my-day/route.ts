@@ -7,6 +7,7 @@ import { PIPELINE_TERMINAL_STAGE_IDS } from '@/lib/constants/statuses';
 
 const FOLLOW_UP_LIMIT = 20;
 const GOING_COLD_LIMIT = 20;
+const NEVER_CONTACTED_LIMIT = 50;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 // Hoisted: a Set built once per module, not per request.
@@ -56,6 +57,13 @@ interface ColdLeadRow {
   created_at: string;
 }
 
+interface NeverContactedRow {
+  id: string;
+  name: string;
+  phone: string | null;
+  created_at: string;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/mobile/my-day
 //
@@ -66,7 +74,7 @@ interface ColdLeadRow {
 // free) — every query below filters by `agentUsername` itself. A missing
 // filter here would leak the whole pipeline to any device.
 //
-// Two sections:
+// Three sections:
 //   - follow_ups: assigned_to = me AND status IN (pending, overdue) AND
 //                 due_at <= now()+1d, ordered due_at ASC, capped 20.
 //   - going_cold: assigned_to = me AND archived_at IS NULL AND
@@ -89,9 +97,23 @@ interface ColdLeadRow {
 //                 closed won, closed lost, «غير مهتم») are excluded: a lead
 //                 the rep already marked not-interested must never come back
 //                 as "you haven't called this person".
+//   - never_contacted: assigned_to = me AND archived_at IS NULL AND
+//                 last_contact_at IS NULL AND is_converted IS NOT TRUE
+//                 (NULL-safe) AND phone IS NOT NULL, ordered created_at ASC
+//                 (OLDEST first — the opposite of going_cold's ordering, and
+//                 for the opposite reason: an untouched lead only decays, so
+//                 the one that has waited longest is closest to being
+//                 wasted, while a stale conversation is a re-prospecting
+//                 job), capped 50. Measured 2026-08-12: 350 live leads have
+//                 never been spoken to at all (271 cosette's, 76 youssef's),
+//                 invisible to every section above because every one of them
+//                 keys on a date these leads do not have.
 //
 // `counts` carries the TRUE total for each list (independent of the 20-row
 // cap) so the app can render "20 من 34" without a second round trip.
+// `never_contacted_count` is the same idea but reported alongside its list
+// rather than nested in `counts`, matching the interface this feed was built
+// against.
 // ─────────────────────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
   try {
@@ -308,6 +330,51 @@ export async function GET(request: NextRequest) {
       days_since_contact: Math.floor((now - effectiveMs) / DAY_MS),
     }));
 
+    // ── Never contacted: the cheapest sales in the company ────────────────
+    // Measured 2026-08-12: 350 live leads have never been spoken to at all —
+    // 271 of cosette's and 76 of youssef's — and 180 of them arrived in the
+    // last 30 days. They are invisible today because every existing section
+    // keys on a date that does not exist for them.
+    //
+    // Oldest FIRST, unlike the going-cold list: an untouched lead only decays,
+    // and the one that has waited longest is the one closest to being wasted.
+    //
+    // `count: 'exact'` alongside the 50-row `.limit()` — same idiom as
+    // follow_ups/going_cold above — so `never_contacted_count` is the TRUE
+    // total (e.g. cosette's real 271), not silently capped to the 50 rows
+    // the list itself returns.
+    const {
+      data: neverContactedRows,
+      count: neverContactedTotal,
+      error: neverContactedErr,
+    } = await supabase
+      .from('pyra_sales_leads')
+      .select('id, name, phone, created_at', { count: 'exact' })
+      .eq('assigned_to', agentUsername)
+      .is('archived_at', null)
+      .is('last_contact_at', null)
+      .not('is_converted', 'is', true)
+      .not('phone', 'is', null)
+      .order('created_at', { ascending: true })
+      .limit(NEVER_CONTACTED_LIMIT);
+    if (neverContactedErr) {
+      // Best-effort, like the overdue count above: the app falls back to
+      // fewer tabs. Never take the screen down for one list.
+      console.error('[my-day] never-contacted lookup failed:', neverContactedErr.message);
+    }
+    const neverContactedItems = ((neverContactedRows ?? []) as NeverContactedRow[]).map((r) => ({
+      id: r.id,
+      name: r.name,
+      phone: r.phone,
+      created_at: r.created_at,
+    }));
+    // 0 on error (not null) — the field's declared type is a plain `number`,
+    // and reporting 0 rather than omitting/nulling it is what makes the app
+    // fall back to three tabs instead of inventing an empty fourth one.
+    const neverContactedCount: number = neverContactedErr
+      ? 0
+      : (neverContactedTotal ?? neverContactedItems.length);
+
     // ── Enrich follow-ups with lead name/phone via ONE batched query ──
     // (going_cold needed none — pyra_sales_leads already carries
     // name/phone/company directly, it IS the primary table above.)
@@ -346,6 +413,8 @@ export async function GET(request: NextRequest) {
     return apiSuccess({
       follow_ups: followUpItems,
       going_cold: goingCold,
+      never_contacted: neverContactedItems,
+      never_contacted_count: neverContactedCount,
       counts: {
         follow_ups: followUpTotal ?? followUpItems.length,
         // `coldTotal` (the DB `count: 'exact'`) can no longer be used here —

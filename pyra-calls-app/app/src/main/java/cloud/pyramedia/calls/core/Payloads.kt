@@ -143,14 +143,31 @@ val PyraJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
     val lead_id: String, val lead_name: String, val phone: String? = null,
     val company: String? = null, val days_since_contact: Int,
 )
+// Wave د+ #06 — a never-contacted lead row. Field names mirror
+// app/api/mobile/my-day/route.ts's `never_contacted` mapping EXACTLY
+// (id/name/phone/created_at), not the task brief's `MyDayLead` sketch.
+@Serializable data class MyDayLead(
+    val id: String, val name: String, val phone: String? = null, val created_at: String,
+)
 @Serializable data class MyDayCounts(
     val follow_ups: Int, val going_cold: Int,
     // Wave C, nullable BY CONTRACT: the server reports null when its count
     // query failed rather than taking the whole screen down. Null means "I
     // don't know" — the screen falls back to two tabs, never to zero.
     val overdue: Int? = null,
+    // Additive (wave د+ #06). Defaulted so an older server response — or a
+    // rollback — decodes fine and simply shows no fourth tab. Unlike
+    // `overdue`, this is NOT read from the response's `counts` object — the
+    // server reports it as a top-level `never_contacted_count` sibling
+    // instead (see `MyDayData` below) — so this field only ever gets a value
+    // if the caller assembles a `MyDayCounts` by hand from that sibling.
+    val neverContacted: Int? = null,
 )
 @Serializable data class MyDayData(
     val follow_ups: List<MyDayFollowUp>, val going_cold: List<MyDayColdLead>,
     val counts: MyDayCounts,
+    // Additive (wave د+ #06). Defaulted so an older server response — or a
+    // rollback — decodes fine and simply shows no fourth tab.
+    val never_contacted: List<MyDayLead> = emptyList(),
+    val never_contacted_count: Int = 0,
 )

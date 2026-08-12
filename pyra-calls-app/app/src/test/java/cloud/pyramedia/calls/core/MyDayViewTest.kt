@@ -127,4 +127,34 @@ class MyDayViewTest {
         assertTrue(selection.rows.isEmpty())
         assertEquals(0, selection.total)
     }
+
+    // --- myDayTabs: never-contacted fourth tab (wave د+ #06) ---
+    //
+    // NOTE: the task brief's own snippet constructs `MyDayCounts(overdue = 3,
+    // today = 2, neverContacted = 0)` — a shape with `today`/`neverContacted`
+    // fields that does not match this file's actual `MyDayCounts(follow_ups,
+    // going_cold, overdue, ...)`. Adapted below to the real constructor
+    // (`follow_ups`/`going_cold` are required, non-defaulted fields here)
+    // while keeping the brief's exact intent: a fourth tab appears iff the
+    // never-contacted count is a confirmed positive number, and an absent
+    // (null) count — an older server, or a rollback — must not invent one.
+
+    @Test
+    fun `a fourth tab appears only when there are never-contacted leads`() {
+        val without = myDayTabs(MyDayCounts(follow_ups = 3, going_cold = 2, overdue = null, neverContacted = 0))
+        assertFalse(without.fourTabs)
+
+        val with = myDayTabs(MyDayCounts(follow_ups = 3, going_cold = 2, overdue = null, neverContacted = 12))
+        assertTrue(with.fourTabs)
+        assertEquals(12, with.neverContactedCount)
+    }
+
+    @Test
+    fun `an absent count from an older server does not invent a tab`() {
+        // The field is additive; a server that has not deployed it yet sends
+        // nothing, and a phantom empty tab would read as a broken screen.
+        val out = myDayTabs(MyDayCounts(follow_ups = 1, going_cold = 1, overdue = null, neverContacted = null))
+        assertFalse(out.fourTabs)
+        assertNull(out.neverContactedCount)
+    }
 }
