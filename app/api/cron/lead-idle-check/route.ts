@@ -8,6 +8,7 @@ import { PIPELINE_FINAL_STAGES } from '@/lib/constants/statuses';
 import { logError } from '@/lib/observability/log-error';
 import { dubaiDayKey } from '@/lib/utils/format';
 import { chunk } from '@/lib/utils/chunk';
+import { selectIdleNudges, type IdleCandidate } from '@/lib/crm/idle-eligibility';
 
 // ────────────────────────────────────────────────────────────────────────────
 // POST /api/cron/lead-idle-check
@@ -198,6 +199,7 @@ export async function POST(request: NextRequest) {
 
     // ── Filter to truly idle leads ──
     const idleLeads: LeadRow[] = [];
+    const lastTouchedByLead = new Map<string, number>();
     for (const lead of allLeads) {
       const lastActivity = lastActivityByLead.get(lead.id);
       const lastTouched = Math.max(
@@ -207,6 +209,7 @@ export async function POST(request: NextRequest) {
       // lastTouched=0 means both signals are null → never touched → idle
       if (lastTouched === 0 || lastTouched < idleCutoff) {
         idleLeads.push(lead);
+        lastTouchedByLead.set(lead.id, lastTouched);
       }
     }
     const leadsIdle = idleLeads.length;
@@ -252,10 +255,60 @@ export async function POST(request: NextRequest) {
     const newlyIdleLeads = idleLeads.filter((l) => !alreadyWarnedSet.has(l.id));
     const activitiesSkippedRecent = leadsIdle - newlyIdleLeads.length;
 
-    // ── INSERT idle_warning activities for newly-idle leads ──
+    // ── Which of these leads has ever been ANSWERED? Chunked because the
+    // candidate set is unbounded and a bare .in() on it once 414'd this very
+    // cron (see the chunk() helper's own doc). isConnectedCall semantics:
+    // direction !== 'missed' && duration_seconds > 0 — a lead that only ever
+    // got unanswered dials was never warm and must not qualify.
+    const candidateLeadIds = newlyIdleLeads.map((l) => l.id);
+    const connectedLeadIds = new Set<string>();
+    for (const batch of chunk(candidateLeadIds, LEAD_ID_BATCH)) {
+      const { data: callData, error: callErr } = await supabase
+        .from('pyra_agent_calls')
+        .select('lead_id')
+        .in('lead_id', batch)
+        .neq('direction', 'missed')
+        .gt('duration_seconds', 0);
+      if (callErr) {
+        // Fail CLOSED for this batch: sending a nudge we cannot justify is
+        // what this change exists to stop. Skipping one batch costs one day —
+        // these leads simply aren't dedup-marked, so they're re-checked
+        // tomorrow with a fresh query.
+        logError({
+          error: callErr,
+          request,
+          metadata: { source: 'cron', job: 'lead-idle-check', stage: 'connected_calls_select' },
+        });
+        console.error('[cron/lead-idle-check] connected-call lookup failed:', callErr.message);
+        continue;
+      }
+      for (const row of (callData ?? []) as Array<{ lead_id: string | null }>) {
+        if (row.lead_id) connectedLeadIds.add(row.lead_id);
+      }
+    }
+
+    // ── Narrow to leads that were ever actually spoken to, capped per agent
+    // per day (owner decision 2026-08-12 — see lib/crm/idle-eligibility.ts).
+    // Sorted most-recently-spoken-to FIRST inside selectIdleNudges: a
+    // conversation 8 days old is recoverable, one from 90 days ago is a
+    // re-prospecting job, not a nudge. Only the SELECTED leads get an
+    // idle_warning activity below — an unselected lead stays un-deduped and
+    // is re-considered (and can win the cap) tomorrow.
+    const selected = selectIdleNudges(
+      newlyIdleLeads.map<IdleCandidate>((l) => ({
+        leadId: l.id,
+        agentUsername: l.assigned_to,
+        lastTouchedMs: lastTouchedByLead.get(l.id) ?? 0,
+        hasConnectedCall: connectedLeadIds.has(l.id),
+      })),
+    );
+    const selectedIds = new Set(selected.map((c) => c.leadId));
+    const selectedLeads = newlyIdleLeads.filter((l) => selectedIds.has(l.id));
+
+    // ── INSERT idle_warning activities for the leads actually nudged today ──
     let activitiesInserted = 0;
-    if (newlyIdleLeads.length > 0) {
-      const inserts = newlyIdleLeads.map((l) => {
+    if (selectedLeads.length > 0) {
+      const inserts = selectedLeads.map((l) => {
         const lastActivity = lastActivityByLead.get(l.id);
         const lastTouchedIso = lastActivity ?? l.last_contact_at;
         const daysIdle = lastTouchedIso
@@ -288,9 +341,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── Group newly-idle leads by agent for notifications ──
+    // ── Group SELECTED leads by agent for notifications (not all newly-idle —
+    // only the ones that earned a nudge above) ──
     const byAgent = new Map<string, LeadRow[]>();
-    for (const l of newlyIdleLeads) {
+    for (const l of selectedLeads) {
       const arr = byAgent.get(l.assigned_to) ?? [];
       arr.push(l);
       byAgent.set(l.assigned_to, arr);
