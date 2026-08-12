@@ -562,6 +562,24 @@ MSG
 
 ### Task 5: The idle nudge becomes a short, earned list
 
+> ⚠️ **REVERSED DURING EXECUTION — 2026-08-12. The code block below is the
+> PRE-BUG version; do not copy it.** As implemented and reviewed, the sort is
+> **least-recently-nudged first (rotation)**, not most-recently-spoken-to first,
+> and `lastTouched` **excludes `idle_warning`** as well as `call_attempt`.
+>
+> Why: the cron writes its own `idle_warning` row, and `lastTouched` counted it —
+> so a nudged lead came back the instant its 7-day dedup expired holding the
+> freshest timestamp any idle lead can hold, and re-won the cap for ever. Measured
+> on production: on **619 of 772 (80%)** eligible leads the newest non-attempt
+> activity IS an `idle_warning`, so the sort key was the cron's own handwriting.
+> Steady state would have pinned ~70 leads per agent and never nudged the other
+> ~529 of 669 again. Owner reversed it; rotation gives every lead a turn every
+> ~46 days (457-lead agent) / ~32 days (315-lead agent).
+>
+> **The shipped, reviewed truth is the code in `lib/crm/idle-eligibility.ts` and
+> `app/api/cron/lead-idle-check/route.ts` as of commit `b563534`** — read those,
+> not this section, if you need the current behaviour.
+
 **Files:**
 - Create: `lib/crm/idle-eligibility.ts`
 - Create: `__tests__/idle-eligibility.test.ts`
