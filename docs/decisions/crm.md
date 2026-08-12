@@ -2400,3 +2400,174 @@ not just the encrypted store.
   `pyra_sales_leads.source` has **no DB constraint**, so `SOURCE_MAP` is the only
   thing between a new writer and a wall of question marks: add the entry in the
   same change that starts writing a new value.
+
+---
+
+## Calls — Wave د+ #1: The Cron That Wrote Its Own Sort Key (Locked, 2026-08-12)
+
+Four productivity features, each anchored to a production measurement, shipped as
+23 commits `0e38a10..f9ed04e` plus release **v1.8.0 / versionCode 11**. The
+measurements that justified them: **88%** of connected calls ended with nothing
+scheduled (123 follow-ups from 998 calls), the going-cold nudge fired on **1,189
+of 1,258** live leads, **350** leads had never been contacted at all, and the
+average number of dials before giving up was **1.6**.
+
+Eight decisions below. The first two are the ones that will look wrong to a future
+reader, and the last one is about this document's own family.
+
+### 1. The server may never reject what the live app cannot send
+
+A new required field is enforced **only** for devices reporting
+`x-app-version >= NEXT_STEP_ENFORCED_FROM_VERSION` (11).
+`lib/mobile/next-step-gate.ts` owns that decision; `validateOutcomeRequest`'s
+`requireNextStep` option defaults to **off**.
+
+This exists because "server deploys before the app" and "the server now requires a
+new field" are in direct conflict. Both handsets ran versionCode 10, which
+physically cannot send `next_follow_up_at` — enforcing unconditionally would have
+returned 422 for **every outcome the reps saved**, and the symptom on the phone
+would have looked like the app breaking, not like a policy change.
+
+- **The gate FAILS OPEN.** A missing, empty, or unparseable header means
+  enforcement stays off. The blocking UI in the app is the primary control; the
+  server gate is a backstop against a future app build regressing, and rejecting a
+  rep's real work over a header problem is a worse failure than the one it prevents.
+- **The parse is strict `/^\d+$/`, not `parseInt`.** Review caught this:
+  `parseInt` accepts a numeric *prefix*, so `'11abc'`, `'11.5'` and `'+11'` all
+  returned `11` and turned enforcement ON for a malformed header — the exact
+  opposite of fail-open. Arabic-Indic digits (`'٠١١'`) also correctly fail, since
+  JS `\d` is ASCII-only, which matters in an Arabic product.
+- **Prove both directions against production before shipping the APK.** Done here
+  with `test.sales`: the identical request body returned **200** under
+  `x-app-version: 10` and **422** under `11`. A green unit test does not tell you
+  the live fleet is safe.
+
+### 2. A cron must never rank on a value it writes itself
+
+**This is the most expensive bug the review programme has caught to date, and it
+was designed in, defended in the plan, and repeated in an analysis artifact before
+anyone questioned it.**
+
+The idle cron writes an `idle_warning` activity on each lead it nudges. Its
+`lastTouched` computation excluded `call_attempt` but **counted `idle_warning`**.
+The daily selection sorted **most-recently-touched first**. So a nudged lead
+returned the instant its 7-day dedup expired carrying the freshest timestamp any
+idle lead can hold, and won the cap again — indefinitely.
+
+Measured on production before acting: on **619 of 772 (80%)** eligible leads the
+newest non-attempt activity IS an `idle_warning`. The sort key was mostly the
+cron's own handwriting rather than a human conversation. Steady state would have
+pinned ~70 leads per agent and **never nudged the other ~529 of 669 again**.
+
+Locked consequences:
+
+- **`lastTouched` excludes `idle_warning`** exactly as it excludes `call_attempt`.
+  Without this the metric measures the cron, not the customer — true regardless of
+  which sort is used. It also made the notification's own «days idle» text
+  truthful, which had been silently resetting to the nudge date.
+- **Ordering is least-recently-nudged first** (never-nudged first of all), with
+  `leadId` as a deterministic tiebreak. Bounded wait is `ceil(pool / cap)` days —
+  ~46 for the 457-lead agent, ~32 for the 315-lead one — and no cohort starves.
+- **Recency belongs to ELIGIBILITY, not to ordering.** The original argument for
+  most-recent-first ("a conversation 8 days old is recoverable; one from 90 days
+  ago is a re-prospecting job") is sound — as a rule about *which leads deserve a
+  nudge at all*, which is what "must have had a connected call" now encodes. Reused
+  as a *sort inside an already-eligible pool*, it starves the tail.
+- A recency **window** was measured and rejected before being proposed: **438 of
+  457** eligible leads had a human touch within 30 days, because the reps work the
+  book hard. It would have narrowed nothing.
+
+### 3. Earned and capped, and both drops must be countable
+
+Eligibility requires a **prior connected call** — a lead that never answered was
+never warm, so it is not "going cold". Volume is capped at **10 per agent per
+day**. The pre-existing 7-day per-lead dedup is what makes the cap *rotate*: a
+nudged lead gets an activity row and steps out for a week, letting the next batch
+through. **A lead excluded by the cap must NOT get an activity row**, or it would
+be silently suppressed for 7 days without anyone being told.
+
+The response reports `leads_dropped_no_connected_call` and `leads_dropped_capped`.
+Without them an operator sees a healthy `activities_inserted: 20` and cannot tell
+that most of the book went quiet.
+
+### 4. A blocked control must always say why — from one guard
+
+Save is disabled until the rep picks a next step. Two things make that affordable
+rather than hostile: the presets cost **one tap**, and the bottom bar **always**
+explains a disabled Save. A silently dead button teaches reps the app is broken —
+the same lesson wave ج's audit reached in its third round.
+
+Review caught the mirror-image failure: the hint block was guarded only by
+`presetDays == null`, so it demanded a next step **the instant the sheet opened**,
+before any outcome was picked — while `nextStepSatisfied(null, …)` deliberately
+does not block Save. Both explanation sites now share `selectedOutcome != null`.
+And the section label's «(اختياري)» was removed: a label saying *optional* beside a
+button refusing to save is a UI lying to its user.
+
+### 5. Two tabs about the same leads must share one stage list
+
+`never_contacted` had no terminal-stage exclusion while its sibling `going_cold`
+did, and the gap was **reachable, not theoretical**: `move-stage` and
+`markNotInterested` never set `last_contact_at`, so a lead dragged to «غير مهتم»
+on the web without ever being called still appeared in a tab whose entire message
+is *nobody has called this — call it*. Measured: 2 leads.
+
+Both now filter on the **same `PIPELINE_TERMINAL_STAGE_IDS` constant**. A second
+hand-written list would let the two tabs drift into contradicting each other.
+
+### 6. The two lists sort in opposite directions, deliberately
+
+`going_cold` is least-recently-nudged first (rotation, see #2).
+`never_contacted` is **oldest first**. Different reasoning, not an inconsistency:
+an untouched lead only decays, so the one that has waited longest is closest to
+being wasted, whereas a stale conversation is a re-prospecting job rather than a
+nudge.
+
+`never_contacted_count` is `Int?` where **null means "could not be counted", not
+zero**, and a null produces no tab. Collapsing a failed query to `0` would tell
+the rep *everyone has been called* — the most misleading possible answer for this
+particular feature.
+
+### 7. A scheduling module must never be able to emit NaN
+
+The attempt cadence is **4 attempts over 10 days** at day offsets `[0, 2, 5, 10]`
+with hour shifts `[0, 2, -2, 3]` — lighter than the 6-over-20 default on purpose,
+because 812 new leads arrive every 30 days and a longer cadence grows the queue
+faster than two reps can clear it.
+
+- The **hour rotation is not decoration.** Answer rate by Dubai hour runs 51%
+  (10:00) to 65% (15:00), so four calls at the same hour to someone never free
+  then is one attempt made four times. Shifts stay within ±3 hours so a first call
+  at a sane hour keeps all four in the working day: from 13:00 Dubai they land at
+  13:00, 15:00, 11:00, 16:00.
+- **The private shifts array's length is guarded by a test that loops to the LIVE
+  `MAX_ATTEMPTS` constant.** Raising the cap without extending the array would
+  index `undefined`, produce `undefined * HOUR_MS` = `NaN`, and make a scheduling
+  module emit a non-date while every existing test still passed. A test hardcoding
+  `n < 4` would not have caught it.
+- A negative `attemptsMade` returns `null` rather than being clamped to "call
+  now" — masking a caller's off-by-one is worse than failing it.
+
+### 8. A plan's example code is a starting point, not a specification
+
+**Seven of the nine defects this wave's reviews found originated in the plan's own
+code blocks, not in the implementers' work.** The cadence test contradicted its own
+implementation; `parseInt` undermined the fail-open contract it documented; the
+hint guard fired before the rule applied; the `MyDayCounts` constructor in one
+brief **did not exist in the codebase**; the chunked-lookup pattern was attributed
+to the wrong file; `PyraChip` was described as a static badge when it is a
+selectable radio-style control (using it would have been an accessibility
+regression); and one task — rendering the fourth tab — was listed in the File
+Structure with **no task implementing it**, which would have shipped the data with
+no UI.
+
+Three practices earned their cost and should be kept:
+
+1. **Implementers must read the real file before applying a snippet**, and are
+   expected to deviate and say so. Several did, correctly.
+2. **A plan revised mid-execution keeps the superseded block with a banner**
+   explaining why it was wrong, rather than being quietly rewritten. The wrong
+   version is the most instructive thing in the document.
+3. **Never tell a reviewer what not to flag.** The Critical in #2 came from a
+   reviewer being asked to hunt for a specific failure mode and given room to
+   contradict the plan.

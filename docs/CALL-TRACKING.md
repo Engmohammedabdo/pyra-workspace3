@@ -142,6 +142,50 @@ Auth: `x-api-key: <device_key>` (`requireDeviceAuth`). Body:
 Batch capped at **100** calls per request (422 if empty/oversized).
 `direction ∈ {outgoing, incoming, missed}`.
 
+**`POST /api/mobile/call-outcome` — `next_follow_up_at` became CONDITIONALLY
+required (wave د+ #1, 2026-08-12).** For any outcome other than `not_interested`
+the field is now mandatory — but **only for devices reporting
+`x-app-version >= 11`** (`NEXT_STEP_ENFORCED_FROM_VERSION` in
+`lib/mobile/next-step-gate.ts`).
+
+The gate exists because "server deploys first" and "the server now requires a new
+field" are in direct conflict: both handsets ran versionCode 10, which cannot send
+the field, so unconditional enforcement would have 422'd **every outcome the reps
+saved**. It **fails OPEN** — a missing, empty or unparseable header leaves
+enforcement off — and it parses strictly (`/^\d+$/`), because `parseInt` accepts a
+numeric prefix and would turn enforcement ON for a corrupted `'11abc'`.
+
+`not_interested` is exempt: the decision IS the next step. Verify a change to this
+gate **both directions against production** before shipping an APK — the same body
+must return 200 under `x-app-version: 10` and 422 under `11`.
+
+**`GET /api/mobile/my-day` gained a fourth section and an attempt count (wave د+,
+2026-08-12).**
+
+- `never_contacted: MyDayLead[]` + `never_contacted_count: number | null` — leads
+  with `last_contact_at IS NULL`, **oldest first** (an untouched lead only decays,
+  so the longest-waiting is closest to wasted — deliberately the opposite of
+  `going_cold`'s order). Excludes terminal stages via the **same**
+  `PIPELINE_TERMINAL_STAGE_IDS` constant `going_cold` uses; without that, a lead
+  dragged to «غير مهتم» on the web still appeared here, because `move-stage` and
+  `markNotInterested` never set `last_contact_at`.
+  ⚠️ `never_contacted_count` is **`null` when the count could not be computed**,
+  never `0`. Collapsing a failure to zero tells the rep *everyone has been called*.
+  ⚠️ It is a **top-level** field, NOT inside `counts` — the app must copy it into
+  `MyDayCounts` by hand or the tab silently never appears.
+- Each `going_cold` row carries `attempts_made: number` — **every** dial, answered
+  or not, counted only over the rows actually shipped. Rendered against
+  `MAX_ATTEMPTS` (4). Note it counts a COLLEAGUE's dials too: the cadence answers
+  "how many times has this number been tried", not "by whom".
+
+**`/api/cron/lead-idle-check` — eligibility, cap and rotation (wave د+ #2).** A
+lead now needs a prior **connected** call, volume is capped at **10 per agent per
+day**, and selection is **least-recently-nudged first**. `lastTouched` excludes
+`idle_warning` as well as `call_attempt` — the cron used to rank on a timestamp its
+own row reset, which pinned ~70 leads per agent for ever. Full reasoning in the
+locked decisions. The response reports `leads_dropped_no_connected_call` and
+`leads_dropped_capped`.
+
 **A single bad ROW no longer fails the batch (T-02, 2026-08-10).** Rows that
 fail validation are **dropped** — the rest are processed normally — and every
 drop is written to `pyra_error_logs`
