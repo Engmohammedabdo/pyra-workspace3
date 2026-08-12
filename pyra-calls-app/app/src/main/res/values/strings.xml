@@ -133,6 +133,11 @@
     <string name="my_day_empty_never_contacted">لا يوجد حاليًا أي عملاء لم يتم الاتصال بهم</string>
     <string name="my_day_never_contacted_added_on">تمت الإضافة في %1$s</string>
 
+    <!-- Wave د+ #08 — the attempt count on the going-cold row. Simplified
+         STANDARD Arabic (owner decision 2026-08-12), matching #06b above. -->
+    <string name="attempts_of">محاولة %1$d من %2$d</string>
+    <string name="attempts_spent">انتهت المحاولات — سجّله «لا يرد»</string>
+
     <string name="co_title">تسجيل نتيجة المكالمة</string>
     <string name="co_lead_eyebrow">خلّصت مكالمة مع</string>
     <string name="co_outcome_heading">إيه اللي حصل؟</string>

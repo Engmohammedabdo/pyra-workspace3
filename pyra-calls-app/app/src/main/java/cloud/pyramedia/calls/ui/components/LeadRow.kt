@@ -29,6 +29,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cloud.pyramedia.calls.R
+import cloud.pyramedia.calls.core.AttemptPolicy
 import cloud.pyramedia.calls.ui.theme.LocalPyraColors
 
 enum class LeadTone { Overdue, Cold, Neutral }
@@ -40,6 +41,15 @@ fun LeadRow(
     tone: LeadTone,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    // Wave د+ #08 — how many times this lead has been dialled, answered or
+    // not (0 = don't show it, which is also what an older/rolled-back server
+    // response decodes to). Only ColdLeadRow ever passes a non-zero value, so
+    // FollowUpRow/NeverContactedRow are unaffected. Rendered as its OWN status
+    // line below [chipText] rather than beside it in a Row: this row only
+    // ever carries at most two status labels and each keeps the full row
+    // width to itself, so nothing here is laid out side-by-side and B-02's
+    // 3-chips-in-a-Row overflow (fixed with FlowRow elsewhere) does not apply.
+    attemptsMade: Int = 0,
     onCall: (() -> Unit)? = null,
     // Optional action strip rendered BELOW the content, full width. Not on the
     // content row: that row already carries name + subtitle + chip + a 40dp
@@ -94,6 +104,19 @@ fun LeadRow(
                             style = MaterialTheme.typography.labelSmall,
                             color = toneColor,
                         )
+                        if (attemptsMade > 0) {
+                            val spent = attemptsMade >= AttemptPolicy.MAX_ATTEMPTS
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = if (spent) {
+                                    stringResource(R.string.attempts_spent)
+                                } else {
+                                    stringResource(R.string.attempts_of, attemptsMade, AttemptPolicy.MAX_ATTEMPTS)
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (spent) pyra.danger else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     if (onCall != null) {
                         Spacer(Modifier.width(8.dp))

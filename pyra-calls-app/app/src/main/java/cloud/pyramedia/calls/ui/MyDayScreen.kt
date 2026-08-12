@@ -489,6 +489,9 @@ private fun ColdLeadRow(item: MyDayColdLead, onCall: (String) -> Unit) {
         subtitle = item.company,
         chipText = stringResource(R.string.my_day_cold_days, item.days_since_contact),
         tone = LeadTone.Cold,
+        // Wave د+ #08 — the attempt count. LeadRow owns all of the spent/in-
+        // progress text+tone logic; this is the only wire-through needed here.
+        attemptsMade = item.attempts_made,
         onCall = item.phone?.let { p -> { onCall(p) } },
     )
 }

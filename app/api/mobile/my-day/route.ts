@@ -4,6 +4,8 @@ import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { logError } from '@/lib/observability/log-error';
 import { PIPELINE_TERMINAL_STAGE_IDS } from '@/lib/constants/statuses';
+import { chunk } from '@/lib/utils/chunk';
+import { MAX_ATTEMPTS } from '@/lib/calls/attempt-cadence';
 
 const FOLLOW_UP_LIMIT = 20;
 const GOING_COLD_LIMIT = 20;
@@ -322,12 +324,55 @@ export async function GET(request: NextRequest) {
         return { lead, effectiveMs };
       });
     coldCandidates.sort((a, b) => a.effectiveMs - b.effectiveMs);
-    const goingCold = coldCandidates.slice(0, GOING_COLD_LIMIT).map(({ lead, effectiveMs }) => ({
+    const coldSlice = coldCandidates.slice(0, GOING_COLD_LIMIT);
+
+    // ── Attempts per cold lead, scoped to the ≤20 leads this response ships —
+    // EVERY dial counts, answered or not: the cadence (lib/calls/attempt-
+    // cadence.ts) is about how many times we have tried this number, and an
+    // unanswered dial is precisely the kind of try a rep forgets they already
+    // made. Chunked for the same 414 reason as every other `.in()` on a
+    // lead-id list in this codebase (see the connected-call / last-nudged
+    // lookups in app/api/cron/lead-idle-check/route.ts for the identical
+    // shape) — belt-and-suspenders here since GOING_COLD_LIMIT (20) never
+    // exceeds one batch today, but a future limit bump must not silently
+    // reopen the 414.
+    const attemptsByLead = new Map<string, number>();
+    const coldLeadIds = coldSlice.map(({ lead }) => lead.id);
+    for (const batch of chunk(coldLeadIds, 150)) {
+      const { data: attemptRows, error: attemptErr } = await supabase
+        .from('pyra_agent_calls')
+        .select('lead_id')
+        .in('lead_id', batch);
+      if (attemptErr) {
+        // Best-effort like overdueCount/neverContactedErr above: a missing
+        // count renders as no chip on the row, which is the pre-wave
+        // behaviour. Never take the whole screen down for a badge.
+        // `maxAttempts` is logged alongside so a future cadence change is
+        // visible in the failure record without redeploying docs.
+        logError({
+          severity: 'warning',
+          error: attemptErr,
+          request,
+          metadata: {
+            action: 'mobile_my_day_attempt_counts',
+            agentUsername,
+            maxAttempts: MAX_ATTEMPTS,
+          },
+        });
+        continue;
+      }
+      for (const row of (attemptRows ?? []) as Array<{ lead_id: string | null }>) {
+        if (row.lead_id) attemptsByLead.set(row.lead_id, (attemptsByLead.get(row.lead_id) ?? 0) + 1);
+      }
+    }
+
+    const goingCold = coldSlice.map(({ lead, effectiveMs }) => ({
       lead_id: lead.id,
       lead_name: lead.name,
       phone: lead.phone,
       company: lead.company,
       days_since_contact: Math.floor((now - effectiveMs) / DAY_MS),
+      attempts_made: attemptsByLead.get(lead.id) ?? 0,
     }));
 
     // ── Never contacted: the cheapest sales in the company ────────────────

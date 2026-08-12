@@ -142,6 +142,10 @@ val PyraJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
 @Serializable data class MyDayColdLead(
     val lead_id: String, val lead_name: String, val phone: String? = null,
     val company: String? = null, val days_since_contact: Int,
+    // Wave د+ #08. Every dial counts toward this, answered or not — see the
+    // route's own comment. Defaulted so an older server response (field
+    // absent) decodes fine and the row simply shows no attempts chip.
+    val attempts_made: Int = 0,
 )
 // Wave د+ #06 — a never-contacted lead row. Field names mirror
 // app/api/mobile/my-day/route.ts's `never_contacted` mapping EXACTLY
