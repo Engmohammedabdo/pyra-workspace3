@@ -464,7 +464,7 @@ class CallOutcomeActivity : ComponentActivity() {
                         // picked yet, shown ABOVE the chips rather than only
                         // after a failed tap (same reasoning as the bottom
                         // bar message: never let the block be silent).
-                        if (presetDays == null) {
+                        if (selectedOutcome != null && presetDays == null) {
                             Text(
                                 stringResource(R.string.next_step_hint),
                                 style = MaterialTheme.typography.bodySmall,
