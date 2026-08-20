@@ -3,6 +3,7 @@ import { generateId } from '@/lib/utils/id';
 import { CONVERSATION_STATUS, CONVERSATION_PRIORITY } from '@/lib/constants/statuses';
 import type { createServiceRoleClient } from '@/lib/supabase/server';
 import { resolveOutgoingAgent } from '@/lib/whatsapp/attribution';
+import { shouldWriteLeadTouch, writeWhatsAppLeadTouch } from '@/lib/whatsapp/lead-feed';
 
 /**
  * Pull recent WhatsApp messages for ONE Evolution instance into
@@ -285,6 +286,71 @@ export async function pullInstanceMessages({
     // Loud but non-fatal: the conversations are already updated, and the next
     // run re-fetches the same window, so a transient insert failure self-heals.
     if (error) console.error(`[wa-pull:${instanceName}] message insert error:`, error.message);
+
+    // Lead-timeline + last_contact_at feed, mirroring the calls path
+    // (see app/api/mobile/calls/sync/route.ts's pyra_lead_activities write).
+    // Best-effort: must never throw out of the pull, and only runs against
+    // messages that are actually durable (insert above succeeded).
+    if (!error) {
+      try {
+        const leadLinked = newMessages.filter((m) => m.lead_id);
+        const leadIds = Array.from(new Set(leadLinked.map((m) => m.lead_id as string)));
+
+        if (leadIds.length > 0) {
+          const { data: leadRows } = await supabase
+            .from('pyra_sales_leads')
+            .select('id, assigned_to')
+            .in('id', leadIds);
+          const assignedByLead = new Map<string, string | null>(
+            (leadRows || []).map((l: { id: string; assigned_to: string | null }) => [l.id, l.assigned_to ?? null]),
+          );
+
+          const messageIds = leadLinked.map((m) => m.message_id as string);
+          const { data: existingActivities } = await supabase
+            .from('pyra_lead_activities')
+            .select('metadata')
+            .in('lead_id', leadIds)
+            .in('activity_type', ['whatsapp_inbound', 'whatsapp_outbound'])
+            .in('metadata->>message_id', messageIds);
+          const alreadyLoggedIds = new Set(
+            (existingActivities || [])
+              .map((a: { metadata: Record<string, unknown> | null }) => a.metadata?.message_id as string | undefined)
+              .filter((id): id is string => Boolean(id)),
+          );
+
+          for (const msg of leadLinked) {
+            const leadId = msg.lead_id as string;
+            const leadAssignedTo = assignedByLead.get(leadId) ?? null;
+            const direction = msg.direction as 'incoming' | 'outgoing';
+            const inbound = direction === 'incoming';
+            const creditAgent = inbound ? leadAssignedTo : ((msg.agent_username as string | null) ?? null);
+            const messageId = msg.message_id as string;
+
+            const write = shouldWriteLeadTouch({
+              leadId,
+              leadAssignedTo,
+              creditAgent,
+              alreadyLogged: alreadyLoggedIds.has(messageId),
+              inbound,
+            });
+            if (write && creditAgent) {
+              await writeWhatsAppLeadTouch(supabase, {
+                leadId,
+                creditAgent,
+                direction,
+                messageId,
+                at: msg.timestamp as string,
+              });
+            }
+          }
+        }
+      } catch (touchErr) {
+        console.error(
+          `[wa-pull:${instanceName}] lead-touch pass failed:`,
+          touchErr instanceof Error ? touchErr.message : touchErr,
+        );
+      }
+    }
   }
 
   return {
