@@ -167,9 +167,14 @@ export const FOLLOW_UP_FIELDS = `
   completed_at, created_by, created_at
 `;
 
+// NOTE: api_key (the line's Evolution token) is deliberately EXCLUDED — this
+// projection feeds the client-facing GET /instances list, gated only by
+// `sales_whatsapp.view`, so including the token leaked every line's secret to
+// every sales agent. Server paths that need the token (send / pull / internal
+// notifications) do their own `.select('api_key')` with the service role.
 export const WA_INSTANCE_FIELDS = `
   id, instance_name, agent_username, phone_number, status,
-  api_key, webhook_url, last_connected_at, auto_sync,
+  webhook_url, last_connected_at, auto_sync,
   created_by, created_at, updated_at
 `;
 

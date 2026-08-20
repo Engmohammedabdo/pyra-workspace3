@@ -164,6 +164,7 @@ class EvolutionClient {
   async sendTextQuoted(
     instanceName: string,
     payload: { number: string; text: string; quotedMessageId: string },
+    apiKey?: string,
   ): Promise<EvoSendResponse> {
     return this.request<EvoSendResponse>(
       'POST',
@@ -173,6 +174,7 @@ class EvolutionClient {
         text: payload.text,
         quoted: { key: { id: payload.quotedMessageId } },
       },
+      apiKey,
     );
   }
 
@@ -204,12 +206,13 @@ class EvolutionClient {
     instanceName: string,
     remoteJid: string,
     state: 'composing' | 'paused' | 'available',
+    apiKey?: string,
   ) {
     try {
       return await this.request('POST', `/chat/updatePresence/${instanceName}`, {
         remoteJid,
         presence: state,
-      });
+      }, apiKey);
     } catch {
       return null;
     }
@@ -219,6 +222,7 @@ class EvolutionClient {
   async sendMedia(
     instanceName: string,
     payload: EvoSendMediaPayload,
+    apiKey?: string,
   ): Promise<EvoSendResponse> {
     return this.request<EvoSendResponse>(
       'POST',
@@ -231,6 +235,7 @@ class EvolutionClient {
         caption: payload.caption,
         fileName: payload.fileName,
       },
+      apiKey,
     );
   }
 
@@ -256,14 +261,14 @@ class EvolutionClient {
   }
 
   /** Fetch messages with pagination (no remoteJid filter = all messages) */
-  async findAllMessages(instanceName: string, page = 1, limit = 50): Promise<{
+  async findAllMessages(instanceName: string, page = 1, limit = 50, apiKey?: string): Promise<{
     messages: { total: number; pages: number; currentPage: number; records: Array<Record<string, unknown>> };
   }> {
     return this.request('POST', `/chat/findMessages/${instanceName}`, {
       where: {},
       page,
       limit,
-    });
+    }, apiKey);
   }
 
   /** Fetch media as base64 */

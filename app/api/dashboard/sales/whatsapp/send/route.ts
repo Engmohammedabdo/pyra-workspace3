@@ -74,6 +74,16 @@ export async function POST(request: NextRequest) {
     if (conv?.instance_name) instanceToUse = conv.instance_name;
   }
 
+  // Send from the resolved line's OWN Evolution token when we hold one — a
+  // non-company line is instance-scoped and 401s on the app's default key.
+  // Mirrors lib/notifications/whatsapp.ts; undefined falls back to the key.
+  const { data: sendLine } = await supabase
+    .from('pyra_whatsapp_instances')
+    .select('api_key')
+    .eq('instance_name', instanceToUse)
+    .maybeSingle();
+  const lineKey = sendLine?.api_key ?? undefined;
+
   try {
     // Resolve Evolution message key ID for quoted reply
     let evoQuotedId: string | null = null;
@@ -101,7 +111,7 @@ export async function POST(request: NextRequest) {
         media: media_url,
         caption: text || undefined,
         fileName: file_name,
-      });
+      }, lineKey);
       messageType = media_type || 'document';
       content = text || file_name || media_url;
     } else if (evoQuotedId) {
@@ -109,9 +119,9 @@ export async function POST(request: NextRequest) {
         number: sendNumber,
         text,
         quotedMessageId: evoQuotedId,
-      });
+      }, lineKey);
     } else {
-      response = await evolutionClient.sendText(instanceToUse, { number: sendNumber, text });
+      response = await evolutionClient.sendText(instanceToUse, { number: sendNumber, text }, lineKey);
     }
 
     const finalRemoteJid = remote_jid || response.key?.remoteJid || (

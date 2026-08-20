@@ -147,15 +147,21 @@ export async function POST(request: NextRequest) {
       .from('files')
       .getPublicUrl(storageKey);
 
-    // Send via Evolution API
+    // Send via Evolution API — from the conversation's own line token (a
+    // non-company line 401s on the app's default key).
     const instanceName = conv.instance_name || 'pyraai';
+    const { data: line } = await supabase
+      .from('pyra_whatsapp_instances')
+      .select('api_key')
+      .eq('instance_name', instanceName)
+      .maybeSingle();
     const evoResult = await evolutionClient.sendMedia(instanceName, {
       number: phone,
       mediatype: 'document',
       mimetype: 'application/pdf',
       media: publicUrl,
       fileName,
-    });
+    }, line?.api_key ?? undefined);
 
     // Save the sent message to DB
     const msgId = generateId('wm');

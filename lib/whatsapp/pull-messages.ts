@@ -93,7 +93,17 @@ export async function pullInstanceMessages({
 }: PullOptions): Promise<PullResult> {
   const ownDigits = ownPhone ? normalizePhone(ownPhone) : null;
 
-  const result = await evolutionClient.findAllMessages(instanceName, 1, pageSize);
+  // This line's own Evolution token (when we hold one) + its current holder.
+  // A non-company line is instance-scoped — the app's default key 401s on it —
+  // so the pull must be driven with the line's OWN token. `agent_username` (the
+  // holder) is reused below to auto-assign new conversations on a personal line.
+  const { data: line } = await supabase
+    .from('pyra_whatsapp_instances')
+    .select('api_key, agent_username')
+    .eq('instance_name', instanceName)
+    .maybeSingle();
+
+  const result = await evolutionClient.findAllMessages(instanceName, 1, pageSize, line?.api_key ?? undefined);
   const records = result?.messages?.records || [];
 
   if (records.length === 0) {
@@ -245,6 +255,11 @@ export async function pullInstanceMessages({
       await supabase.from('pyra_whatsapp_conversations').insert({
         id: convId,
         ...convData,
+        // Personal colour line (holder set) → its inbound is that agent's own
+        // work: auto-assign to the holder so the existing assigned_to scoping
+        // shows it to them + admin only. The shared company line has no holder
+        // (NULL) → stays unassigned for the owner to distribute, as before.
+        assigned_to: line?.agent_username ?? null,
         status: CONVERSATION_STATUS.OPEN,
         priority: CONVERSATION_PRIORITY.NORMAL,
         unread_count: 1,

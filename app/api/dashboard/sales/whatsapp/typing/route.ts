@@ -39,11 +39,20 @@ export async function POST(request: NextRequest) {
       return apiError('المحادثة غير موجودة', 404);
     }
 
+    // Drive presence from the conversation's own line token — a non-company
+    // line 401s on the app's default key (best-effort, so a miss is harmless).
+    const { data: line } = await supabase
+      .from('pyra_whatsapp_instances')
+      .select('api_key')
+      .eq('instance_name', conv.instance_name || 'pyraai')
+      .maybeSingle();
+
     // Send presence to WhatsApp
     await evolutionClient.sendPresence(
       conv.instance_name || 'pyraai',
       conv.remote_jid,
       is_typing ? 'composing' : 'paused',
+      line?.api_key ?? undefined,
     );
 
     return apiSuccess({ ok: true });
