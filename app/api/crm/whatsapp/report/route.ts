@@ -8,6 +8,10 @@ import { dubaiDayKey } from '@/lib/utils/format';
 import { resolveOutgoingAgent } from '@/lib/whatsapp/attribution';
 import { computeWhatsappReport } from '@/lib/whatsapp/report';
 import { logError } from '@/lib/observability/log-error';
+import { chunk } from '@/lib/utils/chunk';
+
+/** Matches the deals-at-risk / lead-idle-check / ai-insights convention. */
+const ID_BATCH = 150;
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -78,23 +82,33 @@ export async function GET(request: NextRequest) {
       .range(0, 99999);
     if (msgsError) throw msgsError;
 
-    // Conversations + leads referenced (for credit + lead ownership).
+    // Conversations + leads referenced (for credit + lead ownership). Both id
+    // lists are month-scale and unbounded, so a single `.in()` can exceed the
+    // proxy's header/query-string limit (the same 414 that killed the
+    // lead-idle-check cron) — batch at ID_BATCH like deals-at-risk /
+    // lead-idle-check / ai-insights and concatenate the pages.
     const convIds = [...new Set((msgs ?? []).map((m) => m.conversation_id).filter(Boolean))] as string[];
     const leadIds = [...new Set((msgs ?? []).map((m) => m.lead_id).filter(Boolean))] as string[];
-    const { data: convs } = convIds.length
-      ? await supabase
-          .from('pyra_whatsapp_conversations')
-          .select('id, instance_name, assigned_to, status')
-          .in('id', convIds)
-      : { data: [] as Array<{ id: string; instance_name: string; assigned_to: string | null; status: string }> };
-    const { data: leads } = leadIds.length
-      ? await supabase.from('pyra_sales_leads').select('id, assigned_to').in('id', leadIds)
-      : { data: [] as Array<{ id: string; assigned_to: string | null }> };
+
+    const convs: Array<{ id: string; instance_name: string; assigned_to: string | null; status: string }> = [];
+    for (const idBatch of chunk(convIds, ID_BATCH)) {
+      const { data } = await supabase
+        .from('pyra_whatsapp_conversations')
+        .select('id, instance_name, assigned_to, status')
+        .in('id', idBatch);
+      if (data) convs.push(...data);
+    }
+
+    const leads: Array<{ id: string; assigned_to: string | null }> = [];
+    for (const idBatch of chunk(leadIds, ID_BATCH)) {
+      const { data } = await supabase.from('pyra_sales_leads').select('id, assigned_to').in('id', idBatch);
+      if (data) leads.push(...data);
+    }
 
     const convById: Record<string, { instance_name: string; assigned_to: string | null; status: string }> = {};
-    for (const c of convs ?? []) convById[c.id] = c;
+    for (const c of convs) convById[c.id] = c;
     const leadOwner: Record<string, string | null> = {};
-    for (const l of leads ?? []) leadOwner[l.id] = l.assigned_to ?? null;
+    for (const l of leads) leadOwner[l.id] = l.assigned_to ?? null;
 
     // Resolve credit per message and lead ownership; build pure aggregator input.
     const creditForConv = (cid: string | null): string | null => {
@@ -115,7 +129,7 @@ export async function GET(request: NextRequest) {
         lead_owned: !!owner && owner === credit,
       };
     });
-    const conversationsAll = (convs ?? []).map((c) => ({
+    const conversationsAll = convs.map((c) => ({
       id: c.id,
       credit_agent: resolveOutgoingAgent({ lineHolder: holderByLine[c.instance_name], conversationAssignee: c.assigned_to }),
       status: c.status,

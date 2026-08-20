@@ -10,6 +10,7 @@ import { typingMap, cleanupTypingMap } from '@/lib/whatsapp/typing-map';
 import type { EvoGroup } from '@/lib/evolution/types';
 import { logError } from '@/lib/observability/log-error';
 import { resolveOutgoingAgent } from '@/lib/whatsapp/attribution';
+import { shouldWriteLeadTouch, writeWhatsAppLeadTouch } from '@/lib/whatsapp/lead-feed';
 
 /** Fetch group metadata from Evolution API (fire-and-forget safe) */
 async function fetchGroupMetadata(instanceName: string, groupJid: string): Promise<EvoGroup | null> {
@@ -213,12 +214,14 @@ async function processWebhook(rawEvent: string, instanceName: string, data: Reco
         // Use remoteJid as the conversation key (could be @lid or @s.whatsapp.net)
         const conversationJid = msg.key.remoteJid;
 
-        // Try to match with a lead by normalized phone number (skip for groups)
-        let matchedLead: { id: string; client_id: string | null } | null = null;
+        // Try to match with a lead by normalized phone number (skip for groups).
+        // `assigned_to` is fetched alongside id/client_id so the ownership gate
+        // below (shouldWriteLeadTouch) never needs a second round-trip per message.
+        let matchedLead: { id: string; client_id: string | null; assigned_to: string | null } | null = null;
         if (!isGroup && phone && /^\d{7,20}$/.test(phone)) {
           const { data: candidateLeads } = await supabase
             .from('pyra_sales_leads')
-            .select('id, client_id, phone')
+            .select('id, client_id, phone, assigned_to')
             .not('phone', 'is', null);
 
           matchedLead = candidateLeads?.find(
@@ -332,6 +335,12 @@ async function processWebhook(rawEvent: string, instanceName: string, data: Reco
           void applySlaPolicy(supabase, conversationId, CONVERSATION_PRIORITY.NORMAL);
         }
 
+        // Resolve once — reused by both the message insert below AND the
+        // lead-touch credit computation right after it.
+        const agentUsername = msg.key.fromMe
+          ? resolveOutgoingAgent({ lineHolder: instanceHolder })
+          : null;
+
         // ── Insert message with conversation_id ──
         await supabase.from('pyra_whatsapp_messages').insert({
           id: generateId('wm'),
@@ -359,52 +368,70 @@ async function processWebhook(rawEvent: string, instanceName: string, data: Reco
             addressingMode: msg.key.addressingMode || null,
             phone: phone || null,
           },
-          agent_username: msg.key.fromMe
-            ? resolveOutgoingAgent({ lineHolder: instanceHolder })
-            : null,
+          agent_username: agentUsername,
         });
 
-        // ── Lead timeline activity (Phase 11 Commit 4) ──────────────────
-        // When a WhatsApp message matches a lead (matchedLead is populated
-        // by the phone-→-lead lookup higher up in this handler), log a
-        // whatsapp_inbound / whatsapp_outbound row so the Lead Detail
-        // timeline reflects every conversation event end-to-end.
+        // ── Lead timeline touch (ownership-gated) ────────────────────────
+        // Mirrors the pull's lead-touch pass (lib/whatsapp/pull-messages.ts,
+        // Task 6): a message only writes pyra_lead_activities +
+        // last_contact_at when shouldWriteLeadTouch() says the credited
+        // agent is the lead's owner (outbound) or the lead has an owner at
+        // all (inbound — the customer touch is real regardless of who
+        // replies, credited to the owner). This REPLACES the old un-gated
+        // insert (`created_by: null`, any phone-matched lead) that bypassed
+        // ownership entirely — see the calls lead-ownership-boundary
+        // decision (docs/decisions/crm.md) for why a colleague's lead must
+        // never be written to on someone else's say-so.
         //
-        // Fire-and-forget. Note the `void <builder>.then(...)` pattern:
-        //   • `void` satisfies no-floating-promises and signals intent
-        //   • `.then(...)` triggers the Supabase lazy thenable — without
-        //     it the query is built but never executed (see CLAUDE.md
-        //     "Common Pitfall: Supabase lazy thenables").
-        // Insert errors are logged and intentionally do NOT block the
-        // webhook response; the message itself is already persisted.
+        // Only one lead-write path now exists: writeWhatsAppLeadTouch does
+        // both the activity insert AND the last_contact_at bump together
+        // (using the MESSAGE timestamp, not NOW()), so the old separate
+        // last_contact_at update is gone too.
+        //
+        // Best-effort: wrapped so a failure here can never throw out of the
+        // webhook — the message row above is already durable either way.
         if (matchedLead?.id) {
-          void supabase
-            .from('pyra_lead_activities')
-            .insert({
-              id: generateId('la'),
-              lead_id: matchedLead.id,
-              activity_type: direction === 'incoming' ? 'whatsapp_inbound' : 'whatsapp_outbound',
-              description: content?.slice(0, 200) ?? null,
-              metadata: {
-                message_id: msg.key.id ?? null,
-                message_type: messageType,
-                direction,
-                instance_name: instanceName ?? null,
-                sender_jid: senderJid,
-              },
-              created_by: null,
-            })
-            .then(({ error: e }) => {
-              if (e) console.error('[WA webhook activity] insert failed:', e.message);
-            });
-        }
+          try {
+            const messageId = msg.key.id || null;
+            // No stable message_id (fallback-dedup path) → dedup against
+            // pyra_lead_activities isn't possible; skip the gated write
+            // rather than risk a duplicate touch.
+            if (messageId) {
+              const leadAssignedTo = matchedLead.assigned_to ?? null;
+              const inbound = direction === 'incoming';
+              const creditAgent = inbound ? leadAssignedTo : agentUsername;
 
-        // Update lead's last_contact_at (individual chats only)
-        if (!isGroup && matchedLead?.id && direction === 'incoming') {
-          void supabase
-            .from('pyra_sales_leads')
-            .update({ last_contact_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-            .eq('id', matchedLead.id);
+              const { data: existingActivity } = await supabase
+                .from('pyra_lead_activities')
+                .select('id')
+                .eq('lead_id', matchedLead.id)
+                .in('activity_type', ['whatsapp_inbound', 'whatsapp_outbound'])
+                .eq('metadata->>message_id', messageId)
+                .maybeSingle();
+
+              const write = shouldWriteLeadTouch({
+                leadId: matchedLead.id,
+                leadAssignedTo,
+                creditAgent,
+                alreadyLogged: !!existingActivity,
+                inbound,
+              });
+              if (write && creditAgent) {
+                await writeWhatsAppLeadTouch(supabase, {
+                  leadId: matchedLead.id,
+                  creditAgent,
+                  direction,
+                  messageId,
+                  at: msgTimestamp,
+                });
+              }
+            }
+          } catch (touchErr) {
+            console.error(
+              '[WA webhook lead-touch] failed:',
+              touchErr instanceof Error ? touchErr.message : touchErr,
+            );
+          }
         }
 
         // ── Business Hours — Auto Away Message (individual chats only) ──
