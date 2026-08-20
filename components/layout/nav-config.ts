@@ -141,6 +141,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
       { key: 'whatsappCampaigns', href: '/dashboard/sales/whatsapp-campaigns', icon: Megaphone, permission: 'sales_whatsapp.manage' },
       { key: 'followUps', href: '/dashboard/crm/follow-ups', icon: Clock, permission: 'follow_ups.view', badgeKey: 'follow_ups_pending' },
       { key: 'calls', href: '/dashboard/crm/calls', icon: Phone, permission: 'calls.view' },
+      { key: 'whatsappReport', href: '/dashboard/crm/whatsapp-report', icon: BarChart3, permission: 'sales_whatsapp.view' },
       { key: 'crmApprovals', href: '/dashboard/crm/approvals', icon: ShieldCheck, permission: 'leads.approve', badgeKey: 'crm_pending_approvals' },
       { key: 'quoteApprovals', href: '/dashboard/sales/approvals', icon: CheckCircle, permission: 'quote_approvals.view', badgeKey: 'pending_approvals' },
       { key: 'salesSettings', href: '/dashboard/sales/settings', icon: Settings2, permission: 'sales_pipeline.manage' },

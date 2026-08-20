@@ -1650,6 +1650,30 @@
         "9": "sync"
       }
     },
+    "dashboard_crm_whatsapp_report": {
+      "description": "Sales team WhatsApp performance report",
+      "goal": "Track the sales team's WhatsApp performance month by month: conversations, outgoing and incoming messages, leads contacted, and average response time — plus a chart of message activity across the days of the month.",
+      "tips": {
+        "0": "Use the month picker at the top of the page to move between months — it defaults to the current Dubai month, and the data updates instantly when you change it",
+        "1": "Each agent card shows: today, this month, conversations, open, resolved, outgoing, incoming, leads contacted, replied, reply rate, and average response time",
+        "2": "The \"Daily activity\" chart shows how message activity is distributed across the selected month — useful for spotting peak days",
+        "3": "An agent only sees their own card; whoever holds crm_reports.team_view (manager or admin) sees every agent together on the same page",
+        "4": "An agent with no WhatsApp activity in the selected month doesn't appear in the report; an empty page means no activity, not that there are no agents",
+        "5": "Average response time is shown as minutes:seconds — e.g. 3:40 means 3 minutes and 40 seconds"
+      },
+      "keywords": {
+        "0": "whatsapp",
+        "1": "واتساب",
+        "2": "تقرير واتساب",
+        "3": "report",
+        "4": "conversations",
+        "5": "محادثات",
+        "6": "response time",
+        "7": "وقت الرد",
+        "8": "leads contacted",
+        "9": "عملاء محتملين"
+      }
+    },
     "dashboard_sales_whatsapp_analytics": {
       "description": "WhatsApp conversation analytics and performance metrics",
       "goal": "View customer satisfaction (CSAT) and service level (SLA) statistics for WhatsApp conversations, with date filtering.",

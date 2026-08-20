@@ -73,6 +73,7 @@ const SECTIONS = [
       '/dashboard/sales/approvals',
       '/dashboard/crm/follow-ups',
       '/dashboard/crm/calls',
+      '/dashboard/crm/whatsapp-report',
       '/dashboard/sales/settings',
     ],
   },
