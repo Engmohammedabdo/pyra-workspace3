@@ -17,6 +17,8 @@ import type { Locale } from './config';
  * adds 'publicdoc' — the unauthenticated /d/<token> page's own copy
  * (invalid/expired/already-signed/etc. states), rendered per-recipient-
  * locale rather than per-session-cookie, hence a namespace of its own.
+ * WhatsApp analytics Task 9 adds 'whatsapp-report' — the CRM per-agent
+ * WhatsApp report page, mirroring the 'calls' namespace's shape.
  */
 export const NAMESPACE_FILES = [
   'common', 'nav', 'auth', 'statuses',
@@ -27,6 +29,7 @@ export const NAMESPACE_FILES = [
   'clients', 'projects', 'files', 'teams',
   'calls',
   'publicdoc',
+  'whatsapp-report',
 ] as const;
 
 type Messages = Record<string, unknown>;

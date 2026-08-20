@@ -1,0 +1,22 @@
+{
+  "whatsapp-report": {
+    "title": "تقرير واتساب",
+    "subtitle": "نشاط واتساب لفريق المبيعات",
+    "monthLabel": "الشهر",
+    "today": "اليوم",
+    "month": "هذا الشهر",
+    "outgoing": "رسائل صادرة",
+    "incoming": "رسائل واردة",
+    "conversations": "المحادثات",
+    "open": "مفتوحة",
+    "resolved": "منتهية",
+    "leadsContacted": "عملاء محتملون تم التواصل معهم",
+    "replied": "تم الرد عليها",
+    "replyRate": "نسبة الرد",
+    "avgResponse": "متوسط وقت الرد",
+    "byDay": "النشاط اليومي",
+    "agent": "الموظف",
+    "emptyTitle": "لا يوجد نشاط واتساب مسجل",
+    "emptyDescription": "ستظهر بيانات واتساب هنا تلقائيًا بعد بدء النشاط"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "whatsapp-report": {
+    "title": "WhatsApp report",
+    "subtitle": "Sales team WhatsApp activity",
+    "monthLabel": "Month",
+    "today": "Today",
+    "month": "This month",
+    "outgoing": "Outgoing",
+    "incoming": "Incoming",
+    "conversations": "Conversations",
+    "open": "Open",
+    "resolved": "Resolved",
+    "leadsContacted": "Leads contacted",
+    "replied": "Replied",
+    "replyRate": "Reply rate",
+    "avgResponse": "Avg response time",
+    "byDay": "Daily activity",
+    "agent": "Agent",
+    "emptyTitle": "No WhatsApp activity recorded yet",
+    "emptyDescription": "WhatsApp data will appear here automatically once activity starts"
+  }
+}

@@ -20,6 +20,7 @@ import type files from '../messages/ar/files.json';
 import type teams from '../messages/ar/teams.json';
 import type calls from '../messages/ar/calls.json';
 import type publicdoc from '../messages/ar/publicdoc.json';
+import type whatsappReport from '../messages/ar/whatsapp-report.json';
 
 type Messages = typeof common & typeof nav & typeof auth & typeof statuses
   & typeof mywork & typeof boards & typeof calendar & typeof api
@@ -28,7 +29,8 @@ type Messages = typeof common & typeof nav & typeof auth & typeof statuses
   & typeof guide
   & typeof clients & typeof projects & typeof files & typeof teams
   & typeof calls
-  & typeof publicdoc;
+  & typeof publicdoc
+  & typeof whatsappReport;
 
 declare module 'next-intl' {
   interface AppConfig {

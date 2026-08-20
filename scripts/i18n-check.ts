@@ -169,6 +169,14 @@ const MIGRATED_PATHS: string[] = [
   // public sign route (Phase 8 exemption, same as every other route).
   'app/d',
   'app/api/public',
+  // WhatsApp analytics Task 9 — CRM per-agent WhatsApp report page + hook.
+  // 'app/dashboard/crm/whatsapp-report' and 'app/api/crm/whatsapp' are
+  // already covered recursively by the 'app/dashboard/crm' / 'app/api/crm'
+  // directory entries above (Phase 3); listed explicitly to document intent,
+  // mirroring the Task 7 calls-report comment.
+  'app/dashboard/crm/whatsapp-report',
+  'app/api/crm/whatsapp',
+  'hooks/useWhatsappReport.ts',
 ];
 
 const ARABIC = /[؀-ۿ]/; // i18n-exempt: Unicode range literal, not translatable text
