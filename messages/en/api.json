@@ -185,6 +185,7 @@
       "nameRequired": "Name is required",
       "phoneRequiredLower": "Phone is required",
       "leadCreateFailed": "Failed to create the Lead{reason}",
+      "monthFormatInvalid": "Invalid month format",
       "insights": {
         "idleWarning": "{count, plural, one {# stale deal} other {# stale deals}} idle for 7+ days",
         "approvalsPending": "{count, plural, one {# deal awaiting your approval} other {# deals awaiting your approval}}",

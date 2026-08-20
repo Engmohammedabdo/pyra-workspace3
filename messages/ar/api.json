@@ -185,6 +185,7 @@
       "nameRequired": "الاسم مطلوب",
       "phoneRequiredLower": "الهاتف مطلوب",
       "leadCreateFailed": "فشل إنشاء الـ Lead{reason}",
+      "monthFormatInvalid": "صيغة الشهر غير صحيحة",
       "insights": {
         "idleWarning": "{count, plural, one {# صفقة راكدة} other {# صفقات راكدة}} أكثر من ٧ أيام",
         "approvalsPending": "{count, plural, one {# صفقة بانتظار اعتمادك} other {# صفقات بانتظار اعتمادك}}",
