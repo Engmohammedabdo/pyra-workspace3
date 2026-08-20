@@ -9,6 +9,7 @@ import { applySlaPolicy } from '@/lib/whatsapp/sla';
 import { typingMap, cleanupTypingMap } from '@/lib/whatsapp/typing-map';
 import type { EvoGroup } from '@/lib/evolution/types';
 import { logError } from '@/lib/observability/log-error';
+import { resolveOutgoingAgent } from '@/lib/whatsapp/attribution';
 
 /** Fetch group metadata from Evolution API (fire-and-forget safe) */
 async function fetchGroupMetadata(instanceName: string, groupJid: string): Promise<EvoGroup | null> {
@@ -123,6 +124,18 @@ async function processWebhook(rawEvent: string, instanceName: string, data: Reco
   switch (event) {
     case 'MESSAGES_UPSERT': {
       const messages = Array.isArray(data) ? data : [data];
+
+      // This line's current holder — a colour line (agent_username set) IS
+      // that agent for fromMe messages sent directly from their phone.
+      // Fetched once per webhook batch (mirrors pull-messages' per-pull fetch)
+      // since instanceName is constant across every message in this payload.
+      const { data: waLine } = await supabase
+        .from('pyra_whatsapp_instances')
+        .select('agent_username')
+        .eq('instance_name', instanceName || 'pyraai')
+        .maybeSingle();
+      const instanceHolder = waLine?.agent_username ?? null;
+
       for (const rawMsg of messages) {
         const msg = rawMsg as unknown as EvoMessageData;
         if (!msg.key?.remoteJid) continue;
@@ -346,6 +359,9 @@ async function processWebhook(rawEvent: string, instanceName: string, data: Reco
             addressingMode: msg.key.addressingMode || null,
             phone: phone || null,
           },
+          agent_username: msg.key.fromMe
+            ? resolveOutgoingAgent({ lineHolder: instanceHolder })
+            : null,
         });
 
         // ── Lead timeline activity (Phase 11 Commit 4) ──────────────────

@@ -2,6 +2,7 @@ import { evolutionClient } from '@/lib/evolution/client';
 import { generateId } from '@/lib/utils/id';
 import { CONVERSATION_STATUS, CONVERSATION_PRIORITY } from '@/lib/constants/statuses';
 import type { createServiceRoleClient } from '@/lib/supabase/server';
+import { resolveOutgoingAgent } from '@/lib/whatsapp/attribution';
 
 /**
  * Pull recent WhatsApp messages for ONE Evolution instance into
@@ -200,6 +201,10 @@ export async function pullInstanceMessages({
       status: direction === 'incoming' ? 'received' : 'sent',
       timestamp,
       metadata: { pushName, remoteJidAlt: key.remoteJidAlt || null, phone },
+      agent_username:
+        direction === 'outgoing'
+          ? resolveOutgoingAgent({ lineHolder: line?.agent_username })
+          : null,
     });
   }
 

@@ -6,6 +6,7 @@ import { generateId } from '@/lib/utils/id';
 import { evolutionClient } from '@/lib/evolution/client';
 import { isSuperAdmin } from '@/lib/auth/rbac';
 import { logActivity } from '@/lib/api/activity';
+import { resolveOutgoingAgent } from '@/lib/whatsapp/attribution';
 
 /**
  * POST /api/dashboard/sales/whatsapp/send
@@ -179,6 +180,7 @@ export async function POST(request: NextRequest) {
       // Group support: store sender info for outgoing messages
       sender_jid: null, // we are the sender (our own instance)
       sender_name: auth.pyraUser.display_name || auth.pyraUser.username,
+      agent_username: resolveOutgoingAgent({ actorUsername: auth.pyraUser.username }),
     });
 
     // Update conversation timestamps
