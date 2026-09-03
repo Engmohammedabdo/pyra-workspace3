@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils/cn';
 import {
   Megaphone, Plus, Trash2, Send, Loader2,
   Users, CheckCircle2, Clock, Ban, PhoneOff, AlertTriangle,
-  MessageSquareReply, Radio, PauseCircle,
+  MessageSquareReply, Radio, PauseCircle, CalendarClock, CircleSlash,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -24,6 +24,7 @@ import {
   useDeleteCampaign,
   useSendCampaign,
   useWhatsAppLines,
+  useSetCampaignAutoResume,
   type CampaignProgress,
 } from '@/hooks/useWhatsApp';
 
@@ -78,6 +79,7 @@ export default function WhatsAppCampaignsPage() {
   const createMutation = useCreateCampaign();
   const deleteMutation = useDeleteCampaign();
   const sendMutation = useSendCampaign();
+  const autoResumeMutation = useSetCampaignAutoResume();
 
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
@@ -145,6 +147,22 @@ export default function WhatsAppCampaignsPage() {
       onError: (err: unknown) =>
         toast.error(err instanceof Error ? err.message : 'فشل إرسال الحملة'),
     });
+  }
+
+  function handleAutoResume(id: string, auto_resume: boolean) {
+    autoResumeMutation.mutate(
+      { id, auto_resume },
+      {
+        onSuccess: () =>
+          toast.success(
+            auto_resume
+              ? 'الحملة على الجدول التلقائي — ستكمل يومياً داخل نافذة الخط'
+              : 'أُوقفت المتابعة التلقائية. الرسائل المتبقية تبقى في الانتظار.',
+          ),
+        onError: (err: unknown) =>
+          toast.error(err instanceof Error ? err.message : 'تعذّر تعديل الجدولة'),
+      },
+    );
   }
 
   function handleDelete(id: string) {
@@ -220,6 +238,12 @@ export default function WhatsAppCampaignsPage() {
                       <Badge className={cn('text-[10px]', statusInfo.color)}>
                         {statusInfo.label}
                       </Badge>
+                      {campaign.auto_resume && (
+                        <Badge className="text-[10px] bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 gap-1">
+                          <CalendarClock className="h-3 w-3" />
+                          تلقائي يومياً
+                        </Badge>
+                      )}
                     </CardTitle>
                     <div className="flex items-center gap-1.5">
                       {(campaign.status === 'draft' || campaign.status === 'paused') && (
@@ -244,6 +268,18 @@ export default function WhatsAppCampaignsPage() {
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </>
+                      )}
+                      {campaign.auto_resume && campaign.status !== 'completed' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="rounded-lg h-8 gap-1.5 text-xs text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20"
+                          onClick={() => handleAutoResume(campaign.id, false)}
+                          disabled={autoResumeMutation.isPending}
+                        >
+                          <CircleSlash className="h-3.5 w-3.5" />
+                          إيقاف الجدولة
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -294,8 +330,9 @@ export default function WhatsAppCampaignsPage() {
                   {campaign.status === 'paused' && (
                     <p className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
                       <PauseCircle className="h-3.5 w-3.5 shrink-0 mt-px" />
-                      توقفت بعد بلوغ الحد اليومي أو انتهاء نافذة الخط. اضغط «إرسال»
-                      مرة أخرى داخل النافذة لتكمل من حيث توقفت — لا شيء يُعاد إرساله.
+                      {campaign.auto_resume
+                        ? 'بلغت حدها اليومي أو انتهت نافذة الخط. ستكمل تلقائياً في النافذة القادمة — لا حاجة لأي إجراء.'
+                        : 'توقفت بعد بلوغ الحد اليومي أو انتهاء نافذة الخط. اضغط «إرسال» مرة أخرى داخل النافذة لتكمل من حيث توقفت — لا شيء يُعاد إرساله.'}
                     </p>
                   )}
                 </CardContent>

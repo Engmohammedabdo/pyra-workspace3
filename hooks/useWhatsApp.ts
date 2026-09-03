@@ -748,6 +748,8 @@ export interface Campaign {
   instance_name: string | null;
   daily_cap: number;
   segment_key: string | null;
+  /** True once a human started it — the drain cron may then continue it daily. */
+  auto_resume: boolean;
   /** Dubai minutes-from-midnight window for the line, or null if unconfigured. */
   send_window: { startMinute: number; endMinute: number } | null;
   progress: CampaignProgress;
@@ -851,6 +853,16 @@ export function useDeleteCampaign() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['whatsapp-campaigns'] });
     },
+  });
+}
+
+/** Arm or disarm the daily drain cron for one campaign. */
+export function useSetCampaignAutoResume() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, auto_resume }: { id: string; auto_resume: boolean }) =>
+      mutateAPI(`/api/dashboard/sales/whatsapp/campaigns/${id}`, 'PATCH', { auto_resume }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['whatsapp-campaigns'] }),
   });
 }
 
