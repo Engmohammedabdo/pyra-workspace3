@@ -6,6 +6,7 @@ import { logActivity } from '@/lib/api/activity';
 import { logError } from '@/lib/observability/log-error';
 import { evolutionClient } from '@/lib/evolution/client';
 import { chunk } from '@/lib/utils/chunk';
+import { toDialableUAE } from '@/lib/utils/phone';
 import {
   pickCampaignSender,
   isWithinSendWindow,
@@ -118,31 +119,35 @@ export async function POST(
       );
     }
 
-    // ── 3. Daily quota — measured on the LINE, not on this campaign. ──────
-    // Several campaigns can share a line, and the line's organic replies count
-    // toward how much WhatsApp sees it sending. Capping per-campaign would let
-    // three campaigns quietly triple the real load on one number.
+    // ── 3. Daily quota — CAMPAIGN sends on this line, not organic traffic. ─
+    // Earlier this counted every outgoing message on the line, which folded in
+    // the agents' own manual chat replies: pyraai sends ~20 notifications/day,
+    // so a cap of 10 was exhausted before a single campaign message and the
+    // two warm campaigns could NEVER run. The cap is a campaign-pacing number;
+    // it must count campaign-originated sends, which are also immediate here
+    // (contact.status flips to 'sent' in-band) rather than waiting on the
+    // webhook that back-fills pyra_whatsapp_messages.
     const dayStart = dubaiDayStart(now).toISOString();
-    const { data: convoRows } = await supabase
-      .from('pyra_whatsapp_conversations')
+    const { data: lineCampaigns } = await supabase
+      .from('pyra_whatsapp_campaigns')
       .select('id')
       .eq('instance_name', instanceName);
 
     let sentToday = 0;
-    for (const batch of chunk((convoRows ?? []).map((c) => c.id as string), IN_BATCH)) {
+    for (const batch of chunk((lineCampaigns ?? []).map((c) => c.id as string), IN_BATCH)) {
       const { count } = await supabase
-        .from('pyra_whatsapp_messages')
+        .from('pyra_whatsapp_campaign_contacts')
         .select('id', { count: 'exact', head: true })
-        .in('conversation_id', batch)
-        .eq('direction', 'outgoing')
-        .gte('created_at', dayStart);
+        .in('campaign_id', batch)
+        .eq('status', 'sent')
+        .gte('sent_at', dayStart);
       sentToday += count ?? 0;
     }
 
     const quota = remainingQuota(campaign.daily_cap ?? 0, sentToday);
     if (quota === 0) {
       return apiError(
-        `تم بلوغ الحد اليومي للخط ${instanceName} (${sentToday} رسالة اليوم). أكمل غداً.`,
+        `تم بلوغ الحد اليومي للحملات على الخط ${instanceName} (${sentToday} رسالة اليوم). أكمل غداً.`,
         429,
       );
     }
@@ -183,19 +188,34 @@ export async function POST(
     }
 
     // ── 6. Drop numbers that have no WhatsApp account at all. ─────────────
-    const digits = (p: string) => p.replace(/\D/g, '');
+    // Evolution needs the full country code: a UAE local `05xxxxxxxx` returns
+    // exists:false, while the SAME number prefixed 971 returns exists:true
+    // (verified live). 706 of 798 seeded contacts are the local form, so
+    // dialing the raw stored value burned 88% of the list to `invalid`.
+    // toDialableUAE resolves both forms to E.164 for sending; matching still
+    // keys on the last 9 digits, so it is untouched.
+    const dial = (p: string) => toDialableUAE(p);
+    const dialable = allowed.filter((c) => dial(c.contact_phone as string));
+    const malformed = allowed.filter((c) => !dial(c.contact_phone as string));
+    for (const batch of chunk(malformed.map((c) => c.id as string), IN_BATCH)) {
+      await supabase
+        .from('pyra_whatsapp_campaign_contacts')
+        .update({ status: 'invalid', error_message: 'رقم غير صالح' })
+        .in('id', batch);
+    }
+
     const reachable = await evolutionClient.checkNumbersOnWhatsApp(
       instanceName,
-      allowed.map((c) => digits(c.contact_phone as string)),
+      dialable.map((c) => dial(c.contact_phone as string)),
       instanceKey,
     );
     // `null` means the check itself failed — proceed rather than stall the
     // campaign, since a transport blip is not evidence about the numbers.
     const sendable = reachable
-      ? allowed.filter((c) => reachable.has(digits(c.contact_phone as string)))
-      : allowed;
+      ? dialable.filter((c) => reachable.has(dial(c.contact_phone as string)))
+      : dialable;
     const unreachable = reachable
-      ? allowed.filter((c) => !reachable.has(digits(c.contact_phone as string)))
+      ? dialable.filter((c) => !reachable.has(dial(c.contact_phone as string)))
       : [];
     for (const batch of chunk(unreachable.map((c) => c.id as string), IN_BATCH)) {
       await supabase
@@ -237,6 +257,15 @@ export async function POST(
       let sentCount = campaign.sent_count ?? 0;
       let pacing = startBurst(Math.random);
       let stoppedEarly = false;
+      // Wedge guard: the campaign was just set to 'sending', and the send
+      // route refuses to start a 'sending' campaign. If anything below throws
+      // (or the container restarts mid-run), the row would stay 'sending'
+      // forever with no way back from the UI. The finally resets it to
+      // 'paused' — resumable — unless the normal path already marked it
+      // completed. Pending contacts are the source of truth, so this loses
+      // nothing.
+      let settledCleanly = false;
+      try {
 
       for (const contact of sendable) {
         // An operator setting the campaign to `paused` is the stop button.
@@ -261,15 +290,20 @@ export async function POST(
         );
 
         try {
+          // Dial the E.164 form — the local 05x form is what was being sent.
+          const number = dial(contact.contact_phone as string);
           // Typing presence first — an account someone types from looks
-          // different from an account messages are pumped through.
-          const remoteJid = `${digits(contact.contact_phone as string)}@s.whatsapp.net`;
-          await evolutionClient.sendPresence(instanceName, remoteJid, 'composing', instanceKey);
+          // different from an account messages are pumped through. Best-effort:
+          // sendPresence swallows its own errors, so a presence-endpoint quirk
+          // never blocks the actual message.
+          await evolutionClient.sendPresence(
+            instanceName, `${number}@s.whatsapp.net`, 'composing', instanceKey,
+          );
           await new Promise((r) => setTimeout(r, 2000 + Math.floor(Math.random() * 3000)));
 
           await evolutionClient.sendText(
             instanceName,
-            { number: digits(contact.contact_phone as string), text: message },
+            { number, text: message },
             instanceKey,
           );
 
@@ -323,6 +357,17 @@ export async function POST(
           ...(done ? { completed_at: new Date().toISOString() } : {}),
         })
         .eq('id', id);
+      settledCleanly = true;
+      } finally {
+        if (!settledCleanly) {
+          // Threw before the status update above — un-wedge from 'sending'.
+          await supabase
+            .from('pyra_whatsapp_campaigns')
+            .update({ status: 'paused', sent_count: sentCount })
+            .eq('id', id)
+            .eq('status', 'sending');
+        }
+      }
     };
 
     // Long-running by design (a 40-message run spans hours at human pacing).
