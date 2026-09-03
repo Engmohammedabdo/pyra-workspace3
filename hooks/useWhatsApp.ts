@@ -744,6 +744,39 @@ export interface Campaign {
   created_at: string;
   sent_at: string | null;
   completed_at: string | null;
+  /** The line this campaign sends FROM. Required — there is no fallback. */
+  instance_name: string | null;
+  daily_cap: number;
+  segment_key: string | null;
+  /** Dubai minutes-from-midnight window for the line, or null if unconfigured. */
+  send_window: { startMinute: number; endMinute: number } | null;
+  progress: CampaignProgress;
+}
+
+/**
+ * Per-contact outcome breakdown, aggregated in the database.
+ * `sent + skipped + invalid + failed + pending` accounts for every contact —
+ * which is what separates "sent nothing because they all opted out" from
+ * "sent nothing because it is stuck".
+ */
+export interface CampaignProgress {
+  total: number;
+  pending: number;
+  sent: number;
+  skipped: number;
+  invalid: number;
+  failed: number;
+  replied: number;
+  last_sent_at: string | null;
+}
+
+export interface WhatsAppLine {
+  id: string;
+  instance_name: string;
+  phone_number: string | null;
+  status: string;
+  is_notification_line: boolean;
+  agent_username: string | null;
 }
 
 export interface CampaignContact {
@@ -762,6 +795,10 @@ export function useCampaigns() {
     queryKey: ['whatsapp-campaigns'],
     queryFn: () => fetchAPI<Campaign[]>('/api/dashboard/sales/whatsapp/campaigns'),
     staleTime: 15_000,
+    // A run paces itself over hours; the page has to move on its own or an
+    // operator cannot tell a live campaign from a stalled one.
+    refetchInterval: 20_000,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -779,6 +816,15 @@ export function useCampaign(id: string | undefined) {
   });
 }
 
+/** The registered WhatsApp lines, for choosing a campaign sender. */
+export function useWhatsAppLines() {
+  return useQuery<WhatsAppLine[]>({
+    queryKey: ['whatsapp-lines'],
+    queryFn: () => fetchAPI<WhatsAppLine[]>('/api/dashboard/sales/whatsapp/instances'),
+    staleTime: 60_000,
+  });
+}
+
 /** Create a new campaign */
 export function useCreateCampaign() {
   const qc = useQueryClient();
@@ -787,6 +833,8 @@ export function useCreateCampaign() {
       name: string;
       message_template: string;
       contacts: { phone: string; name?: string }[];
+      instance_name: string;
+      daily_cap: number;
     }) => mutateAPI('/api/dashboard/sales/whatsapp/campaigns', 'POST', data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['whatsapp-campaigns'] });

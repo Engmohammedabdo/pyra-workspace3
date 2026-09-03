@@ -174,7 +174,7 @@ export const FOLLOW_UP_FIELDS = `
 // notifications) do their own `.select('api_key')` with the service role.
 export const WA_INSTANCE_FIELDS = `
   id, instance_name, agent_username, phone_number, status,
-  webhook_url, last_connected_at, auto_sync,
+  webhook_url, last_connected_at, auto_sync, is_notification_line,
   created_by, created_at, updated_at
 `;
 

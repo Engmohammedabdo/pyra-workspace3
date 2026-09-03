@@ -14,7 +14,8 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { cn } from '@/lib/utils/cn';
 import {
   Megaphone, Plus, Trash2, Send, Loader2,
-  Users, CheckCircle2, Clock,
+  Users, CheckCircle2, Clock, Ban, PhoneOff, AlertTriangle,
+  MessageSquareReply, Radio, PauseCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -22,16 +23,58 @@ import {
   useCreateCampaign,
   useDeleteCampaign,
   useSendCampaign,
+  useWhatsAppLines,
+  type CampaignProgress,
 } from '@/hooks/useWhatsApp';
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
   draft: { label: 'مسودة', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
   sending: { label: 'جاري الإرسال', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
   completed: { label: 'مكتمل', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  // A run stops on purpose when the daily cap is reached or the line's window
+  // closes. Without this entry the badge rendered blank and the campaign
+  // looked broken rather than simply waiting for tomorrow.
+  paused: { label: 'متوقفة مؤقتاً', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
 };
+
+/** Dubai minutes-from-midnight → "14:30". */
+function hhmm(minute: number): string {
+  return `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+}
+
+/**
+ * Every contact lands in exactly one of these. Showing only `sent` made a run
+ * where everyone was suppressed look identical to one that never started.
+ */
+function ProgressBreakdown({ p }: { p: CampaignProgress }) {
+  const cells = [
+    { icon: CheckCircle2, label: 'أُرسلت', value: p.sent, tone: 'text-emerald-600 dark:text-emerald-400' },
+    { icon: MessageSquareReply, label: 'ردّوا', value: p.replied, tone: 'text-sky-600 dark:text-sky-400' },
+    { icon: Clock, label: 'في الانتظار', value: p.pending, tone: 'text-muted-foreground' },
+    { icon: Ban, label: 'مستبعدون', value: p.skipped, tone: 'text-amber-600 dark:text-amber-400' },
+    { icon: PhoneOff, label: 'بلا واتساب', value: p.invalid, tone: 'text-muted-foreground' },
+    { icon: AlertTriangle, label: 'فشلت', value: p.failed, tone: 'text-destructive' },
+  ].filter((c) => c.value > 0 || c.label === 'أُرسلت' || c.label === 'في الانتظار');
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
+      {cells.map((c) => (
+        <span key={c.label} className={cn('flex items-center gap-1', c.tone)}>
+          <c.icon className="h-3.5 w-3.5" />
+          <span className="font-mono font-semibold">{c.value}</span>
+          <span className="text-muted-foreground/70">{c.label}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export default function WhatsAppCampaignsPage() {
   const { data: campaigns = [], isLoading } = useCampaigns();
+  const { data: lines = [] } = useWhatsAppLines();
+  // The notification line is never offered: a broadcast ban on it silences
+  // every internal notification in the system.
+  const sendableLines = lines.filter((l) => !l.is_notification_line && l.status === 'connected');
   const createMutation = useCreateCampaign();
   const deleteMutation = useDeleteCampaign();
   const sendMutation = useSendCampaign();
@@ -40,6 +83,8 @@ export default function WhatsAppCampaignsPage() {
   const [name, setName] = useState('');
   const [messageTemplate, setMessageTemplate] = useState('');
   const [contactsRaw, setContactsRaw] = useState('');
+  const [instanceName, setInstanceName] = useState('');
+  const [dailyCap, setDailyCap] = useState('40');
 
   function parseContacts(raw: string): { phone: string; name?: string }[] {
     return raw
@@ -58,8 +103,23 @@ export default function WhatsAppCampaignsPage() {
       toast.error('يرجى ملء جميع الحقول');
       return;
     }
+    if (!instanceName) {
+      toast.error('اختر خط الإرسال — لا يوجد خط افتراضي');
+      return;
+    }
+    const cap = Number(dailyCap);
+    if (!Number.isFinite(cap) || cap < 1 || cap > 120) {
+      toast.error('الحد اليومي يجب أن يكون بين 1 و 120');
+      return;
+    }
     createMutation.mutate(
-      { name, message_template: messageTemplate, contacts },
+      {
+        name,
+        message_template: messageTemplate,
+        contacts,
+        instance_name: instanceName,
+        daily_cap: Math.floor(cap),
+      },
       {
         onSuccess: () => {
           toast.success('تم إنشاء الحملة');
@@ -67,8 +127,12 @@ export default function WhatsAppCampaignsPage() {
           setName('');
           setMessageTemplate('');
           setContactsRaw('');
+          setInstanceName('');
         },
-        onError: () => toast.error('فشل إنشاء الحملة'),
+        // The API refuses an unusable line by name — surface its reason
+        // instead of a generic failure the operator cannot act on.
+        onError: (err: unknown) =>
+          toast.error(err instanceof Error ? err.message : 'فشل إنشاء الحملة'),
       },
     );
   }
@@ -76,7 +140,10 @@ export default function WhatsAppCampaignsPage() {
   function handleSend(id: string) {
     sendMutation.mutate(id, {
       onSuccess: () => toast.success('بدأ إرسال الحملة'),
-      onError: () => toast.error('فشل إرسال الحملة'),
+      // Outside the window, over the cap, wrong line — each is a distinct,
+      // actionable reason the route already names.
+      onError: (err: unknown) =>
+        toast.error(err instanceof Error ? err.message : 'فشل إرسال الحملة'),
     });
   }
 
@@ -135,8 +202,13 @@ export default function WhatsAppCampaignsPage() {
         <div className="grid gap-4">
           {campaigns.map((campaign) => {
             const statusInfo = STATUS_MAP[campaign.status] || STATUS_MAP.draft;
-            const progress = campaign.total_contacts > 0
-              ? Math.round((campaign.sent_count / campaign.total_contacts) * 100)
+            // Settled = everything that will never be sent again, so the bar
+            // reaches 100% on a run that legitimately skipped most contacts.
+            const settled =
+              campaign.progress.sent + campaign.progress.skipped +
+              campaign.progress.invalid + campaign.progress.failed;
+            const progress = campaign.progress.total > 0
+              ? Math.round((settled / campaign.progress.total) * 100)
               : 0;
 
             return (
@@ -150,7 +222,7 @@ export default function WhatsAppCampaignsPage() {
                       </Badge>
                     </CardTitle>
                     <div className="flex items-center gap-1.5">
-                      {campaign.status === 'draft' && (
+                      {(campaign.status === 'draft' || campaign.status === 'paused') && (
                         <>
                           <Button
                             size="sm"
@@ -176,31 +248,55 @@ export default function WhatsAppCampaignsPage() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <CardContent className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Users className="h-3.5 w-3.5" />
-                      {campaign.total_contacts} جهة اتصال
+                      {campaign.progress.total} جهة اتصال
                     </span>
                     <span className="flex items-center gap-1">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      {campaign.sent_count} مرسلة
+                      <Radio className="h-3.5 w-3.5" />
+                      {campaign.instance_name ?? '— بلا خط —'}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-3.5 w-3.5" />
-                      {new Date(campaign.created_at).toLocaleDateString('ar-EG')}
+                      {campaign.daily_cap}/يوم
+                      {campaign.send_window
+                        ? ` · ${hhmm(campaign.send_window.startMinute)}–${hhmm(campaign.send_window.endMinute)}`
+                        : ''}
                     </span>
                   </div>
-                  {campaign.status === 'sending' && (
-                    <div className="mt-3">
+
+                  <ProgressBreakdown p={campaign.progress} />
+
+                  {(campaign.status === 'sending' || campaign.status === 'paused') && (
+                    <div>
                       <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-gradient-to-l from-emerald-500 to-teal-500 transition-all duration-500"
+                          className={cn(
+                            'h-full rounded-full transition-all duration-500',
+                            campaign.status === 'sending'
+                              ? 'bg-gradient-to-l from-emerald-500 to-teal-500'
+                              : 'bg-amber-500/70',
+                          )}
                           style={{ width: `${progress}%` }}
                         />
                       </div>
-                      <p className="text-[10px] text-muted-foreground/50 mt-1">{progress}%</p>
+                      <p className="text-[10px] text-muted-foreground/60 mt-1">
+                        {progress}%
+                        {campaign.progress.last_sent_at
+                          ? ` · آخر رسالة ${new Date(campaign.progress.last_sent_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}`
+                          : ''}
+                      </p>
                     </div>
+                  )}
+
+                  {campaign.status === 'paused' && (
+                    <p className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+                      <PauseCircle className="h-3.5 w-3.5 shrink-0 mt-px" />
+                      توقفت بعد بلوغ الحد اليومي أو انتهاء نافذة الخط. اضغط «إرسال»
+                      مرة أخرى داخل النافذة لتكمل من حيث توقفت — لا شيء يُعاد إرساله.
+                    </p>
                   )}
                 </CardContent>
               </Card>
@@ -220,6 +316,62 @@ export default function WhatsAppCampaignsPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
+              <Label>خط الإرسال</Label>
+              {sendableLines.length === 0 ? (
+                <p className="text-xs text-destructive">
+                  لا يوجد خط صالح للإرسال. الخط يحتاج أن يكون متصلاً وله مفتاح API،
+                  وخط الإشعارات مستثنى دائماً.
+                </p>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {sendableLines.map((line) => (
+                    <button
+                      key={line.id}
+                      type="button"
+                      onClick={() => setInstanceName(line.instance_name)}
+                      className={cn(
+                        'rounded-xl border p-3 text-start transition-colors',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500',
+                        instanceName === line.instance_name
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/30'
+                          : 'border-border hover:bg-muted/50',
+                      )}
+                    >
+                      <span className="flex items-center gap-1.5 text-sm font-medium">
+                        <Radio className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                        {line.instance_name}
+                      </span>
+                      <span className="block text-[11px] text-muted-foreground/70 font-mono" dir="ltr">
+                        {line.phone_number ?? '—'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <p className="text-[10px] text-muted-foreground/50">
+                كل حملة تخرج من خط واحد محدد. لا يوجد خط افتراضي، وخط الإشعارات
+                لا يظهر هنا إطلاقاً.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>الحد اليومي للرسائل</Label>
+              <Input
+                type="number"
+                min={1}
+                max={120}
+                value={dailyCap}
+                onChange={(e) => setDailyCap(e.target.value)}
+                dir="ltr"
+                className="w-32"
+              />
+              <p className="text-[10px] text-muted-foreground/50">
+                يُحسب على الخط كله وليس على الحملة وحدها. ابدأ منخفضاً على أي خط
+                جديد وارفعه تدريجياً — القفزة المفاجئة هي ما يُحظر عليه.
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label>اسم الحملة</Label>
               <Input
                 value={name}
@@ -236,7 +388,7 @@ export default function WhatsAppCampaignsPage() {
                 rows={4}
               />
               <p className="text-[10px] text-muted-foreground/50">
-                {'استخدم {{name}} لإدراج اسم جهة الاتصال تلقائياً'}
+                {'استخدم {{name}} و {{company}} لإدراج البيانات تلقائياً. لا تضع رابطاً في أول رسالة — الرابط في تواصل أول مع رقم غريب هو أعلى سبب منفرد للحظر.'}
               </p>
             </div>
             <div className="space-y-2">
