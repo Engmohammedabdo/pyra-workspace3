@@ -18,7 +18,8 @@
     "db:check-drift": "npx tsx scripts/db-check-drift.ts",
     "db:query": "npx tsx scripts/db-query.ts",
     "i18n:check": "npx tsx scripts/i18n-check.ts",
-    "app:publish": "npx tsx scripts/publish-app-release.ts"
+    "app:publish": "npx tsx scripts/publish-app-release.ts",
+    "reactivation:seed": "npx tsx scripts/seed-reactivation-campaigns.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -259,6 +259,25 @@ export function renderTemplate(
 }
 
 /**
+ * A campaign template may hold several wordings separated by a line
+ * containing only `---`.
+ *
+ * Three variants per audience is an anti-ban rule, not a nicety: byte-identical
+ * text across two hundred recipients is the cheapest thing for WhatsApp to
+ * cluster. Splitting here — rather than asking an operator to run three
+ * campaigns — keeps one audience as one campaign, which is what the daily cap
+ * and the suppression list are reasoned about in.
+ */
+export const VARIANT_SEPARATOR = /^\s*---\s*$/m;
+
+export function splitVariants(template: string): string[] {
+  return template
+    .split(VARIANT_SEPARATOR)
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+/**
  * Deterministically choose one of several wordings for a contact.
  *
  * Deterministic on purpose: a retry after a failure must re-send the SAME

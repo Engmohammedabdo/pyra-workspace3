@@ -13,6 +13,8 @@ import {
   remainingQuota,
   isSuppressed,
   renderTemplate,
+  splitVariants,
+  pickVariant,
   startBurst,
   advancePacing,
   dubaiClock,
@@ -94,6 +96,9 @@ export async function POST(
     const sender = pickCampaignSender(
       (instanceRows ?? []) as CampaignInstanceLike[],
       campaign.instance_name,
+      // Never a fallback — only an explicit per-campaign opt-in (migration
+      // 065), meant for small warm audiences. The default stays refusal.
+      { allowNotificationLine: campaign.allow_notification_line === true },
     );
     if (!sender.ok) return apiError(SENDER_ERRORS[sender.reason], 400);
 
@@ -244,10 +249,16 @@ export async function POST(
 
         if (!isWithinSendWindow(new Date(), window)) { stoppedEarly = true; break; }
 
-        const message = renderTemplate(campaign.message_template as string, {
-          name: contact.contact_name as string | null,
-          company: contact.lead_id ? companyByLead.get(contact.lead_id as string) : null,
-        });
+        // Seeded per contact, so a retry re-sends the same wording and two
+        // lines can never show one person two "first messages".
+        const variants = splitVariants(campaign.message_template as string);
+        const message = renderTemplate(
+          pickVariant(variants, contact.contact_phone as string),
+          {
+            name: contact.contact_name as string | null,
+            company: contact.lead_id ? companyByLead.get(contact.lead_id as string) : null,
+          },
+        );
 
         try {
           // Typing presence first — an account someone types from looks

@@ -91,7 +91,10 @@ export async function POST(request: NextRequest) {
     if (isApiError(auth)) return auth;
 
     const body = await request.json();
-    const { name, message_template, contacts, instance_name, daily_cap, segment_key } = body;
+    const {
+      name, message_template, contacts, instance_name, daily_cap, segment_key,
+      allow_notification_line,
+    } = body;
 
     if (!name || !message_template) {
       return apiValidationError('اسم الحملة والرسالة مطلوبين');
@@ -111,6 +114,7 @@ export async function POST(request: NextRequest) {
     const sender = pickCampaignSender(
       (instanceRows ?? []) as CampaignInstanceLike[],
       instance_name,
+      { allowNotificationLine: allow_notification_line === true },
     );
     if (!sender.ok) return apiValidationError(SENDER_ERRORS[sender.reason]);
     if (!windowFor(sender.instance.instance_name)) {
@@ -137,6 +141,7 @@ export async function POST(request: NextRequest) {
         instance_name: sender.instance.instance_name,
         daily_cap: Math.floor(cap),
         segment_key: typeof segment_key === 'string' ? segment_key : null,
+        allow_notification_line: allow_notification_line === true,
         total_contacts: contacts.length,
         sent_count: 0,
         delivered_count: 0,
