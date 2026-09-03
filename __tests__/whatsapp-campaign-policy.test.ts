@@ -12,6 +12,7 @@ import {
   renderTemplate,
   pickVariant,
   DEFAULT_SEND_WINDOWS,
+  WORK_DAYS,
   GAP_MIN_MS,
   GAP_MAX_MS,
   BREAK_MIN_MS,
@@ -139,12 +140,23 @@ describe('send window', () => {
     expect(isWithinSendWindow(boundary, DEFAULT_SEND_WINDOWS.selver)).toBe(true);
   });
 
-  it('sends nothing on Friday or Saturday', () => {
+  it('works Friday and Saturday — Pyramedia is Mon-Sat, not the Gulf Sun-Thu week', () => {
     const fri10 = new Date('2026-09-04T06:00:00Z'); // Friday 10:00 Dubai
     const sat10 = new Date('2026-09-05T06:00:00Z'); // Saturday 10:00 Dubai
     expect(dubaiClock(fri10).weekday).toBe(5);
-    expect(isWithinSendWindow(fri10, DEFAULT_SEND_WINDOWS.pyraai)).toBe(false);
-    expect(isWithinSendWindow(sat10, DEFAULT_SEND_WINDOWS.pyraai)).toBe(false);
+    expect(dubaiClock(sat10).weekday).toBe(6);
+    expect(isWithinSendWindow(fri10, DEFAULT_SEND_WINDOWS.pyraai)).toBe(true);
+    expect(isWithinSendWindow(sat10, DEFAULT_SEND_WINDOWS.pyraai)).toBe(true);
+  });
+
+  it("sends nothing on SUNDAY, the company's only weekend day", () => {
+    const sun10 = new Date('2026-09-06T06:00:00Z'); // Sunday 10:00 Dubai
+    expect(dubaiClock(sun10).weekday).toBe(0);
+    expect(isWithinSendWindow(sun10, DEFAULT_SEND_WINDOWS.pyraai)).toBe(false);
+  });
+
+  it('matches the company work-week constant exactly', () => {
+    expect([...WORK_DAYS].sort()).toEqual([1, 2, 3, 4, 5, 6]);
   });
 
   it('windows never overlap, so two lines cannot fire in the same minute', () => {

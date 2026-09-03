@@ -25,6 +25,7 @@
 //   • One global suppression list, checked across every line.
 
 import { phoneMatchKey } from '@/lib/utils/phone';
+import { DEFAULT_WORK_DAYS } from '@/lib/constants/auth';
 
 // ─── Sender selection ───────────────────────────────────────────────────────
 
@@ -147,8 +148,17 @@ export function advancePacing(
 /** Dubai is UTC+4 year-round — no DST, so a fixed offset is exact. */
 export const DUBAI_UTC_OFFSET_MINUTES = 240;
 
-/** Sunday(0) … Thursday(4). Friday and Saturday send nothing at all. */
-export const WORK_DAYS: readonly number[] = [0, 1, 2, 3, 4];
+/**
+ * Pyramedia works Monday–Saturday; SUNDAY is the only weekend day
+ * (lib/constants/auth.ts, the same list attendance and leave count against).
+ *
+ * Re-exported rather than redeclared on purpose: an outreach calendar that
+ * disagrees with the company's own work week sends on the one day nobody is
+ * there to answer, and goes silent on two days the team is working. The first
+ * draft of this file hardcoded the generic Gulf week (Sun–Thu) and got both
+ * halves of that wrong.
+ */
+export const WORK_DAYS: readonly number[] = DEFAULT_WORK_DAYS;
 
 export interface SendWindow {
   /** Minutes from Dubai midnight. */
