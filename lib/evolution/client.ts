@@ -189,6 +189,43 @@ class EvolutionClient {
     });
   }
 
+  /**
+   * Check which of these numbers actually have a WhatsApp account.
+   *
+   * Sending to numbers with no account is one of the loudest "this sender is
+   * enumerating phone numbers" signals WhatsApp has, and it burns the daily
+   * quota on rows that could never have been delivered. Our own lead table
+   * holds 526 landlines, none of which have WhatsApp — one leak of those into
+   * a broadcast damages the line's standing for nothing.
+   *
+   * Returns the subset that ARE reachable, keyed by the number as sent.
+   * On any transport failure it returns `null` rather than an empty set, so a
+   * caller can tell "none of these are on WhatsApp" apart from "the check did
+   * not run" and decide for itself whether to proceed.
+   */
+  async checkNumbersOnWhatsApp(
+    instanceName: string,
+    numbers: string[],
+    apiKey?: string,
+  ): Promise<Set<string> | null> {
+    if (numbers.length === 0) return new Set();
+    try {
+      const res = await this.request<Array<{ exists?: boolean; number?: string; jid?: string }>>(
+        'POST',
+        `/chat/whatsappNumbers/${instanceName}`,
+        { numbers },
+        apiKey,
+      );
+      const reachable = new Set<string>();
+      for (const row of Array.isArray(res) ? res : []) {
+        if (row?.exists && row.number) reachable.add(String(row.number));
+      }
+      return reachable;
+    } catch {
+      return null;
+    }
+  }
+
   /** Mark a chat as read (syncs blue ticks back to WhatsApp) */
   async markChatRead(instanceName: string, remoteJid: string) {
     try {
