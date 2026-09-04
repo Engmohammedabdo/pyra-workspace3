@@ -127,17 +127,18 @@ describe('send window', () => {
     expect(dubaiClock(new Date('2026-09-03T21:00:00Z')).weekday).toBe(5);
   });
 
-  it('accepts a time inside the line window on a working day', () => {
+  it('accepts a time inside the shared window on a working day', () => {
     expect(isWithinSendWindow(thu10Dubai, DEFAULT_SEND_WINDOWS.pyraai)).toBe(true);
-    // 10:00 Dubai is before yellow's afternoon window.
-    expect(isWithinSendWindow(thu10Dubai, DEFAULT_SEND_WINDOWS.yellow)).toBe(false);
+    expect(isWithinSendWindow(thu10Dubai, DEFAULT_SEND_WINDOWS.yellow)).toBe(true);
+    // 08:00 Dubai is before the working day starts.
+    expect(isWithinSendWindow(new Date('2026-09-03T04:00:00Z'), DEFAULT_SEND_WINDOWS.pyraai)).toBe(false);
   });
 
   it('treats the window end as exclusive', () => {
-    // 07:30 UTC = 11:30 Dubai — pyraai's end, selver's start.
-    const boundary = new Date('2026-09-03T07:30:00Z');
-    expect(isWithinSendWindow(boundary, DEFAULT_SEND_WINDOWS.pyraai)).toBe(false);
-    expect(isWithinSendWindow(boundary, DEFAULT_SEND_WINDOWS.selver)).toBe(true);
+    // 14:00 UTC = 18:00 Dubai — exactly the window end, so already closed.
+    expect(isWithinSendWindow(new Date('2026-09-03T14:00:00Z'), DEFAULT_SEND_WINDOWS.yellow)).toBe(false);
+    // One minute earlier is still inside.
+    expect(isWithinSendWindow(new Date('2026-09-03T13:59:00Z'), DEFAULT_SEND_WINDOWS.yellow)).toBe(true);
   });
 
   it('works Friday and Saturday — Pyramedia is Mon-Sat, not the Gulf Sun-Thu week', () => {
@@ -159,12 +160,24 @@ describe('send window', () => {
     expect([...WORK_DAYS].sort()).toEqual([1, 2, 3, 4, 5, 6]);
   });
 
-  it('windows never overlap, so two lines cannot fire in the same minute', () => {
-    const spans = Object.values(DEFAULT_SEND_WINDOWS).sort(
-      (a, b) => a.startMinute - b.startMinute,
-    );
-    for (let i = 1; i < spans.length; i++) {
-      expect(spans[i].startMinute).toBeGreaterThanOrEqual(spans[i - 1].endMinute);
+  it('every line shares the working day so the three run in parallel', () => {
+    // Owner decision 2026-09-04: the staggered slots were replaced by one
+    // shared window. Per-line safety is carried by daily_cap, the suppression
+    // list and randomised pacing — not by keeping the numbers apart in time.
+    const spans = Object.values(DEFAULT_SEND_WINDOWS);
+    expect(spans.length).toBeGreaterThanOrEqual(3);
+    for (const s of spans) {
+      expect(s.startMinute).toBe(9 * 60);
+      expect(s.endMinute).toBe(18 * 60);
+    }
+  });
+
+  it('all three lines are open at the same instant', () => {
+    // 09:00 UTC = 13:00 Dubai on a Friday, a Pyramedia working day.
+    const fridayNoon = new Date('2026-09-04T09:00:00Z');
+    expect(dubaiClock(fridayNoon)).toEqual({ weekday: 5, minuteOfDay: 780 });
+    for (const line of ['pyraai', 'selver', 'yellow']) {
+      expect(isWithinSendWindow(fridayNoon, DEFAULT_SEND_WINDOWS[line])).toBe(true);
     }
   });
 

@@ -169,13 +169,31 @@ export interface SendWindow {
 const hm = (h: number, m = 0) => h * 60 + m;
 
 /**
- * Staggered per-line windows. Two lines sending in the same minute is a
- * server pattern; overlapping-but-offset windows are not.
+ * Per-line send windows — all three now share the working day so the lines
+ * run IN PARALLEL (owner decision 2026-09-04).
+ *
+ * These used to be staggered into three non-overlapping slots on the theory
+ * that two lines sending in the same minute reads as one server driving both.
+ * That signal is real but weak, and it was costing the whole programme: each
+ * line got a 2-3 hour slot once a day, so a campaign could only ever advance
+ * by one line's cap per day and the owner had to be at a laptop inside a
+ * specific narrow window to start anything.
+ *
+ * What actually gets a line banned is per-line and unchanged by running them
+ * together: message volume, the recipient report rate, and the outbound:inbound
+ * ratio. Those are still enforced per line by daily_cap, the suppression list,
+ * and the randomised pacing. Three separate business numbers, each with its own
+ * conversation history, sending during ordinary business hours is not the
+ * pattern WhatsApp acts on — a single number blasting a fixed interval is.
+ *
+ * A campaign is still capped per line, and migration 067 still allows only ONE
+ * sending campaign per line at a time, so "parallel" means at most three
+ * concurrent drains — one per number — never three on one number.
  */
 export const DEFAULT_SEND_WINDOWS: Record<string, SendWindow> = {
-  pyraai: { startMinute: hm(9, 30), endMinute: hm(11, 30) },
-  selver: { startMinute: hm(11, 30), endMinute: hm(14, 0) },
-  yellow: { startMinute: hm(14, 30), endMinute: hm(17, 30) },
+  pyraai: { startMinute: hm(9, 0), endMinute: hm(18, 0) },
+  selver: { startMinute: hm(9, 0), endMinute: hm(18, 0) },
+  yellow: { startMinute: hm(9, 0), endMinute: hm(18, 0) },
 };
 
 /** Dubai weekday + minute-of-day for a UTC instant. */
