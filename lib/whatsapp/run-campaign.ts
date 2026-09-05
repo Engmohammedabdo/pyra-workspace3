@@ -14,7 +14,7 @@
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { evolutionClient } from '@/lib/evolution/client';
 import { chunk } from '@/lib/utils/chunk';
-import { toDialableUAE } from '@/lib/utils/phone';
+import { toDialableUAE, phoneMatchKey } from '@/lib/utils/phone';
 import { logError } from '@/lib/observability/log-error';
 import {
   pickCampaignSender,
@@ -347,6 +347,26 @@ export async function startCampaignRun(
         }
         if (remainingQuota(campaign.daily_cap ?? 0, sentOnLineToday) === 0) {
           stoppedEarly = true; break;
+        }
+
+        // Re-check the suppression list per contact. The set loaded before the
+        // loop is a snapshot, and a run spans hours — someone who replies
+        // «إيقاف» at message 5 would otherwise still be messaged at message 30,
+        // which is the exact broken promise this list exists to prevent.
+        const liveKey = phoneMatchKey(contact.contact_phone as string);
+        if (liveKey) {
+          const { data: sup } = await supabase
+            .from('pyra_whatsapp_suppressions')
+            .select('phone_key')
+            .eq('phone_key', liveKey)
+            .maybeSingle();
+          if (sup) {
+            await supabase
+              .from('pyra_whatsapp_campaign_contacts')
+              .update({ status: 'skipped', error_message: 'قائمة الاستبعاد' })
+              .eq('id', contact.id);
+            continue;
+          }
         }
 
         // Seeded per contact, so a retry re-sends the same wording and two

@@ -4,6 +4,7 @@ import { CONVERSATION_STATUS, CONVERSATION_PRIORITY } from '@/lib/constants/stat
 import type { createServiceRoleClient } from '@/lib/supabase/server';
 import { resolveOutgoingAgent } from '@/lib/whatsapp/attribution';
 import { shouldWriteLeadTouch, writeWhatsAppLeadTouch } from '@/lib/whatsapp/lead-feed';
+import { recordOptOuts } from '@/lib/whatsapp/record-opt-outs';
 
 /**
  * Pull recent WhatsApp messages for ONE Evolution instance into
@@ -286,6 +287,21 @@ export async function pullInstanceMessages({
     // Loud but non-fatal: the conversations are already updated, and the next
     // run re-fetches the same window, so a transient insert failure self-heals.
     if (error) console.error(`[wa-pull:${instanceName}] message insert error:`, error.message);
+
+    // Honour «إيقاف» replies. Every campaign message promises this; before it
+    // existed the reply landed in the inbox and the next run messaged them
+    // again — the fastest way to earn the spam report that bans a line.
+    // Best-effort and never throws (see recordOptOuts).
+    if (!error) {
+      void recordOptOuts(
+        supabase,
+        newMessages.map((m) => ({
+          phone: ((m.metadata as Record<string, unknown> | null)?.phone as string) ?? null,
+          content: m.content as string | null,
+          direction: m.direction as string | null,
+        })),
+      );
+    }
 
     // Lead-timeline + last_contact_at feed, mirroring the calls path
     // (see app/api/mobile/calls/sync/route.ts's pyra_lead_activities write).

@@ -11,6 +11,7 @@ import type { EvoGroup } from '@/lib/evolution/types';
 import { logError } from '@/lib/observability/log-error';
 import { resolveOutgoingAgent } from '@/lib/whatsapp/attribution';
 import { shouldWriteLeadTouch, writeWhatsAppLeadTouch } from '@/lib/whatsapp/lead-feed';
+import { recordOptOuts } from '@/lib/whatsapp/record-opt-outs';
 
 /** Fetch group metadata from Evolution API (fire-and-forget safe) */
 async function fetchGroupMetadata(instanceName: string, groupJid: string): Promise<EvoGroup | null> {
@@ -370,6 +371,15 @@ async function processWebhook(rawEvent: string, instanceName: string, data: Reco
           },
           agent_username: agentUsername,
         });
+
+        // Honour «إيقاف» replies on the webhook transport too. The pull has
+        // the same hook — an opt-out must not depend on which path delivered
+        // the reply. Best-effort and never throws (see recordOptOuts).
+        if (direction === 'incoming') {
+          void recordOptOuts(supabase, [
+            { phone: phone || null, content, direction },
+          ]);
+        }
 
         // ── Lead timeline touch (ownership-gated) ────────────────────────
         // Mirrors the pull's lead-touch pass (lib/whatsapp/pull-messages.ts,
